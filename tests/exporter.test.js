@@ -299,3 +299,61 @@ test('Exporter.png: repinta fondo blanco con destination-over tras renderizar (e
   assert.ok(gcoSets.includes('destination-over'), 'usa destination-over para el fondo');
   assert.equal(gcoSets[gcoSets.length - 1], 'source-over', 'restaura source-over al final');
 });
+
+/* ============================================================
+   Multilínea, etiquetas y SVG incrustado en HTML
+   ============================================================ */
+
+test('Exporter.svg: texto multilínea genera un <tspan> por línea', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.svg([{ ...base, type: 'text', value: 'línea 1\nlínea 2\nlínea 3', fontSize: 16, x: 40, y: 40 }]);
+  const out = lastBlob(ctx).content;
+  const tspans = out.match(/<tspan/g) || [];
+  assert.equal(tspans.length, 3, 'un tspan por línea');
+  assert.ok(out.includes('dy="20"'), 'interlineado fontSize + 4');
+  assert.ok(out.includes('línea 3'));
+});
+
+test('Exporter.html: los tipos vectoriales van en un <svg> incrustado', () => {
+  // Regresión: antes pencil/line/arrow/circle/eraser se omitían en silencio.
+  const ctx = freshCtx();
+  const elCircle = { ...base, type: 'circle', x: 10, y: 10, w: 60, h: 60, fill: false };
+  ctx.Exporter.html([elPencil, elLine, elArrow, elCircle, elButton]);
+  const out = lastBlob(ctx).content;
+  assert.ok(out.includes('<svg width="1200" height="800"'), 'incrusta un svg del tamaño del canvas');
+  assert.ok(out.includes('<path d="M1 2 L3 4 L5 6"'), 'pencil presente');
+  assert.ok(out.includes('x1="10" y1="20"'), 'line presente');
+  assert.ok(out.includes('<ellipse'), 'circle presente');
+  assert.ok((out.match(/<line /g) || []).length >= 4, 'line + 3 líneas de la flecha');
+  assert.ok(out.includes('<button'), 'los componentes siguen como HTML nativo');
+});
+
+test('Exporter.html sin tipos vectoriales: no incrusta <svg>', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.html([elButton, elCard]);
+  const out = lastBlob(ctx).content;
+  assert.ok(!out.includes('<svg'), 'sin vectores no debe haber svg incrustado');
+});
+
+test('exports: el.label personaliza button/input/nav/card en SVG y HTML (escapado)', () => {
+  const ctx = freshCtx();
+  const btn = { ...elButton, label: 'Enviar <ya>' };
+  const card = { ...elCard, label: 'Mi Card' };
+  ctx.Exporter.svg([btn, card]);
+  const svgOut = lastBlob(ctx).content;
+  assert.ok(svgOut.includes('Enviar &lt;ya&gt;'), 'label escapado en SVG');
+  assert.ok(!svgOut.includes('>Button<'), 'no usa el fallback si hay label');
+  assert.ok(svgOut.includes('Mi Card'));
+
+  ctx.Exporter.html([btn, card]);
+  const htmlOut = lastBlob(ctx).content;
+  assert.ok(htmlOut.includes('Enviar &lt;ya&gt;'), 'label escapado en HTML');
+  assert.ok(htmlOut.includes('Mi Card'));
+});
+
+test('Exporter.isValidElement: label opcional debe ser string', () => {
+  const ctx = freshCtx();
+  assert.ok(ctx.Exporter.isValidElement({ ...elButton, label: 'Enviar' }));
+  assert.equal(ctx.Exporter.isValidElement({ ...elButton, label: 42 }), false);
+  assert.ok(ctx.Exporter.isValidElement(elButton), 'sin label sigue siendo válido');
+});

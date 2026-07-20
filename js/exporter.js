@@ -60,13 +60,29 @@ const Exporter = (() => {
     out += `<rect width="100%" height="100%" fill="white"/>\n`;
     out += `<style>@import url('https://fonts.googleapis.com/css2?family=Architects+Daughter&amp;display=swap');</style>\n`;
 
-    elements.forEach(el => {
-      const color = _escapeXml(String(el.color));
-      const lw = _escapeXml(String(el.lineWidth));
-      const s = `stroke="${color}" stroke-width="${lw}" fill="none" stroke-linecap="round"`;
-      const sf = `stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="${el.fill ? color + '20' : 'none'}"`;
+    elements.forEach(el => { out += _svgElement(el); });
 
-      switch (el.type) {
+    out += '</svg>';
+    _downloadBlob('wireframe.svg', new Blob([out], { type: 'image/svg+xml' }));
+  }
+
+  const FONT_FALLBACK = 'Architects Daughter, Segoe Print, Comic Neue, cursive';
+
+  /** Tipos sin representación HTML propia: van en un <svg> incrustado */
+  const VECTOR_TYPES = ['pencil', 'eraser', 'line', 'arrow', 'circle'];
+
+  /**
+   * Markup SVG de un elemento. Compartido por el export SVG y el
+   * <svg> incrustado del export HTML (tipos vectoriales).
+   */
+  function _svgElement(el) {
+    const color = _escapeXml(String(el.color));
+    const lw = _escapeXml(String(el.lineWidth));
+    const s = `stroke="${color}" stroke-width="${lw}" fill="none" stroke-linecap="round"`;
+    const sf = `stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="${el.fill ? color + '20' : 'none'}"`;
+    let out = '';
+
+    switch (el.type) {
         case 'pencil':
           if (el.points.length > 1) {
             const d = el.points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x} ${p.y}`).join(' ');
@@ -107,19 +123,26 @@ const Exporter = (() => {
           out += `<ellipse cx="${el.x + el.w / 2}" cy="${el.y + el.h / 2}" rx="${Math.abs(el.w) / 2}" ry="${Math.abs(el.h) / 2}" ${sf}/>\n`;
           break;
 
-        case 'text':
-          out += `<text x="${el.x}" y="${el.y + el.fontSize}" fill="${color}" font-family="Architects Daughter, cursive" font-size="${el.fontSize}">${_escapeXml(el.value)}</text>\n`;
+        case 'text': {
+          // Multilínea: un <tspan> por línea con el mismo interlineado que el canvas
+          const lines = String(el.value).split('\n');
+          out += `<text x="${el.x}" y="${el.y + el.fontSize}" fill="${color}" font-family="${FONT_FALLBACK}" font-size="${el.fontSize}">`;
+          lines.forEach((ln, i) => {
+            out += `<tspan x="${el.x}" dy="${i === 0 ? 0 : el.fontSize + 4}">${_escapeXml(ln)}</tspan>`;
+          });
+          out += `</text>\n`;
           break;
+        }
 
         // UI components → simple rects with labels in SVG
         case 'button':
           out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="8" stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="${color}15"/>\n`;
-          out += `<text x="${el.x + el.w / 2}" y="${el.y + el.h / 2 + 5}" fill="${color}" font-family="Architects Daughter, cursive" font-size="14" text-anchor="middle">Button</text>\n`;
+          out += `<text x="${el.x + el.w / 2}" y="${el.y + el.h / 2 + 5}" fill="${color}" font-family="${FONT_FALLBACK}" font-size="14" text-anchor="middle">${_escapeXml(el.label || 'Button')}</text>\n`;
           break;
 
         case 'input':
           out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="4" stroke="${color}80" stroke-width="${lw}" fill="none"/>\n`;
-          out += `<text x="${el.x + 10}" y="${el.y + el.h / 2 + 4}" fill="${color}60" font-family="Architects Daughter, cursive" font-size="13">Type here...</text>\n`;
+          out += `<text x="${el.x + 10}" y="${el.y + el.h / 2 + 4}" fill="${color}60" font-family="${FONT_FALLBACK}" font-size="13">${_escapeXml(el.label || 'Type here...')}</text>\n`;
           break;
 
         case 'imagePlaceholder':
@@ -130,19 +153,17 @@ const Exporter = (() => {
 
         case 'nav':
           out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="${color}0a"/>\n`;
-          out += `<text x="${el.x + 20}" y="${el.y + el.h / 2 + 4}" fill="${color}" font-family="Architects Daughter, cursive" font-size="12">Logo</text>\n`;
+          out += `<text x="${el.x + 20}" y="${el.y + el.h / 2 + 4}" fill="${color}" font-family="${FONT_FALLBACK}" font-size="12">${_escapeXml(el.label || 'Logo')}</text>\n`;
           break;
 
         case 'card':
           out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="10" ${s}/>\n`;
           out += `<line x1="${el.x + 4}" y1="${el.y + el.h * 0.45 + 4}" x2="${el.x + el.w - 4}" y2="${el.y + el.h * 0.45 + 4}" ${s}/>\n`;
-          out += `<text x="${el.x + 12}" y="${el.y + el.h * 0.45 + 24}" fill="${color}" font-family="Architects Daughter, cursive" font-size="14" font-weight="bold">Card Title</text>\n`;
+          out += `<text x="${el.x + 12}" y="${el.y + el.h * 0.45 + 24}" fill="${color}" font-family="${FONT_FALLBACK}" font-size="14" font-weight="bold">${_escapeXml(el.label || 'Card Title')}</text>\n`;
           break;
-      }
-    });
+    }
 
-    out += '</svg>';
-    _downloadBlob('wireframe.svg', new Blob([out], { type: 'image/svg+xml' }));
+    return out;
   }
 
   function html(elements) {
@@ -155,7 +176,7 @@ const Exporter = (() => {
 <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&display=swap" rel="stylesheet">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Architects Daughter', cursive; background: #fff; }
+body { font-family: ${SKETCHY_FONT}; background: #fff; }
 .wireframe { position: relative; width: ${CANVAS_W}px; height: ${CANVAS_H}px; margin: 20px auto; border: 1px solid #ccc; }
 .wireframe > * { position: absolute; }
 </style>
@@ -163,6 +184,15 @@ body { font-family: 'Architects Daughter', cursive; background: #fff; }
 <body>
 <div class="wireframe">
 `;
+
+    // Tipos sin representación HTML (lápiz, líneas, flechas, círculos,
+    // borrador): se incrustan como un <svg> superpuesto del mismo tamaño
+    const vectors = elements.filter(el => VECTOR_TYPES.includes(el.type));
+    if (vectors.length) {
+      out += `  <svg width="${CANVAS_W}" height="${CANVAS_H}" viewBox="0 0 ${CANVAS_W} ${CANVAS_H}" style="left:0;top:0;pointer-events:none;">\n`;
+      vectors.forEach(el => { out += '    ' + _svgElement(el); });
+      out += `  </svg>\n`;
+    }
 
     elements.forEach(el => {
       const color = _escapeHtml(String(el.color));
@@ -173,22 +203,22 @@ body { font-family: 'Architects Daughter', cursive; background: #fff; }
           out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};${el.type === 'roundedRect' ? 'border-radius:12px;' : ''}${el.fill ? `background:${color}20;` : ''}"></div>\n`;
           break;
         case 'text':
-          out += `  <p style="left:${el.x}px;top:${el.y}px;color:${color};font-size:${el.fontSize}px;">${_escapeHtml(el.value)}</p>\n`;
+          out += `  <p style="left:${el.x}px;top:${el.y}px;color:${color};font-size:${el.fontSize}px;white-space:pre-wrap;line-height:${el.fontSize + 4}px;">${_escapeHtml(el.value)}</p>\n`;
           break;
         case 'button':
-          out += `  <button style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};border-radius:8px;background:${color}15;color:${color};font-family:inherit;cursor:pointer;">Button</button>\n`;
+          out += `  <button style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};border-radius:8px;background:${color}15;color:${color};font-family:inherit;cursor:pointer;">${_escapeHtml(el.label || 'Button')}</button>\n`;
           break;
         case 'input':
-          out += `  <input placeholder="Type here..." style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color}80;border-radius:4px;padding:0 10px;font-family:inherit;"/>\n`;
+          out += `  <input placeholder="${_escapeHtml(el.label || 'Type here...')}" style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color}80;border-radius:4px;padding:0 10px;font-family:inherit;"/>\n`;
           break;
         case 'imagePlaceholder':
           out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};display:flex;align-items:center;justify-content:center;color:${color}80;font-size:14px;">Image Placeholder</div>\n`;
           break;
         case 'nav':
-          out += `  <nav style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};display:flex;align-items:center;justify-content:space-between;padding:0 20px;"><span>Logo</span><div style="display:flex;gap:20px;"><a href="#">Home</a><a href="#">About</a><a href="#">Contact</a></div></nav>\n`;
+          out += `  <nav style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};display:flex;align-items:center;justify-content:space-between;padding:0 20px;"><span>${_escapeHtml(el.label || 'Logo')}</span><div style="display:flex;gap:20px;"><a href="#">Home</a><a href="#">About</a><a href="#">Contact</a></div></nav>\n`;
           break;
         case 'card':
-          out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};border-radius:10px;overflow:hidden;"><div style="height:45%;background:${color}10;border-bottom:1px solid ${color}30;"></div><div style="padding:12px;"><h3 style="color:${color};">Card Title</h3><p style="color:${color}60;margin-top:6px;">Description text</p></div></div>\n`;
+          out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};border-radius:10px;overflow:hidden;"><div style="height:45%;background:${color}10;border-bottom:1px solid ${color}30;"></div><div style="padding:12px;"><h3 style="color:${color};">${_escapeHtml(el.label || 'Card Title')}</h3><p style="color:${color}60;margin-top:6px;">Description text</p></div></div>\n`;
           break;
       }
     });
@@ -232,6 +262,7 @@ body { font-family: 'Architects Daughter', cursive; background: #fff; }
     if (el.type === 'line' || el.type === 'arrow') {
       return _isNum(el.x1) && _isNum(el.y1) && _isNum(el.x2) && _isNum(el.y2);
     }
+    if (el.label !== undefined && typeof el.label !== 'string') return false;
     if (el.type === 'text') {
       return _isNum(el.x) && _isNum(el.y) && typeof el.value === 'string' && _isNum(el.fontSize);
     }

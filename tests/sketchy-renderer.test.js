@@ -370,3 +370,17 @@ test('renderElement: el.seed hace el render reproducible entre redraws', () => {
     b.calls.map(c => [c.name, ...c.args]),
   );
 });
+
+test('renderElement: el.label personaliza button/input/nav/card en canvas', () => {
+  const btn = createCtxStub();
+  Renderer.renderElement(btn, { type: 'button', x: 0, y: 0, w: 120, h: 40, color: '#333344', lineWidth: 2, label: 'Enviar' });
+  assert.deepEqual(btn.callsTo('fillText').map(c => c.args[0]), ['Enviar']);
+
+  const nav = createCtxStub();
+  Renderer.renderElement(nav, { type: 'nav', x: 0, y: 0, w: 600, h: 50, color: '#333344', lineWidth: 2, label: 'MiMarca' });
+  assert.equal(nav.callsTo('fillText')[0].args[0], 'MiMarca');
+
+  const card = createCtxStub();
+  Renderer.renderElement(card, { type: 'card', x: 0, y: 0, w: 220, h: 280, color: '#333344', lineWidth: 2, label: 'Precios' });
+  assert.deepEqual(card.callsTo('fillText').map(c => c.args[0]), ['Precios']);
+});

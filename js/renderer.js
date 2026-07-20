@@ -6,7 +6,7 @@ const Renderer = (() => {
 
   /* ── UI component helpers ── */
 
-  function _button(ctx, x, y, w, h, color, lw) {
+  function _button(ctx, x, y, w, h, color, lw, label) {
     ctx.strokeStyle = color;
     ctx.lineWidth = lw;
     ctx.fillStyle = color + '15';
@@ -16,10 +16,10 @@ const Renderer = (() => {
     ctx.fillStyle = color;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('Button', x + w / 2, y + h / 2);
+    ctx.fillText(label || 'Button', x + w / 2, y + h / 2);
   }
 
-  function _input(ctx, x, y, w, h, color, lw) {
+  function _input(ctx, x, y, w, h, color, lw, label) {
     ctx.strokeStyle = color + '80';
     ctx.lineWidth = lw;
     Sketchy.roundedRect(ctx, x, y, w, h, 4);
@@ -27,7 +27,7 @@ const Renderer = (() => {
     ctx.fillStyle = color + '60';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText('Type here...', x + 10, y + h / 2);
+    ctx.fillText(label || 'Type here...', x + 10, y + h / 2);
   }
 
   function _imagePlaceholder(ctx, x, y, w, h, color, lw) {
@@ -53,7 +53,7 @@ const Renderer = (() => {
     ctx.stroke();
   }
 
-  function _nav(ctx, x, y, w, h, color, lw) {
+  function _nav(ctx, x, y, w, h, color, lw, label) {
     ctx.strokeStyle = color;
     ctx.lineWidth = lw;
     ctx.fillStyle = color + '0a';
@@ -65,7 +65,7 @@ const Renderer = (() => {
     ctx.fillStyle = color;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText('Logo', x + 20, y + h / 2);
+    ctx.fillText(label || 'Logo', x + 20, y + h / 2);
     // Links
     const links = ['Home', 'About', 'Contact'];
     // 70px por link (mismo paso que el bucle) + 40 de hueco para la hamburguesa
@@ -81,7 +81,7 @@ const Renderer = (() => {
     }
   }
 
-  function _card(ctx, x, y, w, h, color, lw) {
+  function _card(ctx, x, y, w, h, color, lw, label) {
     ctx.strokeStyle = color;
     ctx.lineWidth = lw;
     ctx.fillStyle = '#ffffff08';
@@ -97,7 +97,7 @@ const Renderer = (() => {
     ctx.fillStyle = color;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText('Card Title', x + 12, y + imgH + 14);
+    ctx.fillText(label || 'Card Title', x + 12, y + imgH + 14);
     // Description lines
     ctx.strokeStyle = color + '40';
     ctx.lineWidth = 1;
@@ -196,11 +196,11 @@ const Renderer = (() => {
         break;
       }
 
-      case 'button':           _button(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth); break;
-      case 'input':            _input(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth); break;
+      case 'button':           _button(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth, el.label); break;
+      case 'input':            _input(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth, el.label); break;
       case 'imagePlaceholder': _imagePlaceholder(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth); break;
-      case 'nav':              _nav(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth); break;
-      case 'card':             _card(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth); break;
+      case 'nav':              _nav(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth, el.label); break;
+      case 'card':             _card(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth, el.label); break;
     }
 
     Sketchy.setSeed(null);

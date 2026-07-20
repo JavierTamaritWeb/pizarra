@@ -23,6 +23,7 @@
     startPos:    null,
     currentPath: [],
     selectedIdx: null,
+    editingIdx:  null,
     dragOffset:  { x: 0, y: 0 },
     dragSnapshot: null,
     didDrag:     false,
@@ -432,21 +433,48 @@
 
   /* ── Text input ── */
 
-  function showTextInput(pos) {
+  function showTextInput(pos, initial = '', fontSize = state.fontSize) {
     // El textarea vive dentro del wrapper ya escalado por CSS transform:
     // se posiciona en coordenadas sin escalar
     textInput.hidden  = false;
     textInput.style.left     = pos.x + 'px';
     textInput.style.top      = pos.y + 'px';
-    textInput.style.fontSize = state.fontSize + 'px';
-    textInput.value  = '';
+    textInput.style.fontSize = fontSize + 'px';
+    textInput.value  = initial;
     textInput.focus();
+    textInput.select();
   }
 
   function commitText() {
     if (textInput.hidden) return;
     const val = textInput.value.trim();
     textInput.hidden = true;
+
+    // Edición de un elemento existente (texto o etiqueta de componente)
+    const editing = state.editingIdx;
+    state.editingIdx = null;
+    if (editing !== null) {
+      const el = state.elements[editing];
+      if (!el) return;
+      saveUndo();
+      if (el.type === 'text') {
+        if (!val) {
+          // Texto vaciado = borrado
+          state.elements.splice(editing, 1);
+          state.selectedIdx = null;
+        } else {
+          state.elements[editing] = { ...el, value: val };
+        }
+      } else {
+        const copy = { ...el };
+        if (val) copy.label = val;
+        else delete copy.label; // vacío: vuelve a la etiqueta por defecto
+        state.elements[editing] = copy;
+      }
+      redraw();
+      return;
+    }
+
     if (!val) return;
     saveUndo();
 
@@ -466,9 +494,27 @@
 
   textInput.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitText(); }
-    if (e.key === 'Escape') { textInput.hidden = true; }
+    if (e.key === 'Escape') { textInput.hidden = true; state.editingIdx = null; }
   });
   textInput.addEventListener('blur', commitText);
+
+  /* ── Edición con doble click (herramienta Mover) ── */
+
+  const LABELED_TYPES = [TOOLS.BUTTON, TOOLS.INPUT, TOOLS.NAV, TOOLS.CARD];
+
+  mainCanvas.addEventListener('dblclick', e => {
+    if (state.tool !== TOOLS.SELECT) return;
+    const idx = hitTest(getPos(e));
+    if (idx < 0) return;
+    const el = state.elements[idx];
+    if (el.type === 'text') {
+      state.editingIdx = idx;
+      showTextInput({ x: el.x, y: el.y }, el.value, el.fontSize);
+    } else if (LABELED_TYPES.includes(el.type)) {
+      state.editingIdx = idx;
+      showTextInput({ x: el.x, y: el.y }, el.label || '', 14);
+    }
+  });
 
   /* ── Canvas cursor ── */
 
