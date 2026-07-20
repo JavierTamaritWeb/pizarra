@@ -4,6 +4,30 @@
 
 const Sketchy = (() => {
 
+  /* ── Fuente de aleatoriedad ── */
+
+  let rand = Math.random;
+
+  // PRNG mulberry32: rápido, determinista y suficiente para el jitter visual
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /**
+   * Fija la fuente de aleatoriedad: con un seed numérico el dibujo es
+   * determinista (mismo seed ⇒ mismo trazo, sin "temblor" entre redraws);
+   * con cualquier otro valor vuelve a Math.random.
+   */
+  function setSeed(seed) {
+    rand = (typeof seed === 'number' && isFinite(seed)) ? mulberry32(seed) : Math.random;
+  }
+
   /**
    * Draw a wobbly hand-drawn line between two points.
    */
@@ -14,8 +38,8 @@ const Sketchy = (() => {
     ctx.moveTo(x1, y1);
     for (let i = 1; i <= segments; i++) {
       const t = i / segments;
-      const mx = x1 + (x2 - x1) * t + (Math.random() - 0.5) * roughness;
-      const my = y1 + (y2 - y1) * t + (Math.random() - 0.5) * roughness;
+      const mx = x1 + (x2 - x1) * t + (rand() - 0.5) * roughness;
+      const my = y1 + (y2 - y1) * t + (rand() - 0.5) * roughness;
       ctx.lineTo(mx, my);
     }
     ctx.stroke();
@@ -43,8 +67,8 @@ const Sketchy = (() => {
     for (let i = 0; i <= segs; i++) {
       const t = i / segs;
       ctx.lineTo(
-        x + r + (w - 2 * r) * t + (Math.random() - 0.5) * roughness,
-        y + (Math.random() - 0.5) * roughness
+        x + r + (w - 2 * r) * t + (rand() - 0.5) * roughness,
+        y + (rand() - 0.5) * roughness
       );
     }
     ctx.arcTo(x + w, y, x + w, y + r, r);
@@ -53,8 +77,8 @@ const Sketchy = (() => {
     for (let i = 0; i <= segs; i++) {
       const t = i / segs;
       ctx.lineTo(
-        x + w + (Math.random() - 0.5) * roughness,
-        y + r + (h - 2 * r) * t + (Math.random() - 0.5) * roughness
+        x + w + (rand() - 0.5) * roughness,
+        y + r + (h - 2 * r) * t + (rand() - 0.5) * roughness
       );
     }
     ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
@@ -63,8 +87,8 @@ const Sketchy = (() => {
     for (let i = 0; i <= segs; i++) {
       const t = i / segs;
       ctx.lineTo(
-        x + w - r - (w - 2 * r) * t + (Math.random() - 0.5) * roughness,
-        y + h + (Math.random() - 0.5) * roughness
+        x + w - r - (w - 2 * r) * t + (rand() - 0.5) * roughness,
+        y + h + (rand() - 0.5) * roughness
       );
     }
     ctx.arcTo(x, y + h, x, y + h - r, r);
@@ -73,8 +97,8 @@ const Sketchy = (() => {
     for (let i = 0; i <= segs; i++) {
       const t = i / segs;
       ctx.lineTo(
-        x + (Math.random() - 0.5) * roughness,
-        y + h - r - (h - 2 * r) * t + (Math.random() - 0.5) * roughness
+        x + (rand() - 0.5) * roughness,
+        y + h - r - (h - 2 * r) * t + (rand() - 0.5) * roughness
       );
     }
     ctx.arcTo(x, y, x + r, y, r);
@@ -90,8 +114,8 @@ const Sketchy = (() => {
     ctx.beginPath();
     for (let i = 0; i <= pts; i++) {
       const angle = (i / pts) * Math.PI * 2;
-      const px = cx + rx * Math.cos(angle) + (Math.random() - 0.5) * roughness;
-      const py = cy + ry * Math.sin(angle) + (Math.random() - 0.5) * roughness;
+      const px = cx + rx * Math.cos(angle) + (rand() - 0.5) * roughness;
+      const py = cy + ry * Math.sin(angle) + (rand() - 0.5) * roughness;
       if (i === 0) ctx.moveTo(px, py);
       else ctx.lineTo(px, py);
     }
@@ -118,5 +142,5 @@ const Sketchy = (() => {
     );
   }
 
-  return { line, rect, roundedRect, ellipse, arrow };
+  return { line, rect, roundedRect, ellipse, arrow, setSeed };
 })();

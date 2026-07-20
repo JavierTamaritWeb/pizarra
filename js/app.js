@@ -49,6 +49,14 @@
   }
 
   const UNDO_LIMIT = 50;
+  const AUTOSAVE_KEY = 'sketchwire.autosave';
+
+  // Seed de jitter por elemento: serializable, sobrevive al export/import
+  const newSeed = () => (Math.random() * 2 ** 31) | 0;
+
+  function withSeeds(els) {
+    return els.map(el => el.seed === undefined ? { ...el, seed: newSeed() } : el);
+  }
 
   // Los elementos se tratan como inmutables (p. ej. moveElement devuelve una
   // copia), así que los snapshots pueden ser copias superficiales del array
@@ -136,9 +144,42 @@
     return m;
   }
 
-  /* ── Full redraw ── */
+  /* ── Autosave ── */
+
+  let autosaveTimer = null;
+
+  function scheduleAutosave() {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(() => {
+      try {
+        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(state.elements));
+      } catch (_) { /* almacenamiento lleno o bloqueado: se ignora */ }
+    }, 500);
+  }
+
+  function restoreAutosave() {
+    try {
+      const raw = localStorage.getItem(AUTOSAVE_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (Array.isArray(saved)) state.elements = saved.filter(Exporter.isValidElement);
+    } catch (_) { /* autosave corrupto: se ignora */ }
+  }
+
+  /* ── Full redraw (coalescido vía requestAnimationFrame) ── */
+
+  let redrawPending = false;
 
   function redraw() {
+    if (redrawPending) return;
+    redrawPending = true;
+    requestAnimationFrame(() => {
+      redrawPending = false;
+      redrawNow();
+    });
+  }
+
+  function redrawNow() {
     ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
@@ -154,6 +195,7 @@
       Renderer.drawSelection(ctx, getElementBounds(state.elements[state.selectedIdx]));
     }
     $('el-count').textContent = state.elements.length;
+    scheduleAutosave();
   }
 
   /* ── Canvas events ── */
@@ -194,28 +236,19 @@
     }
   }
 
-  function onMouseMove(e) {
-    const pos = getPos(e);
+  /* ── Overlay preview (coalescido vía requestAnimationFrame) ── */
 
-    // Dragging selected element
-    if (state.tool === TOOLS.SELECT && state.selectedIdx !== null && e.buttons === 1) {
-      const el = state.elements[state.selectedIdx];
-      const b  = getElementBounds(el);
-      const dx = pos.x - state.dragOffset.x - b.x;
-      const dy = pos.y - state.dragOffset.y - b.y;
-      state.elements[state.selectedIdx] = moveElement(el, dx, dy);
-      state.didDrag = true;
-      redraw();
-      return;
-    }
+  let overlayPending = false;
+  let lastPos = null;
 
-    if (!state.isDrawing) return;
-
+  function paintOverlay() {
     octx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+    if (!state.isDrawing || !lastPos) return;
+    const pos = lastPos;
 
     // Freehand preview
     if (state.tool === TOOLS.PENCIL || state.tool === TOOLS.ERASER) {
-      state.currentPath.push(pos);
+      if (!state.currentPath.length) return;
       octx.strokeStyle = state.tool === TOOLS.ERASER ? '#ff000040' : state.color;
       octx.lineWidth   = state.tool === TOOLS.ERASER ? state.lineWidth * 4 : state.lineWidth;
       octx.lineCap     = 'round';
@@ -258,6 +291,40 @@
     octx.setLineDash([]);
   }
 
+  function scheduleOverlay() {
+    if (overlayPending) return;
+    overlayPending = true;
+    requestAnimationFrame(() => {
+      overlayPending = false;
+      paintOverlay();
+    });
+  }
+
+  function onMouseMove(e) {
+    const pos = getPos(e);
+
+    // Dragging selected element
+    if (state.tool === TOOLS.SELECT && state.selectedIdx !== null && e.buttons === 1) {
+      const el = state.elements[state.selectedIdx];
+      const b  = getElementBounds(el);
+      const dx = pos.x - state.dragOffset.x - b.x;
+      const dy = pos.y - state.dragOffset.y - b.y;
+      state.elements[state.selectedIdx] = moveElement(el, dx, dy);
+      state.didDrag = true;
+      redraw();
+      return;
+    }
+
+    if (!state.isDrawing) return;
+    lastPos = pos;
+    // Los puntos se acumulan en cada evento (no se pierde trazo);
+    // el pintado se coalesce a un frame por refresco
+    if (state.tool === TOOLS.PENCIL || state.tool === TOOLS.ERASER) {
+      state.currentPath.push(pos);
+    }
+    scheduleOverlay();
+  }
+
   function onMouseUp(e) {
     // End drag of selected element: el snapshot se capturó en onMouseDown,
     // antes de que onMouseMove mutara state.elements
@@ -273,6 +340,7 @@
     const pos = getPos(e);
     octx.clearRect(0, 0, CANVAS_W, CANVAS_H);
     state.isDrawing = false;
+    lastPos = null;
 
     // Freehand commit
     if (state.tool === TOOLS.PENCIL || state.tool === TOOLS.ERASER) {
@@ -283,6 +351,7 @@
         points: state.currentPath,
         color: state.color,
         lineWidth: state.lineWidth,
+        seed: newSeed(),
       });
       state.currentPath = [];
       redraw();
@@ -304,6 +373,7 @@
           x1: state.startPos.x, y1: state.startPos.y,
           x2: pos.x, y2: pos.y,
           color: state.color, lineWidth: state.lineWidth,
+          seed: newSeed(),
         });
       }
     }
@@ -316,6 +386,7 @@
           x, y, w, h,
           color: state.color, lineWidth: state.lineWidth,
           fill: state.fillShapes,
+          seed: newSeed(),
         });
       }
     }
@@ -329,6 +400,7 @@
         w: w > 20 ? w : defs.w,
         h: h > 20 ? h : defs.h,
         color: state.color, lineWidth: state.lineWidth,
+        seed: newSeed(),
       });
     }
 
@@ -491,6 +563,7 @@
       state.elements = [];
       state.selectedIdx = null;
       $('btn-delete-sel').hidden = true;
+      try { localStorage.removeItem(AUTOSAVE_KEY); } catch (_) {}
       redraw();
     });
 
@@ -509,7 +582,7 @@
       const els = await Exporter.importJSON();
       if (els) {
         saveUndo();
-        state.elements = els;
+        state.elements = withSeeds(els);
         redraw();
       }
     });
@@ -577,7 +650,7 @@
     tplModal.querySelectorAll('[data-template]').forEach(btn => {
       btn.addEventListener('click', () => {
         saveUndo();
-        state.elements = Templates.get(btn.dataset.template);
+        state.elements = withSeeds(Templates.get(btn.dataset.template));
         state.selectedIdx = null;
         $('btn-delete-sel').hidden = true;
         tplModal.hidden = true;
@@ -598,6 +671,7 @@
   /* ── Init ── */
 
   function init() {
+    restoreAutosave();
     buildSidebar();
     buildColors();
     wireControls();

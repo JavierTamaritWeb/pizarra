@@ -326,3 +326,47 @@ test('drawSelection: strokeRect punteado ampliado 4px alrededor de bounds', () =
   assert.equal(ctx.methodNames()[0], 'save');
   assert.equal(ctx.methodNames().at(-1), 'restore');
 });
+
+/* ────────────────────────────────────────────────────────────
+   Jitter determinista (seed)
+   ──────────────────────────────────────────────────────────── */
+
+test('Sketchy.setSeed: mismo seed produce exactamente la misma secuencia de llamadas', () => {
+  const a = createCtxStub();
+  Sketchy.setSeed(12345);
+  Sketchy.rect(a, 10, 10, 100, 60);
+
+  const b = createCtxStub();
+  Sketchy.setSeed(12345);
+  Sketchy.rect(b, 10, 10, 100, 60);
+
+  assert.deepEqual(
+    a.calls.map(c => [c.name, ...c.args]),
+    b.calls.map(c => [c.name, ...c.args]),
+    'mismo seed ⇒ mismo trazo exacto',
+  );
+
+  // Seeds distintos producen trazos distintos
+  const c = createCtxStub();
+  Sketchy.setSeed(99999);
+  Sketchy.rect(c, 10, 10, 100, 60);
+  assert.notDeepEqual(
+    a.calls.map(x => [x.name, ...x.args]),
+    c.calls.map(x => [x.name, ...x.args]),
+  );
+  Sketchy.setSeed(null);
+});
+
+test('renderElement: el.seed hace el render reproducible entre redraws', () => {
+  // Este es el guardián del "temblor": sin seed cada redraw cambiaba el
+  // jitter; con el.seed dos renders del mismo elemento son idénticos.
+  const el = { type: 'rect', x: 5, y: 5, w: 80, h: 40, color: '#333344', lineWidth: 2, seed: 42 };
+  const a = createCtxStub();
+  Renderer.renderElement(a, el);
+  const b = createCtxStub();
+  Renderer.renderElement(b, el);
+  assert.deepEqual(
+    a.calls.map(c => [c.name, ...c.args]),
+    b.calls.map(c => [c.name, ...c.args]),
+  );
+});

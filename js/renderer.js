@@ -110,6 +110,9 @@ const Renderer = (() => {
 
   function renderElement(ctx, el) {
     ctx.save();
+    // Jitter determinista: el mismo seed reproduce exactamente el mismo
+    // trazo en cada redraw (sin seed, cae en Math.random y "tiembla")
+    Sketchy.setSeed(el.seed);
     ctx.strokeStyle = el.color;
     ctx.lineWidth   = el.lineWidth;
     ctx.lineCap     = 'round';
@@ -200,6 +203,7 @@ const Renderer = (() => {
       case 'card':             _card(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth); break;
     }
 
+    Sketchy.setSeed(null);
     ctx.restore();
   }
 
