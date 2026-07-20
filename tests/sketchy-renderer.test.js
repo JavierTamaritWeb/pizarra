@@ -275,12 +275,12 @@ test('renderElement nav: logo + links + hamburguesa', () => {
   // Hamburguesa: 3 líneas cortas al final
   assert.ok(ctx.callsTo('stroke').length >= 3);
 
-  // BUG documentado (comportamiento actual): los links reservan 30px cada uno
-  // (startX = x + w - 30*links.length - 40) pero se pintan con paso de 70px,
-  // así que 'Contact' cae en x + w + 10 — FUERA del borde derecho del navbar
-  // y pisando la zona de la hamburguesa (x + w - 30).
+  // Regresión: antes los links reservaban 30px pero se pintaban con paso de
+  // 70px y 'Contact' caía fuera del navbar. Ahora reserva y paso coinciden
+  // (70px) y todos los links quedan dentro, sin pisar la hamburguesa (w-30).
   const contact = ctx.callsTo('fillText').find(c => c.args[0] === 'Contact');
-  assert.equal(contact.args[1], w + 10); // 0 + 600 - 130 + 2*70 = 610 > 600
+  assert.equal(contact.args[1], w - 70 * 3 - 40 + 2 * 70); // 490
+  assert.ok(contact.args[1] < w - 30, 'Contact dentro del navbar, sin pisar la hamburguesa');
 });
 
 test('renderElement card: imagen + título + líneas de descripción', () => {

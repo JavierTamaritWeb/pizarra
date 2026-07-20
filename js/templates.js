@@ -53,7 +53,9 @@ const Templates = (() => {
   };
 
   function get(name) {
-    return JSON.parse(JSON.stringify(all[name] || []));
+    // Object.hasOwn evita resolver propiedades heredadas ('toString', etc.)
+    if (!Object.hasOwn(all, name)) return [];
+    return JSON.parse(JSON.stringify(all[name]));
   }
 
   return { get };

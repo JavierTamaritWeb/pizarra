@@ -68,7 +68,8 @@ const Renderer = (() => {
     ctx.fillText('Logo', x + 20, y + h / 2);
     // Links
     const links = ['Home', 'About', 'Contact'];
-    const startX = x + w - 30 * links.length - 40;
+    // 70px por link (mismo paso que el bucle) + 40 de hueco para la hamburguesa
+    const startX = x + w - 70 * links.length - 40;
     links.forEach((link, i) => {
       ctx.fillText(link, startX + i * 70, y + h / 2);
     });

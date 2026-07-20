@@ -14,13 +14,22 @@ Open `index.html` directly in a browser, or serve statically:
 python3 -m http.server 8000   # then open http://localhost:8000
 ```
 
-There is no lint, build, or test command.
+There is no lint or build command. Tests use Node's built-in runner (no dependencies):
+
+```bash
+node --test tests/           # full suite
+node --test tests/exporter.test.js   # single file
+```
+
+Tests load the global-scope scripts via `node:vm` with canvas/DOM stubs (see `tests/helpers/`). Two vm-realm gotchas: arrays/errors created inside the vm don't share host prototypes, so compare structurally (`[...arr]`, `err.name`) instead of `deepStrictEqual` against host literals or `instanceof`.
+
+`PLAN.md` holds the prioritized improvement roadmap (fase 1 completed).
 
 ## Architecture
 
 Scripts are plain `<script>` tags loaded in dependency order in `index.html` (config → sketchy → renderer → exporter → templates → app). There are no modules/imports — each file exposes a global (`TOOLS`, `Sketchy`, `Renderer`, `Exporter`, `Templates`) via IIFE, and later scripts rely on earlier globals. If you add a file, add its `<script>` tag in the right position.
 
-The app is state-driven immediate-mode rendering: a single `state.elements` array of plain objects is the source of truth, and any change triggers a full canvas redraw (`redraw()` in app.js). Elements are serializable plain objects (this is what JSON export/import round-trips), so never store functions or DOM refs on them.
+The app is state-driven immediate-mode rendering: a single `state.elements` array of plain objects is the source of truth, and any change triggers a full canvas redraw (`redraw()` in app.js). Elements are serializable plain objects (this is what JSON export/import round-trips), so never store functions or DOM refs on them. They are also treated as immutable: operations replace the element object (`moveElement` returns a copy) rather than mutating it, which lets undo snapshots be shallow copies (`state.elements.slice()`) — preserve that discipline when adding features.
 
 - `js/config.js` — global constants: `TOOLS` ids, `TOOL_GROUPS` (drives sidebar build), `COLORS`, `CANVAS_W/H` (1200×800), `UI_DEFAULTS` (fallback sizes for UI components placed with a tiny drag).
 - `js/sketchy.js` — low-level "wobbly" hand-drawn primitives (line, rect, roundedRect, ellipse, arrow) using `Math.random()` jitter.

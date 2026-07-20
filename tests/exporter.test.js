@@ -69,15 +69,13 @@ test('Exporter.svg: rect con fill cuando el elemento tiene fill:true', () => {
   assert.match(withFill, /x="5" y="6" width="100" height="50"/);
   assert.ok(withFill.includes(`fill="#33334420"`), 'rect fill:true debe llevar fill con alfa');
   assert.ok(!noFill.includes('#33334420'), 'rect fill:false no debe llevar fill de color');
-  // BUG CONOCIDO (comportamiento actual documentado): la plantilla `s`
-  // ya incluye fill="none" y para fill:true se añade un SEGUNDO atributo
-  // fill al mismo <rect>. Un atributo duplicado hace el XML mal formado
-  // (los parsers XML estrictos rechazan el archivo; los navegadores suelen
-  // quedarse con el primero, es decir, "none": el relleno se pierde).
-  assert.ok(
-    withFill.includes('fill="none"') && withFill.includes('fill="#33334420"'),
-    'comportamiento actual: atributo fill duplicado en rect con fill:true',
-  );
+  // Regresión: antes el tag llevaba fill="none" (de la plantilla `s`) MÁS un
+  // segundo fill="...20" — atributo duplicado = XML mal formado y relleno
+  // perdido en navegadores. Ahora debe haber exactamente un fill por tag.
+  assert.ok(!withFill.includes('fill="none"'), 'rect fill:true no debe llevar fill="none" duplicado');
+  assert.equal((withFill.match(/fill="/g) || []).length, 1, 'un único atributo fill');
+  assert.ok(noFill.includes('fill="none"'));
+  assert.equal((noFill.match(/fill="/g) || []).length, 1, 'un único atributo fill');
 });
 
 test('Exporter.svg: text con el contenido escapado (<, &, " nunca crudos)', () => {
@@ -185,29 +183,27 @@ test('Exporter.html: escapa el texto del usuario en <p> (&, <, >)', () => {
   assert.ok(!out.includes('<script>'), 'no debe colarse <script> crudo');
 });
 
-test('Exporter.html: _escapeHtml NO escapa comillas dobles (comportamiento actual)', () => {
-  // BUG CONOCIDO (documentado, no corregido): _escapeHtml solo reemplaza
-  // & < >. Las comillas del usuario llegan crudas al HTML. Hoy el value
-  // solo se interpola como contenido de <p> (no en atributos), así que no
-  // rompe, pero si algún día se interpola en un atributo sería inyección.
+test('Exporter.html: _escapeHtml escapa comillas dobles y simples', () => {
+  // Regresión: antes _escapeHtml solo reemplazaba & < > y las comillas
+  // llegaban crudas al HTML (inyección si algún día iban a un atributo).
   const ctx = freshCtx();
-  ctx.Exporter.html([{ ...base, type: 'text', value: 'con "comillas"', fontSize: 14, x: 1, y: 2 }]);
+  ctx.Exporter.html([{ ...base, type: 'text', value: 'con "comillas" y \'simples\'', fontSize: 14, x: 1, y: 2 }]);
   const out = lastBlob(ctx).content;
-  assert.ok(out.includes('con "comillas"'), 'las comillas aparecen sin escapar');
-  assert.ok(!out.includes('&quot;'));
+  assert.ok(out.includes('con &quot;comillas&quot; y &#39;simples&#39;'), 'comillas escapadas');
+  assert.ok(!out.includes('con "comillas"'), 'no deben aparecer comillas crudas del usuario');
 });
 
-test('Exporter.html: propiedades del elemento se interpolan SIN escapar en atributos style (comportamiento actual)', () => {
-  // BUG CONOCIDO (documentado, no corregido): color/lineWidth/x/y/w/h se
-  // interpolan crudos dentro de style="...". Con los colores de la paleta
-  // (COLORS) es inofensivo, pero importJSON no valida el JSON importado:
-  // un archivo manipulado con color = '"><script>...' rompe el atributo y
-  // acaba como HTML activo en el archivo exportado (inyección de HTML).
+test('Exporter.html: color y lineWidth se escapan en los atributos style', () => {
+  // Regresión: antes color/lineWidth se interpolaban crudos dentro de
+  // style="..." y un JSON manipulado inyectaba HTML activo en el export.
+  // (La validación de importJSON es la primera defensa; esto es defensa
+  // en profundidad.)
   const ctx = freshCtx();
   const evil = { ...base, color: '"><script>alert(1)</script>', type: 'rect', x: 0, y: 0, w: 10, h: 10, fill: false };
   ctx.Exporter.html([evil]);
   const out = lastBlob(ctx).content;
-  assert.ok(out.includes('"><script>alert(1)</script>'), 'el color llega crudo al atributo style');
+  assert.ok(!out.includes('"><script>alert(1)</script>'), 'el color no debe llegar crudo al atributo style');
+  assert.ok(out.includes('&quot;&gt;&lt;script&gt;'), 'el color aparece escapado');
 });
 
 /* ============================================================
@@ -236,4 +232,70 @@ test('Exporter.jpg: no lanza con el canvas stub y descarga wireframe.jpg', () =>
   const a = ctx.document.created.find(e => e.tagName === 'A');
   assert.equal(a.download, 'wireframe.jpg');
   assert.ok(a.clicked);
+});
+
+/* ============================================================
+   Validación de import (isValidElement)
+   ============================================================ */
+
+test('Exporter.isValidElement: acepta los elementos que produce la app', () => {
+  const ctx = freshCtx();
+  const eraser = { ...base, type: 'eraser', points: [{ x: 1, y: 2 }, { x: 3, y: 4 }] };
+  for (const el of [elLine, elArrow, elRectFill, elRectNoFill, elPencil, elText, elButton, elInput, elNav, elCard, eraser]) {
+    assert.ok(ctx.Exporter.isValidElement(el), `debe aceptar type=${el.type}`);
+  }
+  // Color hex de 8 dígitos (#rrggbbaa), usado por el template landing
+  assert.ok(ctx.Exporter.isValidElement({ ...elText, color: '#1a1a2e80' }));
+});
+
+test('Exporter.isValidElement: rechaza elementos malformados', () => {
+  const ctx = freshCtx();
+  const bad = [
+    null,
+    'texto',
+    { ...base, type: 'inventado', x: 0, y: 0, w: 10, h: 10 },
+    { ...base, type: 'select', x: 0, y: 0, w: 10, h: 10 },          // select no es un elemento
+    { ...base, type: 'pencil' },                                     // sin points
+    { ...base, type: 'pencil', points: [{ x: '1', y: 2 }] },         // coordenada string
+    { ...base, type: 'line', x1: 0, y1: 0, x2: 'a', y2: 0 },
+    { ...base, type: 'rect', x: 0, y: 0, w: 10 },                    // falta h
+    { ...base, type: 'text', x: 0, y: 0, fontSize: 14 },             // falta value
+    { ...elRectFill, color: 'red' },                                 // color no-hex
+    { ...elRectFill, color: '"><script>' },                          // color malicioso
+    { ...elRectFill, lineWidth: '2' },                               // lineWidth string
+    { ...elRectFill, x: NaN },
+  ];
+  for (const el of bad) {
+    assert.equal(ctx.Exporter.isValidElement(el), false, `debe rechazar ${JSON.stringify(el)}`);
+  }
+});
+
+/* ============================================================
+   Eraser en exports
+   ============================================================ */
+
+test('Exporter.svg: eraser se aproxima con trazo blanco de lineWidth*4', () => {
+  // Regresión: antes el eraser no tenía case en SVG y lo borrado reaparecía.
+  const ctx = freshCtx();
+  const eraser = { ...base, type: 'eraser', points: [{ x: 10, y: 10 }, { x: 50, y: 50 }] };
+  ctx.Exporter.svg([elPencil, eraser]);
+  const out = lastBlob(ctx).content;
+  const eraserPath = out.split('\n').find(l => l.includes('stroke="#ffffff"'));
+  assert.ok(eraserPath, 'debe emitir un path blanco para el eraser');
+  assert.ok(eraserPath.includes('stroke-width="8"'), 'ancho = lineWidth * 4');
+  assert.match(eraserPath, /d="M10 10 L50 50"/);
+});
+
+test('Exporter.png: repinta fondo blanco con destination-over tras renderizar (eraser)', () => {
+  // Regresión: el eraser (destination-out) perforaba el fondo y el PNG salía
+  // transparente / el JPG negro.
+  const ctx = freshCtx();
+  const eraser = { ...base, type: 'eraser', points: [{ x: 10, y: 10 }, { x: 50, y: 50 }] };
+  ctx.Exporter.png([elPencil, eraser]);
+  const canvas = ctx.document.created.find(e => e.tagName === 'CANVAS');
+  const fills = canvas._ctx.callsTo('fillRect');
+  assert.deepEqual(fills[fills.length - 1].args, [0, 0, 1200, 800], 'último fillRect cubre todo el canvas');
+  const gcoSets = canvas._ctx.callsTo('set globalCompositeOperation').map(c => c.args[0]);
+  assert.ok(gcoSets.includes('destination-over'), 'usa destination-over para el fondo');
+  assert.equal(gcoSets[gcoSets.length - 1], 'source-over', 'restaura source-over al final');
 });

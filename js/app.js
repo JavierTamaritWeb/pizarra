@@ -23,6 +23,8 @@
     currentPath: [],
     selectedIdx: null,
     dragOffset:  { x: 0, y: 0 },
+    dragSnapshot: null,
+    didDrag:     false,
   };
 
   /* ── DOM refs ── */
@@ -46,13 +48,22 @@
     };
   }
 
-  function clone(obj) {
-    return JSON.parse(JSON.stringify(obj));
+  const UNDO_LIMIT = 50;
+
+  // Los elementos se tratan como inmutables (p. ej. moveElement devuelve una
+  // copia), así que los snapshots pueden ser copias superficiales del array
+  function snapshot() {
+    return state.elements.slice();
+  }
+
+  function pushUndo(snap) {
+    state.undoStack.push(snap);
+    if (state.undoStack.length > UNDO_LIMIT) state.undoStack.shift();
+    state.redoStack.length = 0;
   }
 
   function saveUndo() {
-    state.undoStack.push(clone(state.elements));
-    state.redoStack.length = 0;
+    pushUndo(snapshot());
   }
 
   function getElementBounds(el) {
@@ -75,14 +86,35 @@
       };
     }
     if (el.type === 'text') {
-      return { x: el.x, y: el.y, w: el.value.length * el.fontSize * 0.55, h: el.fontSize + 8 };
+      const lines = el.value.split('\n');
+      ctx.save();
+      ctx.font = `${el.fontSize}px ${SKETCHY_FONT}`;
+      const w = Math.max(...lines.map(ln => ctx.measureText(ln).width));
+      ctx.restore();
+      return { x: el.x, y: el.y, w, h: lines.length * (el.fontSize + 4) };
     }
     return { x: el.x, y: el.y, w: el.w, h: el.h };
   }
 
+  function distToSegment(p, x1, y1, x2, y2) {
+    const dx = x2 - x1, dy = y2 - y1;
+    const len2 = dx * dx + dy * dy;
+    let t = len2 ? ((p.x - x1) * dx + (p.y - y1) * dy) / len2 : 0;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(p.x - (x1 + dx * t), p.y - (y1 + dy * t));
+  }
+
   function hitTest(pos) {
     for (let i = state.elements.length - 1; i >= 0; i--) {
-      const b = getElementBounds(state.elements[i]);
+      const el = state.elements[i];
+      // Los trazos de borrador no son seleccionables
+      if (el.type === 'eraser') continue;
+      // Líneas y flechas: distancia al segmento, no bounding box
+      if (el.type === 'line' || el.type === 'arrow') {
+        if (distToSegment(pos, el.x1, el.y1, el.x2, el.y2) <= el.lineWidth / 2 + 6) return i;
+        continue;
+      }
+      const b = getElementBounds(el);
       if (pos.x >= b.x - 6 && pos.x <= b.x + b.w + 6 &&
           pos.y >= b.y - 6 && pos.y <= b.y + b.h + 6) {
         return i;
@@ -111,7 +143,13 @@
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
     if (state.showGrid) Renderer.drawGrid(ctx, CANVAS_W, CANVAS_H);
-    state.elements.forEach(el => Renderer.renderElement(ctx, el));
+    state.elements.forEach(el => {
+      try {
+        Renderer.renderElement(ctx, el);
+      } catch (err) {
+        console.warn('Elemento no renderizable, se omite:', el, err);
+      }
+    });
     if (state.selectedIdx !== null && state.elements[state.selectedIdx]) {
       Renderer.drawSelection(ctx, getElementBounds(state.elements[state.selectedIdx]));
     }
@@ -130,6 +168,9 @@
         state.selectedIdx = idx;
         const b = getElementBounds(state.elements[idx]);
         state.dragOffset = { x: pos.x - b.x, y: pos.y - b.y };
+        // Snapshot ANTES de que el drag mute state.elements
+        state.dragSnapshot = snapshot();
+        state.didDrag = false;
         $('btn-delete-sel').hidden = false;
       } else {
         state.selectedIdx = null;
@@ -163,6 +204,7 @@
       const dx = pos.x - state.dragOffset.x - b.x;
       const dy = pos.y - state.dragOffset.y - b.y;
       state.elements[state.selectedIdx] = moveElement(el, dx, dy);
+      state.didDrag = true;
       redraw();
       return;
     }
@@ -217,9 +259,12 @@
   }
 
   function onMouseUp(e) {
-    // End drag of selected element
+    // End drag of selected element: el snapshot se capturó en onMouseDown,
+    // antes de que onMouseMove mutara state.elements
     if (state.tool === TOOLS.SELECT && state.selectedIdx !== null) {
-      saveUndo();
+      if (state.didDrag && state.dragSnapshot) pushUndo(state.dragSnapshot);
+      state.dragSnapshot = null;
+      state.didDrag = false;
       redraw();
       return;
     }
@@ -228,11 +273,11 @@
     const pos = getPos(e);
     octx.clearRect(0, 0, CANVAS_W, CANVAS_H);
     state.isDrawing = false;
-    saveUndo();
 
     // Freehand commit
     if (state.tool === TOOLS.PENCIL || state.tool === TOOLS.ERASER) {
       state.currentPath.push(pos);
+      saveUndo();
       state.elements.push({
         type: state.tool,
         points: state.currentPath,
@@ -250,18 +295,22 @@
     const w = Math.abs(pos.x - state.startPos.x);
     const h = Math.abs(pos.y - state.startPos.y);
 
-    // Line / Arrow
+    // Line / Arrow (descarta clicks sin arrastre: líneas de longitud ~0)
     if (state.tool === TOOLS.LINE || state.tool === TOOLS.ARROW) {
-      state.elements.push({
-        type: state.tool,
-        x1: state.startPos.x, y1: state.startPos.y,
-        x2: pos.x, y2: pos.y,
-        color: state.color, lineWidth: state.lineWidth,
-      });
+      if (Math.hypot(pos.x - state.startPos.x, pos.y - state.startPos.y) >= 4) {
+        saveUndo();
+        state.elements.push({
+          type: state.tool,
+          x1: state.startPos.x, y1: state.startPos.y,
+          x2: pos.x, y2: pos.y,
+          color: state.color, lineWidth: state.lineWidth,
+        });
+      }
     }
     // Geometric shapes
     else if ([TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE].includes(state.tool)) {
       if (w > 3 && h > 3) {
+        saveUndo();
         state.elements.push({
           type: state.tool,
           x, y, w, h,
@@ -273,6 +322,7 @@
     // UI components
     else if (UI_DEFAULTS[state.tool]) {
       const defs = UI_DEFAULTS[state.tool];
+      saveUndo();
       state.elements.push({
         type: state.tool,
         x, y,
@@ -289,9 +339,11 @@
   /* ── Text input ── */
 
   function showTextInput(pos) {
+    // El textarea vive dentro del wrapper ya escalado por CSS transform:
+    // se posiciona en coordenadas sin escalar
     textInput.hidden  = false;
-    textInput.style.left     = (pos.x * state.zoom) + 'px';
-    textInput.style.top      = (pos.y * state.zoom) + 'px';
+    textInput.style.left     = pos.x + 'px';
+    textInput.style.top      = pos.y + 'px';
     textInput.style.fontSize = state.fontSize + 'px';
     textInput.value  = '';
     textInput.focus();
@@ -304,8 +356,8 @@
     if (!val) return;
     saveUndo();
 
-    const posX = parseFloat(textInput.style.left) / state.zoom;
-    const posY = parseFloat(textInput.style.top)  / state.zoom;
+    const posX = parseFloat(textInput.style.left);
+    const posY = parseFloat(textInput.style.top);
 
     state.elements.push({
       type: 'text',
@@ -467,7 +519,7 @@
 
   function undo() {
     if (!state.undoStack.length) return;
-    state.redoStack.push(clone(state.elements));
+    state.redoStack.push(snapshot());
     state.elements = state.undoStack.pop();
     state.selectedIdx = null;
     $('btn-delete-sel').hidden = true;
@@ -476,7 +528,7 @@
 
   function redo() {
     if (!state.redoStack.length) return;
-    state.undoStack.push(clone(state.elements));
+    state.undoStack.push(snapshot());
     state.elements = state.redoStack.pop();
     redraw();
   }
@@ -540,7 +592,7 @@
   mainCanvas.addEventListener('mousemove', onMouseMove);
   mainCanvas.addEventListener('mouseup',   onMouseUp);
   mainCanvas.addEventListener('mouseleave', e => {
-    if (state.isDrawing) onMouseUp(e);
+    if (state.isDrawing || (state.tool === TOOLS.SELECT && state.didDrag)) onMouseUp(e);
   });
 
   /* ── Init ── */

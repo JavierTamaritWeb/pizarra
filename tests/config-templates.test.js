@@ -155,14 +155,11 @@ test('templates.js — Templates.get("inexistente") devuelve []', () => {
   assert.equal(ctx.Templates.get(null).length, 0);
 });
 
-test('templates.js — BUG documentado: get() con nombres heredados de Object.prototype lanza', () => {
-  // BUG en js/templates.js: `all[name] || []` no filtra propiedades heredadas.
-  // Con name = 'toString' (o 'constructor', 'hasOwnProperty'...), all[name]
-  // devuelve la función heredada (truthy), JSON.stringify(función) => undefined
-  // y JSON.parse(undefined) lanza SyntaxError. El comportamiento actual es
-  // lanzar en vez de devolver []. Arreglo posible: Object.hasOwn(all, name)
-  // o crear `all` con Object.create(null).
+test('templates.js — get() con nombres heredados de Object.prototype devuelve []', () => {
+  // Regresión: `all[name] || []` no filtraba propiedades heredadas y
+  // Templates.get('toString') lanzaba SyntaxError. Corregido con Object.hasOwn.
   const ctx = load('js/templates.js');
-  // (el error nace en el realm del vm: se comprueba por nombre, no instanceof)
-  assert.throws(() => ctx.Templates.get('toString'), err => err.name === 'SyntaxError');
+  assert.equal(ctx.Templates.get('toString').length, 0);
+  assert.equal(ctx.Templates.get('constructor').length, 0);
+  assert.equal(ctx.Templates.get('hasOwnProperty').length, 0);
 });

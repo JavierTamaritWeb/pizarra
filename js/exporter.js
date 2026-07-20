@@ -28,6 +28,12 @@ const Exporter = (() => {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
     elements.forEach(el => Renderer.renderElement(ctx, el));
+    // El borrador (destination-out) perfora el fondo: repintar blanco por
+    // detrás para que el PNG no salga transparente ni el JPG negro
+    ctx.globalCompositeOperation = 'destination-over';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    ctx.globalCompositeOperation = 'source-over';
     return c.toDataURL(format, quality);
   }
 
@@ -55,13 +61,24 @@ const Exporter = (() => {
     out += `<style>@import url('https://fonts.googleapis.com/css2?family=Architects+Daughter&amp;display=swap');</style>\n`;
 
     elements.forEach(el => {
-      const s = `stroke="${el.color}" stroke-width="${el.lineWidth}" fill="none" stroke-linecap="round"`;
+      const color = _escapeXml(String(el.color));
+      const lw = _escapeXml(String(el.lineWidth));
+      const s = `stroke="${color}" stroke-width="${lw}" fill="none" stroke-linecap="round"`;
+      const sf = `stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="${el.fill ? color + '20' : 'none'}"`;
 
       switch (el.type) {
         case 'pencil':
           if (el.points.length > 1) {
             const d = el.points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x} ${p.y}`).join(' ');
             out += `<path d="${d}" ${s}/>\n`;
+          }
+          break;
+
+        case 'eraser':
+          // SVG no tiene destination-out: se aproxima con trazo blanco
+          if (el.points.length > 1) {
+            const d = el.points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x} ${p.y}`).join(' ');
+            out += `<path d="${d}" stroke="#ffffff" stroke-width="${el.lineWidth * 4}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>\n`;
           }
           break;
 
@@ -79,30 +96,30 @@ const Exporter = (() => {
         }
 
         case 'rect':
-          out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" ${s}${el.fill ? ` fill="${el.color}20"` : ''}/>\n`;
+          out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" ${sf}/>\n`;
           break;
 
         case 'roundedRect':
-          out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="12" ${s}${el.fill ? ` fill="${el.color}20"` : ''}/>\n`;
+          out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="12" ${sf}/>\n`;
           break;
 
         case 'circle':
-          out += `<ellipse cx="${el.x + el.w / 2}" cy="${el.y + el.h / 2}" rx="${Math.abs(el.w) / 2}" ry="${Math.abs(el.h) / 2}" ${s}${el.fill ? ` fill="${el.color}20"` : ''}/>\n`;
+          out += `<ellipse cx="${el.x + el.w / 2}" cy="${el.y + el.h / 2}" rx="${Math.abs(el.w) / 2}" ry="${Math.abs(el.h) / 2}" ${sf}/>\n`;
           break;
 
         case 'text':
-          out += `<text x="${el.x}" y="${el.y + el.fontSize}" fill="${el.color}" font-family="Architects Daughter, cursive" font-size="${el.fontSize}">${_escapeXml(el.value)}</text>\n`;
+          out += `<text x="${el.x}" y="${el.y + el.fontSize}" fill="${color}" font-family="Architects Daughter, cursive" font-size="${el.fontSize}">${_escapeXml(el.value)}</text>\n`;
           break;
 
         // UI components → simple rects with labels in SVG
         case 'button':
-          out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="8" ${s} fill="${el.color}15"/>\n`;
-          out += `<text x="${el.x + el.w / 2}" y="${el.y + el.h / 2 + 5}" fill="${el.color}" font-family="Architects Daughter, cursive" font-size="14" text-anchor="middle">Button</text>\n`;
+          out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="8" stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="${color}15"/>\n`;
+          out += `<text x="${el.x + el.w / 2}" y="${el.y + el.h / 2 + 5}" fill="${color}" font-family="Architects Daughter, cursive" font-size="14" text-anchor="middle">Button</text>\n`;
           break;
 
         case 'input':
-          out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="4" stroke="${el.color}80" stroke-width="${el.lineWidth}" fill="none"/>\n`;
-          out += `<text x="${el.x + 10}" y="${el.y + el.h / 2 + 4}" fill="${el.color}60" font-family="Architects Daughter, cursive" font-size="13">Type here...</text>\n`;
+          out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="4" stroke="${color}80" stroke-width="${lw}" fill="none"/>\n`;
+          out += `<text x="${el.x + 10}" y="${el.y + el.h / 2 + 4}" fill="${color}60" font-family="Architects Daughter, cursive" font-size="13">Type here...</text>\n`;
           break;
 
         case 'imagePlaceholder':
@@ -112,14 +129,14 @@ const Exporter = (() => {
           break;
 
         case 'nav':
-          out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" ${s} fill="${el.color}0a"/>\n`;
-          out += `<text x="${el.x + 20}" y="${el.y + el.h / 2 + 4}" fill="${el.color}" font-family="Architects Daughter, cursive" font-size="12">Logo</text>\n`;
+          out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="${color}0a"/>\n`;
+          out += `<text x="${el.x + 20}" y="${el.y + el.h / 2 + 4}" fill="${color}" font-family="Architects Daughter, cursive" font-size="12">Logo</text>\n`;
           break;
 
         case 'card':
           out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="10" ${s}/>\n`;
           out += `<line x1="${el.x + 4}" y1="${el.y + el.h * 0.45 + 4}" x2="${el.x + el.w - 4}" y2="${el.y + el.h * 0.45 + 4}" ${s}/>\n`;
-          out += `<text x="${el.x + 12}" y="${el.y + el.h * 0.45 + 24}" fill="${el.color}" font-family="Architects Daughter, cursive" font-size="14" font-weight="bold">Card Title</text>\n`;
+          out += `<text x="${el.x + 12}" y="${el.y + el.h * 0.45 + 24}" fill="${color}" font-family="Architects Daughter, cursive" font-size="14" font-weight="bold">Card Title</text>\n`;
           break;
       }
     });
@@ -148,28 +165,30 @@ body { font-family: 'Architects Daughter', cursive; background: #fff; }
 `;
 
     elements.forEach(el => {
+      const color = _escapeHtml(String(el.color));
+      const lw = _escapeHtml(String(el.lineWidth));
       switch (el.type) {
         case 'rect':
         case 'roundedRect':
-          out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${el.lineWidth}px solid ${el.color};${el.type === 'roundedRect' ? 'border-radius:12px;' : ''}${el.fill ? `background:${el.color}20;` : ''}"></div>\n`;
+          out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};${el.type === 'roundedRect' ? 'border-radius:12px;' : ''}${el.fill ? `background:${color}20;` : ''}"></div>\n`;
           break;
         case 'text':
-          out += `  <p style="left:${el.x}px;top:${el.y}px;color:${el.color};font-size:${el.fontSize}px;">${_escapeHtml(el.value)}</p>\n`;
+          out += `  <p style="left:${el.x}px;top:${el.y}px;color:${color};font-size:${el.fontSize}px;">${_escapeHtml(el.value)}</p>\n`;
           break;
         case 'button':
-          out += `  <button style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${el.lineWidth}px solid ${el.color};border-radius:8px;background:${el.color}15;color:${el.color};font-family:inherit;cursor:pointer;">Button</button>\n`;
+          out += `  <button style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};border-radius:8px;background:${color}15;color:${color};font-family:inherit;cursor:pointer;">Button</button>\n`;
           break;
         case 'input':
-          out += `  <input placeholder="Type here..." style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${el.lineWidth}px solid ${el.color}80;border-radius:4px;padding:0 10px;font-family:inherit;"/>\n`;
+          out += `  <input placeholder="Type here..." style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color}80;border-radius:4px;padding:0 10px;font-family:inherit;"/>\n`;
           break;
         case 'imagePlaceholder':
-          out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${el.lineWidth}px solid ${el.color};display:flex;align-items:center;justify-content:center;color:${el.color}80;font-size:14px;">Image Placeholder</div>\n`;
+          out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};display:flex;align-items:center;justify-content:center;color:${color}80;font-size:14px;">Image Placeholder</div>\n`;
           break;
         case 'nav':
-          out += `  <nav style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${el.lineWidth}px solid ${el.color};display:flex;align-items:center;justify-content:space-between;padding:0 20px;"><span>Logo</span><div style="display:flex;gap:20px;"><a href="#">Home</a><a href="#">About</a><a href="#">Contact</a></div></nav>\n`;
+          out += `  <nav style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};display:flex;align-items:center;justify-content:space-between;padding:0 20px;"><span>Logo</span><div style="display:flex;gap:20px;"><a href="#">Home</a><a href="#">About</a><a href="#">Contact</a></div></nav>\n`;
           break;
         case 'card':
-          out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${el.lineWidth}px solid ${el.color};border-radius:10px;overflow:hidden;"><div style="height:45%;background:${el.color}10;border-bottom:1px solid ${el.color}30;"></div><div style="padding:12px;"><h3 style="color:${el.color};">Card Title</h3><p style="color:${el.color}60;margin-top:6px;">Description text</p></div></div>\n`;
+          out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};border-radius:10px;overflow:hidden;"><div style="height:45%;background:${color}10;border-bottom:1px solid ${color}30;"></div><div style="padding:12px;"><h3 style="color:${color};">Card Title</h3><p style="color:${color}60;margin-top:6px;">Description text</p></div></div>\n`;
           break;
       }
     });
@@ -187,8 +206,41 @@ body { font-family: 'Architects Daughter', cursive; background: #fff; }
     _downloadBlob('wireframe.json', new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   }
 
+  /* ── Validación de import ── */
+
+  const HEX_COLOR = /^#[0-9a-f]{6}([0-9a-f]{2})?$/i;
+  const ELEMENT_TYPES = Object.values(TOOLS).filter(t => t !== TOOLS.SELECT);
+
+  function _isNum(v) {
+    return typeof v === 'number' && isFinite(v);
+  }
+
+  /**
+   * Valida un elemento importado: type conocido, color hex y campos
+   * numéricos requeridos según el tipo. Un elemento inválido rompería
+   * redraw() y con ello toda la app.
+   */
+  function isValidElement(el) {
+    if (!el || typeof el !== 'object') return false;
+    if (!ELEMENT_TYPES.includes(el.type)) return false;
+    if (typeof el.color !== 'string' || !HEX_COLOR.test(el.color)) return false;
+    if (!_isNum(el.lineWidth)) return false;
+    if (el.type === 'pencil' || el.type === 'eraser') {
+      return Array.isArray(el.points) && el.points.length > 0 &&
+             el.points.every(p => p && _isNum(p.x) && _isNum(p.y));
+    }
+    if (el.type === 'line' || el.type === 'arrow') {
+      return _isNum(el.x1) && _isNum(el.y1) && _isNum(el.x2) && _isNum(el.y2);
+    }
+    if (el.type === 'text') {
+      return _isNum(el.x) && _isNum(el.y) && typeof el.value === 'string' && _isNum(el.fontSize);
+    }
+    return _isNum(el.x) && _isNum(el.y) && _isNum(el.w) && _isNum(el.h);
+  }
+
   /**
    * Import JSON — returns a Promise resolving to the element array, or null.
+   * Los elementos inválidos se descartan avisando al usuario.
    */
   function importJSON() {
     return new Promise(resolve => {
@@ -202,7 +254,16 @@ body { font-family: 'Architects Daughter', cursive; background: #fff; }
         reader.onload = ev => {
           try {
             const data = JSON.parse(ev.target.result);
-            resolve(data.elements || null);
+            if (!data || !Array.isArray(data.elements)) {
+              alert('Archivo JSON inválido: falta el array "elements"');
+              return resolve(null);
+            }
+            const valid = data.elements.filter(isValidElement);
+            const discarded = data.elements.length - valid.length;
+            if (discarded > 0) {
+              alert(`Se descartaron ${discarded} elemento(s) inválido(s) del archivo`);
+            }
+            resolve(valid);
           } catch {
             alert('Archivo JSON inválido');
             resolve(null);
@@ -210,6 +271,9 @@ body { font-family: 'Architects Daughter', cursive; background: #fff; }
         };
         reader.readAsText(file);
       };
+      if (input.addEventListener) {
+        input.addEventListener('cancel', () => resolve(null));
+      }
       input.click();
     });
   }
@@ -217,12 +281,12 @@ body { font-family: 'Architects Daughter', cursive; background: #fff; }
   /* ── Utilities ── */
 
   function _escapeXml(str) {
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
   function _escapeHtml(str) {
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
-  return { png, jpg, svg, html, json, importJSON };
+  return { png, jpg, svg, html, json, importJSON, isValidElement };
 })();
