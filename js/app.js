@@ -22,12 +22,18 @@
     isDrawing:   false,
     startPos:    null,
     currentPath: [],
-    selectedIdx: null,
+    selection:   [],    // índices seleccionados, ordenados
     editingIdx:  null,
-    dragOffset:  { x: 0, y: 0 },
+    dragLast:    null,  // última posición durante un arrastre de selección
     dragSnapshot: null,
     didDrag:     false,
+    marquee:     null,  // rectángulo de selección en curso {x1,y1,x2,y2}
+    resizing:    null,  // resize en curso {corner, from, original, snapshot, did}
   };
+
+  function setSelection(arr) {
+    state.selection = [...new Set(arr)].sort((a, b) => a - b);
+  }
 
   /* ── DOM refs ── */
 
@@ -198,12 +204,16 @@
         console.warn('Elemento no renderizable, se omite:', el, err);
       }
     });
-    if (state.selectedIdx !== null && state.elements[state.selectedIdx]) {
-      Renderer.drawSelection(ctx, getElementBounds(state.elements[state.selectedIdx]));
-    }
+    // Sanea índices que hayan quedado fuera de rango y dibuja la selección
+    // (handles de resize solo con un único elemento seleccionado)
+    state.selection = state.selection.filter(i => state.elements[i]);
+    const single = state.selection.length === 1;
+    state.selection.forEach(i => {
+      Renderer.drawSelection(ctx, getElementBounds(state.elements[i]), single);
+    });
     $('el-count').textContent = state.elements.length;
     // Único punto que sincroniza la UI dependiente de la selección
-    const hasSel = state.selectedIdx !== null;
+    const hasSel = state.selection.length > 0;
     $('btn-delete-sel').hidden = !hasSel;
     $('btn-duplicate-sel').hidden = !hasSel;
     scheduleAutosave();
@@ -211,21 +221,118 @@
 
   /* ── Canvas events ── */
 
+  /* ── Resize con handles (selección única) ── */
+
+  const HANDLE_HIT = 8;
+
+  // Los handles se dibujan en las esquinas del marco de selección (bounds ± 4)
+  function handleCorners(b) {
+    return {
+      nw: { x: b.x - 4,       y: b.y - 4 },
+      ne: { x: b.x + b.w + 4, y: b.y - 4 },
+      sw: { x: b.x - 4,       y: b.y + b.h + 4 },
+      se: { x: b.x + b.w + 4, y: b.y + b.h + 4 },
+    };
+  }
+
+  function hitHandle(pos, b) {
+    const cs = handleCorners(b);
+    for (const key of Object.keys(cs)) {
+      if (Math.abs(pos.x - cs[key].x) <= HANDLE_HIT && Math.abs(pos.y - cs[key].y) <= HANDLE_HIT) return key;
+    }
+    return null;
+  }
+
+  /**
+   * Reubica un elemento del rectángulo `from` al rectángulo `to`.
+   * pencil/eraser escalan sus points; line/arrow mueven sus extremos;
+   * text escala fontSize con la altura; el resto mapea x/y/w/h.
+   */
+  function scaleElement(el, from, to) {
+    const sx = from.w ? to.w / from.w : 1;
+    const sy = from.h ? to.h / from.h : 1;
+    const mapX = v => to.x + (v - from.x) * sx;
+    const mapY = v => to.y + (v - from.y) * sy;
+    const m = { ...el };
+    if (m.points) {
+      m.points = m.points.map(p => ({ x: mapX(p.x), y: mapY(p.y) }));
+    } else if (m.x1 !== undefined) {
+      m.x1 = mapX(m.x1); m.y1 = mapY(m.y1);
+      m.x2 = mapX(m.x2); m.y2 = mapY(m.y2);
+    } else if (m.type === 'text') {
+      m.x = to.x; m.y = to.y;
+      m.fontSize = Math.max(8, Math.round(m.fontSize * sy));
+    } else {
+      m.x = to.x; m.y = to.y; m.w = to.w; m.h = to.h;
+    }
+    return m;
+  }
+
+  function resizeTo(pos, e) {
+    const r = state.resizing;
+    const p = (state.snapGrid && !e.altKey) ? { x: snapVal(pos.x), y: snapVal(pos.y) } : pos;
+    const f = r.from;
+    let x1 = f.x, y1 = f.y, x2 = f.x + f.w, y2 = f.y + f.h;
+    if (r.corner.includes('w')) x1 = p.x;
+    if (r.corner.includes('e')) x2 = p.x;
+    if (r.corner.includes('n')) y1 = p.y;
+    if (r.corner.includes('s')) y2 = p.y;
+    const to = {
+      x: Math.min(x1, x2), y: Math.min(y1, y2),
+      w: Math.abs(x2 - x1), h: Math.abs(y2 - y1),
+    };
+    // Tamaño mínimo, salvo en dimensiones que ya eran 0 (líneas rectas)
+    if ((f.w > 0 && to.w < 10) || (f.h > 0 && to.h < 10)) return;
+    state.elements[state.selection[0]] = scaleElement(r.original, f, to);
+    r.did = true;
+  }
+
   function onMouseDown(e) {
     const pos = getPos(e);
 
     // SELECT tool
     if (state.tool === TOOLS.SELECT) {
+      // 1. Handles de resize (antes que el hit-test de elementos)
+      if (state.selection.length === 1) {
+        const b = getElementBounds(state.elements[state.selection[0]]);
+        const corner = hitHandle(pos, b);
+        if (corner) {
+          state.resizing = {
+            corner,
+            from: b,
+            original: state.elements[state.selection[0]],
+            snapshot: snapshot(),
+            did: false,
+          };
+          return;
+        }
+      }
+
       const idx = hitTest(pos);
+
+      // 2. Shift+click: toggle en la selección
+      if (e.shiftKey) {
+        if (idx >= 0) {
+          setSelection(state.selection.includes(idx)
+            ? state.selection.filter(i => i !== idx)
+            : [...state.selection, idx]);
+          redraw();
+        }
+        return;
+      }
+
+      // 3. Click sobre un elemento: seleccionar (si no lo estaba) e iniciar drag
       if (idx >= 0) {
-        state.selectedIdx = idx;
-        const b = getElementBounds(state.elements[idx]);
-        state.dragOffset = { x: pos.x - b.x, y: pos.y - b.y };
+        if (!state.selection.includes(idx)) setSelection([idx]);
+        state.dragLast = pos;
         // Snapshot ANTES de que el drag mute state.elements
         state.dragSnapshot = snapshot();
         state.didDrag = false;
-      } else {
-        state.selectedIdx = null;
+      }
+      // 4. Click en vacío: iniciar marquee
+      else {
+        setSelection([]);
+        state.marquee = { x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y };
       }
       redraw();
       return;
@@ -252,6 +359,22 @@
 
   function paintOverlay() {
     octx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+
+    // Marquee de selección
+    if (state.marquee) {
+      const m = state.marquee;
+      const x = Math.min(m.x1, m.x2), y = Math.min(m.y1, m.y2);
+      const w = Math.abs(m.x2 - m.x1), h = Math.abs(m.y2 - m.y1);
+      octx.fillStyle = 'rgba(78, 205, 196, 0.08)';
+      octx.fillRect(x, y, w, h);
+      octx.strokeStyle = '#4ecdc4';
+      octx.lineWidth = 1;
+      octx.setLineDash([5, 5]);
+      octx.strokeRect(x, y, w, h);
+      octx.setLineDash([]);
+      return;
+    }
+
     if (!state.isDrawing || !lastPos) return;
     const pos = lastPos;
 
@@ -312,43 +435,98 @@
   function onMouseMove(e) {
     const pos = getPos(e);
 
-    // Dragging selected element
-    if (state.tool === TOOLS.SELECT && state.selectedIdx !== null && e.buttons === 1) {
-      const el = state.elements[state.selectedIdx];
-      const b  = getElementBounds(el);
-      const dx = pos.x - state.dragOffset.x - b.x;
-      const dy = pos.y - state.dragOffset.y - b.y;
-      state.elements[state.selectedIdx] = moveElement(el, dx, dy);
-      state.didDrag = true;
+    // Resize en curso
+    if (state.resizing && e.buttons === 1) {
+      resizeTo(pos, e);
       redraw();
+      return;
+    }
+
+    // Marquee en curso
+    if (state.marquee && e.buttons === 1) {
+      state.marquee.x2 = pos.x;
+      state.marquee.y2 = pos.y;
+      scheduleOverlay();
+      return;
+    }
+
+    // Arrastre de la selección (movimiento incremental, vale para N elementos)
+    if (state.tool === TOOLS.SELECT && state.selection.length && state.dragLast && e.buttons === 1) {
+      const dx = pos.x - state.dragLast.x;
+      const dy = pos.y - state.dragLast.y;
+      if (dx || dy) {
+        state.selection.forEach(i => {
+          state.elements[i] = moveElement(state.elements[i], dx, dy);
+        });
+        state.dragLast = pos;
+        state.didDrag = true;
+        redraw();
+      }
       return;
     }
 
     if (!state.isDrawing) return;
     lastPos = pos;
-    // Los puntos se acumulan en cada evento (no se pierde trazo);
+    // Los puntos se acumulan en cada evento (no se pierde trazo) descartando
+    // los que están a <2px del anterior (decimación: reduce el path 3-5x);
     // el pintado se coalesce a un frame por refresco
     if (state.tool === TOOLS.PENCIL || state.tool === TOOLS.ERASER) {
-      state.currentPath.push(pos);
+      const last = state.currentPath[state.currentPath.length - 1];
+      if (!last || Math.hypot(pos.x - last.x, pos.y - last.y) >= 2) {
+        state.currentPath.push(pos);
+      }
     }
     scheduleOverlay();
   }
 
   function onMouseUp(e) {
-    // End drag of selected element: el snapshot se capturó en onMouseDown,
+    // Fin de resize: el snapshot se capturó al agarrar el handle
+    if (state.resizing) {
+      if (state.resizing.did) pushUndo(state.resizing.snapshot);
+      state.resizing = null;
+      redraw();
+      return;
+    }
+
+    // Fin de marquee: seleccionar los elementos que intersecan el rectángulo
+    if (state.marquee) {
+      const m = state.marquee;
+      state.marquee = null;
+      octx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+      const rx = Math.min(m.x1, m.x2), ry = Math.min(m.y1, m.y2);
+      const rw = Math.abs(m.x2 - m.x1), rh = Math.abs(m.y2 - m.y1);
+      if (rw > 3 || rh > 3) {
+        const sel = [];
+        state.elements.forEach((el, i) => {
+          if (el.type === 'eraser') return;
+          const b = getElementBounds(el);
+          if (b.x < rx + rw && b.x + b.w > rx && b.y < ry + rh && b.y + b.h > ry) sel.push(i);
+        });
+        setSelection(sel);
+      }
+      redraw();
+      return;
+    }
+
+    // Fin de arrastre de selección: el snapshot se capturó en onMouseDown,
     // antes de que onMouseMove mutara state.elements
-    if (state.tool === TOOLS.SELECT && state.selectedIdx !== null) {
+    if (state.tool === TOOLS.SELECT && state.selection.length && state.dragLast) {
       if (state.didDrag && state.dragSnapshot) {
         pushUndo(state.dragSnapshot);
-        // Snap al soltar el drag
+        // Snap al soltar: se alinea el primer elemento y el resto conserva
+        // sus distancias relativas
         if (state.snapGrid && !e.altKey) {
-          const el = state.elements[state.selectedIdx];
-          const b = getElementBounds(el);
+          const b = getElementBounds(state.elements[state.selection[0]]);
           const dx = snapVal(b.x) - b.x;
           const dy = snapVal(b.y) - b.y;
-          if (dx || dy) state.elements[state.selectedIdx] = moveElement(el, dx, dy);
+          if (dx || dy) {
+            state.selection.forEach(i => {
+              state.elements[i] = moveElement(state.elements[i], dx, dy);
+            });
+          }
         }
       }
+      state.dragLast = null;
       state.dragSnapshot = null;
       state.didDrag = false;
       redraw();
@@ -461,7 +639,7 @@
         if (!val) {
           // Texto vaciado = borrado
           state.elements.splice(editing, 1);
-          state.selectedIdx = null;
+          setSelection([]);
         } else {
           state.elements[editing] = { ...el, value: val };
         }
@@ -526,27 +704,32 @@
 
   function selectTool(id) {
     state.tool = id;
-    state.selectedIdx = null;
+    setSelection([]);
     updateToolbarActive();
     updateCursor();
     redraw();
   }
 
   function deleteSelection() {
-    if (state.selectedIdx === null) return;
+    if (!state.selection.length) return;
     saveUndo();
-    state.elements.splice(state.selectedIdx, 1);
-    state.selectedIdx = null;
+    // De mayor a menor índice para que los splice no se desplacen entre sí
+    [...state.selection].sort((a, b) => b - a).forEach(i => state.elements.splice(i, 1));
+    setSelection([]);
     redraw();
   }
 
   function duplicateSelection() {
-    if (state.selectedIdx === null) return;
+    if (!state.selection.length) return;
     saveUndo();
-    const copy = moveElement(state.elements[state.selectedIdx], 15, 15);
-    copy.seed = newSeed();
-    state.elements.push(copy);
-    state.selectedIdx = state.elements.length - 1;
+    const start = state.elements.length;
+    state.selection.forEach(i => {
+      const copy = moveElement(state.elements[i], 15, 15);
+      copy.seed = newSeed();
+      state.elements.push(copy);
+    });
+    // Los clones quedan seleccionados
+    setSelection(Array.from({ length: state.elements.length - start }, (_, k) => start + k));
     redraw();
   }
 
@@ -658,7 +841,7 @@
     $('btn-clear').addEventListener('click', () => {
       saveUndo();
       state.elements = [];
-      state.selectedIdx = null;
+      setSelection([]);
       try { localStorage.removeItem(AUTOSAVE_KEY); } catch (_) {}
       redraw();
     });
@@ -684,7 +867,7 @@
     if (!state.undoStack.length) return;
     state.redoStack.push(snapshot());
     state.elements = state.undoStack.pop();
-    state.selectedIdx = null;
+    setSelection([]);
     redraw();
   }
 
@@ -692,7 +875,7 @@
     if (!state.redoStack.length) return;
     state.undoStack.push(snapshot());
     state.elements = state.redoStack.pop();
-    state.selectedIdx = null;
+    setSelection([]);
     redraw();
   }
 
@@ -724,25 +907,35 @@
     if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); return; }
     if ((e.ctrlKey || e.metaKey) && k === 'd') { e.preventDefault(); duplicateSelection(); return; }
 
-    if ((e.key === 'Delete' || e.key === 'Backspace') && state.selectedIdx !== null) {
+    if ((e.key === 'Delete' || e.key === 'Backspace') && state.selection.length) {
       e.preventDefault();
       deleteSelection();
       return;
     }
 
-    if (e.key === 'Escape' && state.selectedIdx !== null) {
-      state.selectedIdx = null;
+    if (e.key === 'Escape' && state.selection.length) {
+      setSelection([]);
+      redraw();
+      return;
+    }
+
+    // Ctrl/Cmd+A: seleccionar todo (con la herramienta Mover)
+    if ((e.ctrlKey || e.metaKey) && k === 'a') {
+      e.preventDefault();
+      selectTool(TOOLS.SELECT);
+      setSelection(state.elements.map((el, i) => el.type === 'eraser' ? -1 : i).filter(i => i >= 0));
       redraw();
       return;
     }
 
     // Nudge de la selección con flechas (Shift: paso de cuadrícula)
-    if (NUDGE[e.key] && state.selectedIdx !== null) {
+    if (NUDGE[e.key] && state.selection.length) {
       e.preventDefault();
       const f = e.shiftKey ? GRID_STEP : 1;
       saveUndo();
-      state.elements[state.selectedIdx] =
-        moveElement(state.elements[state.selectedIdx], NUDGE[e.key][0] * f, NUDGE[e.key][1] * f);
+      state.selection.forEach(i => {
+        state.elements[i] = moveElement(state.elements[i], NUDGE[e.key][0] * f, NUDGE[e.key][1] * f);
+      });
       redraw();
       return;
     }
@@ -777,7 +970,7 @@
       btn.addEventListener('click', () => {
         saveUndo();
         state.elements = withSeeds(Templates.get(btn.dataset.template));
-        state.selectedIdx = null;
+        setSelection([]);
         tplModal.close();
         redraw();
       });

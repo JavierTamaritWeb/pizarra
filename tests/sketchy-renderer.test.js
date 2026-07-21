@@ -384,3 +384,20 @@ test('renderElement: el.label personaliza button/input/nav/card en canvas', () =
   Renderer.renderElement(card, { type: 'card', x: 0, y: 0, w: 220, h: 280, color: '#333344', lineWidth: 2, label: 'Precios' });
   assert.deepEqual(card.callsTo('fillText').map(c => c.args[0]), ['Precios']);
 });
+
+test('drawSelection con withHandles: 4 handles en las esquinas del marco', () => {
+  const ctx = createCtxStub();
+  Renderer.drawSelection(ctx, { x: 10, y: 20, w: 100, h: 50 }, true);
+  // Marco + 4 handles = 5 strokeRect; 4 fillRect (relleno blanco de cada handle)
+  assert.equal(ctx.callsTo('strokeRect').length, 5);
+  assert.equal(ctx.callsTo('fillRect').length, 4);
+  // Primer handle centrado en la esquina nw del marco (x-4, y-4), tamaño 8
+  assert.deepEqual(ctx.callsTo('fillRect')[0].args, [10 - 4 - 4, 20 - 4 - 4, 8, 8]);
+});
+
+test('drawSelection sin withHandles: solo el marco (sin handles)', () => {
+  const ctx = createCtxStub();
+  Renderer.drawSelection(ctx, { x: 10, y: 20, w: 100, h: 50 });
+  assert.equal(ctx.callsTo('strokeRect').length, 1);
+  assert.equal(ctx.callsTo('fillRect').length, 0);
+});

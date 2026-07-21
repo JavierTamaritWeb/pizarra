@@ -235,13 +235,28 @@ const Renderer = (() => {
 
   /* ── Selection highlight ── */
 
-  function drawSelection(ctx, bounds) {
+  function drawSelection(ctx, bounds, withHandles = false) {
     ctx.save();
     ctx.strokeStyle = '#4ecdc4';
     ctx.lineWidth = 1.5;
     ctx.setLineDash([5, 5]);
     ctx.strokeRect(bounds.x - 4, bounds.y - 4, bounds.w + 8, bounds.h + 8);
     ctx.setLineDash([]);
+    if (withHandles) {
+      // Handles de resize en las esquinas del marco (mismas posiciones que
+      // usa el hit-test de handles en app.js)
+      const HS = 8;
+      ctx.fillStyle = '#ffffff';
+      [
+        [bounds.x - 4, bounds.y - 4],
+        [bounds.x + bounds.w + 4, bounds.y - 4],
+        [bounds.x - 4, bounds.y + bounds.h + 4],
+        [bounds.x + bounds.w + 4, bounds.y + bounds.h + 4],
+      ].forEach(([cx, cy]) => {
+        ctx.fillRect(cx - HS / 2, cy - HS / 2, HS, HS);
+        ctx.strokeRect(cx - HS / 2, cy - HS / 2, HS, HS);
+      });
+    }
     ctx.restore();
   }
 
