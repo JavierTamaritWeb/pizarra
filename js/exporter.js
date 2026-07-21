@@ -72,6 +72,16 @@ const Exporter = (() => {
   const VECTOR_TYPES = ['pencil', 'eraser', 'line', 'arrow', 'curveArrow', 'circle'];
 
   /**
+   * Las 2 <line> de una punta de flecha (solo valores numéricos calculados;
+   * `s` ya viene con color/grosor escapados). Geometría de Sketchy.arrowHead.
+   */
+  function _svgArrowHead(x, y, angle, len, s) {
+    return Sketchy.arrowHead(x, y, angle, len)
+      .map(sg => `<line x1="${sg.x1}" y1="${sg.y1}" x2="${sg.x2}" y2="${sg.y2}" ${s}/>\n`)
+      .join('');
+  }
+
+  /**
    * Markup SVG de un elemento. Compartido por el export SVG y el
    * <svg> incrustado del export HTML (tipos vectoriales).
    */
@@ -104,22 +114,29 @@ const Exporter = (() => {
 
         case 'arrow': {
           out += `<line x1="${el.x1}" y1="${el.y1}" x2="${el.x2}" y2="${el.y2}" ${s}/>\n`;
+          // Punta escalada con el grosor (10 + 2·lineWidth; 14 con el default)
+          const hl = 10 + 2 * el.lineWidth;
           const a = Math.atan2(el.y2 - el.y1, el.x2 - el.x1);
-          const hl = 14;
-          out += `<line x1="${el.x2}" y1="${el.y2}" x2="${el.x2 - hl * Math.cos(a - 0.4)}" y2="${el.y2 - hl * Math.sin(a - 0.4)}" ${s}/>\n`;
-          out += `<line x1="${el.x2}" y1="${el.y2}" x2="${el.x2 - hl * Math.cos(a + 0.4)}" y2="${el.y2 - hl * Math.sin(a + 0.4)}" ${s}/>\n`;
+          out += _svgArrowHead(el.x2, el.y2, a, hl, s);
+          if (el.heads === 'both') {
+            out += _svgArrowHead(el.x1, el.y1, Math.atan2(el.y1 - el.y2, el.x1 - el.x2), hl, s);
+          }
           break;
         }
 
         case 'curveArrow': {
           out += `<path d="M${el.x1} ${el.y1} Q${el.cx} ${el.cy} ${el.x2} ${el.y2}" ${s}/>\n`;
+          const chl = 10 + 2 * el.lineWidth;
           // Punta según la tangente en el extremo (control → fin)
           let tdx = el.x2 - el.cx, tdy = el.y2 - el.cy;
           if (!tdx && !tdy) { tdx = el.x2 - el.x1; tdy = el.y2 - el.y1; }
-          const ca = Math.atan2(tdy, tdx);
-          const chl = 14;
-          out += `<line x1="${el.x2}" y1="${el.y2}" x2="${el.x2 - chl * Math.cos(ca - 0.4)}" y2="${el.y2 - chl * Math.sin(ca - 0.4)}" ${s}/>\n`;
-          out += `<line x1="${el.x2}" y1="${el.y2}" x2="${el.x2 - chl * Math.cos(ca + 0.4)}" y2="${el.y2 - chl * Math.sin(ca + 0.4)}" ${s}/>\n`;
+          out += _svgArrowHead(el.x2, el.y2, Math.atan2(tdy, tdx), chl, s);
+          // Doble punta opcional: tangente en el inicio (control → inicio)
+          if (el.heads === 'both') {
+            let sdx = el.x1 - el.cx, sdy = el.y1 - el.cy;
+            if (!sdx && !sdy) { sdx = el.x1 - el.x2; sdy = el.y1 - el.y2; }
+            out += _svgArrowHead(el.x1, el.y1, Math.atan2(sdy, sdx), chl, s);
+          }
           break;
         }
 
@@ -277,6 +294,9 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
     if (!ELEMENT_TYPES.includes(el.type)) return false;
     if (typeof el.color !== 'string' || !HEX_COLOR.test(el.color)) return false;
     if (!_isNum(el.lineWidth)) return false;
+    // heads (doble punta en arrow/curveArrow): opcional, whitelist estricta.
+    // undefined ≡ 'end' (retrocompatible con JSON viejo).
+    if (el.heads !== undefined && el.heads !== 'end' && el.heads !== 'both') return false;
     if (el.type === 'pencil' || el.type === 'eraser') {
       return Array.isArray(el.points) && el.points.length > 0 &&
              el.points.every(p => p && _isNum(p.x) && _isNum(p.y));

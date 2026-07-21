@@ -44,6 +44,10 @@ One element type has no sidebar button: `image` (pasted via Ctrl/Cmd+V), whose `
 
 Requires touching several files in sync: add the tool id to `TOOLS` and a sidebar entry in `TOOL_GROUPS` (config.js), a render case in `Renderer.renderElement`, creation logic in app.js `onMouseUp` (and `UI_DEFAULTS` if it's a UI component), bounds handling in `getElementBounds` (app.js) if it isn't x/y/w/h-shaped, and export cases in exporter.js for SVG and HTML (PNG/JPG reuse the Renderer automatically).
 
+### Panel controls: dual semantics
+
+Panel controls follow an Excalidraw-style dual semantic: **with a selection they edit the selected elements** (immutable copies + one undo step per gesture); **without a selection they set the creation default** (`state.lineWidth`, `state.doubleHead`, …). `redrawNow` is the single sync point that pushes the right value back into each control (single selection → element's value; no selection → default; multi-selection → left untouched). Any future panel control (color, fill, …) inherits this question — follow the same pattern (see the stroke slider and the "Doble punta" checkbox in `wireControls`).
+
 ### Coordinate handling
 
 Zoom is applied as a CSS `transform: scale()` on the canvas wrapper; `getPos()` in app.js divides mouse coordinates by `state.zoom` so element coordinates are always in unscaled canvas space.

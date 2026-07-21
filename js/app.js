@@ -14,6 +14,8 @@
     fontSize:    18,
     zoom:        1,
     fillShapes:  false,
+    doubleHead:  false, // nuevas flechas con punta en ambos extremos
+    curveFlip:   false, // Shift durante el trazado: curva hacia el otro lado
     showGrid:    true,
     snapGrid:    false,
     elements:    [],
@@ -172,6 +174,48 @@
     return m;
   }
 
+  /* ── Geometría de la flecha curva ── */
+
+  /**
+   * Control por defecto de una curveArrow: perpendicular a la cuerda al 25%
+   * de su longitud. Con flip, hacia el otro lado.
+   */
+  function defaultCtrl(p1, p2, flip) {
+    const k = flip ? -0.25 : 0.25;
+    return {
+      cx: (p1.x + p2.x) / 2 - (p2.y - p1.y) * k,
+      cy: (p1.y + p2.y) / 2 + (p2.x - p1.x) * k,
+    };
+  }
+
+  /**
+   * Copia de la curveArrow con el control reflejado respecto a la recta
+   * (x1,y1)–(x2,y2): invierte el lado del giro sin cambiar los extremos.
+   */
+  function flipCurve(el) {
+    const dx = el.x2 - el.x1, dy = el.y2 - el.y1;
+    const len2 = dx * dx + dy * dy;
+    if (!len2) return el; // extremos coincidentes: nada que reflejar
+    const t = ((el.cx - el.x1) * dx + (el.cy - el.y1) * dy) / len2;
+    const px = el.x1 + dx * t, py = el.y1 + dy * t;
+    return { ...el, cx: 2 * px - el.cx, cy: 2 * py - el.cy };
+  }
+
+  /**
+   * Perpendicular unitaria y punto medio de la cuerda de una curveArrow
+   * (o null si la cuerda es degenerada). Base de F2: proyección del control
+   * sobre la mediatriz y ajuste con +/−.
+   */
+  function chordFrame(el) {
+    const dx = el.x2 - el.x1, dy = el.y2 - el.y1;
+    const len = Math.hypot(dx, dy);
+    if (!len) return null;
+    return {
+      ux: -dy / len, uy: dx / len,
+      mx: (el.x1 + el.x2) / 2, my: (el.y1 + el.y2) / 2,
+    };
+  }
+
   /* ── Autosave ── */
 
   let autosaveTimer = null;
@@ -252,6 +296,21 @@
     const hasSel = state.selection.length > 0;
     $('btn-delete-sel').hidden = !hasSel;
     $('btn-duplicate-sel').hidden = !hasSel;
+    // Semántica dual de los controles del panel: con selección única muestran
+    // los valores del elemento; sin selección, los defaults de creación.
+    // (Con multi-selección no se tocan: conservan lo último mostrado.)
+    if (single) {
+      const sel = state.elements[state.selection[0]];
+      $('stroke-slider').value = sel.lineWidth;
+      $('stroke-val').textContent = String(sel.lineWidth);
+      if (sel.type === 'arrow' || sel.type === 'curveArrow') {
+        $('check-double-head').checked = sel.heads === 'both';
+      }
+    } else if (!hasSel) {
+      $('stroke-slider').value = state.lineWidth;
+      $('stroke-val').textContent = String(state.lineWidth);
+      $('check-double-head').checked = state.doubleHead;
+    }
     scheduleAutosave();
   }
 
@@ -310,7 +369,17 @@
     const p = (state.snapGrid && !e.altKey) ? { x: snapVal(pos.x), y: snapVal(pos.y) } : pos;
     // Handle de curvatura: mueve solo el punto de control
     if (r.corner === 'ctrl') {
-      state.elements[state.selection[0]] = { ...r.original, cx: p.x, cy: p.y };
+      let cp = p;
+      // Shift: restringe el control a la mediatriz de la cuerda → arcos
+      // simétricos, solo cambia la intensidad (puede cruzar al otro lado)
+      if (e.shiftKey) {
+        const fr = chordFrame(r.original);
+        if (fr) {
+          const sVal = (p.x - fr.mx) * fr.ux + (p.y - fr.my) * fr.uy;
+          cp = { x: fr.mx + sVal * fr.ux, y: fr.my + sVal * fr.uy };
+        }
+      }
+      state.elements[state.selection[0]] = { ...r.original, cx: cp.x, cy: cp.y };
       r.did = true;
       return;
     }
@@ -396,6 +465,7 @@
 
     state.isDrawing = true;
     state.startPos  = pos;
+    state.curveFlip = false;
 
     if (state.tool === TOOLS.PENCIL || state.tool === TOOLS.ERASER) {
       state.currentPath = [pos];
@@ -469,11 +539,11 @@
         break;
       case TOOLS.CURVE_ARROW: {
         // Mismo control por defecto que tendrá el elemento al soltarse
-        const cx = (state.startPos.x + pos.x) / 2 - (pos.y - state.startPos.y) * 0.25;
-        const cy = (state.startPos.y + pos.y) / 2 + (pos.x - state.startPos.x) * 0.25;
+        // (Shift durante el trazado comba hacia el otro lado)
+        const c = defaultCtrl(state.startPos, pos, state.curveFlip);
         octx.beginPath();
         octx.moveTo(state.startPos.x, state.startPos.y);
-        octx.quadraticCurveTo(cx, cy, pos.x, pos.y);
+        octx.quadraticCurveTo(c.cx, c.cy, pos.x, pos.y);
         octx.stroke();
         break;
       }
@@ -527,6 +597,8 @@
 
     if (!state.isDrawing) return;
     lastPos = pos;
+    // Shift mientras se traza la flecha curva: curva hacia el otro lado
+    if (state.tool === TOOLS.CURVE_ARROW) state.curveFlip = e.shiftKey;
     // Los puntos se acumulan en cada evento (no se pierde trazo) descartando
     // los que están a <2px del anterior (decimación: reduce el path 3-5x);
     // el pintado se coalesce a un frame por refresco
@@ -637,10 +709,14 @@
           seed: newSeed(),
         };
         if (state.tool === TOOLS.CURVE_ARROW) {
-          // Curvatura por defecto: control perpendicular al 25% de la longitud;
-          // se ajusta después con su handle (herramienta Mover)
-          el.cx = (p1.x + p2.x) / 2 - (p2.y - p1.y) * 0.25;
-          el.cy = (p1.y + p2.y) / 2 + (p2.x - p1.x) * 0.25;
+          // Curvatura por defecto: control perpendicular al 25% de la longitud
+          // (Shift al trazar: al otro lado); se ajusta después con su handle
+          const c = defaultCtrl(p1, p2, state.curveFlip);
+          el.cx = c.cx;
+          el.cy = c.cy;
+        }
+        if ((state.tool === TOOLS.ARROW || state.tool === TOOLS.CURVE_ARROW) && state.doubleHead) {
+          el.heads = 'both';
         }
         state.elements.push(el);
       }
@@ -749,7 +825,20 @@
 
   mainCanvas.addEventListener('dblclick', e => {
     if (state.tool !== TOOLS.SELECT) return;
-    const idx = hitTest(getPos(e));
+    const pos = getPos(e);
+    // Doble click sobre el handle de curvatura: resetear al 25% por defecto
+    if (state.selection.length === 1) {
+      const sel = state.elements[state.selection[0]];
+      if (sel && sel.type === 'curveArrow' &&
+          Math.hypot(pos.x - sel.cx, pos.y - sel.cy) <= HANDLE_HIT) {
+        saveUndo();
+        const c = defaultCtrl({ x: sel.x1, y: sel.y1 }, { x: sel.x2, y: sel.y2 }, false);
+        state.elements[state.selection[0]] = { ...sel, cx: c.cx, cy: c.cy };
+        redraw();
+        return;
+      }
+    }
+    const idx = hitTest(pos);
     if (idx < 0) return;
     const el = state.elements[idx];
     if (el.type === 'text') {
@@ -964,11 +1053,48 @@
     // Color picker
     $('color-picker').addEventListener('input', e => setColor(e.target.value));
 
-    // Stroke slider
+    // Stroke slider — semántica dual: con selección edita el grosor de los
+    // elementos seleccionados en vivo; sin selección fija el default de
+    // creación. Todo el deslizamiento cuenta como UN paso de undo: el
+    // snapshot se captura al primer 'input' del gesto y se apila en 'change'.
+    let strokeGestureSnap = null;
     $('stroke-slider').addEventListener('input', e => {
-      state.lineWidth = +e.target.value;
+      const v = +e.target.value;
       $('stroke-val').textContent = e.target.value;
+      if (state.selection.length) {
+        if (!strokeGestureSnap) strokeGestureSnap = snapshot();
+        state.selection.forEach(i => {
+          state.elements[i] = { ...state.elements[i], lineWidth: v };
+        });
+        redraw();
+      } else {
+        state.lineWidth = v;
+      }
     });
+    // El cierre del gesto no puede depender solo de 'change': un <input
+    // type=range> NO dispara 'change' si el valor comprometido coincide con
+    // el previo al gesto (p. ej. arrastrar 2→5→2), lo que dejaría un
+    // snapshot huérfano que corrompería el siguiente gesto. Por eso se
+    // cierra también en pointerup/pointercancel, y si el gesto terminó
+    // donde empezó se restauran las referencias originales sin apilar undo.
+    function commitStrokeGesture() {
+      if (!strokeGestureSnap) return;
+      const snap = strokeGestureSnap;
+      strokeGestureSnap = null;
+      const unchanged = snap.length === state.elements.length &&
+        snap.every((el, i) => el === state.elements[i] ||
+          el.lineWidth === state.elements[i].lineWidth);
+      if (unchanged) {
+        // Gesto no-op: recupera los objetos originales (solo cambió la
+        // identidad de los seleccionados, no sus valores).
+        state.elements = snap;
+      } else {
+        pushUndo(snap);
+      }
+    }
+    $('stroke-slider').addEventListener('change', commitStrokeGesture);
+    $('stroke-slider').addEventListener('pointerup', commitStrokeGesture);
+    $('stroke-slider').addEventListener('pointercancel', commitStrokeGesture);
 
     // Font slider
     $('font-slider').addEventListener('input', e => {
@@ -985,6 +1111,29 @@
 
     // Checkboxes
     $('check-fill').addEventListener('change', e => { state.fillShapes = e.target.checked; });
+    // Doble punta — semántica dual: con selección aplica/quita heads:'both'
+    // a las flechas seleccionadas (los no-flecha se ignoran); sin selección
+    // fija el default para las nuevas flechas.
+    $('check-double-head').addEventListener('change', e => {
+      const on = e.target.checked;
+      if (state.selection.length) {
+        const arrows = state.selection.filter(i => {
+          const t = state.elements[i].type;
+          return t === 'arrow' || t === 'curveArrow';
+        });
+        if (!arrows.length) return;
+        saveUndo();
+        arrows.forEach(i => {
+          const copy = { ...state.elements[i] };
+          if (on) copy.heads = 'both';
+          else delete copy.heads;
+          state.elements[i] = copy;
+        });
+        redraw();
+      } else {
+        state.doubleHead = on;
+      }
+    });
     $('check-grid').addEventListener('change', e => { state.showGrid = e.target.checked; redraw(); });
     $('check-snap').addEventListener('change', e => { state.snapGrid = e.target.checked; });
 
@@ -1093,6 +1242,40 @@
       });
       redraw();
       return;
+    }
+
+    // F: invertir el lado del giro de las flechas curvas seleccionadas
+    if (k === 'f' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey &&
+        state.selection.some(i => state.elements[i].type === 'curveArrow')) {
+      saveUndo();
+      state.selection.forEach(i => {
+        if (state.elements[i].type === 'curveArrow') {
+          state.elements[i] = flipCurve(state.elements[i]);
+        }
+      });
+      redraw();
+      return;
+    }
+
+    // +/−: ajustar la intensidad de curvatura de la flecha curva seleccionada
+    // ('+' aleja el control del eje en su lado actual, '−' lo acerca y puede
+    // cruzar; Shift: paso fino de 1px). Conserva la componente lateral.
+    if ((e.key === '+' || e.key === '=' || e.key === '-') &&
+        !e.ctrlKey && !e.metaKey && !e.altKey && state.selection.length === 1) {
+      const el = state.elements[state.selection[0]];
+      if (el.type === 'curveArrow') {
+        const fr = chordFrame(el);
+        if (fr) {
+          e.preventDefault();
+          const sVal = (el.cx - fr.mx) * fr.ux + (el.cy - fr.my) * fr.uy;
+          const dir = (e.key === '-' ? -1 : 1) * (Math.sign(sVal) || 1);
+          const d = (e.shiftKey ? 1 : 5) * dir;
+          saveUndo();
+          state.elements[state.selection[0]] = { ...el, cx: el.cx + d * fr.ux, cy: el.cy + d * fr.uy };
+          redraw();
+        }
+        return;
+      }
     }
 
     // Selección de herramienta por tecla

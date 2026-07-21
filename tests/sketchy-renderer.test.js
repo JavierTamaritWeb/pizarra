@@ -440,6 +440,76 @@ test('Sketchy.curve: beginPath + moveTo + lineTos + stroke, puntos cerca de la c
   });
 });
 
+test('Sketchy.arrowHead: pura y determinista, 2 segmentos desde la punta de longitud len', () => {
+  const segs = Sketchy.arrowHead(100, 100, 0, 14);
+  assert.equal(segs.length, 2);
+  for (const sg of segs) {
+    // Ambos segmentos parten exactamente de la punta (sin jitter)
+    assert.equal(sg.x1, 100);
+    assert.equal(sg.y1, 100);
+    // Longitud exacta = len (sin aleatoriedad)
+    const d = Math.hypot(sg.x2 - sg.x1, sg.y2 - sg.y1);
+    assert.ok(Math.abs(d - 14) <= 1e-9, `longitud ${d}, esperado 14 exacto`);
+  }
+  // Aberturas simétricas respecto al eje (angle=0): mismo x, desviaciones
+  // en y opuestas alrededor de la punta (y=100)
+  assert.ok(Math.abs(segs[0].x2 - segs[1].x2) <= 1e-9);
+  assert.ok(Math.abs((segs[0].y2 - 100) + (segs[1].y2 - 100)) <= 1e-9);
+  // Pura: dos llamadas idénticas devuelven exactamente lo mismo
+  // (comparación estructural por el gotcha de realm del vm)
+  const again = Sketchy.arrowHead(100, 100, 0, 14);
+  assert.deepEqual(
+    segs.map(sg => [sg.x1, sg.y1, sg.x2, sg.y2]),
+    again.map(sg => [sg.x1, sg.y1, sg.x2, sg.y2]),
+  );
+});
+
+test('renderElement arrow con heads both: 2 líneas de punta extra (5 strokes)', () => {
+  const single = render(baseEl({ type: 'arrow', x1: 0, y1: 0, x2: 100, y2: 50 }));
+  assert.equal(single.callsTo('stroke').length, 3);
+  const both = render(baseEl({ type: 'arrow', x1: 0, y1: 0, x2: 100, y2: 50, heads: 'both' }));
+  assert.equal(both.callsTo('stroke').length, 5);
+  // Las 2 líneas extra parten del inicio (0,0): moveTo exactos
+  const starts = both.callsTo('moveTo').map(c => c.args);
+  assert.deepEqual(starts[3], [0, 0]);
+  assert.deepEqual(starts[4], [0, 0]);
+});
+
+test('renderElement curveArrow con heads both: punta inicial extra, determinista con seed', () => {
+  const base = { type: 'curveArrow', x1: 10, y1: 10, cx: 100, cy: 80, x2: 200, y2: 10, color: '#333344', lineWidth: 2, seed: 7 };
+  const single = createCtxStub();
+  Renderer.renderElement(single, base);
+  const both = createCtxStub();
+  Renderer.renderElement(both, { ...base, heads: 'both' });
+  // 2 Sketchy.line extra respecto al render sin heads
+  assert.equal(single.callsTo('stroke').length, 3);
+  assert.equal(both.callsTo('stroke').length, 5);
+  // Las líneas extra arrancan exactamente en (x1,y1)
+  const starts = both.callsTo('moveTo').map(c => c.args);
+  assert.deepEqual(starts[3], [10, 10]);
+  assert.deepEqual(starts[4], [10, 10]);
+  // Determinismo: mismo seed ⇒ mismo trazo también con doble punta
+  const again = createCtxStub();
+  Renderer.renderElement(again, { ...base, heads: 'both' });
+  assert.deepEqual(
+    both.calls.map(c => [c.name, ...c.args]),
+    again.calls.map(c => [c.name, ...c.args]),
+  );
+});
+
+test('renderElement arrow/curveArrow: la punta escala con lineWidth (10 + 2·lw)', () => {
+  // arrow con lineWidth 4 → headLen 18 (renderElement fija ctx.lineWidth)
+  const ctx = render(baseEl({ type: 'arrow', x1: 0, y1: 0, x2: 100, y2: 0, lineWidth: 4 }));
+  const names = ctx.methodNames();
+  const strokeIdx = names.reduce((acc, n, i) => (n === 'stroke' ? [...acc, i] : acc), []);
+  for (const si of [strokeIdx[1], strokeIdx[2]]) {
+    const lastLineTo = ctx.calls[si - 1];
+    assert.equal(lastLineTo.name, 'lineTo');
+    const d = Math.hypot(lastLineTo.args[0] - 100, lastLineTo.args[1] - 0);
+    assert.ok(Math.abs(d - 18) <= 1.5 + 1e-9, `cabeza a distancia ${d}, esperado ~18`);
+  }
+});
+
 test('renderElement curveArrow: curva + 2 líneas de punta, determinista con seed', () => {
   const el = { type: 'curveArrow', x1: 10, y1: 10, cx: 100, cy: 80, x2: 200, y2: 10, color: '#333344', lineWidth: 2, seed: 7 };
   const a = createCtxStub();

@@ -171,23 +171,37 @@ const Renderer = (() => {
         Sketchy.line(ctx, el.x1, el.y1, el.x2, el.y2);
         break;
 
-      case 'arrow':
+      case 'arrow': {
         Sketchy.arrow(ctx, el.x1, el.y1, el.x2, el.y2);
+        // Doble punta opcional (heads === 'both'): punta también en el inicio
+        if (el.heads === 'both') {
+          const headLen = 10 + 2 * el.lineWidth;
+          const angle = Math.atan2(el.y1 - el.y2, el.x1 - el.x2);
+          Sketchy.arrowHead(el.x1, el.y1, angle, headLen).forEach(sg => {
+            Sketchy.line(ctx, sg.x1, sg.y1, sg.x2, sg.y2);
+          });
+        }
         break;
+      }
 
       case 'curveArrow': {
         Sketchy.curve(ctx, el.x1, el.y1, el.cx, el.cy, el.x2, el.y2);
+        // Punta escalada con el grosor (10 + 2·lineWidth; 14px con el default)
+        const headLen = 10 + 2 * el.lineWidth;
         // Punta orientada según la tangente en el extremo (control → fin)
         let dx = el.x2 - el.cx, dy = el.y2 - el.cy;
         if (!dx && !dy) { dx = el.x2 - el.x1; dy = el.y2 - el.y1; }
-        const angle = Math.atan2(dy, dx);
-        const headLen = 14;
-        Sketchy.line(ctx, el.x2, el.y2,
-          el.x2 - headLen * Math.cos(angle - 0.4),
-          el.y2 - headLen * Math.sin(angle - 0.4));
-        Sketchy.line(ctx, el.x2, el.y2,
-          el.x2 - headLen * Math.cos(angle + 0.4),
-          el.y2 - headLen * Math.sin(angle + 0.4));
+        Sketchy.arrowHead(el.x2, el.y2, Math.atan2(dy, dx), headLen).forEach(sg => {
+          Sketchy.line(ctx, sg.x1, sg.y1, sg.x2, sg.y2);
+        });
+        // Doble punta opcional: tangente en el inicio (control → inicio)
+        if (el.heads === 'both') {
+          let sdx = el.x1 - el.cx, sdy = el.y1 - el.cy;
+          if (!sdx && !sdy) { sdx = el.x1 - el.x2; sdy = el.y1 - el.y2; }
+          Sketchy.arrowHead(el.x1, el.y1, Math.atan2(sdy, sdx), headLen).forEach(sg => {
+            Sketchy.line(ctx, sg.x1, sg.y1, sg.x2, sg.y2);
+          });
+        }
         break;
       }
 

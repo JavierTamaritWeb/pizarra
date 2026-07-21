@@ -144,23 +144,31 @@ const Sketchy = (() => {
   }
 
   /**
+   * Segmentos de una punta de flecha en (x, y) apuntando según `angle`.
+   * Pura y sin jitter (no consume el PRNG): devuelve los 2 segmentos
+   * [{x1,y1,x2,y2}, {x1,y1,x2,y2}] con aberturas angle ± 0.4.
+   * Compartida por renderer y exporter para no duplicar el cálculo.
+   */
+  function arrowHead(x, y, angle, len) {
+    return [
+      { x1: x, y1: y, x2: x - len * Math.cos(angle - 0.4), y2: y - len * Math.sin(angle - 0.4) },
+      { x1: x, y1: y, x2: x - len * Math.cos(angle + 0.4), y2: y - len * Math.sin(angle + 0.4) },
+    ];
+  }
+
+  /**
    * Draw a sketchy arrow (line + arrowhead).
+   * La punta escala con el grosor del trazo: 10 + 2·lineWidth
+   * (con el default lineWidth=2 son los 14px históricos).
    */
   function arrow(ctx, x1, y1, x2, y2, roughness = 1.5) {
     line(ctx, x1, y1, x2, y2, roughness);
     const angle = Math.atan2(y2 - y1, x2 - x1);
-    const headLen = 14;
-    line(ctx, x2, y2,
-      x2 - headLen * Math.cos(angle - 0.4),
-      y2 - headLen * Math.sin(angle - 0.4),
-      roughness
-    );
-    line(ctx, x2, y2,
-      x2 - headLen * Math.cos(angle + 0.4),
-      y2 - headLen * Math.sin(angle + 0.4),
-      roughness
-    );
+    const headLen = 10 + 2 * (ctx.lineWidth || 2);
+    arrowHead(x2, y2, angle, headLen).forEach(sg => {
+      line(ctx, sg.x1, sg.y1, sg.x2, sg.y2, roughness);
+    });
   }
 
-  return { line, rect, roundedRect, ellipse, arrow, curve, setSeed };
+  return { line, rect, roundedRect, ellipse, arrow, arrowHead, curve, setSeed };
 })();

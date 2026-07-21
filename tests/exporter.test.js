@@ -443,3 +443,70 @@ test('Exporter.html: curveArrow va en el <svg> incrustado', () => {
   assert.ok(out.includes('<svg width="1200"'), 'svg incrustado presente');
   assert.ok(out.includes('Q60 80 110 20'), 'curva dentro del svg');
 });
+
+/* ============================================================
+   Doble punta (heads) y tamaño de punta derivado del grosor
+   ============================================================ */
+
+test('Exporter.isValidElement: heads acepta undefined/end/both y rechaza el resto', () => {
+  const ctx = freshCtx();
+  assert.ok(ctx.Exporter.isValidElement(elCurve), 'sin heads sigue siendo válido');
+  assert.ok(ctx.Exporter.isValidElement({ ...elCurve, heads: 'end' }));
+  assert.ok(ctx.Exporter.isValidElement({ ...elCurve, heads: 'both' }));
+  assert.ok(ctx.Exporter.isValidElement({ ...elArrow, heads: 'both' }));
+  for (const heads of ['x', true, 1, null, '', 'start']) {
+    assert.equal(ctx.Exporter.isValidElement({ ...elCurve, heads }), false, `debe rechazar heads=${JSON.stringify(heads)}`);
+    assert.equal(ctx.Exporter.isValidElement({ ...elArrow, heads }), false, `debe rechazar heads=${JSON.stringify(heads)} en arrow`);
+  }
+});
+
+test('Exporter.svg: curveArrow con heads both genera 1 <path> + 4 <line> (2 sin heads)', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.svg([{ ...elCurve, heads: 'both' }]);
+  const both = lastBlob(ctx).content;
+  assert.equal((both.match(/<path d="M10 20 Q/g) || []).length, 1, 'una única curva');
+  assert.equal((both.match(/<line /g) || []).length, 4, '2 puntas × 2 líneas');
+  // Las líneas de la punta inicial parten de (x1,y1)
+  assert.ok(both.includes('<line x1="10" y1="20"'), 'punta inicial anclada en (x1,y1)');
+
+  // Regresión: sin heads (y con heads:'end') sigue siendo 1 path + 2 líneas
+  ctx.Exporter.svg([elCurve]);
+  const plain = lastBlob(ctx).content;
+  assert.equal((plain.match(/<line /g) || []).length, 2);
+  ctx.Exporter.svg([{ ...elCurve, heads: 'end' }]);
+  const end = lastBlob(ctx).content;
+  assert.equal((end.match(/<line /g) || []).length, 2, "heads:'end' ≡ comportamiento actual");
+});
+
+test('Exporter.svg: arrow con heads both genera 5 <line> (cuerpo + 2 puntas)', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.svg([{ ...elArrow, heads: 'both' }]);
+  const out = lastBlob(ctx).content;
+  assert.equal((out.match(/<line /g) || []).length, 5);
+  assert.ok(out.includes('<line x1="0" y1="0" x2="100" y2="0"'), 'cuerpo intacto');
+});
+
+test('Exporter.svg: la punta escala con lineWidth (10 + 2·lw; 14 con el default 2)', () => {
+  const ctx = freshCtx();
+  // elArrow: (0,0)→(100,0), angle 0 → extremo de punta en 100 − hl·cos(0.4)
+  ctx.Exporter.svg([elArrow]); // lineWidth 2 → hl 14 (coordenadas históricas)
+  const lw2 = lastBlob(ctx).content;
+  assert.ok(lw2.includes(`x2="${100 - 14 * Math.cos(0.4)}"`), 'lw=2 → punta de 14');
+  ctx.Exporter.svg([{ ...elArrow, lineWidth: 4 }]);
+  const lw4 = lastBlob(ctx).content;
+  assert.ok(lw4.includes(`x2="${100 - 18 * Math.cos(0.4)}"`), 'lw=4 → punta de 18');
+  assert.ok(!lw4.includes(`x2="${100 - 14 * Math.cos(0.4)}"`), 'lw=4 ya no usa 14');
+});
+
+test('Exporter.json + importJSON: heads both sobrevive al round-trip y valida', async () => {
+  const ctx = freshCtx();
+  const elements = [{ ...elArrow, heads: 'both' }, { ...elCurve, heads: 'both' }, elCurve];
+  ctx.Exporter.json(elements);
+  const jsonStr = lastBlob(ctx).content;
+  const p = ctx.Exporter.importJSON();
+  const input = ctx.document.created[ctx.document.created.length - 1];
+  input.onchange({ target: { files: [{ text: jsonStr }] } });
+  const els = JSON.parse(JSON.stringify(await p));
+  assert.equal(els.length, 3, 'ningún elemento descartado por la validación');
+  assert.deepEqual(els, elements, 'heads persiste tal cual');
+});
