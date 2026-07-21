@@ -412,3 +412,51 @@ test('renderElement image: sin Image global dibuja placeholder punteado, no lanz
   assert.deepEqual(ctx.callsTo('setLineDash').map(c => [...c.args[0]]), [[4, 4], []]);
   assert.equal(ctx.callsTo('drawImage').length, 0);
 });
+
+/* ────────────────────────────────────────────────────────────
+   Flecha curva
+   ──────────────────────────────────────────────────────────── */
+
+test('Sketchy.curve: beginPath + moveTo + lineTos + stroke, puntos cerca de la cuadrática', () => {
+  const ctx = createCtxStub();
+  const roughness = 1.5;
+  const [x1, y1, cx, cy, x2, y2] = [0, 0, 100, 100, 200, 0];
+  Sketchy.curve(ctx, x1, y1, cx, cy, x2, y2, roughness);
+  const names = ctx.methodNames();
+  assert.equal(names[0], 'beginPath');
+  assert.equal(names[1], 'moveTo');
+  assert.equal(names[names.length - 1], 'stroke');
+  assert.deepEqual(ctx.callsTo('moveTo')[0].args, [x1, y1]);
+  const lineTos = ctx.callsTo('lineTo');
+  assert.ok(lineTos.length >= 8, 'al menos 8 segmentos');
+  const tol = roughness / 2 + 1e-9;
+  lineTos.forEach((c, idx) => {
+    const t = (idx + 1) / lineTos.length;
+    const mt = 1 - t;
+    const qx = mt * mt * x1 + 2 * mt * t * cx + t * t * x2;
+    const qy = mt * mt * y1 + 2 * mt * t * cy + t * t * y2;
+    assert.ok(Math.abs(c.args[0] - qx) <= tol, `x del punto ${idx} cerca de la curva`);
+    assert.ok(Math.abs(c.args[1] - qy) <= tol, `y del punto ${idx} cerca de la curva`);
+  });
+});
+
+test('renderElement curveArrow: curva + 2 líneas de punta, determinista con seed', () => {
+  const el = { type: 'curveArrow', x1: 10, y1: 10, cx: 100, cy: 80, x2: 200, y2: 10, color: '#333344', lineWidth: 2, seed: 7 };
+  const a = createCtxStub();
+  Renderer.renderElement(a, el);
+  // 3 strokes: la curva y las 2 líneas de la punta
+  assert.equal(a.callsTo('stroke').length, 3);
+  assert.equal(a.methodNames()[0], 'save');
+  assert.equal(a.methodNames()[a.methodNames().length - 1], 'restore');
+  // La punta arranca exactamente en (x2,y2): moveTo sin jitter de las 2 líneas
+  const moveTos = a.callsTo('moveTo');
+  assert.deepEqual(moveTos[1].args, [200, 10]);
+  assert.deepEqual(moveTos[2].args, [200, 10]);
+  // Mismo seed ⇒ mismo trazo
+  const b = createCtxStub();
+  Renderer.renderElement(b, el);
+  assert.deepEqual(
+    a.calls.map(c => [c.name, ...c.args]),
+    b.calls.map(c => [c.name, ...c.args]),
+  );
+});

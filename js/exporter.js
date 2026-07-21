@@ -69,7 +69,7 @@ const Exporter = (() => {
   const FONT_FALLBACK = 'Architects Daughter, Segoe Print, Comic Neue, cursive';
 
   /** Tipos sin representación HTML propia: van en un <svg> incrustado */
-  const VECTOR_TYPES = ['pencil', 'eraser', 'line', 'arrow', 'circle'];
+  const VECTOR_TYPES = ['pencil', 'eraser', 'line', 'arrow', 'curveArrow', 'circle'];
 
   /**
    * Markup SVG de un elemento. Compartido por el export SVG y el
@@ -108,6 +108,18 @@ const Exporter = (() => {
           const hl = 14;
           out += `<line x1="${el.x2}" y1="${el.y2}" x2="${el.x2 - hl * Math.cos(a - 0.4)}" y2="${el.y2 - hl * Math.sin(a - 0.4)}" ${s}/>\n`;
           out += `<line x1="${el.x2}" y1="${el.y2}" x2="${el.x2 - hl * Math.cos(a + 0.4)}" y2="${el.y2 - hl * Math.sin(a + 0.4)}" ${s}/>\n`;
+          break;
+        }
+
+        case 'curveArrow': {
+          out += `<path d="M${el.x1} ${el.y1} Q${el.cx} ${el.cy} ${el.x2} ${el.y2}" ${s}/>\n`;
+          // Punta según la tangente en el extremo (control → fin)
+          let tdx = el.x2 - el.cx, tdy = el.y2 - el.cy;
+          if (!tdx && !tdy) { tdx = el.x2 - el.x1; tdy = el.y2 - el.y1; }
+          const ca = Math.atan2(tdy, tdx);
+          const chl = 14;
+          out += `<line x1="${el.x2}" y1="${el.y2}" x2="${el.x2 - chl * Math.cos(ca - 0.4)}" y2="${el.y2 - chl * Math.sin(ca - 0.4)}" ${s}/>\n`;
+          out += `<line x1="${el.x2}" y1="${el.y2}" x2="${el.x2 - chl * Math.cos(ca + 0.4)}" y2="${el.y2 - chl * Math.sin(ca + 0.4)}" ${s}/>\n`;
           break;
         }
 
@@ -271,6 +283,10 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
     }
     if (el.type === 'line' || el.type === 'arrow') {
       return _isNum(el.x1) && _isNum(el.y1) && _isNum(el.x2) && _isNum(el.y2);
+    }
+    if (el.type === 'curveArrow') {
+      return _isNum(el.x1) && _isNum(el.y1) && _isNum(el.x2) && _isNum(el.y2) &&
+             _isNum(el.cx) && _isNum(el.cy);
     }
     if (el.label !== undefined && typeof el.label !== 'string') return false;
     if (el.type === 'image') {

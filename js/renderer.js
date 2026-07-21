@@ -175,6 +175,22 @@ const Renderer = (() => {
         Sketchy.arrow(ctx, el.x1, el.y1, el.x2, el.y2);
         break;
 
+      case 'curveArrow': {
+        Sketchy.curve(ctx, el.x1, el.y1, el.cx, el.cy, el.x2, el.y2);
+        // Punta orientada según la tangente en el extremo (control → fin)
+        let dx = el.x2 - el.cx, dy = el.y2 - el.cy;
+        if (!dx && !dy) { dx = el.x2 - el.x1; dy = el.y2 - el.y1; }
+        const angle = Math.atan2(dy, dx);
+        const headLen = 14;
+        Sketchy.line(ctx, el.x2, el.y2,
+          el.x2 - headLen * Math.cos(angle - 0.4),
+          el.y2 - headLen * Math.sin(angle - 0.4));
+        Sketchy.line(ctx, el.x2, el.y2,
+          el.x2 - headLen * Math.cos(angle + 0.4),
+          el.y2 - headLen * Math.sin(angle + 0.4));
+        break;
+      }
+
       case 'rect':
         if (el.fill) {
           ctx.fillStyle = el.color + '20';

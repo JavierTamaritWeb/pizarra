@@ -98,13 +98,13 @@
       });
       return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
     }
-    if (el.type === 'line' || el.type === 'arrow') {
-      return {
-        x: Math.min(el.x1, el.x2),
-        y: Math.min(el.y1, el.y2),
-        w: Math.abs(el.x2 - el.x1),
-        h: Math.abs(el.y2 - el.y1),
-      };
+    if (el.type === 'line' || el.type === 'arrow' || el.type === 'curveArrow') {
+      // La curva cuadrática queda dentro del casco convexo de sus 3 puntos,
+      // así que incluir el control da un bbox seguro
+      const xs = [el.x1, el.x2], ys = [el.y1, el.y2];
+      if (el.type === 'curveArrow') { xs.push(el.cx); ys.push(el.cy); }
+      const x = Math.min(...xs), y = Math.min(...ys);
+      return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
     }
     if (el.type === 'text') {
       const lines = el.value.split('\n');
@@ -135,6 +135,20 @@
         if (distToSegment(pos, el.x1, el.y1, el.x2, el.y2) <= el.lineWidth / 2 + 6) return i;
         continue;
       }
+      // Flecha curva: distancia a la polilínea que muestrea la curva
+      if (el.type === 'curveArrow') {
+        const N = 20;
+        let px = el.x1, py = el.y1, hit = false;
+        for (let s = 1; s <= N && !hit; s++) {
+          const t = s / N, mt = 1 - t;
+          const qx = mt * mt * el.x1 + 2 * mt * t * el.cx + t * t * el.x2;
+          const qy = mt * mt * el.y1 + 2 * mt * t * el.cy + t * t * el.y2;
+          hit = distToSegment(pos, px, py, qx, qy) <= el.lineWidth / 2 + 6;
+          px = qx; py = qy;
+        }
+        if (hit) return i;
+        continue;
+      }
       const b = getElementBounds(el);
       if (pos.x >= b.x - 6 && pos.x <= b.x + b.w + 6 &&
           pos.y >= b.y - 6 && pos.y <= b.y + b.h + 6) {
@@ -150,6 +164,7 @@
       m.points = m.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
     } else if (m.x1 !== undefined) {
       m.x1 += dx; m.y1 += dy; m.x2 += dx; m.y2 += dy;
+      if (m.cx !== undefined) { m.cx += dx; m.cy += dy; }
     } else {
       m.x = (m.x || 0) + dx;
       m.y = (m.y || 0) + dy;
@@ -211,6 +226,27 @@
     state.selection.forEach(i => {
       Renderer.drawSelection(ctx, getElementBounds(state.elements[i]), single);
     });
+    // Handle de curvatura de la flecha curva seleccionada
+    if (single) {
+      const sel = state.elements[state.selection[0]];
+      if (sel.type === 'curveArrow') {
+        ctx.save();
+        ctx.strokeStyle = '#4ecdc4';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(sel.x1, sel.y1);
+        ctx.lineTo(sel.cx, sel.cy);
+        ctx.lineTo(sel.x2, sel.y2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#4ecdc4';
+        ctx.beginPath();
+        ctx.arc(sel.cx, sel.cy, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
     $('el-count').textContent = state.elements.length;
     // Único punto que sincroniza la UI dependiente de la selección
     const hasSel = state.selection.length > 0;
@@ -259,6 +295,7 @@
     } else if (m.x1 !== undefined) {
       m.x1 = mapX(m.x1); m.y1 = mapY(m.y1);
       m.x2 = mapX(m.x2); m.y2 = mapY(m.y2);
+      if (m.cx !== undefined) { m.cx = mapX(m.cx); m.cy = mapY(m.cy); }
     } else if (m.type === 'text') {
       m.x = to.x; m.y = to.y;
       m.fontSize = Math.max(8, Math.round(m.fontSize * sy));
@@ -271,6 +308,12 @@
   function resizeTo(pos, e) {
     const r = state.resizing;
     const p = (state.snapGrid && !e.altKey) ? { x: snapVal(pos.x), y: snapVal(pos.y) } : pos;
+    // Handle de curvatura: mueve solo el punto de control
+    if (r.corner === 'ctrl') {
+      state.elements[state.selection[0]] = { ...r.original, cx: p.x, cy: p.y };
+      r.did = true;
+      return;
+    }
     const f = r.from;
     let x1 = f.x, y1 = f.y, x2 = f.x + f.w, y2 = f.y + f.h;
     if (r.corner.includes('w')) x1 = p.x;
@@ -294,13 +337,20 @@
     if (state.tool === TOOLS.SELECT) {
       // 1. Handles de resize (antes que el hit-test de elementos)
       if (state.selection.length === 1) {
-        const b = getElementBounds(state.elements[state.selection[0]]);
+        const selEl = state.elements[state.selection[0]];
+        // Handle de curvatura de la flecha curva
+        if (selEl.type === 'curveArrow' &&
+            Math.hypot(pos.x - selEl.cx, pos.y - selEl.cy) <= HANDLE_HIT) {
+          state.resizing = { corner: 'ctrl', from: null, original: selEl, snapshot: snapshot(), did: false };
+          return;
+        }
+        const b = getElementBounds(selEl);
         const corner = hitHandle(pos, b);
         if (corner) {
           state.resizing = {
             corner,
             from: b,
-            original: state.elements[state.selection[0]],
+            original: selEl,
             snapshot: snapshot(),
             did: false,
           };
@@ -417,6 +467,16 @@
       case TOOLS.ARROW:
         octx.beginPath(); octx.moveTo(state.startPos.x, state.startPos.y); octx.lineTo(pos.x, pos.y); octx.stroke();
         break;
+      case TOOLS.CURVE_ARROW: {
+        // Mismo control por defecto que tendrá el elemento al soltarse
+        const cx = (state.startPos.x + pos.x) / 2 - (pos.y - state.startPos.y) * 0.25;
+        const cy = (state.startPos.y + pos.y) / 2 + (pos.x - state.startPos.x) * 0.25;
+        octx.beginPath();
+        octx.moveTo(state.startPos.x, state.startPos.y);
+        octx.quadraticCurveTo(cx, cy, pos.x, pos.y);
+        octx.stroke();
+        break;
+      }
       default:
         octx.strokeRect(x, y, w, h);
     }
@@ -565,17 +625,24 @@
     const w = Math.abs(p2.x - p1.x);
     const h = Math.abs(p2.y - p1.y);
 
-    // Line / Arrow (descarta clicks sin arrastre: líneas de longitud ~0)
-    if (state.tool === TOOLS.LINE || state.tool === TOOLS.ARROW) {
+    // Line / Arrow / Curve (descarta clicks sin arrastre: líneas de longitud ~0)
+    if ([TOOLS.LINE, TOOLS.ARROW, TOOLS.CURVE_ARROW].includes(state.tool)) {
       if (Math.hypot(p2.x - p1.x, p2.y - p1.y) >= 4) {
         saveUndo();
-        state.elements.push({
+        const el = {
           type: state.tool,
           x1: p1.x, y1: p1.y,
           x2: p2.x, y2: p2.y,
           color: state.color, lineWidth: state.lineWidth,
           seed: newSeed(),
-        });
+        };
+        if (state.tool === TOOLS.CURVE_ARROW) {
+          // Curvatura por defecto: control perpendicular al 25% de la longitud;
+          // se ajusta después con su handle (herramienta Mover)
+          el.cx = (p1.x + p2.x) / 2 - (p2.y - p1.y) * 0.25;
+          el.cy = (p1.y + p2.y) / 2 + (p2.x - p1.x) * 0.25;
+        }
+        state.elements.push(el);
       }
     }
     // Geometric shapes

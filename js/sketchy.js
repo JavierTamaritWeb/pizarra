@@ -124,6 +124,26 @@ const Sketchy = (() => {
   }
 
   /**
+   * Draw a wobbly quadratic curve from (x1,y1) to (x2,y2) with control
+   * point (cx,cy).
+   */
+  function curve(ctx, x1, y1, cx, cy, x2, y2, roughness = 1.5) {
+    const len = Math.hypot(cx - x1, cy - y1) + Math.hypot(x2 - cx, y2 - cy);
+    const segments = Math.max(8, Math.floor(len / 20));
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    for (let i = 1; i <= segments; i++) {
+      const t = i / segments;
+      const mt = 1 - t;
+      ctx.lineTo(
+        mt * mt * x1 + 2 * mt * t * cx + t * t * x2 + (rand() - 0.5) * roughness,
+        mt * mt * y1 + 2 * mt * t * cy + t * t * y2 + (rand() - 0.5) * roughness
+      );
+    }
+    ctx.stroke();
+  }
+
+  /**
    * Draw a sketchy arrow (line + arrowhead).
    */
   function arrow(ctx, x1, y1, x2, y2, roughness = 1.5) {
@@ -142,5 +162,5 @@ const Sketchy = (() => {
     );
   }
 
-  return { line, rect, roundedRect, ellipse, arrow, setSeed };
+  return { line, rect, roundedRect, ellipse, arrow, curve, setSeed };
 })();

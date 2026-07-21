@@ -414,3 +414,32 @@ test('Exporter.json: round-trip de un elemento image conserva el src', async () 
   assert.equal(els.length, 1, 'la imagen sobrevive a la validación del import');
   assert.equal(els[0].src, PNG_SRC);
 });
+
+/* ============================================================
+   Flecha curva (type: curveArrow)
+   ============================================================ */
+
+const elCurve = { ...base, type: 'curveArrow', x1: 10, y1: 20, cx: 60, cy: 80, x2: 110, y2: 20 };
+
+test('Exporter.isValidElement: curveArrow requiere x1/y1/x2/y2/cx/cy numéricos', () => {
+  const ctx = freshCtx();
+  assert.ok(ctx.Exporter.isValidElement(elCurve));
+  assert.equal(ctx.Exporter.isValidElement({ ...elCurve, cx: undefined }), false);
+  assert.equal(ctx.Exporter.isValidElement({ ...elCurve, cy: 'a' }), false);
+});
+
+test('Exporter.svg: curveArrow genera <path> con Q y 2 líneas de punta', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.svg([elCurve]);
+  const out = lastBlob(ctx).content;
+  assert.ok(out.includes('<path d="M10 20 Q60 80 110 20"'), 'path cuadrático');
+  assert.equal((out.match(/<line /g) || []).length, 2, '2 líneas de punta');
+});
+
+test('Exporter.html: curveArrow va en el <svg> incrustado', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.html([elCurve]);
+  const out = lastBlob(ctx).content;
+  assert.ok(out.includes('<svg width="1200"'), 'svg incrustado presente');
+  assert.ok(out.includes('Q60 80 110 20'), 'curva dentro del svg');
+});
