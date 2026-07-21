@@ -26,14 +26,14 @@
         <button class="btn btn--ghost" id="btn-import" title="Importar JSON">
           <span class="btn__icon">📂</span> Importar
         </button>
-        <button class="btn btn--ghost" id="btn-templates" title="Templates">
-          <span class="btn__icon">📐</span> Templates
+        <button class="btn btn--ghost" id="btn-templates" title="Plantillas">
+          <span class="btn__icon">📐</span> Plantillas
         </button>
-        <button class="btn btn--ghost" id="btn-undo" title="Ctrl+Z">
-          <span class="btn__icon">↩</span> Undo
+        <button class="btn btn--ghost" id="btn-undo" title="Deshacer (Ctrl+Z)">
+          <span class="btn__icon">↩</span> Deshacer
         </button>
-        <button class="btn btn--ghost" id="btn-redo" title="Ctrl+Y">
-          <span class="btn__icon">↪</span> Redo
+        <button class="btn btn--ghost" id="btn-redo" title="Rehacer (Ctrl+Y)">
+          <span class="btn__icon">↪</span> Rehacer
         </button>
         <button class="btn btn--primary" id="btn-export">
           <span class="btn__icon">⬇</span> Exportar
@@ -102,7 +102,7 @@
 
         <!-- Info -->
         <section class="panel__section panel__section--border">
-          <h3 class="panel__title">Elementos: <span id="el-count">0</span></h3>
+          <h3 class="panel__title" aria-live="polite">Elementos: <span id="el-count">0</span></h3>
           <button class="btn btn--ghost btn--block" id="btn-duplicate-sel" hidden>
             ⧉ Duplicar selección
           </button>
@@ -116,7 +116,8 @@
         <!-- Shortcuts hint -->
         <footer class="panel__footer">
           <p>⌨️ Ctrl+Z deshacer · Ctrl+Y rehacer</p>
-          <p>Ctrl+D duplicar · Del borrar</p>
+          <p>Ctrl+D duplicar · Ctrl+A todo · Del borrar</p>
+          <p>Shift+click o arrastre en vacío: multi-selección</p>
           <p>Flechas mover (Shift: 20px)</p>
           <p>Tecla por herramienta en su tooltip</p>
           <p>Alt desactiva el ajuste a cuadrícula</p>
@@ -161,7 +162,7 @@
 
   <!-- ===== MODAL: TEMPLATES ===== -->
   <dialog class="modal" id="modal-templates" aria-labelledby="modal-templates-title">
-      <h3 class="modal__heading" id="modal-templates-title">Templates</h3>
+      <h3 class="modal__heading" id="modal-templates-title">Plantillas</h3>
       <p class="modal__sub">Empieza con una estructura predefinida</p>
       <div class="modal__list">
         <button class="modal__template" data-template="landing">

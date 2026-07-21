@@ -303,13 +303,15 @@ input[type="range"]::-moz-range-thumb {
   flex: 1;
   overflow: auto;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  padding: 24px;
   background: var(--bg-app);
   background-image: radial-gradient(circle at 50% 50%, #1a1d2e 0%, var(--bg-app) 70%);
 }
 
 .canvas-area__wrapper {
+  /* margin:auto centra como flex pero deja alcanzables por scroll las
+     esquinas cuando el canvas desborda el área visible */
+  margin: auto;
   position: relative;
   border-radius: 8px;
   overflow: hidden;
@@ -581,6 +583,17 @@ input[type="range"]::-moz-range-thumb {
 .modal__template small {
   font-size: 11px;
   color: var(--text-muted);
+}
+
+/* ── Responsive mínimo ── */
+
+/* En portátiles estrechos (sidebar 72 + canvas 1200 + panel 220 desbordan)
+   el panel derecho se colapsa; sus controles clave siguen accesibles por
+   atajos de teclado */
+@media (max-width: 1100px) {
+  .panel {
+    display: none;
+  }
 }
 
 /* ── Scrollbar ── */

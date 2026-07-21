@@ -21,7 +21,7 @@ const TOOLS = Object.freeze({
 
 const TOOL_GROUPS = [
   {
-    label: 'Draw',
+    label: 'Dibujo',
     tools: [
       { id: TOOLS.PENCIL, icon: '✏️', name: 'Lápiz',    key: 'p' },
       { id: TOOLS.LINE,   icon: '📏', name: 'Línea',    key: 'l' },
@@ -30,10 +30,10 @@ const TOOL_GROUPS = [
     ],
   },
   {
-    label: 'Shapes',
+    label: 'Formas',
     tools: [
       { id: TOOLS.RECT,         icon: '◻️', name: 'Rectángulo', key: 'r' },
-      { id: TOOLS.ROUNDED_RECT, icon: '▢',  name: 'Rounded',    key: 'o' },
+      { id: TOOLS.ROUNDED_RECT, icon: '▢',  name: 'Redondeado', key: 'o' },
       { id: TOOLS.CIRCLE,       icon: '⬭',  name: 'Círculo',    key: 'c' },
     ],
   },
@@ -45,11 +45,11 @@ const TOOL_GROUPS = [
       { id: TOOLS.INPUT,            icon: '▭',  name: 'Input',  key: 'i' },
       { id: TOOLS.IMAGE_PLACEHOLDER,icon: '🖼️', name: 'Imagen', key: 'm' },
       { id: TOOLS.NAV,              icon: '☰',  name: 'Navbar', key: 'n' },
-      { id: TOOLS.CARD,             icon: '🃏', name: 'Card',   key: 'k' },
+      { id: TOOLS.CARD,             icon: '🃏', name: 'Tarjeta', key: 'k' },
     ],
   },
   {
-    label: 'Edit',
+    label: 'Edición',
     tools: [
       { id: TOOLS.SELECT, icon: '👆', name: 'Mover', key: 'v' },
     ],
