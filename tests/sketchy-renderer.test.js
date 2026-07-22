@@ -682,3 +682,32 @@ test('renderElement curveArrow cúbica con label: texto en B(0.5)', () => {
   const fill = ctx.callsTo('fillText')[0];
   assert.deepEqual(fill.args, ['x', 0.375 * 40 + 0.375 * 160 + 0.125 * 200, 0.375 * 80 + 0.375 * 80]);
 });
+
+/* ────────────────────────────────────────────────────────────
+   Etiqueta desplazable (labelT)
+   ──────────────────────────────────────────────────────────── */
+
+test('renderElement curveArrow cuadrática con labelT: texto en Q(t)', () => {
+  const el = { type: 'curveArrow', x1: 0, y1: 0, cx: 50, cy: 100, x2: 100, y2: 0, color: '#333344', lineWidth: 2, label: 'q', labelT: 0.25, seed: 1 };
+  const ctx = createCtxStub();
+  Renderer.renderElement(ctx, el);
+  // Q(0.25) = 0.75²·p1 + 2·0.75·0.25·c + 0.25²·p2 = (25, 37.5)
+  assert.deepEqual(ctx.callsTo('fillText')[0].args, ['q', 25, 37.5]);
+});
+
+test('renderElement curveArrow cúbica con labelT: texto en B(t)', () => {
+  const el = { type: 'curveArrow', x1: 0, y1: 0, cx: 40, cy: 80, cx2: 160, cy2: 80, x2: 200, y2: 0, color: '#333344', lineWidth: 2, label: 'b', labelT: 0.25, seed: 1 };
+  const ctx = createCtxStub();
+  Renderer.renderElement(ctx, el);
+  const t = 0.25, mt = 0.75;
+  const bx = 3 * mt * mt * t * 40 + 3 * mt * t * t * 160 + t * t * t * 200;
+  const by = 3 * mt * mt * t * 80 + 3 * mt * t * t * 80;
+  assert.deepEqual(ctx.callsTo('fillText')[0].args, ['b', bx, by]);
+});
+
+test('renderElement arrow recta con labelT: texto interpolado sobre el segmento', () => {
+  const el = { type: 'arrow', x1: 0, y1: 0, x2: 100, y2: 40, color: '#333344', lineWidth: 2, label: 'r', labelT: 0.25, seed: 1 };
+  const ctx = createCtxStub();
+  Renderer.renderElement(ctx, el);
+  assert.deepEqual(ctx.callsTo('fillText')[0].args, ['r', 25, 10]);
+});

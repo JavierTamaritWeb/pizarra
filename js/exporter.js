@@ -77,18 +77,20 @@ const Exporter = (() => {
    */
   function _svgArrowLabel(el, color) {
     if (!el.label) return '';
+    const t = el.labelT !== undefined ? el.labelT : 0.5;
+    const mt = 1 - t;
     let mx, my;
     if (el.type === 'curveArrow') {
       if (el.cx2 !== undefined) {
-        mx = 0.125 * el.x1 + 0.375 * el.cx + 0.375 * el.cx2 + 0.125 * el.x2;
-        my = 0.125 * el.y1 + 0.375 * el.cy + 0.375 * el.cy2 + 0.125 * el.y2;
+        mx = mt * mt * mt * el.x1 + 3 * mt * mt * t * el.cx + 3 * mt * t * t * el.cx2 + t * t * t * el.x2;
+        my = mt * mt * mt * el.y1 + 3 * mt * mt * t * el.cy + 3 * mt * t * t * el.cy2 + t * t * t * el.y2;
       } else {
-        mx = 0.25 * el.x1 + 0.5 * el.cx + 0.25 * el.x2;
-        my = 0.25 * el.y1 + 0.5 * el.cy + 0.25 * el.y2;
+        mx = mt * mt * el.x1 + 2 * mt * t * el.cx + t * t * el.x2;
+        my = mt * mt * el.y1 + 2 * mt * t * el.cy + t * t * el.y2;
       }
     } else {
-      mx = (el.x1 + el.x2) / 2;
-      my = (el.y1 + el.y2) / 2;
+      mx = mt * el.x1 + t * el.x2;
+      my = mt * el.y1 + t * el.y2;
     }
     return `<text x="${mx}" y="${my}" fill="${color}" stroke="#ffffff" stroke-width="4" paint-order="stroke" font-family="${FONT_FALLBACK}" font-size="13" text-anchor="middle" dominant-baseline="middle">${_escapeXml(el.label)}</text>\n`;
   }
@@ -332,6 +334,8 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
     if (el.dash !== undefined && el.dash !== true) return false;
     // label (etiqueta de componentes y flechas)
     if (el.label !== undefined && typeof el.label !== 'string') return false;
+    // labelT (posición de la etiqueta sobre el trazo): número en (0,1) abierto
+    if (el.labelT !== undefined && !(_isNum(el.labelT) && el.labelT > 0 && el.labelT < 1)) return false;
     // id (destino de anclaje) y anchors de conector: no se interpolan en
     // exports, pero se validan igualmente
     const ID_RE = /^[a-z0-9]{1,32}$/i;

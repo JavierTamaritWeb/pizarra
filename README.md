@@ -4,7 +4,7 @@
 
 ![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?logo=javascript&logoColor=000)
 ![Sin dependencias](https://img.shields.io/badge/dependencias-0-brightgreen)
-![Tests](https://img.shields.io/badge/tests-116%20%E2%9C%93-brightgreen)
+![Tests](https://img.shields.io/badge/tests-123%20%E2%9C%93-brightgreen)
 ![Licencia](https://img.shields.io/badge/licencia-MIT-blue)
 
 SketchWire es una aplicación de wireframing sobre canvas escrita en JavaScript puro: **sin build, sin bundler, sin `node_modules`**. Abre `index.html` y dibuja.
@@ -23,7 +23,7 @@ SketchWire es una aplicación de wireframing sobre canvas escrita en JavaScript 
 - ↷ **Flechas curvas** con handle de curvatura: Shift al trazar la comba hacia el otro lado, `F` invierte el giro, `+`/`−` ajustan la intensidad, doble click en el handle la resetea.
 - 🔀 **Curva en S** (`S`): cúbica con dos puntos de control.
 - 🧲 **Conectores anclados**: suelta un extremo sobre un elemento y la flecha se pega a su borde — al mover o redimensionar el elemento, la flecha lo sigue conservando su curvatura.
-- 🏷️ **Etiquetas sobre el trazo** (doble click), doble punta, trazo discontinuo, grosor por elemento y dirección invertible (`D`).
+- 🏷️ **Etiquetas sobre el trazo** (doble click), desplazables a lo largo del trazo (arrastra su handle; doble click en él la re-centra), doble punta, trazo discontinuo, grosor por elemento y dirección invertible (`D`).
 
 ### Edición
 - 👆 Selección múltiple (Shift+click, marquee, `Ctrl/Cmd+A`), mover, duplicar (`Ctrl/Cmd+D`), redimensionar con handles y nudge con flechas.
@@ -90,7 +90,7 @@ Principios de diseño:
 
 ## Tests
 
-116 tests con el runner nativo de Node — sin ninguna dependencia:
+123 tests con el runner nativo de Node — sin ninguna dependencia:
 
 ```bash
 node --test tests/                    # suite completa

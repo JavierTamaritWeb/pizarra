@@ -272,6 +272,8 @@
       m.cx = el.cx2; m.cy = el.cy2;
       m.cx2 = el.cx; m.cy2 = el.cy;
     }
+    // La etiqueta se queda en el mismo punto físico del trazo
+    if (el.labelT !== undefined) m.labelT = 1 - el.labelT;
     if (el.startAnchor !== undefined || el.endAnchor !== undefined) {
       m.startAnchor = el.endAnchor;
       m.endAnchor = el.startAnchor;
@@ -304,6 +306,13 @@
    */
   function arrowHandles(el) {
     const handles = [];
+    // Handle de etiqueta primero: máxima prioridad de click (si ganara
+    // 'ctrl', en curvas planas eclipsaría la etiqueta centrada; la curvatura
+    // sigue ajustable con +/−, F y Shift)
+    if ((el.type === 'arrow' || el.type === 'curveArrow') && el.label) {
+      const lp = arrowLabelPoint(el);
+      handles.push({ name: 'labelPos', x: lp.x, y: lp.y, kind: 'label' });
+    }
     if (el.type === 'curveArrow') {
       handles.push({ name: 'ctrl', x: el.cx, y: el.cy, kind: 'ctrl' });
       if (el.cx2 !== undefined) handles.push({ name: 'ctrl2', x: el.cx2, y: el.cy2, kind: 'ctrl' });
@@ -437,26 +446,51 @@
   }
 
   /**
-   * Punto medio del trazo de una flecha: para curveArrow, el punto de la
-   * curva en t=0.5 (no el punto medio de la cuerda); para arrow/line, el
-   * punto medio del segmento. Donde se centra la etiqueta.
+   * Punto del trazo de una flecha en el parámetro t ∈ [0,1]: Bézier cúbica o
+   * cuadrática para curveArrow, interpolación lineal para arrow/line.
    */
-  function arrowMidpoint(el) {
+  function arrowPointAt(el, t) {
+    const mt = 1 - t;
     if (el.type === 'curveArrow') {
       if (el.cx2 !== undefined) {
-        // Cúbica: B(0.5) = 0.125·p1 + 0.375·c1 + 0.375·c2 + 0.125·p2
+        // Cúbica: B(t) = mt³·p1 + 3·mt²·t·c1 + 3·mt·t²·c2 + t³·p2
         return {
-          x: 0.125 * el.x1 + 0.375 * el.cx + 0.375 * el.cx2 + 0.125 * el.x2,
-          y: 0.125 * el.y1 + 0.375 * el.cy + 0.375 * el.cy2 + 0.125 * el.y2,
+          x: mt * mt * mt * el.x1 + 3 * mt * mt * t * el.cx + 3 * mt * t * t * el.cx2 + t * t * t * el.x2,
+          y: mt * mt * mt * el.y1 + 3 * mt * mt * t * el.cy + 3 * mt * t * t * el.cy2 + t * t * t * el.y2,
         };
       }
-      // Cuadrática: Q(0.5) = 0.25·p1 + 0.5·c + 0.25·p2
+      // Cuadrática: Q(t) = mt²·p1 + 2·mt·t·c + t²·p2
       return {
-        x: 0.25 * el.x1 + 0.5 * el.cx + 0.25 * el.x2,
-        y: 0.25 * el.y1 + 0.5 * el.cy + 0.25 * el.y2,
+        x: mt * mt * el.x1 + 2 * mt * t * el.cx + t * t * el.x2,
+        y: mt * mt * el.y1 + 2 * mt * t * el.cy + t * t * el.y2,
       };
     }
-    return { x: (el.x1 + el.x2) / 2, y: (el.y1 + el.y2) / 2 };
+    return { x: mt * el.x1 + t * el.x2, y: mt * el.y1 + t * el.y2 };
+  }
+
+  /** Punto donde se centra la etiqueta de la flecha (labelT, por defecto 0.5). */
+  function arrowLabelPoint(el) {
+    return arrowPointAt(el, el.labelT !== undefined ? el.labelT : 0.5);
+  }
+
+  /**
+   * Parámetro t del punto del trazo más cercano a `p`: muestrea N tramos y
+   * proyecta sobre cada segmento (t fraccional → arrastre continuo).
+   */
+  function nearestTOnArrow(el, p, N = 40) {
+    let bestT = 0.5, bestD = Infinity;
+    let prev = { x: el.x1, y: el.y1 };
+    for (let s = 1; s <= N; s++) {
+      const q = arrowPointAt(el, s / N);
+      const dx = q.x - prev.x, dy = q.y - prev.y;
+      const len2 = dx * dx + dy * dy;
+      let u = len2 ? ((p.x - prev.x) * dx + (p.y - prev.y) * dy) / len2 : 0;
+      u = Math.max(0, Math.min(1, u));
+      const d = Math.hypot(p.x - (prev.x + dx * u), p.y - (prev.y + dy * u));
+      if (d < bestD) { bestD = d; bestT = (s - 1 + u) / N; }
+      prev = q;
+    }
+    return bestT;
   }
 
   /* ── Autosave ── */
@@ -537,6 +571,12 @@
           ctx.setLineDash([]);
         }
         handles.forEach(h => {
+          if (h.kind === 'label') {
+            // Etiqueta: cuadrado violeta, distinguible de los círculos
+            ctx.fillStyle = '#9b59b6';
+            ctx.fillRect(h.x - 4, h.y - 4, 8, 8);
+            return;
+          }
           ctx.fillStyle = h.kind === 'ctrl' ? '#4ecdc4' : '#f39c12';
           ctx.beginPath();
           ctx.arc(h.x, h.y, 5, 0, Math.PI * 2);
@@ -674,6 +714,19 @@
       state.elements[state.selection[0]] = r.corner === 'ctrl'
         ? { ...r.original, cx: cp.x, cy: cp.y }
         : { ...r.original, cx2: cp.x, cy2: cp.y };
+      r.did = true;
+      return;
+    }
+
+    // Handle de etiqueta: desliza labelT por el trazo (pos crudo, el snap a
+    // rejilla no tiene sentido sobre un parámetro t)
+    if (r.corner === 'labelPos') {
+      let t = nearestTOnArrow(r.original, pos);
+      t = Math.max(0.05, Math.min(0.95, t));
+      const copy = { ...r.original };
+      if (Math.abs(t - 0.5) < 0.03) delete copy.labelT; // imán al centro → JSON canónico
+      else copy.labelT = t;
+      state.elements[state.selection[0]] = copy;
       r.did = true;
       return;
     }
@@ -1145,6 +1198,20 @@
     // (cuadrática → control por defecto; cúbica → S canónica)
     if (state.selection.length === 1) {
       const sel = state.elements[state.selection[0]];
+      // Doble click sobre el handle de etiqueta desplazada: re-centrarla.
+      // Con labelT ausente no se intercepta (el flujo cae al editor de texto)
+      if (sel && sel.labelT !== undefined &&
+          (sel.type === 'arrow' || sel.type === 'curveArrow')) {
+        const lp = arrowLabelPoint(sel);
+        if (Math.hypot(pos.x - lp.x, pos.y - lp.y) <= HANDLE_HIT) {
+          saveUndo();
+          const copy = { ...sel };
+          delete copy.labelT;
+          state.elements[state.selection[0]] = copy;
+          redraw();
+          return;
+        }
+      }
       if (sel && arrowHandles(sel).some(h => h.kind === 'ctrl' && Math.hypot(pos.x - h.x, pos.y - h.y) <= HANDLE_HIT)) {
         saveUndo();
         if (sel.cx2 !== undefined) {
@@ -1165,8 +1232,8 @@
       state.editingIdx = idx;
       showTextInput({ x: el.x, y: el.y }, el.value, el.fontSize);
     } else if (el.type === 'arrow' || el.type === 'curveArrow') {
-      // Etiqueta de la flecha, centrada sobre el punto medio del trazo
-      const mid = arrowMidpoint(el);
+      // Etiqueta de la flecha: el editor se abre en su posición actual
+      const mid = arrowLabelPoint(el);
       state.editingIdx = idx;
       showTextInput({ x: mid.x - 40, y: mid.y - 10 }, el.label || '', 13);
     } else if (LABELED_TYPES.includes(el.type)) {

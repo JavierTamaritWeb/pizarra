@@ -612,6 +612,49 @@ test('round-trip JSON conserva el label de una flecha', async () => {
 });
 
 /* ============================================================
+   Etiqueta desplazable (labelT) en exports
+   ============================================================ */
+
+test('Exporter.svg: curveArrow con labelT centra el <text> en Q(t)', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.svg([{ ...base, type: 'curveArrow', x1: 0, y1: 0, cx: 50, cy: 100, x2: 100, y2: 0, label: 'ok', labelT: 0.25 }]);
+  const out = lastBlob(ctx).content;
+  const text = out.split('\n').find(l => l.startsWith('<text'));
+  assert.ok(text.includes('x="25" y="37.5"'), 'Q(0.25) de la curva');
+});
+
+test('Exporter.svg: arrow recta con labelT interpola sobre el segmento', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.svg([{ ...elArrow, label: 'ok', labelT: 0.25 }]);
+  const out = lastBlob(ctx).content;
+  const text = out.split('\n').find(l => l.startsWith('<text'));
+  assert.ok(text.includes('x="25" y="0"'), 'punto al 25% del segmento (0,0)-(100,0)');
+});
+
+test('Exporter.isValidElement: labelT numérico en (0,1) abierto, en arrow y curveArrow', () => {
+  const ctx = freshCtx();
+  assert.ok(ctx.Exporter.isValidElement({ ...elArrow, label: 'x', labelT: 0.3 }));
+  assert.ok(ctx.Exporter.isValidElement({ ...elCurve, label: 'x', labelT: 0.95 }));
+  // Casos sobre arrow Y curveArrow: guardia contra la zona muerta tras los
+  // return tempranos por tipo (la regresión que tuvo `label`)
+  for (const bad of [0, 1, 1.5, -0.1, '0.3', NaN]) {
+    assert.equal(ctx.Exporter.isValidElement({ ...elArrow, label: 'x', labelT: bad }), false, `arrow labelT=${bad}`);
+    assert.equal(ctx.Exporter.isValidElement({ ...elCurve, label: 'x', labelT: bad }), false, `curveArrow labelT=${bad}`);
+  }
+});
+
+test('round-trip JSON conserva labelT', async () => {
+  const ctx = freshCtx();
+  ctx.Exporter.json([{ ...elCurve, label: 'flujo', labelT: 0.3 }]);
+  const jsonStr = lastBlob(ctx).content;
+  const p = ctx.Exporter.importJSON();
+  const input = ctx.document.created[ctx.document.created.length - 1];
+  input.onchange({ target: { files: [{ text: jsonStr }] } });
+  const back = JSON.parse(JSON.stringify(await p));
+  assert.equal(back[0].labelT, 0.3);
+});
+
+/* ============================================================
    Curva en S (cúbica) en exports
    ============================================================ */
 
