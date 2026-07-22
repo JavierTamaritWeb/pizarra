@@ -510,3 +510,60 @@ test('Exporter.json + importJSON: heads both sobrevive al round-trip y valida', 
   assert.equal(els.length, 3, 'ningún elemento descartado por la validación');
   assert.deepEqual(els, elements, 'heads persiste tal cual');
 });
+
+/* ============================================================
+   Trazo discontinuo (dash) y regresión de validación de label
+   ============================================================ */
+
+test('Exporter.isValidElement: dash acepta undefined/true y rechaza el resto', () => {
+  const ctx = freshCtx();
+  assert.ok(ctx.Exporter.isValidElement({ ...elLine, dash: true }));
+  assert.ok(ctx.Exporter.isValidElement(elLine), 'sin dash sigue válido');
+  assert.equal(ctx.Exporter.isValidElement({ ...elLine, dash: false }), false);
+  assert.equal(ctx.Exporter.isValidElement({ ...elLine, dash: 1 }), false);
+  assert.equal(ctx.Exporter.isValidElement({ ...elLine, dash: 'true' }), false);
+});
+
+test('Exporter.isValidElement: label no-string se rechaza también en flechas (regresión de orden)', () => {
+  // Regresión: el check de label estaba tras los return tempranos por tipo
+  // y era inalcanzable para line/arrow/curveArrow/pencil
+  const ctx = freshCtx();
+  assert.equal(ctx.Exporter.isValidElement({ ...elArrow, label: 5 }), false);
+  assert.equal(ctx.Exporter.isValidElement({ ...elCurve, label: {} }), false);
+  assert.equal(ctx.Exporter.isValidElement({ ...elPencil, label: 5 }), false);
+  assert.ok(ctx.Exporter.isValidElement({ ...elArrow, label: 'ok' }));
+});
+
+test('Exporter.svg: arrow con dash lleva stroke-dasharray solo en el cuerpo', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.svg([{ ...elArrow, lineWidth: 3, dash: true }]);
+  const out = lastBlob(ctx).content;
+  const lines = out.split('\n').filter(l => l.startsWith('<line'));
+  assert.equal(lines.length, 3);
+  assert.ok(lines[0].includes('stroke-dasharray="12 12"'), 'cuerpo discontinuo');
+  assert.ok(!lines[1].includes('stroke-dasharray'), 'punta 1 sólida');
+  assert.ok(!lines[2].includes('stroke-dasharray'), 'punta 2 sólida');
+});
+
+test('Exporter.svg: curveArrow con dash lleva stroke-dasharray en el <path>', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.svg([{ ...elCurve, dash: true }]);
+  const out = lastBlob(ctx).content;
+  const path = out.split('\n').find(l => l.startsWith('<path'));
+  assert.ok(path.includes('stroke-dasharray="8 8"'));
+  const lines = out.split('\n').filter(l => l.startsWith('<line'));
+  assert.ok(lines.every(l => !l.includes('stroke-dasharray')), 'puntas sólidas');
+});
+
+test('Exporter.json + importJSON: dash sobrevive al round-trip', async () => {
+  const ctx = freshCtx();
+  const els = [{ ...elLine, dash: true }, { ...elCurve, dash: true }];
+  ctx.Exporter.json(els);
+  const jsonStr = lastBlob(ctx).content;
+  const p = ctx.Exporter.importJSON();
+  const input = ctx.document.created[ctx.document.created.length - 1];
+  input.onchange({ target: { files: [{ text: jsonStr }] } });
+  const back = JSON.parse(JSON.stringify(await p));
+  assert.equal(back.length, 2);
+  assert.ok(back.every(e => e.dash === true));
+});

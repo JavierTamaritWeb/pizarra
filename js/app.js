@@ -15,6 +15,7 @@
     zoom:        1,
     fillShapes:  false,
     doubleHead:  false, // nuevas flechas con punta en ambos extremos
+    dashed:      false, // nuevas líneas/flechas con trazo discontinuo
     curveFlip:   false, // Shift durante el trazado: curva hacia el otro lado
     showGrid:    true,
     snapGrid:    false,
@@ -306,10 +307,14 @@
       if (sel.type === 'arrow' || sel.type === 'curveArrow') {
         $('check-double-head').checked = sel.heads === 'both';
       }
+      if (sel.type === 'line' || sel.type === 'arrow' || sel.type === 'curveArrow') {
+        $('check-dash').checked = sel.dash === true;
+      }
     } else if (!hasSel) {
       $('stroke-slider').value = state.lineWidth;
       $('stroke-val').textContent = String(state.lineWidth);
       $('check-double-head').checked = state.doubleHead;
+      $('check-dash').checked = state.dashed;
     }
     scheduleAutosave();
   }
@@ -718,6 +723,7 @@
         if ((state.tool === TOOLS.ARROW || state.tool === TOOLS.CURVE_ARROW) && state.doubleHead) {
           el.heads = 'both';
         }
+        if (state.dashed) el.dash = true;
         state.elements.push(el);
       }
     }
@@ -1132,6 +1138,28 @@
         redraw();
       } else {
         state.doubleHead = on;
+      }
+    });
+    // Trazo discontinuo: misma semántica dual que la doble punta, sobre
+    // line/arrow/curveArrow
+    $('check-dash').addEventListener('change', e => {
+      const on = e.target.checked;
+      if (state.selection.length) {
+        const strokes = state.selection.filter(i => {
+          const t = state.elements[i].type;
+          return t === 'line' || t === 'arrow' || t === 'curveArrow';
+        });
+        if (!strokes.length) return;
+        saveUndo();
+        strokes.forEach(i => {
+          const copy = { ...state.elements[i] };
+          if (on) copy.dash = true;
+          else delete copy.dash;
+          state.elements[i] = copy;
+        });
+        redraw();
+      } else {
+        state.dashed = on;
       }
     });
     $('check-grid').addEventListener('change', e => { state.showGrid = e.target.checked; redraw(); });

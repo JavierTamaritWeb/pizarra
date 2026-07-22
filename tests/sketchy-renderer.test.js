@@ -530,3 +530,52 @@ test('renderElement curveArrow: curva + 2 líneas de punta, determinista con see
     b.calls.map(c => [c.name, ...c.args]),
   );
 });
+
+/* ────────────────────────────────────────────────────────────
+   Trazo discontinuo (dash)
+   ──────────────────────────────────────────────────────────── */
+
+test('renderElement line con dash: setLineDash proporcional a lineWidth', () => {
+  const ctx = createCtxStub();
+  Renderer.renderElement(ctx, { type: 'line', x1: 0, y1: 0, x2: 100, y2: 0, color: '#333344', lineWidth: 2, dash: true, seed: 1 });
+  const dashes = ctx.callsTo('setLineDash').map(c => [...c.args[0]]);
+  assert.deepEqual(dashes, [[8, 8], []], 'dash [4·lw, 4·lw] activado y limpiado');
+});
+
+test('renderElement arrow con dash: dash solo en el cuerpo, puntas sólidas', () => {
+  const ctx = createCtxStub();
+  Renderer.renderElement(ctx, { type: 'arrow', x1: 0, y1: 0, x2: 100, y2: 0, color: '#333344', lineWidth: 3, dash: true, seed: 1 });
+  const names = ctx.methodNames();
+  // El setLineDash([12,12]) va antes del primer stroke (cuerpo) y el
+  // setLineDash([]) antes de las puntas (strokes 2 y 3)
+  const dashes = ctx.callsTo('setLineDash').map(c => [...c.args[0]]);
+  assert.deepEqual(dashes, [[12, 12], []]);
+  const firstStroke = names.indexOf('stroke');
+  const clearDash = names.lastIndexOf('setLineDash');
+  assert.ok(clearDash > firstStroke, 'el dash se limpia después del cuerpo');
+  assert.equal(ctx.callsTo('stroke').length, 3, 'cuerpo + 2 líneas de punta');
+});
+
+test('renderElement arrow sin dash: determinista con seed tras la descomposición', () => {
+  // Regresión: el case arrow se descompuso (cuerpo + puntas) para el dash;
+  // el orden de consumo del PRNG debe ser idéntico entre renders
+  const el = { type: 'arrow', x1: 10, y1: 10, x2: 150, y2: 90, color: '#333344', lineWidth: 2, seed: 42 };
+  const a = createCtxStub();
+  Renderer.renderElement(a, el);
+  const b = createCtxStub();
+  Renderer.renderElement(b, el);
+  assert.deepEqual(
+    a.calls.map(c => [c.name, ...c.args]),
+    b.calls.map(c => [c.name, ...c.args]),
+  );
+  assert.equal(a.callsTo('stroke').length, 3);
+  assert.equal(a.callsTo('setLineDash').length, 0, 'sin dash no se toca setLineDash');
+});
+
+test('renderElement curveArrow con dash: dash en la curva, puntas sólidas', () => {
+  const ctx = createCtxStub();
+  Renderer.renderElement(ctx, { type: 'curveArrow', x1: 0, y1: 0, cx: 50, cy: 60, x2: 100, y2: 0, color: '#333344', lineWidth: 2, dash: true, seed: 1 });
+  const dashes = ctx.callsTo('setLineDash').map(c => [...c.args[0]]);
+  assert.deepEqual(dashes, [[8, 8], []]);
+  assert.equal(ctx.callsTo('stroke').length, 3);
+});

@@ -168,16 +168,26 @@ const Renderer = (() => {
       }
 
       case 'line':
+        if (el.dash) ctx.setLineDash([4 * el.lineWidth, 4 * el.lineWidth]);
         Sketchy.line(ctx, el.x1, el.y1, el.x2, el.y2);
+        if (el.dash) ctx.setLineDash([]);
         break;
 
       case 'arrow': {
-        Sketchy.arrow(ctx, el.x1, el.y1, el.x2, el.y2);
+        // Cuerpo y puntas descompuestos (mismo orden de consumo del PRNG que
+        // Sketchy.arrow) para que el dash aplique solo al cuerpo
+        if (el.dash) ctx.setLineDash([4 * el.lineWidth, 4 * el.lineWidth]);
+        Sketchy.line(ctx, el.x1, el.y1, el.x2, el.y2);
+        if (el.dash) ctx.setLineDash([]);
+        const headLen = 10 + 2 * el.lineWidth;
+        const angle = Math.atan2(el.y2 - el.y1, el.x2 - el.x1);
+        Sketchy.arrowHead(el.x2, el.y2, angle, headLen).forEach(sg => {
+          Sketchy.line(ctx, sg.x1, sg.y1, sg.x2, sg.y2);
+        });
         // Doble punta opcional (heads === 'both'): punta también en el inicio
         if (el.heads === 'both') {
-          const headLen = 10 + 2 * el.lineWidth;
-          const angle = Math.atan2(el.y1 - el.y2, el.x1 - el.x2);
-          Sketchy.arrowHead(el.x1, el.y1, angle, headLen).forEach(sg => {
+          const backAngle = Math.atan2(el.y1 - el.y2, el.x1 - el.x2);
+          Sketchy.arrowHead(el.x1, el.y1, backAngle, headLen).forEach(sg => {
             Sketchy.line(ctx, sg.x1, sg.y1, sg.x2, sg.y2);
           });
         }
@@ -185,7 +195,9 @@ const Renderer = (() => {
       }
 
       case 'curveArrow': {
+        if (el.dash) ctx.setLineDash([4 * el.lineWidth, 4 * el.lineWidth]);
         Sketchy.curve(ctx, el.x1, el.y1, el.cx, el.cy, el.x2, el.y2);
+        if (el.dash) ctx.setLineDash([]);
         // Punta escalada con el grosor (10 + 2·lineWidth; 14px con el default)
         const headLen = 10 + 2 * el.lineWidth;
         // Punta orientada según la tangente en el extremo (control → fin)

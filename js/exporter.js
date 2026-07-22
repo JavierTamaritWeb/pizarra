@@ -90,6 +90,8 @@ const Exporter = (() => {
     const lw = _escapeXml(String(el.lineWidth));
     const s = `stroke="${color}" stroke-width="${lw}" fill="none" stroke-linecap="round"`;
     const sf = `stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="${el.fill ? color + '20' : 'none'}"`;
+    // Cuerpo con trazo discontinuo opcional (las puntas siempre usan `s`, sólidas)
+    const sBody = el.dash ? `${s} stroke-dasharray="${4 * el.lineWidth} ${4 * el.lineWidth}"` : s;
     let out = '';
 
     switch (el.type) {
@@ -109,11 +111,11 @@ const Exporter = (() => {
           break;
 
         case 'line':
-          out += `<line x1="${el.x1}" y1="${el.y1}" x2="${el.x2}" y2="${el.y2}" ${s}/>\n`;
+          out += `<line x1="${el.x1}" y1="${el.y1}" x2="${el.x2}" y2="${el.y2}" ${sBody}/>\n`;
           break;
 
         case 'arrow': {
-          out += `<line x1="${el.x1}" y1="${el.y1}" x2="${el.x2}" y2="${el.y2}" ${s}/>\n`;
+          out += `<line x1="${el.x1}" y1="${el.y1}" x2="${el.x2}" y2="${el.y2}" ${sBody}/>\n`;
           // Punta escalada con el grosor (10 + 2·lineWidth; 14 con el default)
           const hl = 10 + 2 * el.lineWidth;
           const a = Math.atan2(el.y2 - el.y1, el.x2 - el.x1);
@@ -125,7 +127,7 @@ const Exporter = (() => {
         }
 
         case 'curveArrow': {
-          out += `<path d="M${el.x1} ${el.y1} Q${el.cx} ${el.cy} ${el.x2} ${el.y2}" ${s}/>\n`;
+          out += `<path d="M${el.x1} ${el.y1} Q${el.cx} ${el.cy} ${el.x2} ${el.y2}" ${sBody}/>\n`;
           const chl = 10 + 2 * el.lineWidth;
           // Punta según la tangente en el extremo (control → fin)
           let tdx = el.x2 - el.cx, tdy = el.y2 - el.cy;
@@ -294,9 +296,14 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
     if (!ELEMENT_TYPES.includes(el.type)) return false;
     if (typeof el.color !== 'string' || !HEX_COLOR.test(el.color)) return false;
     if (!_isNum(el.lineWidth)) return false;
-    // heads (doble punta en arrow/curveArrow): opcional, whitelist estricta.
-    // undefined ≡ 'end' (retrocompatible con JSON viejo).
+    // Campos opcionales comunes: DEBEN validarse aquí, antes de los return
+    // tempranos por tipo (colocarlos más abajo los deja en zona muerta)
+    // heads (doble punta): whitelist estricta; undefined ≡ 'end'
     if (el.heads !== undefined && el.heads !== 'end' && el.heads !== 'both') return false;
+    // dash (trazo discontinuo): solo se serializa `true`
+    if (el.dash !== undefined && el.dash !== true) return false;
+    // label (etiqueta de componentes y flechas)
+    if (el.label !== undefined && typeof el.label !== 'string') return false;
     if (el.type === 'pencil' || el.type === 'eraser') {
       return Array.isArray(el.points) && el.points.length > 0 &&
              el.points.every(p => p && _isNum(p.x) && _isNum(p.y));
@@ -308,7 +315,6 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
       return _isNum(el.x1) && _isNum(el.y1) && _isNum(el.x2) && _isNum(el.y2) &&
              _isNum(el.cx) && _isNum(el.cy);
     }
-    if (el.label !== undefined && typeof el.label !== 'string') return false;
     if (el.type === 'image') {
       return _isNum(el.x) && _isNum(el.y) && _isNum(el.w) && _isNum(el.h) &&
              typeof el.src === 'string' && IMAGE_SRC.test(el.src);
