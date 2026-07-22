@@ -332,6 +332,14 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
     if (el.dash !== undefined && el.dash !== true) return false;
     // label (etiqueta de componentes y flechas)
     if (el.label !== undefined && typeof el.label !== 'string') return false;
+    // id (destino de anclaje) y anchors de conector: no se interpolan en
+    // exports, pero se validan igualmente
+    const ID_RE = /^[a-z0-9]{1,32}$/i;
+    if (el.id !== undefined && !(typeof el.id === 'string' && ID_RE.test(el.id))) return false;
+    const validAnchor = a => a === undefined ||
+      (a !== null && typeof a === 'object' && !Array.isArray(a) &&
+       typeof a.id === 'string' && ID_RE.test(a.id));
+    if (!validAnchor(el.startAnchor) || !validAnchor(el.endAnchor)) return false;
     if (el.type === 'pencil' || el.type === 'eraser') {
       return Array.isArray(el.points) && el.points.length > 0 &&
              el.points.every(p => p && _isNum(p.x) && _isNum(p.y));

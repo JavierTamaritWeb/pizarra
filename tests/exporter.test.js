@@ -645,3 +645,61 @@ test('round-trip JSON conserva cx2/cy2', async () => {
   assert.equal(back[0].cx2, 150);
   assert.equal(back[0].cy2, -80);
 });
+
+/* ============================================================
+   Conectores anclados (id + startAnchor/endAnchor)
+   ============================================================ */
+
+test('Exporter.isValidElement: id opcional string corto; rechaza malformados', () => {
+  const ctx = freshCtx();
+  assert.ok(ctx.Exporter.isValidElement({ ...elRectFill, id: 'abc123' }));
+  assert.ok(ctx.Exporter.isValidElement(elRectFill), 'sin id sigue válido');
+  assert.equal(ctx.Exporter.isValidElement({ ...elRectFill, id: 42 }), false);
+  assert.equal(ctx.Exporter.isValidElement({ ...elRectFill, id: '' }), false);
+  assert.equal(ctx.Exporter.isValidElement({ ...elRectFill, id: 'x'.repeat(33) }), false);
+  assert.equal(ctx.Exporter.isValidElement({ ...elRectFill, id: 'a b' }), false);
+  assert.equal(ctx.Exporter.isValidElement({ ...elRectFill, id: {} }), false);
+});
+
+test('Exporter.isValidElement: startAnchor/endAnchor requieren {id: string válido}', () => {
+  const ctx = freshCtx();
+  assert.ok(ctx.Exporter.isValidElement({ ...elArrow, endAnchor: { id: 'abc123' } }));
+  assert.ok(ctx.Exporter.isValidElement({ ...elCurve, startAnchor: { id: 'x1' }, endAnchor: { id: 'y2' } }));
+  const bad = [
+    { ...elArrow, endAnchor: 'abc' },
+    { ...elArrow, endAnchor: { id: 3 } },
+    { ...elArrow, endAnchor: {} },
+    { ...elArrow, endAnchor: [] },
+    { ...elArrow, startAnchor: { id: '' } },
+    { ...elArrow, startAnchor: null },
+  ];
+  for (const el of bad) {
+    assert.equal(ctx.Exporter.isValidElement(el), false, JSON.stringify(el.endAnchor || el.startAnchor));
+  }
+});
+
+test('round-trip JSON conserva id y anchors de una flecha anclada', async () => {
+  const ctx = freshCtx();
+  const card = { ...elCard, id: 'tgt1' };
+  const arrow = { ...elArrow, endAnchor: { id: 'tgt1' } };
+  ctx.Exporter.json([card, arrow]);
+  const jsonStr = lastBlob(ctx).content;
+  const p = ctx.Exporter.importJSON();
+  const input = ctx.document.created[ctx.document.created.length - 1];
+  input.onchange({ target: { files: [{ text: jsonStr }] } });
+  const back = JSON.parse(JSON.stringify(await p));
+  assert.equal(back.length, 2, 'ambos sobreviven a la validación');
+  assert.equal(back[0].id, 'tgt1');
+  assert.deepEqual(back[1].endAnchor, { id: 'tgt1' });
+});
+
+test('Exporter.svg: los anchors no alteran el markup (coordenadas materializadas)', () => {
+  const ctx = freshCtx();
+  const plain = { ...elArrow };
+  const anchored = { ...elArrow, endAnchor: { id: 'abc' } };
+  ctx.Exporter.svg([plain]);
+  const outPlain = lastBlob(ctx).content;
+  ctx.Exporter.svg([anchored]);
+  const outAnchored = lastBlob(ctx).content;
+  assert.equal(outAnchored, outPlain, 'mismo SVG con y sin anchor');
+});

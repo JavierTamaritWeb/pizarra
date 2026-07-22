@@ -40,6 +40,8 @@ The app is state-driven immediate-mode rendering: a single `state.elements` arra
 
 One element type has no sidebar button: `image` (pasted via Ctrl/Cmd+V), whose `src` must be a base64 `data:image/png|jpeg` URL — enforced by `isValidElement` to keep injection out of SVG/HTML exports. Renderer keeps an image cache; `Renderer.setImageLoadCallback` is how app.js gets repaints when async loads finish.
 
+One controlled exception to immutability discipline: `resolveAnchors()` in app.js runs at the start of `redrawNow` and materializes anchored arrow endpoints (`startAnchor`/`endAnchor` referencing an element `id`) back into the elements — always by replacing with copies, never with `saveUndo` (it's derived state: snapshots capture materialized coords and the post-undo redraw re-resolves). Element `id`s are assigned lazily only when something anchors to them.
+
 ### Adding a new element type
 
 Requires touching several files in sync: add the tool id to `TOOLS` and a sidebar entry in `TOOL_GROUPS` (config.js), a render case in `Renderer.renderElement`, creation logic in app.js `onMouseUp` (and `UI_DEFAULTS` if it's a UI component), bounds handling in `getElementBounds` (app.js) if it isn't x/y/w/h-shaped, and export cases in exporter.js for SVG and HTML (PNG/JPG reuse the Renderer automatically).

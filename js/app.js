@@ -262,16 +262,120 @@
   }
 
   /**
-   * Handles editables de una flecha seleccionada (nombre + posición).
-   * El commit de conectores añade aquí los de extremo (p1/p2).
+   * Handles editables de una flecha seleccionada (nombre + posición + kind).
+   * Los de curvatura ('ctrl') van primero para tener prioridad de click
+   * sobre los de extremo ('end') cuando se solapan.
    */
   function arrowHandles(el) {
     const handles = [];
     if (el.type === 'curveArrow') {
-      handles.push({ name: 'ctrl', x: el.cx, y: el.cy });
-      if (el.cx2 !== undefined) handles.push({ name: 'ctrl2', x: el.cx2, y: el.cy2 });
+      handles.push({ name: 'ctrl', x: el.cx, y: el.cy, kind: 'ctrl' });
+      if (el.cx2 !== undefined) handles.push({ name: 'ctrl2', x: el.cx2, y: el.cy2, kind: 'ctrl' });
+    }
+    if (el.type === 'arrow' || el.type === 'curveArrow') {
+      handles.push({ name: 'p1', x: el.x1, y: el.y1, kind: 'end' });
+      handles.push({ name: 'p2', x: el.x2, y: el.y2, kind: 'end' });
     }
     return handles;
+  }
+
+  /* ── Conectores anclados ── */
+
+  const ANCHORABLE_TYPES = [
+    TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE, TOOLS.BUTTON, TOOLS.INPUT,
+    TOOLS.IMAGE_PLACEHOLDER, TOOLS.IMAGE, TOOLS.NAV, TOOLS.CARD,
+  ];
+  const ANCHOR_THRESHOLD = 12;
+
+  function newId() {
+    let id;
+    do {
+      id = Math.random().toString(36).slice(2, 8);
+    } while (state.elements.some(el => el.id === id));
+    return id;
+  }
+
+  /** Índice del elemento anclable bajo el punto (bbox ± umbral), o -1. */
+  function findAnchorTarget(p, excludeIdx) {
+    for (let i = state.elements.length - 1; i >= 0; i--) {
+      if (i === excludeIdx) continue;
+      const el = state.elements[i];
+      if (!ANCHORABLE_TYPES.includes(el.type)) continue;
+      if (p.x >= el.x - ANCHOR_THRESHOLD && p.x <= el.x + el.w + ANCHOR_THRESHOLD &&
+          p.y >= el.y - ANCHOR_THRESHOLD && p.y <= el.y + el.h + ANCHOR_THRESHOLD) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * Punto del perímetro del bbox en la dirección centro → from (también
+   * cuando `from` cae dentro: se prolonga el rayo hasta el borde).
+   */
+  function rectEdgePoint(b, from) {
+    const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+    const dx = from.x - cx, dy = from.y - cy;
+    if (!dx && !dy) return { x: cx, y: b.y };
+    const t = Math.min(
+      dx ? (b.w / 2) / Math.abs(dx) : Infinity,
+      dy ? (b.h / 2) / Math.abs(dy) : Infinity
+    );
+    return { x: cx + dx * t, y: cy + dy * t };
+  }
+
+  /**
+   * Materializa las coordenadas de los extremos anclados (estado derivado,
+   * SIN saveUndo: los snapshots capturan lo materializado y el redraw
+   * posterior a un undo re-resuelve). Si el ancla ya no existe, se quita el
+   * anchor conservando las últimas coordenadas ("desanclar congelado").
+   * Reemplaza siempre por copias, nunca muta elementos.
+   */
+  function resolveAnchors() {
+    let byId = null;
+    for (let i = 0; i < state.elements.length; i++) {
+      const el = state.elements[i];
+      if ((el.type !== 'arrow' && el.type !== 'curveArrow') ||
+          (!el.startAnchor && !el.endAnchor)) continue;
+      if (!byId) {
+        byId = new Map();
+        state.elements.forEach(t => {
+          if (t.id && ANCHORABLE_TYPES.includes(t.type) && !byId.has(t.id)) {
+            byId.set(t.id, { x: t.x, y: t.y, w: t.w, h: t.h });
+          }
+        });
+      }
+      let m = state.elements[i];
+      const apply = (key, xKey, yKey, oxKey, oyKey) => {
+        const a = m[key];
+        if (!a) return;
+        const b = byId.get(a.id);
+        if (!b) {
+          m = { ...m };
+          delete m[key];
+          return;
+        }
+        const pt = rectEdgePoint(b, { x: m[oxKey], y: m[oyKey] });
+        if (Math.abs(pt.x - m[xKey]) > 0.5 || Math.abs(pt.y - m[yKey]) > 0.5) {
+          m = { ...m, [xKey]: pt.x, [yKey]: pt.y };
+        }
+      };
+      apply('startAnchor', 'x1', 'y1', 'x2', 'y2');
+      apply('endAnchor', 'x2', 'y2', 'x1', 'y1');
+      if (m !== state.elements[i]) state.elements[i] = m;
+    }
+  }
+
+  /** Ancla el extremo dado de una flecha recién creada si cae sobre un anclable. */
+  function attachAnchorOnCreate(el, key, p) {
+    const idx = findAnchorTarget(p);
+    if (idx < 0) return;
+    let target = state.elements[idx];
+    if (!target.id) {
+      target = { ...target, id: newId() };
+      state.elements[idx] = target;
+    }
+    el[key] = { id: target.id };
   }
 
   /**
@@ -348,6 +452,7 @@
   }
 
   function redrawNow() {
+    resolveAnchors();
     ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
@@ -364,30 +469,47 @@
     state.selection = state.selection.filter(i => state.elements[i]);
     const single = state.selection.length === 1;
     state.selection.forEach(i => {
-      Renderer.drawSelection(ctx, getElementBounds(state.elements[i]), single);
+      const el = state.elements[i];
+      // Las flechas usan handles de extremo/curvatura, no esquinas de escala
+      const isArrow = el.type === 'arrow' || el.type === 'curveArrow';
+      Renderer.drawSelection(ctx, getElementBounds(el), single && !isArrow);
     });
-    // Handles de curvatura de la flecha curva seleccionada (1 en cuadrática,
-    // 2 en cúbica) con la polilínea de control como guía
+    // Handles de flecha: curvatura (turquesa, con polilínea de control como
+    // guía) y extremos (naranja, arrastrables para mover/anclar)
     if (single) {
       const sel = state.elements[state.selection[0]];
       const handles = arrowHandles(sel);
       if (handles.length) {
+        const ctrls = handles.filter(h => h.kind === 'ctrl');
         ctx.save();
-        ctx.strokeStyle = '#4ecdc4';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([3, 3]);
-        ctx.beginPath();
-        ctx.moveTo(sel.x1, sel.y1);
-        handles.forEach(h => ctx.lineTo(h.x, h.y));
-        ctx.lineTo(sel.x2, sel.y2);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillStyle = '#4ecdc4';
+        if (ctrls.length) {
+          ctx.strokeStyle = '#4ecdc4';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([3, 3]);
+          ctx.beginPath();
+          ctx.moveTo(sel.x1, sel.y1);
+          ctrls.forEach(h => ctx.lineTo(h.x, h.y));
+          ctx.lineTo(sel.x2, sel.y2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
         handles.forEach(h => {
+          ctx.fillStyle = h.kind === 'ctrl' ? '#4ecdc4' : '#f39c12';
           ctx.beginPath();
           ctx.arc(h.x, h.y, 5, 0, Math.PI * 2);
           ctx.fill();
         });
+        ctx.restore();
+      }
+    }
+    // Feedback de anclaje: resaltar el candidato bajo el extremo arrastrado
+    if (state.resizing && state.resizing.anchorCandidate >= 0) {
+      const t = state.elements[state.resizing.anchorCandidate];
+      if (t) {
+        ctx.save();
+        ctx.strokeStyle = '#4ecdc4';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(t.x - 2, t.y - 2, t.w + 4, t.h + 4);
         ctx.restore();
       }
     }
@@ -472,6 +594,26 @@
   function resizeTo(pos, e) {
     const r = state.resizing;
     const p = (state.snapGrid && !e.altKey) ? { x: snapVal(pos.x), y: snapVal(pos.y) } : pos;
+    // Handles de extremo (p1/p2): mueven ese extremo; durante el arrastre se
+    // suelta el anclaje de ese lado (para que siga al puntero) y se registra
+    // el candidato bajo el cursor para re-anclar al soltar
+    if (r.corner === 'p1' || r.corner === 'p2') {
+      const copy = { ...r.original };
+      if (r.corner === 'p1') {
+        delete copy.startAnchor;
+        copy.x1 = p.x;
+        copy.y1 = p.y;
+      } else {
+        delete copy.endAnchor;
+        copy.x2 = p.x;
+        copy.y2 = p.y;
+      }
+      state.elements[state.selection[0]] = copy;
+      r.anchorCandidate = findAnchorTarget(p, state.selection[0]);
+      r.did = true;
+      return;
+    }
+
     // Handles de curvatura: mueven solo su punto de control
     if (r.corner === 'ctrl' || r.corner === 'ctrl2') {
       let cp = p;
@@ -723,7 +865,21 @@
   function onMouseUp(e) {
     // Fin de resize: el snapshot se capturó al agarrar el handle
     if (state.resizing) {
-      if (state.resizing.did) pushUndo(state.resizing.snapshot);
+      const r = state.resizing;
+      if (r.did) {
+        pushUndo(r.snapshot);
+        // Soltar un extremo sobre un anclable lo ancla (asignando id si falta)
+        if ((r.corner === 'p1' || r.corner === 'p2') && r.anchorCandidate >= 0) {
+          let target = state.elements[r.anchorCandidate];
+          if (!target.id) {
+            target = { ...target, id: newId() };
+            state.elements[r.anchorCandidate] = target;
+          }
+          const key = r.corner === 'p1' ? 'startAnchor' : 'endAnchor';
+          const selIdx = state.selection[0];
+          state.elements[selIdx] = { ...state.elements[selIdx], [key]: { id: target.id } };
+        }
+      }
       state.resizing = null;
       redraw();
       return;
@@ -829,6 +985,11 @@
         }
         if (state.dashed) el.dash = true;
         state.elements.push(el);
+        // Extremos sobre un elemento anclable: la flecha nace conectada
+        if (state.tool !== TOOLS.LINE) {
+          attachAnchorOnCreate(el, 'startAnchor', p1);
+          attachAnchorOnCreate(el, 'endAnchor', p2);
+        }
       }
     }
     // Geometric shapes
@@ -940,7 +1101,7 @@
     // (cuadrática → control por defecto; cúbica → S canónica)
     if (state.selection.length === 1) {
       const sel = state.elements[state.selection[0]];
-      if (sel && arrowHandles(sel).some(h => Math.hypot(pos.x - h.x, pos.y - h.y) <= HANDLE_HIT)) {
+      if (sel && arrowHandles(sel).some(h => h.kind === 'ctrl' && Math.hypot(pos.x - h.x, pos.y - h.y) <= HANDLE_HIT)) {
         saveUndo();
         if (sel.cx2 !== undefined) {
           const len = Math.hypot(sel.x2 - sel.x1, sel.y2 - sel.y1);
@@ -1087,11 +1248,29 @@
     if (!state.selection.length) return;
     saveUndo();
     const start = state.elements.length;
+    // Los clones de anclables reciben id nuevo; se mapea para re-vincular
+    const idMap = new Map();
     state.selection.forEach(i => {
-      const copy = moveElement(state.elements[i], 15, 15);
+      const src = state.elements[i];
+      const copy = moveElement(src, 15, 15);
       copy.seed = newSeed();
+      if (src.id) {
+        copy.id = newId();
+        idMap.set(src.id, copy.id);
+      }
       state.elements.push(copy);
     });
+    // Flechas clonadas: si su ancla también se clonó, apuntan al clon;
+    // si no, conservan el anchor al original
+    for (let i = start; i < state.elements.length; i++) {
+      const el = state.elements[i];
+      if (el.startAnchor || el.endAnchor) {
+        const copy = { ...el };
+        if (copy.startAnchor && idMap.has(copy.startAnchor.id)) copy.startAnchor = { id: idMap.get(copy.startAnchor.id) };
+        if (copy.endAnchor && idMap.has(copy.endAnchor.id)) copy.endAnchor = { id: idMap.get(copy.endAnchor.id) };
+        state.elements[i] = copy;
+      }
+    }
     // Los clones quedan seleccionados
     setSelection(Array.from({ length: state.elements.length - start }, (_, k) => start + k));
     redraw();
