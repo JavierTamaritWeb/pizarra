@@ -1,8 +1,17 @@
 # Changelog
 
-Los cambios notables de SketchWire se documentan en este archivo.
+Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
+
+## [1.1.1] — 2026-07-23
+
+### Cambiado
+- El proyecto pasa a presentarse como **Pizarra** en el README.
+- Se amplía la documentación con instrucciones de clonación y ejecución, un
+  flujo básico de uso, detalles del autoguardado y atajos multiplataforma.
+- La versión visible en la aplicación y la insignia del README quedan
+  sincronizadas en `1.1.1`.
 
 ## [1.1.0] — 2026-07-23
 

@@ -1,14 +1,14 @@
-# ✎ SketchWire
+# ✎ Pizarra
 
 **Wireframes y bocetos web con estética dibujada a mano — en tu navegador, sin instalar nada.**
 
-![Versión](https://img.shields.io/badge/versi%C3%B3n-1.1.0-blueviolet)
+![Versión](https://img.shields.io/badge/versi%C3%B3n-1.1.1-blueviolet)
 ![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?logo=javascript&logoColor=000)
 ![Sin dependencias](https://img.shields.io/badge/dependencias-0-brightgreen)
 ![Tests](https://img.shields.io/badge/tests-133%20%E2%9C%93-brightgreen)
 ![Licencia](https://img.shields.io/badge/licencia-MIT-blue)
 
-SketchWire es una aplicación de wireframing sobre canvas escrita en JavaScript puro: **sin build, sin bundler, sin `node_modules`**. Abre `index.html` y dibuja.
+Pizarra es una aplicación de wireframing sobre canvas escrita en JavaScript puro: **sin build, sin bundler y sin `node_modules`**. Permite crear bocetos, diagramas y prototipos rápidos directamente en el navegador.
 
 ---
 
@@ -41,17 +41,32 @@ SketchWire es una aplicación de wireframing sobre canvas escrita en JavaScript 
 | **HTML** | Página editable con componentes reales + SVG incrustado para los trazos |
 | **JSON** | Proyecto reutilizable — expórtalo e impórtalo después (con validación robusta) |
 
-## Uso
+## Inicio rápido
 
-No hay nada que instalar:
+Puedes clonar el repositorio y abrir la aplicación directamente:
 
 ```bash
-# Opción 1: abre index.html directamente en el navegador
+git clone https://github.com/JavierTamaritWeb/pizarra.git
+cd pizarra
 open index.html
-
-# Opción 2: sírvelo estáticamente
-python3 -m http.server 8000   # → http://localhost:8000
 ```
+
+También puedes servirla localmente para acceder desde `http://localhost:8000`:
+
+```bash
+python3 -m http.server 8000
+```
+
+No es necesario instalar dependencias ni ejecutar un proceso de compilación.
+
+## Cómo usar Pizarra
+
+1. Elige una herramienta en la barra lateral o usa su atajo de teclado.
+2. Dibuja sobre el lienzo; con **Mover** (`V`) puedes seleccionar, desplazar, redimensionar y duplicar elementos.
+3. Personaliza el color, grosor, relleno, cuadrícula y zoom desde el panel derecho.
+4. Exporta el resultado como PNG, JPG, SVG o HTML, o guarda el proyecto como JSON para continuar más tarde.
+
+Pizarra guarda automáticamente el lienzo en `localStorage`. Para crear una copia portátil o trabajar en otro navegador, exporta el proyecto como JSON y vuelve a importarlo cuando lo necesites.
 
 ## Atajos de teclado
 
@@ -61,14 +76,14 @@ python3 -m http.server 8000   # → http://localhost:8000
 | `R` `O` `C` | Rectángulo · Redondeado · Círculo |
 | `T` `B` `I` `M` `N` `K` | Texto · Botón · Input · Imagen · Navbar · Tarjeta |
 | `V` | Mover / seleccionar |
-| `Ctrl+Z` / `Ctrl+Y` | Deshacer / rehacer |
-| `Ctrl+D` / `Ctrl+A` | Duplicar / seleccionar todo |
+| `Ctrl/Cmd+Z` / `Ctrl+Y` o `Cmd+Shift+Z` | Deshacer / rehacer |
+| `Ctrl/Cmd+D` / `Ctrl/Cmd+A` | Duplicar / seleccionar todo |
 | `Supr` / `Esc` | Borrar selección / deseleccionar |
 | Flechas (+`Shift`) | Mover selección 1px (20px) |
 | `F` / `D` / `S` | Invertir giro · invertir dirección · curva en S |
 | `Q` | Convertir flecha curva ↔ semicírculo |
 | `+` / `−` (+`Shift`) | Ajustar curvatura — en semicírculos, el radio (fino) |
-| `Ctrl+V` | Pegar imagen del portapapeles |
+| `Ctrl/Cmd+V` | Pegar imagen del portapapeles |
 
 ## Arquitectura
 
