@@ -303,7 +303,7 @@ input[type="range"]::-moz-range-thumb {
   flex: 1;
   overflow: auto;
   display: flex;
-  padding: 24px;
+  padding: 12px;
   background: var(--bg-app);
   background-image: radial-gradient(circle at 50% 50%, #1a1d2e 0%, var(--bg-app) 70%);
 }
@@ -444,6 +444,21 @@ input[type="range"]::-moz-range-thumb {
 .panel__color-hex {
   font-size: 11px;
   color: var(--text-muted);
+}
+
+.panel__canvas-colors {
+  margin-top: 8px;
+  display: flex;
+  gap: 16px;
+}
+
+.panel__canvas-color {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
 }
 
 .panel__check {

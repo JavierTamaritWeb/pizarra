@@ -7,6 +7,9 @@
 
   /* ── State ── */
 
+  const DEFAULT_CANVAS_BG = '#ffffff';
+  const DEFAULT_GRID_COLOR = '#cdd3de';
+
   const state = {
     tool:        TOOLS.PENCIL,
     color:       '#1a1a2e',
@@ -19,6 +22,8 @@
     curveFlip:   false, // Shift durante el trazado: curva hacia el otro lado
     showGrid:    true,
     snapGrid:    false,
+    canvasBg:    DEFAULT_CANVAS_BG,
+    gridColor:   DEFAULT_GRID_COLOR,
     elements:    [],
     undoStack:   [],
     redoStack:   [],
@@ -47,6 +52,7 @@
   const ctx          = mainCanvas.getContext('2d');
   const octx         = overlayCanvas.getContext('2d');
   const wrapper      = $('canvas-wrapper');
+  const canvasArea   = document.querySelector('.canvas-area');
   const textInput    = $('text-input');
 
   /* ── Utility ── */
@@ -61,6 +67,7 @@
 
   const UNDO_LIMIT = 50;
   const AUTOSAVE_KEY = 'sketchwire.autosave';
+  const PREFS_KEY = 'sketchwire.prefs';
   const GRID_STEP = 20;
 
   function snapVal(v) {
@@ -571,6 +578,66 @@
     } catch (_) { /* autosave corrupto: se ignora */ }
   }
 
+  const HEX_RE = /^#[0-9a-fA-F]{3,8}$/;
+
+  function savePrefs() {
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify({
+        canvasBg: state.canvasBg,
+        gridColor: state.gridColor,
+      }));
+    } catch (_) { /* almacenamiento lleno o bloqueado: se ignora */ }
+  }
+
+  function restorePrefs() {
+    try {
+      const raw = localStorage.getItem(PREFS_KEY);
+      if (!raw) return;
+      const prefs = JSON.parse(raw);
+      if (!prefs || typeof prefs !== 'object') return;
+      if (HEX_RE.test(prefs.canvasBg)) state.canvasBg = prefs.canvasBg;
+      if (HEX_RE.test(prefs.gridColor)) state.gridColor = prefs.gridColor;
+    } catch (_) { /* prefs corruptas: se ignoran */ }
+  }
+
+  /* ── Zoom ── */
+
+  // true en cuanto el usuario toca el slider: a partir de ahí el ajuste
+  // automático al redimensionar la ventana deja de tocar el zoom.
+  let zoomManual = false;
+
+  function applyZoom(z) {
+    state.zoom = z;
+    $('zoom-slider').value = Math.round(z * 100);
+    $('zoom-val').textContent = Math.round(z * 100);
+    wrapper.style.transform = `scale(${state.zoom})`;
+  }
+
+  // Calcula el mayor zoom (múltiplo de 10%, entre los límites del slider)
+  // que sigue cabiendo en el área visible del lienzo, para aprovechar
+  // pantallas anchas sin que el usuario tenga que subir el zoom a mano.
+  function fitZoomToViewport() {
+    if (!canvasArea) return;
+    const rect = canvasArea.getBoundingClientRect();
+    const PAD = 24; // margen alrededor del lienzo dentro del área
+    const availW = rect.width - PAD;
+    const availH = rect.height - PAD;
+    if (availW <= 0 || availH <= 0) return;
+    let z = Math.min(availW / CANVAS_W, availH / CANVAS_H);
+    // Nunca reduce por debajo del 100% (pantallas estrechas siguen como
+    // antes, con scroll); solo agranda cuando sobra espacio.
+    z = Math.min(2, Math.max(1, z));
+    z = Math.floor(z * 10) / 10; // pasos del 10%, igual que el slider (a la baja: no desbordar)
+    applyZoom(z);
+  }
+
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    if (zoomManual) return;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(fitZoomToViewport, 150);
+  });
+
   /* ── Full redraw (coalescido vía requestAnimationFrame) ── */
 
   let redrawPending = false;
@@ -587,9 +654,9 @@
   function redrawNow() {
     resolveAnchors();
     ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = state.canvasBg;
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-    if (state.showGrid) Renderer.drawGrid(ctx, CANVAS_W, CANVAS_H);
+    if (state.showGrid) Renderer.drawGrid(ctx, CANVAS_W, CANVAS_H, state.gridColor);
     state.elements.forEach(el => {
       try {
         Renderer.renderElement(ctx, el);
@@ -1674,9 +1741,24 @@
 
     // Zoom slider
     $('zoom-slider').addEventListener('input', e => {
-      state.zoom = +e.target.value / 100;
-      $('zoom-val').textContent = e.target.value;
-      wrapper.style.transform = `scale(${state.zoom})`;
+      zoomManual = true;
+      applyZoom(+e.target.value / 100);
+    });
+
+    // Fondo del lienzo
+    $('canvas-bg-picker').value = state.canvasBg;
+    $('canvas-bg-picker').addEventListener('input', e => {
+      state.canvasBg = e.target.value;
+      savePrefs();
+      redraw();
+    });
+
+    // Color de la cuadrícula
+    $('grid-color-picker').value = state.gridColor;
+    $('grid-color-picker').addEventListener('input', e => {
+      state.gridColor = e.target.value;
+      savePrefs();
+      redraw();
     });
 
     // Checkboxes
@@ -1739,7 +1821,15 @@
       saveUndo();
       state.elements = [];
       setSelection([]);
-      try { localStorage.removeItem(AUTOSAVE_KEY); } catch (_) {}
+      // El fondo y la cuadrícula también vuelven a su color original
+      state.canvasBg = DEFAULT_CANVAS_BG;
+      state.gridColor = DEFAULT_GRID_COLOR;
+      $('canvas-bg-picker').value = DEFAULT_CANVAS_BG;
+      $('grid-color-picker').value = DEFAULT_GRID_COLOR;
+      try {
+        localStorage.removeItem(AUTOSAVE_KEY);
+        localStorage.removeItem(PREFS_KEY);
+      } catch (_) {}
       redraw();
     });
 
@@ -2027,11 +2117,13 @@
     // Repintar cuando cargue una imagen (autosave/import restauran data-URLs)
     Renderer.setImageLoadCallback(redraw);
     restoreAutosave();
+    restorePrefs();
     buildSidebar();
     buildColors();
     wireControls();
     setupModals();
     updateCursor();
+    fitZoomToViewport();
     redraw();
   }
 

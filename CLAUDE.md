@@ -53,4 +53,8 @@ Panel controls follow an Excalidraw-style dual semantic: **with a selection they
 
 ### Coordinate handling
 
-Zoom is applied as a CSS `transform: scale()` on the canvas wrapper; `getPos()` in app.js divides mouse coordinates by `state.zoom` so element coordinates are always in unscaled canvas space.
+Zoom is applied as a CSS `transform: scale()` on the canvas wrapper; `getPos()` in app.js divides mouse coordinates by `state.zoom` so element coordinates are always in unscaled canvas space. `fitZoomToViewport()` auto-picks the largest zoom (floored to a 10% step, never below 100%) that fits `.canvas-area`'s available size, run on init and on window resize; it backs off permanently once the user touches the zoom slider (`zoomManual` flag), so manual choices are never overridden.
+
+### Canvas background / grid color
+
+`state.canvasBg` and `state.gridColor` (defaults `DEFAULT_CANVAS_BG`/`DEFAULT_GRID_COLOR` in app.js) are cosmetic prefs, not part of `state.elements` — they persist to their own `localStorage` key (`sketchwire.prefs`, via `savePrefs`/`restorePrefs`) separately from the autosave, and are not undo-tracked (same treatment as `state.zoom`/`showGrid`). `Renderer.drawGrid(ctx, w, h, color)` takes a single base color and varies only `globalAlpha` for the minor vs. major grid lines, rather than two hardcoded colors. "Limpiar todo" resets both to their defaults and clears the prefs key, in addition to clearing elements.

@@ -313,8 +313,15 @@ test('drawGrid: no lanza, save/restore y una pasada menor + mayor de líneas', (
   // step*5=100: mayor → 1 vertical (x=0) + 1 horizontal (y=0). Total 10.
   assert.equal(ctx.callsTo('stroke').length, 10);
   assert.equal(ctx.callsTo('beginPath').length, 10);
-  // Dos estilos: rejilla menor y mayor
-  assert.deepEqual(ctx.callsTo('set strokeStyle').map(c => c.args[0]), ['#e0e4ea', '#cdd3de']);
+  // Un único color base (por defecto), menor y mayor se distinguen por opacidad
+  assert.deepEqual(ctx.callsTo('set strokeStyle').map(c => c.args[0]), ['#cdd3de']);
+  assert.deepEqual(ctx.callsTo('set globalAlpha').map(c => c.args[0]), [0.5, 0.9]);
+});
+
+test('drawGrid: acepta un color de cuadrícula personalizado', () => {
+  const ctx = createCtxStub();
+  Renderer.drawGrid(ctx, 100, 60, '#ff0000');
+  assert.deepEqual(ctx.callsTo('set strokeStyle').map(c => c.args[0]), ['#ff0000']);
 });
 
 test('drawSelection: strokeRect punteado ampliado 4px alrededor de bounds', () => {

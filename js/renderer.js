@@ -334,11 +334,12 @@ const Renderer = (() => {
 
   /* ── Grid ── */
 
-  function drawGrid(ctx, w, h) {
+  function drawGrid(ctx, w, h, color = '#cdd3de') {
     ctx.save();
     const step = 20;
+    ctx.strokeStyle = color;
     // Minor grid
-    ctx.strokeStyle = '#e0e4ea';
+    ctx.globalAlpha = 0.5;
     ctx.lineWidth = 0.5;
     for (let x = 0; x < w; x += step) {
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
@@ -347,7 +348,7 @@ const Renderer = (() => {
       ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
     }
     // Major grid
-    ctx.strokeStyle = '#cdd3de';
+    ctx.globalAlpha = 0.9;
     ctx.lineWidth = 0.8;
     for (let x = 0; x < w; x += step * 5) {
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();

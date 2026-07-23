@@ -20,7 +20,7 @@
       <div class="topbar__brand">
         <span class="topbar__logo-icon" aria-hidden="true">✎</span>
         <span class="topbar__logo-text">Sketch<span class="topbar__logo-accent">Wire</span></span>
-        <span class="topbar__badge">v1.2.1</span>
+        <span class="topbar__badge">v1.3.0</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost" id="btn-import" title="Importar JSON">
@@ -85,6 +85,21 @@
         <section class="panel__section">
           <h3 class="panel__title">Zoom: <span id="zoom-val">100</span>%</h3>
           <input class="panel__slider" type="range" id="zoom-slider" min="30" max="200" step="10" value="100" />
+        </section>
+
+        <!-- Lienzo -->
+        <section class="panel__section">
+          <h3 class="panel__title">Lienzo</h3>
+          <div class="panel__canvas-colors">
+            <label class="panel__canvas-color">
+              <input class="panel__color-picker" type="color" id="canvas-bg-picker" value="#ffffff" />
+              Fondo
+            </label>
+            <label class="panel__canvas-color">
+              <input class="panel__color-picker" type="color" id="grid-color-picker" value="#cdd3de" />
+              Cuadrícula
+            </label>
+          </div>
         </section>
 
         <!-- Toggles -->

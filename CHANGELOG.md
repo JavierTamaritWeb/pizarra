@@ -4,6 +4,29 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.3.0] — 2026-07-23
+
+### Añadido
+- **Colores personalizables del lienzo**: nueva sección "Lienzo" en el panel
+  derecho con selectores de color para el **fondo** y la **cuadrícula**.
+  `Renderer.drawGrid` acepta ahora un color base (antes fijo), con la línea
+  menor y la mayor distinguidas por opacidad en vez de por un segundo color
+  fijo. Las preferencias se guardan en `localStorage` y sobreviven a recargar
+  la página.
+- El botón **"Limpiar todo"** devuelve el fondo y la cuadrícula a su color
+  original (además de vaciar el lienzo), y borra la preferencia guardada.
+
+### Cambiado
+- **Lienzo más grande y aprovechamiento de pantalla**: el padding alrededor
+  del lienzo baja de 24 a 12 px, y el zoom se auto-ajusta al cargar la página
+  (y al redimensionar la ventana) al mayor valor que quepa en el espacio
+  disponible, sin bajar nunca del 100 % — en pantallas estrechas se comporta
+  igual que antes (scroll si hace falta) y en pantallas anchas crece solo.
+  Tocar el slider de zoom a mano desactiva este auto-ajuste.
+- 1 test nuevo (color de cuadrícula personalizado) y el test de `drawGrid`
+  actualizado al nuevo esquema de color único + opacidad: la suite pasa de
+  133 a 134.
+
 ## [1.2.1] — 2026-07-23
 
 ### Cambiado
