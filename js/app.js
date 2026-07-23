@@ -123,6 +123,23 @@
     return { x: el.x, y: el.y, w: el.w, h: el.h };
   }
 
+  /**
+   * ¿Cae el punto dentro del bbox combinado de la selección (± el mismo
+   * margen de 6px que usa el hit-test)? Base del arrastre en grupo.
+   */
+  function posInSelectionBounds(pos) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    state.selection.forEach(i => {
+      const b = getElementBounds(state.elements[i]);
+      minX = Math.min(minX, b.x);
+      minY = Math.min(minY, b.y);
+      maxX = Math.max(maxX, b.x + b.w);
+      maxY = Math.max(maxY, b.y + b.h);
+    });
+    return pos.x >= minX - 6 && pos.x <= maxX + 6 &&
+           pos.y >= minY - 6 && pos.y <= maxY + 6;
+  }
+
   function distToSegment(p, x1, y1, x2, y2) {
     const dx = x2 - x1, dy = y2 - y1;
     const len2 = dx * dx + dy * dy;
@@ -834,9 +851,20 @@
         }
       }
 
+      // 2. Multi-selección: arrastrar desde cualquier punto del marco
+      // combinado mueve todo el grupo, sin necesidad de acertar sobre un
+      // trazo (Shift+click conserva su semántica de toggle, más abajo)
+      if (!e.shiftKey && state.selection.length > 1 && posInSelectionBounds(pos)) {
+        state.dragLast = pos;
+        // Snapshot ANTES de que el drag mute state.elements
+        state.dragSnapshot = snapshot();
+        state.didDrag = false;
+        return;
+      }
+
       const idx = hitTest(pos);
 
-      // 2. Shift+click: toggle en la selección
+      // 3. Shift+click: toggle en la selección
       if (e.shiftKey) {
         if (idx >= 0) {
           setSelection(state.selection.includes(idx)
@@ -847,7 +875,7 @@
         return;
       }
 
-      // 3. Click sobre un elemento: seleccionar (si no lo estaba) e iniciar drag
+      // 4. Click sobre un elemento: seleccionar (si no lo estaba) e iniciar drag
       if (idx >= 0) {
         if (!state.selection.includes(idx)) setSelection([idx]);
         state.dragLast = pos;
@@ -855,7 +883,7 @@
         state.dragSnapshot = snapshot();
         state.didDrag = false;
       }
-      // 4. Click en vacío: iniciar marquee
+      // 5. Click en vacío: iniciar marquee
       else {
         setSelection([]);
         state.marquee = { x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y };

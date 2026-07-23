@@ -2,7 +2,7 @@
 
 **Crea wireframes, diagramas y bocetos con estilo dibujado a mano, directamente en tu navegador.**
 
-![Versión](https://img.shields.io/badge/versi%C3%B3n-1.2.0-blueviolet)
+![Versión](https://img.shields.io/badge/versi%C3%B3n-1.2.1-blueviolet)
 ![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?logo=javascript&logoColor=000)
 ![Sin dependencias](https://img.shields.io/badge/dependencias-0-brightgreen)
 ![Tests](https://img.shields.io/badge/tests-133%20%E2%9C%93-brightgreen)
@@ -28,7 +28,7 @@ Pizarra es una aplicación de wireframing sobre canvas escrita en JavaScript pur
 - 🏷️ **Etiquetas sobre el trazo** (doble click), desplazables a lo largo del trazo (arrastra su handle; doble click en él la re-centra), doble punta, trazo discontinuo, grosor por elemento y dirección invertible (`D`).
 
 ### Edición
-- 👆 Selección múltiple (Shift+click, marquee, `Ctrl/Cmd+A`), mover, duplicar (`Ctrl/Cmd+D`), redimensionar con handles y nudge con flechas.
+- 👆 Selección múltiple (Shift+click, marquee, `Ctrl/Cmd+A`), mover, duplicar (`Ctrl/Cmd+D`), redimensionar con handles y nudge con flechas. El grupo seleccionado se arrastra desde cualquier punto de su marco combinado, incluido el espacio vacío entre elementos.
 - 📋 **Copiar y pegar** la selección con `Ctrl/Cmd+C` / `Ctrl/Cmd+V` — también entre pestañas. Lo pegado aparece desplazado, queda seleccionado y las flechas ancladas se re-vinculan a sus clones.
 - ↩️ Undo/redo con historial de 50 pasos (`Ctrl+Z` / `Ctrl+Y` / `Cmd+Shift+Z`).
 - 🧮 Cuadrícula con ajuste opcional (Alt lo desactiva al vuelo) y zoom 30–200%.

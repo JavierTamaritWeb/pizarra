@@ -4,6 +4,17 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.2.1] — 2026-07-23
+
+### Cambiado
+- **Mover la multi-selección en grupo desde cualquier punto de su marco**:
+  con varios elementos seleccionados, el arrastre puede empezar también en
+  el espacio vacío dentro del recuadro combinado (antes había que acertar
+  sobre un trazo y, si no, la selección se perdía). Shift+click conserva el
+  toggle, el click fuera del marco sigue deseleccionando/iniciando marquee,
+  y el movimiento en grupo sigue siendo un único paso de undo con snap a
+  cuadrícula al soltar.
+
 ## [1.2.0] — 2026-07-23
 
 ### Añadido
