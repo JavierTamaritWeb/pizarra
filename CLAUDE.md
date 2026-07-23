@@ -23,7 +23,7 @@ node --test tests/exporter.test.js   # single file
 
 Tests load the global-scope scripts via `node:vm` with canvas/DOM stubs (see `tests/helpers/`). Two vm-realm gotchas: arrays/errors created inside the vm don't share host prototypes, so compare structurally (`[...arr]`, `err.name`) instead of `deepStrictEqual` against host literals or `instanceof`.
 
-`PLAN.md` holds the prioritized improvement roadmap (fases 1-3 completed, except §3.2 element-type registry, deliberately skipped as optional).
+`PLAN.md` holds the prioritized improvement roadmap (fases 1-3 completed, except §3.2 element-type registry, deliberately skipped as optional). `BUGS.md` is the regression registry: every bug fix gets a symptom/cause/fix entry there plus a **regression guard** — a test in `tests/` for code in one of the `node:vm`-loadable modules (config/sketchy/arc/renderer/exporter/templates), or documented manual repro steps if the fix lives in `app.js` (DOM-only, outside the test harness — see below). Add the entry as part of the fix, not as a follow-up.
 
 ## Architecture
 
