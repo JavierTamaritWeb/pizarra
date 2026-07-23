@@ -746,3 +746,76 @@ test('Exporter.svg: los anchors no alteran el markup (coordenadas materializadas
   const outAnchored = lastBlob(ctx).content;
   assert.equal(outAnchored, outPlain, 'mismo SVG con y sin anchor');
 });
+
+/* ────────────────────────────────────────────────────────────
+   Relleno de formas con color propio (fillColor)
+   ──────────────────────────────────────────────────────────── */
+
+test('Exporter.svg: fillColor rellena la forma con ese color en vez del tinte del trazo', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.svg([{ ...elRectFill, fillColor: '#ff8800' }]);
+  const rect = lastBlob(ctx).content.split('\n').find(l => l.startsWith('<rect x='));
+  assert.ok(rect.includes('fill="#ff8800"'), 'debe usar el color de relleno propio');
+  assert.ok(!rect.includes('#33334420'), 'no debe caer en el tinte del trazo');
+  // El invariante del tag se mantiene: exactamente un atributo fill
+  assert.equal((rect.match(/fill="/g) || []).length, 1, 'un único atributo fill');
+});
+
+test('Exporter.svg: fillColor se ignora si la forma no está rellena', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.svg([{ ...elRectNoFill, fillColor: '#ff8800' }]);
+  const rect = lastBlob(ctx).content.split('\n').find(l => l.startsWith('<rect x='));
+  assert.ok(rect.includes('fill="none"'), 'sin fill:true no se pinta relleno');
+  assert.ok(!rect.includes('#ff8800'));
+});
+
+test('Exporter.svg: circle con fillColor (va por el mismo markup compartido)', () => {
+  const ctx = freshCtx();
+  const el = { ...base, type: 'circle', x: 0, y: 0, w: 80, h: 80, fill: true, fillColor: '#00ff00' };
+  ctx.Exporter.svg([el]);
+  const out = lastBlob(ctx).content;
+  assert.match(out, /<ellipse[^>]*fill="#00ff00"/);
+});
+
+test('Exporter.html: fillColor va al background del div, escapado', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.html([{ ...elRectFill, fillColor: '#ff8800' }]);
+  const out = lastBlob(ctx).content;
+  assert.match(out, /background:#ff8800;/);
+  assert.ok(!out.includes('background:#33334420;'), 'no debe caer en el tinte');
+});
+
+test('Exporter.html: sin fillColor el div conserva el tinte del trazo (compatibilidad)', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.html([elRectFill]);
+  assert.match(lastBlob(ctx).content, /background:#33334420;/);
+});
+
+test('Exporter.isValidElement: fillColor debe ser hex; fill debe ser booleano', () => {
+  const ctx = freshCtx();
+  const v = el => ctx.Exporter.isValidElement(el);
+  assert.ok(v({ ...elRectFill, fillColor: '#ff8800' }));
+  assert.ok(v({ ...elRectFill, fillColor: '#ff8800cc' }), 'hex con alfa válido');
+  assert.ok(v(elRectFill), 'sin fillColor sigue válido');
+  assert.ok(v(elRectNoFill), 'fill:false sigue válido (se serializa así)');
+  assert.equal(v({ ...elRectFill, fillColor: 'red' }), false);
+  assert.equal(v({ ...elRectFill, fillColor: '#xyz' }), false);
+  // Defensa en profundidad: fillColor se interpola en SVG/HTML
+  assert.equal(v({ ...elRectFill, fillColor: '#fff" onload="alert(1)' }), false);
+  assert.equal(v({ ...elRectFill, fillColor: 5 }), false);
+  assert.equal(v({ ...elRectFill, fill: 'true' }), false);
+  assert.equal(v({ ...elRectFill, fill: 1 }), false);
+});
+
+test('round-trip JSON conserva fill y fillColor', async () => {
+  const ctx = freshCtx();
+  ctx.Exporter.json([{ ...elRectFill, fillColor: '#ff8800' }]);
+  const jsonStr = lastBlob(ctx).content;
+  const p = ctx.Exporter.importJSON();
+  const input = ctx.document.created[ctx.document.created.length - 1];
+  input.onchange({ target: { files: [{ text: jsonStr }] } });
+  const back = JSON.parse(JSON.stringify(await p));
+  assert.equal(back.length, 1);
+  assert.equal(back[0].fill, true);
+  assert.equal(back[0].fillColor, '#ff8800');
+});

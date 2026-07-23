@@ -308,17 +308,30 @@ input[type="range"]::-moz-range-thumb {
   background-image: radial-gradient(circle at 50% 50%, #1a1d2e 0%, var(--bg-app) 70%);
 }
 
-.canvas-area__wrapper {
-  /* margin:auto centra como flex pero deja alcanzables por scroll las
-     esquinas cuando el canvas desborda el área visible */
+/* El sizer ocupa en layout el tamaño ya escalado del lienzo (lo fija
+   applyZoom en JS). Un `transform: scale` no cambia la caja de layout, así
+   que sin él lo que desborda por la izquierda/arriba queda fuera del área
+   scrollable y es inalcanzable con el zoom alto. margin:auto lo centra
+   mientras cabe. */
+.canvas-area__sizer {
   margin: auto;
+  flex-shrink: 0;
+  transition: width 0.2s ease, height 0.2s ease;
+}
+
+.canvas-area__wrapper {
   position: relative;
+  /* Se ciñe a los canvas: sin esto se estiraría al ancho del sizer (que ya
+     está escalado) y el transform lo volvería a escalar sobre eso */
+  width: fit-content;
   border-radius: 8px;
   overflow: hidden;
   box-shadow:
     0 8px 40px rgba(0, 0, 0, 0.38),
     0 0 0 1px var(--border-main);
-  transform-origin: center center;
+  /* top left: el lienzo crece hacia la derecha/abajo desde el origen del
+     sizer, así el desbordamiento cae dentro del área scrollable */
+  transform-origin: top left;
   transition: transform 0.2s ease;
 }
 

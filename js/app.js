@@ -17,6 +17,7 @@
     fontSize:    18,
     zoom:        1,
     fillShapes:  false,
+    fillColor:   null,  // color de relleno; null = tinte translúcido del trazo
     doubleHead:  false, // nuevas flechas con punta en ambos extremos
     dashed:      false, // nuevas líneas/flechas con trazo discontinuo
     curveFlip:   false, // Shift durante el trazado: curva hacia el otro lado
@@ -52,6 +53,7 @@
   const ctx          = mainCanvas.getContext('2d');
   const octx         = overlayCanvas.getContext('2d');
   const wrapper      = $('canvas-wrapper');
+  const canvasSizer  = $('canvas-sizer');
   const canvasArea   = document.querySelector('.canvas-area');
   const textInput    = $('text-input');
 
@@ -395,6 +397,14 @@
   ];
   const ANCHOR_THRESHOLD = 12;
 
+  // Formas geométricas: las únicas que admiten relleno (los componentes UI
+  // traen el suyo propio como parte de su diseño)
+  const FILLABLE_TYPES = [TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE];
+
+  /** <input type="color"> solo acepta #rrggbb: recorta un eventual canal alfa
+      (un color importado puede venir como #rrggbbaa y lo dejaría en negro). */
+  const hex6 = c => String(c).slice(0, 7);
+
   function newId() {
     let id;
     do {
@@ -602,15 +612,28 @@
 
   /* ── Zoom ── */
 
+  // Límites del zoom: deben coincidir con min/max del #zoom-slider
+  const ZOOM_MIN = 0.3;
+  const ZOOM_MAX = 3;
+
   // true en cuanto el usuario toca el slider: a partir de ahí el ajuste
   // automático al redimensionar la ventana deja de tocar el zoom.
   let zoomManual = false;
 
   function applyZoom(z) {
-    state.zoom = z;
-    $('zoom-slider').value = Math.round(z * 100);
-    $('zoom-val').textContent = Math.round(z * 100);
+    // Se acota antes de repartirlo: slider, etiqueta y transform deben
+    // mostrar siempre el mismo valor que acaba en state.zoom
+    state.zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
+    const pct = Math.round(state.zoom * 100);
+    $('zoom-slider').value = pct;
+    $('zoom-val').textContent = pct;
     wrapper.style.transform = `scale(${state.zoom})`;
+    // El transform no cambia la caja de layout: el sizer la iguala al tamaño
+    // pintado para que todo el lienzo siga siendo alcanzable con scroll
+    if (canvasSizer) {
+      canvasSizer.style.width  = `${CANVAS_W * state.zoom}px`;
+      canvasSizer.style.height = `${CANVAS_H * state.zoom}px`;
+    }
   }
 
   // Calcula el mayor zoom (múltiplo de 10%, entre los límites del slider)
@@ -626,7 +649,7 @@
     let z = Math.min(availW / CANVAS_W, availH / CANVAS_H);
     // Nunca reduce por debajo del 100% (pantallas estrechas siguen como
     // antes, con scroll); solo agranda cuando sobra espacio.
-    z = Math.min(2, Math.max(1, z));
+    z = Math.min(ZOOM_MAX, Math.max(1, z));
     z = Math.floor(z * 10) / 10; // pasos del 10%, igual que el slider (a la baja: no desbordar)
     applyZoom(z);
   }
@@ -737,11 +760,19 @@
       if (sel.type === 'line' || sel.type === 'arrow' || sel.type === 'curveArrow') {
         $('check-dash').checked = sel.dash === true;
       }
+      if (FILLABLE_TYPES.includes(sel.type)) {
+        $('check-fill').checked = sel.fill === true;
+        // Sin fillColor propio el relleno es el tinte del trazo: se muestra
+        // ese color como punto de partida del picker
+        $('fill-color-picker').value = hex6(sel.fillColor || sel.color);
+      }
     } else if (!hasSel) {
       $('stroke-slider').value = state.lineWidth;
       $('stroke-val').textContent = String(state.lineWidth);
       $('check-double-head').checked = state.doubleHead;
       $('check-dash').checked = state.dashed;
+      $('check-fill').checked = state.fillShapes;
+      $('fill-color-picker').value = hex6(state.fillColor || state.color);
     }
     scheduleAutosave();
   }
@@ -1272,13 +1303,16 @@
     else if ([TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE].includes(state.tool)) {
       if (w > 3 && h > 3) {
         saveUndo();
-        state.elements.push({
+        const shape = {
           type: state.tool,
           x, y, w, h,
           color: state.color, lineWidth: state.lineWidth,
           fill: state.fillShapes,
           seed: newSeed(),
-        });
+        };
+        // Sin fillColor, el relleno cae en el tinte del trazo (aspecto clásico)
+        if (state.fillShapes && state.fillColor) shape.fillColor = state.fillColor;
+        state.elements.push(shape);
       }
     }
     // UI components
@@ -1762,7 +1796,46 @@
     });
 
     // Checkboxes
-    $('check-fill').addEventListener('change', e => { state.fillShapes = e.target.checked; });
+    // Rellenar formas — semántica dual: con selección rellena/vacía las formas
+    // seleccionadas (los demás tipos se ignoran); sin selección fija el default
+    // de creación.
+    $('check-fill').addEventListener('change', e => {
+      const on = e.target.checked;
+      if (state.selection.length) {
+        const shapes = state.selection.filter(i => FILLABLE_TYPES.includes(state.elements[i].type));
+        if (!shapes.length) return;
+        saveUndo();
+        // Solo alterna `fill`: el `fillColor` que ya tuviera se conserva
+        // (queda inerte mientras esté vacía), así apagar y volver a encender
+        // recupera el mismo color en vez de perderlo
+        shapes.forEach(i => {
+          state.elements[i] = { ...state.elements[i], fill: on };
+        });
+        redraw();
+      } else {
+        state.fillShapes = on;
+      }
+    });
+
+    // Color de relleno — misma semántica dual. Elegir un color implica querer
+    // relleno, así que además lo activa (el checkbox sigue siendo el "off").
+    $('fill-color-picker').addEventListener('input', e => {
+      const col = e.target.value;
+      if (state.selection.length) {
+        const shapes = state.selection.filter(i => FILLABLE_TYPES.includes(state.elements[i].type));
+        if (!shapes.length) return;
+        saveUndo();
+        shapes.forEach(i => {
+          state.elements[i] = { ...state.elements[i], fill: true, fillColor: col };
+        });
+        $('check-fill').checked = true;
+        redraw();
+      } else {
+        state.fillColor = col;
+        state.fillShapes = true;
+        $('check-fill').checked = true;
+      }
+    });
     // Doble punta — semántica dual: con selección aplica/quita heads:'both'
     // a las flechas seleccionadas (los no-flecha se ignoran); sin selección
     // fija el default para las nuevas flechas.

@@ -83,6 +83,27 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   volver exactamente a su posición previa; repetir con un solo click sin
   arrastre → no debe apilar undo.
 
+### Con zoom > 100% no se podía llegar a la parte izquierda/superior del lienzo
+- **Síntoma:** al ampliar, el lienzo crecía hacia los cuatro lados pero el
+  scroll solo alcanzaba la parte derecha/inferior: al 200 % quedaban ~960 px
+  inalcanzables por la izquierda, y al 300 % más de 2000 px. El trabajo
+  seguía ahí, pero no había forma de verlo ni de dibujar en esa zona.
+- **Causa:** `transform: scale()` no modifica la caja de layout, así que el
+  área scrollable seguía siendo la del lienzo sin escalar. Con
+  `transform-origin: center center`, lo que desbordaba por la izquierda y
+  por arriba caía fuera de esa área — y el desbordamiento en negativo nunca
+  es scrollable en CSS.
+- **Fix:** `index.html` / `css/styles.css` / `js/app.js` — se añade un
+  `.canvas-area__sizer` cuya caja de layout `applyZoom` iguala al tamaño ya
+  escalado (`CANVAS_W/H * zoom`), y el wrapper pasa a
+  `transform-origin: top left` con `width: fit-content` (sin esto se
+  estiraría al ancho del sizer y el transform lo escalaría por segunda vez).
+- **Verificación manual:** subir el zoom al 300 %, llevar el scroll a 0 → la
+  esquina superior izquierda del lienzo debe quedar visible, y el área
+  scrollable (`scrollWidth`) debe ser ≈ `1200 × zoom`. Dibujar en esa zona
+  debe producir coordenadas sin escalar (un arrastre desde la esquina da
+  x ≈ 0, no x ≈ 0 × zoom).
+
 ### El textarea de texto aparecía lejos del click con zoom ≠ 100%
 - **Síntoma:** con el zoom distinto de 100%, hacer doble click para editar
   texto abría el textarea desplazado del punto pulsado.

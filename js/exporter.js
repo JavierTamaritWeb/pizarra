@@ -112,8 +112,10 @@ const Exporter = (() => {
   function _svgElement(el) {
     const color = _escapeXml(String(el.color));
     const lw = _escapeXml(String(el.lineWidth));
+    // Relleno: color propio del elemento si lo tiene, si no el tinte del trazo
+    const fillCol = el.fillColor ? _escapeXml(String(el.fillColor)) : color + '20';
     const s = `stroke="${color}" stroke-width="${lw}" fill="none" stroke-linecap="round"`;
-    const sf = `stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="${el.fill ? color + '20' : 'none'}"`;
+    const sf = `stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="${el.fill ? fillCol : 'none'}"`;
     // Cuerpo con trazo discontinuo opcional (las puntas siempre usan `s`, sólidas)
     const sBody = el.dash ? `${s} stroke-dasharray="${4 * el.lineWidth} ${4 * el.lineWidth}"` : s;
     let out = '';
@@ -267,9 +269,12 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
       const lw = _escapeHtml(String(el.lineWidth));
       switch (el.type) {
         case 'rect':
-        case 'roundedRect':
-          out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};${el.type === 'roundedRect' ? 'border-radius:12px;' : ''}${el.fill ? `background:${color}20;` : ''}"></div>\n`;
+        case 'roundedRect': {
+          // Relleno: color propio del elemento si lo tiene, si no el tinte del trazo
+          const bg = el.fillColor ? _escapeHtml(String(el.fillColor)) : color + '20';
+          out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};${el.type === 'roundedRect' ? 'border-radius:12px;' : ''}${el.fill ? `background:${bg};` : ''}"></div>\n`;
           break;
+        }
         case 'text':
           out += `  <p style="left:${el.x}px;top:${el.y}px;color:${color};font-size:${el.fontSize}px;white-space:pre-wrap;line-height:${el.fontSize + 4}px;">${_escapeHtml(el.value)}</p>\n`;
           break;
@@ -337,6 +342,13 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
         el.heads !== 'none') return false;
     // dash (trazo discontinuo): solo se serializa `true`
     if (el.dash !== undefined && el.dash !== true) return false;
+    // fill (relleno de formas): booleano — `false` también se serializa, así
+    // que ambos valores son válidos
+    if (el.fill !== undefined && typeof el.fill !== 'boolean') return false;
+    // fillColor (color de relleno propio): se interpola en los exports
+    // SVG/HTML, así que se valida como hex igual que `color`
+    if (el.fillColor !== undefined &&
+        !(typeof el.fillColor === 'string' && HEX_COLOR.test(el.fillColor))) return false;
     // label (etiqueta de componentes y flechas)
     if (el.label !== undefined && typeof el.label !== 'string') return false;
     // labelT (posición de la etiqueta sobre el trazo): número en (0,1) abierto

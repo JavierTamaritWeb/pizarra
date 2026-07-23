@@ -20,7 +20,7 @@
       <div class="topbar__brand">
         <span class="topbar__logo-icon" aria-hidden="true">✎</span>
         <span class="topbar__logo-text">Sketch<span class="topbar__logo-accent">Wire</span></span>
-        <span class="topbar__badge">v1.3.0</span>
+        <span class="topbar__badge">v1.4.0</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost" id="btn-import" title="Importar JSON">
@@ -49,10 +49,14 @@
 
       <!-- Canvas Area -->
       <main class="canvas-area">
-        <div class="canvas-area__wrapper" id="canvas-wrapper">
-          <canvas class="canvas-area__canvas" id="main-canvas" width="1200" height="800" role="img" aria-label="Lienzo de dibujo"></canvas>
-          <canvas class="canvas-area__overlay" id="overlay-canvas" width="1200" height="800" aria-hidden="true"></canvas>
-          <textarea class="canvas-area__text-input" id="text-input" placeholder="Escribe aquí..." hidden></textarea>
+        <!-- El sizer ocupa en layout el tamaño YA escalado del lienzo, para que
+             el desbordamiento por zoom sea alcanzable con scroll -->
+        <div class="canvas-area__sizer" id="canvas-sizer">
+          <div class="canvas-area__wrapper" id="canvas-wrapper">
+            <canvas class="canvas-area__canvas" id="main-canvas" width="1200" height="800" role="img" aria-label="Lienzo de dibujo"></canvas>
+            <canvas class="canvas-area__overlay" id="overlay-canvas" width="1200" height="800" aria-hidden="true"></canvas>
+            <textarea class="canvas-area__text-input" id="text-input" placeholder="Escribe aquí..." hidden></textarea>
+          </div>
         </div>
       </main>
 
@@ -66,6 +70,20 @@
           <div class="panel__color-custom">
             <input class="panel__color-picker" type="color" id="color-picker" value="#1a1a2e" />
             <code class="panel__color-hex" id="color-hex">#1a1a2e</code>
+          </div>
+        </section>
+
+        <!-- Relleno -->
+        <section class="panel__section">
+          <h3 class="panel__title">Relleno</h3>
+          <label class="panel__check">
+            <input type="checkbox" id="check-fill" /> Rellenar formas
+          </label>
+          <div class="panel__canvas-colors">
+            <label class="panel__canvas-color">
+              <input class="panel__color-picker" type="color" id="fill-color-picker" value="#4ecdc4" />
+              Color de relleno
+            </label>
           </div>
         </section>
 
@@ -84,7 +102,7 @@
         <!-- Zoom -->
         <section class="panel__section">
           <h3 class="panel__title">Zoom: <span id="zoom-val">100</span>%</h3>
-          <input class="panel__slider" type="range" id="zoom-slider" min="30" max="200" step="10" value="100" />
+          <input class="panel__slider" type="range" id="zoom-slider" min="30" max="300" step="10" value="100" />
         </section>
 
         <!-- Lienzo -->
@@ -104,9 +122,6 @@
 
         <!-- Toggles -->
         <section class="panel__section">
-          <label class="panel__check">
-            <input type="checkbox" id="check-fill" /> Rellenar formas
-          </label>
           <label class="panel__check">
             <input type="checkbox" id="check-double-head" /> Doble punta
           </label>
@@ -141,6 +156,7 @@
           <p>Ctrl+D duplicar · Ctrl+A todo · Del borrar</p>
           <p>Shift+click o arrastre en vacío: multi-selección · arrastra el grupo desde cualquier punto de su marco</p>
           <p>Ctrl+C copia la selección · Ctrl+V la pega (también entre pestañas)</p>
+          <p>Selecciona una forma y elige "Color de relleno" para rellenarla · el checkbox la vacía sin perder el color</p>
           <p>Flechas mover (Shift: 20px)</p>
           <p>Tecla por herramienta en su tooltip</p>
           <p>Alt desactiva el ajuste a cuadrícula</p>

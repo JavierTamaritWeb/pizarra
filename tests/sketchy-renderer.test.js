@@ -183,6 +183,24 @@ test('renderElement rect con fill: fillRect previo con color + alpha "20"', () =
   assert.equal(ctx.callsTo('stroke').length, 4);
 });
 
+test('renderElement rect con fillColor: usa ese color en vez del tinte del trazo', () => {
+  const ctx = render(baseEl({ type: 'rect', x: 10, y: 10, w: 100, h: 50, fill: true, fillColor: '#ff8800' }));
+  assert.deepEqual(ctx.callsTo('set fillStyle')[0].args, ['#ff8800']);
+  assert.deepEqual(ctx.callsTo('fillRect')[0].args, [10, 10, 100, 50]);
+});
+
+test('renderElement circle/roundedRect con fillColor: mismo color propio', () => {
+  const circ = render(baseEl({ type: 'circle', x: 0, y: 0, w: 80, h: 80, fill: true, fillColor: '#00ff00' }));
+  assert.deepEqual(circ.callsTo('set fillStyle')[0].args, ['#00ff00']);
+  const round = render(baseEl({ type: 'roundedRect', x: 0, y: 0, w: 80, h: 40, fill: true, fillColor: '#00ff00' }));
+  assert.deepEqual(round.callsTo('set fillStyle')[0].args, ['#00ff00']);
+});
+
+test('renderElement con fillColor pero sin fill: no se pinta relleno', () => {
+  const ctx = render(baseEl({ type: 'rect', x: 10, y: 10, w: 100, h: 50, fill: false, fillColor: '#ff8800' }));
+  assert.equal(ctx.callsTo('fillRect').length, 0);
+});
+
 test('renderElement roundedRect: 4 arcTo (esquinas) + stroke; con fill usa ctx.roundRect', () => {
   const noFill = render(baseEl({ type: 'roundedRect', x: 0, y: 0, w: 200, h: 100, fill: false }));
   assert.equal(noFill.callsTo('arcTo').length, 4);

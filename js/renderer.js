@@ -78,6 +78,16 @@ const Renderer = (() => {
     ctx.fillText(el.label, mid.x, mid.y);
   }
 
+  /**
+   * Color de relleno de una forma: el explícito del elemento si lo tiene,
+   * y si no el tinte translúcido del trazo — que es el aspecto clásico y
+   * el de los proyectos guardados antes de que el relleno tuviera color
+   * propio, así que `fillColor` ausente nunca cambia cómo se ven.
+   */
+  function fillStyle(el) {
+    return el.fillColor || el.color + '20';
+  }
+
   /* ── UI component helpers ── */
 
   function _button(ctx, x, y, w, h, color, lw, label) {
@@ -265,7 +275,7 @@ const Renderer = (() => {
 
       case 'rect':
         if (el.fill) {
-          ctx.fillStyle = el.color + '20';
+          ctx.fillStyle = fillStyle(el);
           ctx.fillRect(el.x, el.y, el.w, el.h);
         }
         Sketchy.rect(ctx, el.x, el.y, el.w, el.h);
@@ -273,7 +283,7 @@ const Renderer = (() => {
 
       case 'roundedRect':
         if (el.fill) {
-          ctx.fillStyle = el.color + '20';
+          ctx.fillStyle = fillStyle(el);
           ctx.beginPath();
           ctx.roundRect(el.x, el.y, el.w, el.h, 12);
           ctx.fill();
@@ -287,7 +297,7 @@ const Renderer = (() => {
         const cx = el.x + el.w / 2;
         const cy = el.y + el.h / 2;
         if (el.fill) {
-          ctx.fillStyle = el.color + '20';
+          ctx.fillStyle = fillStyle(el);
           ctx.beginPath();
           ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
           ctx.fill();

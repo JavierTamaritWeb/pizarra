@@ -2,10 +2,10 @@
 
 **Crea wireframes, diagramas y bocetos con estilo dibujado a mano, directamente en tu navegador.**
 
-![Versión](https://img.shields.io/badge/versi%C3%B3n-1.3.0-blueviolet)
+![Versión](https://img.shields.io/badge/versi%C3%B3n-1.4.0-blueviolet)
 ![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?logo=javascript&logoColor=000)
 ![Sin dependencias](https://img.shields.io/badge/dependencias-0-brightgreen)
-![Tests](https://img.shields.io/badge/tests-134%20%E2%9C%93-brightgreen)
+![Tests](https://img.shields.io/badge/tests-144%20%E2%9C%93-brightgreen)
 ![Licencia](https://img.shields.io/badge/licencia-MIT-blue)
 
 Pizarra es una aplicación de wireframing sobre canvas escrita en JavaScript puro: **sin build, sin bundler y sin `node_modules`**. Permite crear bocetos, diagramas y prototipos rápidos directamente en el navegador.
@@ -16,6 +16,7 @@ Pizarra es una aplicación de wireframing sobre canvas escrita en JavaScript pur
 
 ### Dibujo
 - ✏️ **Lápiz, líneas, flechas, formas** (rectángulo, redondeado, elipse) con trazo *sketchy* de aspecto manual — determinista: cada elemento guarda su semilla y no "tiembla" entre repintados.
+- 🪣 **Relleno con color**: selecciona una forma ya dibujada y elige su color de relleno; el checkbox la vacía sin perder el color. Sin color propio se usa el tinte translúcido clásico del trazo.
 - ◠ **Semicírculos** de 180° exactos y sin puntas: el arrastre fija el diámetro (y con él el radio); después `+`/`−` o su handle ajustan el radio manteniendo la media circunferencia perfecta. `Q` convierte una flecha curva existente en semicírculo y viceversa.
 - 🧩 **Componentes UI listos**: botón, input, imagen, navbar y tarjeta, con etiquetas editables (doble click).
 - 🖼️ **Imágenes reales**: pega desde el portapapeles (`Ctrl/Cmd+V`) o arrastra archivos PNG/JPEG desde el escritorio.
@@ -31,7 +32,7 @@ Pizarra es una aplicación de wireframing sobre canvas escrita en JavaScript pur
 - 👆 Selección múltiple (Shift+click, marquee, `Ctrl/Cmd+A`), mover, duplicar (`Ctrl/Cmd+D`), redimensionar con handles y nudge con flechas. El grupo seleccionado se arrastra desde cualquier punto de su marco combinado, incluido el espacio vacío entre elementos.
 - 📋 **Copiar y pegar** la selección con `Ctrl/Cmd+C` / `Ctrl/Cmd+V` — también entre pestañas. Lo pegado aparece desplazado, queda seleccionado y las flechas ancladas se re-vinculan a sus clones.
 - ↩️ Undo/redo con historial de 50 pasos (`Ctrl+Z` / `Ctrl+Y` / `Cmd+Shift+Z`).
-- 🧮 Cuadrícula con ajuste opcional (Alt lo desactiva al vuelo) y zoom 30–200%, con auto-ajuste al espacio disponible en pantallas anchas.
+- 🧮 Cuadrícula con ajuste opcional (Alt lo desactiva al vuelo) y zoom 30–300%, con auto-ajuste al espacio disponible en pantallas anchas.
 - 🎨 **Fondo y color de cuadrícula personalizables** desde el panel, con persistencia entre sesiones; "Limpiar todo" los devuelve a su valor original.
 - 💾 **Autoguardado** en localStorage: tu trabajo sobrevive al refresco.
 
@@ -111,7 +112,7 @@ Principios de diseño:
 
 ## Tests
 
-134 tests con el runner nativo de Node — sin ninguna dependencia:
+144 tests con el runner nativo de Node — sin ninguna dependencia:
 
 ```bash
 node --test tests/                    # suite completa

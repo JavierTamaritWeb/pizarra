@@ -4,6 +4,45 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.4.0] — 2026-07-23
+
+### Añadido
+- **Rellenar formas con color**: las formas geométricas (rectángulo,
+  redondeado y círculo) admiten un color de relleno propio (`fillColor`),
+  elegible desde la nueva sección "Relleno" del panel. Hasta ahora el
+  relleno solo podía decidirse **antes** de dibujar y siempre era un tinte
+  translúcido del color del trazo; ahora se puede rellenar una forma **ya
+  creada** seleccionándola y eligiendo el color.
+- El relleno se conserva en los cinco formatos de exportación (PNG/JPG vía
+  el render, SVG, HTML y JSON) y `fillColor` se valida como hex en el
+  import, igual que `color`, por ser un valor que se interpola en los
+  exports SVG/HTML.
+
+### Cambiado
+- El **zoom llega hasta el 300 %** (antes 200 %). Los límites viven ahora en
+  `ZOOM_MIN`/`ZOOM_MAX` en app.js, que acotan `applyZoom` y el auto-ajuste,
+  en lugar de estar repetidos a mano.
+
+### Corregido
+- **Con zoom > 100 % ya se puede llegar a todo el lienzo.** El desbordamiento
+  por la izquierda y por arriba quedaba fuera del área scrollable (un
+  `transform: scale` no cambia la caja de layout), así que al 200 % había
+  ~960 px inalcanzables y al 300 % más de 2000. Ahora un `.canvas-area__sizer`
+  ocupa en layout el tamaño ya escalado y el lienzo se ancla arriba a la
+  izquierda, de modo que el scroll cubre el lienzo entero. Ver `BUGS.md`.
+- El checkbox **"Rellenar formas"** pasa a tener la semántica dual del resto
+  de controles del panel: **con selección** rellena o vacía las formas
+  seleccionadas (un único paso de undo); **sin selección** fija el default
+  de creación, como antes. Vaciar una forma conserva su color de relleno,
+  así que volver a marcarla lo recupera en vez de perderlo.
+- Elegir un color de relleno activa el relleno automáticamente (el checkbox
+  sigue siendo la forma de quitarlo).
+- **Compatibilidad**: una forma sin `fillColor` se sigue pintando con el
+  tinte translúcido del trazo, así que los proyectos guardados antes de esta
+  versión se ven exactamente igual.
+- 9 tests nuevos (render, export SVG/HTML, validación y round-trip JSON del
+  relleno con color): la suite pasa de 134 a 144.
+
 ## [1.3.0] — 2026-07-23
 
 ### Añadido
