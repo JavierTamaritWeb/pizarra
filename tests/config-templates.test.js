@@ -18,18 +18,18 @@ test('config.js — TOOLS', async t => {
     assert.equal(Object.isFrozen(ctx.TOOLS), true);
   });
 
-  await t.test('TOOLS tiene exactamente los 17 ids esperados', () => {
+  await t.test('TOOLS tiene exactamente los 18 ids esperados', () => {
     const expected = [
       'pencil', 'line', 'rect', 'roundedRect', 'circle', 'arrow',
       'curveArrow', 'arc', 'text', 'eraser', 'select', 'imagePlaceholder',
-      'button', 'input', 'nav', 'card', 'image',
+      'button', 'input', 'nav', 'card', 'image', 'emoji',
     ];
     const values = Object.values(ctx.TOOLS);
-    assert.equal(values.length, 17);
+    assert.equal(values.length, 18);
     assert.deepEqual([...values].sort(), [...expected].sort());
-    // Las claves también son 17 y únicas
-    assert.equal(Object.keys(ctx.TOOLS).length, 17);
-    assert.equal(new Set(values).size, 17);
+    // Las claves también son 18 y únicas
+    assert.equal(Object.keys(ctx.TOOLS).length, 18);
+    assert.equal(new Set(values).size, 18);
   });
 });
 
@@ -162,4 +162,47 @@ test('templates.js — get() con nombres heredados de Object.prototype devuelve 
   assert.equal(ctx.Templates.get('toString').length, 0);
   assert.equal(ctx.Templates.get('constructor').length, 0);
   assert.equal(ctx.Templates.get('hasOwnProperty').length, 0);
+});
+
+/* ────────────────────────────────────────────────────────────
+   Catálogo de emoji
+   ──────────────────────────────────────────────────────────── */
+
+test('config.js — EMOJI_GROUPS: grupos con label y emojis no vacíos', () => {
+  const ctx = load('js/config.js');
+  assert.ok(Array.isArray(ctx.EMOJI_GROUPS));
+  assert.ok(ctx.EMOJI_GROUPS.length > 0);
+  for (const g of ctx.EMOJI_GROUPS) {
+    assert.equal(typeof g.label, 'string');
+    assert.ok(g.label.length > 0);
+    assert.ok(Array.isArray(g.emojis));
+    assert.ok(g.emojis.length > 0, `el grupo "${g.label}" no tiene emojis`);
+    for (const em of g.emojis) {
+      assert.equal(typeof em, 'string');
+      assert.ok(em.length > 0);
+    }
+  }
+});
+
+test('config.js — EMOJI_GROUPS: sin emojis repetidos entre grupos', () => {
+  const ctx = load('js/config.js');
+  const all = ctx.EMOJI_GROUPS.flatMap(g => g.emojis);
+  assert.equal(new Set(all).size, all.length, 'hay emojis duplicados en el catálogo');
+});
+
+test('config.js — EMOJI_MIN_SIZE es un número positivo', () => {
+  const ctx = load('js/config.js');
+  assert.equal(typeof ctx.EMOJI_MIN_SIZE, 'number');
+  assert.ok(ctx.EMOJI_MIN_SIZE > 0);
+});
+
+test('config.js — la herramienta Emoji existe en TOOL_GROUPS con atajo propio', () => {
+  const ctx = load('js/config.js');
+  const all = ctx.TOOL_GROUPS.flatMap(g => g.tools);
+  const emojiTool = all.find(t => t.id === ctx.TOOLS.EMOJI);
+  assert.ok(emojiTool, 'falta la entrada de la herramienta Emoji en el sidebar');
+  assert.equal(typeof emojiTool.key, 'string');
+  // El atajo no puede chocar con el de otra herramienta
+  const keys = all.filter(t => t.key).map(t => t.key);
+  assert.equal(new Set(keys).size, keys.length, 'hay atajos de herramienta duplicados');
 });

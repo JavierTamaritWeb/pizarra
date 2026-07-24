@@ -4,6 +4,82 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.5.0] — 2026-07-23
+
+### Cambiado
+- **La aplicación pasa a llamarse Pizarra también en la interfaz**: el
+  wordmark de la barra superior y el `<title>` de la pestaña decían todavía
+  "SketchWire", mientras que el README ya usaba Pizarra desde la 1.1.1.
+- Las claves de `localStorage` (`sketchwire.autosave`, `sketchwire.prefs`) y
+  el marcador del portapapeles (`sketchwire/elements`) **conservan el nombre
+  antiguo a propósito**: renombrarlas dejaría huérfanos el lienzo y las
+  preferencias ya guardados de cada usuario. Queda anotado en el código y en
+  `CLAUDE.md`.
+
+### Cambiado
+- **"Limpiar todo" devuelve también el zoom al 100 %** (además de vaciar el
+  lienzo y restaurar los colores). El 100 % se mantiene aunque después se
+  redimensione la ventana: la limpieza cuenta como una elección explícita de
+  zoom, así que el auto-ajuste no vuelve a agrandarlo por su cuenta.
+
+### Corregido
+- **La herramienta Texto no creaba nada.** Al hacer click en el lienzo, el
+  editor se abría y se cerraba en el mismo instante (el `focus()` síncrono se
+  perdía por el cambio de foco por defecto del `pointerdown`, y el `blur`
+  disparaba el commit en vacío), así que era imposible escribir texto nuevo;
+  editar un texto existente con doble click sí funcionaba y ocultaba el
+  problema. Ver `BUGS.md`.
+- **Correcciones de una auditoría de errores** (detalladas en `BUGS.md`):
+  - Colocar un texto y hacer click para poner otro **ya no descarta el
+    primero** ni deja el editor nuevo cerrado.
+  - Tras usar un control del panel (trazo, zoom, color, checkbox), los atajos
+    y `Ctrl+Z`/`C`/`V` **vuelven a funcionar** sin tener que hacer click en el
+    lienzo: el control suelta el foco al terminar de ajustarlo.
+  - Con un **modal abierto**, las teclas de herramienta, `Supr` y los atajos
+    ya no tocan el lienzo de detrás.
+  - Los botones **"Duplicar/Eliminar selección"** vuelven a ocultarse cuando
+    no hay selección (una regla CSS los mostraba siempre).
+  - En ventanas **≤1100px** el panel derecho ya no desaparece: pasa a ser un
+    **cajón deslizable** (botón `⚙ Panel`), así color/trazo/zoom/relleno
+    siguen accesibles.
+  - Anclar **los dos extremos de una flecha al mismo elemento** ya no la
+    colapsa a longitud cero.
+  - **Importar JSON** limpia la selección; el **nudge con la tecla mantenida**
+    es un único paso de undo; **soltar un archivo fuera del lienzo** ya no
+    saca de la app; y el validador de import rechaza los pseudo-tipos
+    `arc`/`emoji`.
+  - **Gestos de puntero robustos**: `pointercancel` cierra cualquier gesto a
+    medias (resize/marquee incluidos), un segundo dedo en táctil se ignora en
+    vez de corromper el trazo, y los atajos de teclado se ignoran mientras
+    hay un gesto en curso (borrar/deshacer a mitad de un resize ya no corrompe
+    el estado).
+  - Confirmar una **edición de texto sin cambios** ya no consume un paso de
+    undo ni vacía el redo, y **hacer click en el padding de un modal** ya no
+    lo cierra (solo el click fuera del cuadro).
+
+### Añadido
+- **Pestaña de Ayuda**: nuevo botón `❔ Ayuda` en la barra superior (y tecla
+  `?`) que abre un panel con todos los atajos y trucos, agrupados por tema
+  (general, selección y portapapeles, formas y relleno, emoji, flechas y
+  curvas, semicírculos) y con las teclas resaltadas. Sustituye a la lista
+  apretada del pie del panel derecho, que quedaba recortada y era ilegible;
+  ahí queda solo un recordatorio de que `?` abre la ayuda.
+- **Insertar emoji**: nueva herramienta `🙂 Emoji` (tecla `J`) en el grupo UI.
+  Al elegirla se abre un catálogo de 60 emoji agrupados en cinco categorías
+  (caras, estado, flechas, objetos y datos); tras escoger uno, cada click en
+  el lienzo lo estampa centrado en el punto pulsado. Volver a pulsar la
+  herramienta permite cambiar de emoji.
+- El emoji se inserta como un elemento **`text` normal** (su `value` es el
+  carácter), así que selección, movimiento, redimensionado, duplicado,
+  undo, autoguardado y los cinco formatos de exportación funcionan sin
+  código específico. También puede editarse con doble click como cualquier
+  texto, lo que permite escribir cualquier emoji fuera del catálogo.
+- Se inserta al tamaño del texto con un mínimo de 32 px (`EMOJI_MIN_SIZE`)
+  para que se lea como icono; el slider "Texto" lo controla por encima de
+  ese mínimo.
+- 8 tests nuevos (catálogo sin duplicados, atajos de herramienta únicos,
+  validación y export SVG/HTML/JSON del emoji): la suite pasa de 144 a 152.
+
 ## [1.4.0] — 2026-07-23
 
 ### Añadido

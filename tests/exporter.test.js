@@ -819,3 +819,60 @@ test('round-trip JSON conserva fill y fillColor', async () => {
   assert.equal(back[0].fill, true);
   assert.equal(back[0].fillColor, '#ff8800');
 });
+
+/* ────────────────────────────────────────────────────────────
+   Emoji (se insertan como elementos `text`)
+   ──────────────────────────────────────────────────────────── */
+
+const elEmoji = { ...base, type: 'text', value: '🚀', fontSize: 32, x: 40, y: 40 };
+
+test('Exporter.isValidElement: un emoji es un text válido', () => {
+  const ctx = freshCtx();
+  assert.ok(ctx.Exporter.isValidElement(elEmoji));
+  // Emoji compuesto (ZWJ) y con variation selector
+  assert.ok(ctx.Exporter.isValidElement({ ...elEmoji, value: '👩‍💻' }));
+  assert.ok(ctx.Exporter.isValidElement({ ...elEmoji, value: '⚠️' }));
+});
+
+test('Exporter.svg: el emoji va en el <text> sin escaparse de más', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.svg([elEmoji]);
+  const out = lastBlob(ctx).content;
+  assert.ok(out.includes('🚀'), 'el emoji debe aparecer literal en el SVG');
+  assert.match(out, /<text[^>]*font-size="32"/);
+});
+
+test('Exporter.html: el emoji va en el <p>', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.html([elEmoji]);
+  assert.ok(lastBlob(ctx).content.includes('🚀'));
+});
+
+test('round-trip JSON conserva el emoji y su tamaño', async () => {
+  const ctx = freshCtx();
+  ctx.Exporter.json([elEmoji]);
+  const jsonStr = lastBlob(ctx).content;
+  const p = ctx.Exporter.importJSON();
+  const input = ctx.document.created[ctx.document.created.length - 1];
+  input.onchange({ target: { files: [{ text: jsonStr }] } });
+  const back = JSON.parse(JSON.stringify(await p));
+  assert.equal(back.length, 1);
+  assert.equal(back[0].value, '🚀');
+  assert.equal(back[0].fontSize, 32);
+});
+
+/* ────────────────────────────────────────────────────────────
+   isValidElement: 'arc' y 'emoji' son ids de herramienta, no tipos
+   ──────────────────────────────────────────────────────────── */
+
+test("Exporter.isValidElement: rechaza type:'arc' y type:'emoji' (herramientas de solo creación)", () => {
+  const ctx = freshCtx();
+  const v = el => ctx.Exporter.isValidElement(el);
+  // Con x/y/w/h numéricos pasarían el resto de la validación; deben caer por type
+  assert.equal(v({ ...base, type: 'arc', x: 0, y: 0, w: 10, h: 10 }), false);
+  assert.equal(v({ ...base, type: 'emoji', x: 0, y: 0, w: 10, h: 10 }), false);
+  // 'select' ya se rechazaba; se mantiene
+  assert.equal(v({ ...base, type: 'select', x: 0, y: 0, w: 10, h: 10 }), false);
+  // Un emoji real es un 'text', que sí es válido (regresión: no romper eso)
+  assert.ok(v({ ...base, type: 'text', value: '🚀', fontSize: 32, x: 0, y: 0 }));
+});

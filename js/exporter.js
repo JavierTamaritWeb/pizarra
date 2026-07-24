@@ -318,7 +318,13 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
   // Solo data-URLs base64 de PNG/JPEG: evita javascript:/http: inyectados
   // por un JSON manipulado en los exports SVG/HTML
   const IMAGE_SRC = /^data:image\/(png|jpeg);base64,[a-z0-9+/=]+$/i;
-  const ELEMENT_TYPES = Object.values(TOOLS).filter(t => t !== TOOLS.SELECT);
+  // TOOLS.SELECT, ARC y EMOJI son ids de herramienta que NO son tipos de
+  // elemento: SELECT no crea nada; ARC crea un `curveArrow` y EMOJI un `text`.
+  // Sin excluirlos, un JSON importado con type:'arc'/'emoji' pasaría la
+  // validación y se colaría un elemento fantasma (el renderer no tiene caso
+  // para ellos: invisible pero seleccionable).
+  const CREATION_ONLY_TOOLS = [TOOLS.SELECT, TOOLS.ARC, TOOLS.EMOJI];
+  const ELEMENT_TYPES = Object.values(TOOLS).filter(t => !CREATION_ONLY_TOOLS.includes(t));
 
   function _isNum(v) {
     return typeof v === 'number' && isFinite(v);

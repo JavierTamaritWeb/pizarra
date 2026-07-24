@@ -12,6 +12,7 @@ const TOOLS = Object.freeze({
   CURVE_ARROW:      'curveArrow',
   ARC:              'arc', // herramienta de creación: produce curveArrow con arc:true
   TEXT:             'text',
+  EMOJI:            'emoji', // herramienta de creación: produce elementos text
   ERASER:           'eraser',
   SELECT:           'select',
   IMAGE_PLACEHOLDER:'imagePlaceholder',
@@ -46,6 +47,7 @@ const TOOL_GROUPS = [
     label: 'UI',
     tools: [
       { id: TOOLS.TEXT,              icon: 'T',  name: 'Texto',  key: 't' },
+      { id: TOOLS.EMOJI,            icon: '🙂', name: 'Emoji',  key: 'j' },
       { id: TOOLS.BUTTON,           icon: '🔘', name: 'Botón',  key: 'b' },
       { id: TOOLS.INPUT,            icon: '▭',  name: 'Input',  key: 'i' },
       { id: TOOLS.IMAGE_PLACEHOLDER,icon: '🖼️', name: 'Imagen', key: 'm' },
@@ -69,8 +71,39 @@ const COLORS = [
   '#ecf0f1', '#ffffff',
 ];
 
+/**
+ * Catálogo del selector de emoji, agrupado por categoría. Un emoji insertado
+ * es un elemento `text` normal (su `value` es el carácter), así que render,
+ * exportación, selección y undo funcionan sin código específico.
+ */
+const EMOJI_GROUPS = [
+  {
+    label: 'Caras',
+    emojis: ['🙂', '😀', '😍', '🤔', '😅', '😎', '😴', '😡', '😱', '🤯', '🥳', '🤝'],
+  },
+  {
+    label: 'Estado',
+    emojis: ['✅', '❌', '⚠️', '❓', '❗', '⭐', '🔥', '💡', '🎯', '🚀', '🏆', '🔒'],
+  },
+  {
+    label: 'Flechas',
+    emojis: ['⬆️', '⬇️', '⬅️', '➡️', '↔️', '↕️', '🔄', '🔙', '▶️', '⏸️', '⏹️', '🔃'],
+  },
+  {
+    label: 'Objetos',
+    emojis: ['📱', '💻', '🖥️', '⌨️', '🖱️', '📷', '🔍', '📎', '📌', '📁', '📄', '🗑️'],
+  },
+  {
+    label: 'Datos',
+    emojis: ['📊', '📈', '📉', '💰', '🛒', '👤', '👥', '📧', '🔔', '⚙️', '🕐', '📅'],
+  },
+];
+
 const CANVAS_W = 1200;
 const CANVAS_H = 800;
+
+/** Tamaño mínimo al insertar un emoji, para que se lea como icono */
+const EMOJI_MIN_SIZE = 32;
 
 const SKETCHY_FONT = "'Architects Daughter', 'Segoe Print', 'Comic Neue', cursive";
 

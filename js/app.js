@@ -18,6 +18,7 @@
     zoom:        1,
     fillShapes:  false,
     fillColor:   null,  // color de relleno; null = tinte translúcido del trazo
+    pendingEmoji: EMOJI_GROUPS[0].emojis[0], // el que se estampa con la herramienta Emoji
     doubleHead:  false, // nuevas flechas con punta en ambos extremos
     dashed:      false, // nuevas líneas/flechas con trazo discontinuo
     curveFlip:   false, // Shift durante el trazado: curva hacia el otro lado
@@ -68,6 +69,8 @@
   }
 
   const UNDO_LIMIT = 50;
+  // "sketchwire" es el nombre antiguo de la app (hoy Pizarra): NO renombrar
+  // estas claves, dejarían huérfanos el lienzo y las preferencias ya guardados
   const AUTOSAVE_KEY = 'sketchwire.autosave';
   const PREFS_KEY = 'sketchwire.prefs';
   const GRID_STEP = 20;
@@ -457,6 +460,9 @@
       const el = state.elements[i];
       if ((el.type !== 'arrow' && el.type !== 'curveArrow') ||
           (!el.startAnchor && !el.endAnchor)) continue;
+      // Defensa ante un JSON importado con ambos extremos al mismo elemento:
+      // resolver los dos los colapsaría; se deja tal cual (la UI ya no lo crea).
+      if (el.startAnchor && el.endAnchor && el.startAnchor.id === el.endAnchor.id) continue;
       if (!byId) {
         byId = new Map();
         state.elements.forEach(t => {
@@ -496,6 +502,10 @@
     const idx = findAnchorTarget(p);
     if (idx < 0) return;
     let target = state.elements[idx];
+    // No anclar los dos extremos al mismo elemento (colapsaría la flecha)
+    const otherKey = key === 'startAnchor' ? 'endAnchor' : 'startAnchor';
+    const other = el[otherKey];
+    if (other && target.id && other.id === target.id) return;
     if (!target.id) {
       target = { ...target, id: newId() };
       state.elements[idx] = target;
@@ -992,7 +1002,22 @@
 
     // TEXT tool
     if (state.tool === TOOLS.TEXT) {
-      showTextInput(pos);
+      // Si ya hay un editor abierto, su blur (que se dispara DESPUÉS de este
+      // handler) debe confirmar primero el texto anterior con su valor intacto;
+      // abrir el nuevo aquí lo reiniciaría a '' y el blur lo perdería. Se
+      // aplaza la apertura al siguiente tick, ya con el anterior confirmado.
+      if (!textInput.hidden) {
+        const p = pos;
+        setTimeout(() => showTextInput(p), 0);
+      } else {
+        showTextInput(pos);
+      }
+      return;
+    }
+
+    // EMOJI tool: estampa el emoji elegido como elemento `text`
+    if (state.tool === TOOLS.EMOJI) {
+      placeEmoji(pos);
       return;
     }
 
@@ -1165,14 +1190,21 @@
         pushUndo(r.snapshot);
         // Soltar un extremo sobre un anclable lo ancla (asignando id si falta)
         if ((r.corner === 'p1' || r.corner === 'p2') && r.anchorCandidate >= 0) {
-          let target = state.elements[r.anchorCandidate];
-          if (!target.id) {
-            target = { ...target, id: newId() };
-            state.elements[r.anchorCandidate] = target;
-          }
           const key = r.corner === 'p1' ? 'startAnchor' : 'endAnchor';
+          const otherKey = key === 'startAnchor' ? 'endAnchor' : 'startAnchor';
           const selIdx = state.selection[0];
-          state.elements[selIdx] = { ...state.elements[selIdx], [key]: { id: target.id } };
+          const other = state.elements[selIdx][otherKey];
+          let target = state.elements[r.anchorCandidate];
+          // No anclar los DOS extremos al mismo elemento: resolveAnchors los
+          // proyectaría uno hacia el otro sobre el mismo borde y la flecha
+          // colapsaría a longitud ~0. Si colisiona, este extremo queda libre.
+          if (!(other && target.id && other.id === target.id)) {
+            if (!target.id) {
+              target = { ...target, id: newId() };
+              state.elements[r.anchorCandidate] = target;
+            }
+            state.elements[selIdx] = { ...state.elements[selIdx], [key]: { id: target.id } };
+          }
         }
       }
       state.resizing = null;
@@ -1343,8 +1375,15 @@
     textInput.style.top      = pos.y + 'px';
     textInput.style.fontSize = fontSize + 'px';
     textInput.value  = initial;
-    textInput.focus();
-    textInput.select();
+    // El foco se aplaza un tick: cuando esto se llama desde el pointerdown del
+    // lienzo, la acción por defecto del evento mueve el foco al body JUSTO
+    // después de este handler; enfocar aquí provocaría un blur inmediato ->
+    // commitText -> textarea cerrado antes de poder escribir nada.
+    setTimeout(() => {
+      if (textInput.hidden) return;
+      textInput.focus();
+      textInput.select();
+    }, 0);
   }
 
   function commitText() {
@@ -1358,19 +1397,27 @@
     if (editing !== null) {
       const el = state.elements[editing];
       if (!el) return;
-      saveUndo();
+      // Solo apila undo si el valor cambió de verdad: confirmar una edición sin
+      // tocar nada no debe consumir un paso de historial ni vaciar el redoStack.
       if (el.type === 'text') {
         if (!val) {
-          // Texto vaciado = borrado
-          state.elements.splice(editing, 1);
+          if (el.value === '') return; // ya vacío: nada que borrar
+          saveUndo();
+          state.elements.splice(editing, 1); // texto vaciado = borrado
           setSelection([]);
-        } else {
+        } else if (val !== el.value) {
+          saveUndo();
           state.elements[editing] = { ...el, value: val };
+        } else {
+          return; // sin cambios
         }
       } else {
+        const newLabel = val || undefined; // vacío: vuelve a la etiqueta por defecto
+        if (newLabel === el.label) return; // sin cambios
+        saveUndo();
         const copy = { ...el };
         if (val) copy.label = val;
-        else delete copy.label; // vacío: vuelve a la etiqueta por defecto
+        else delete copy.label;
         state.elements[editing] = copy;
       }
       redraw();
@@ -1389,6 +1436,34 @@
       value: val,
       color: state.color,
       fontSize: state.fontSize,
+      lineWidth: state.lineWidth,
+    });
+    redraw();
+  }
+
+  /**
+   * Estampa el emoji elegido en `pos` como un elemento `text` normal: su
+   * `value` es el carácter, así que render, exportación (los cinco formatos),
+   * selección, undo y round-trip JSON funcionan sin código específico.
+   */
+  function placeEmoji(pos) {
+    const emoji = state.pendingEmoji;
+    if (!emoji) return;
+    const fontSize = Math.max(state.fontSize, EMOJI_MIN_SIZE);
+    // El render de `text` ancla en la esquina superior izquierda; se descuenta
+    // media caja para que el emoji quede centrado en el punto pulsado
+    ctx.save();
+    ctx.font = `${fontSize}px ${SKETCHY_FONT}`;
+    const w = ctx.measureText(emoji).width;
+    ctx.restore();
+    saveUndo();
+    state.elements.push({
+      type: 'text',
+      x: pos.x - w / 2,
+      y: pos.y - fontSize / 2,
+      value: emoji,
+      color: state.color,
+      fontSize,
       lineWidth: state.lineWidth,
     });
     redraw();
@@ -1503,7 +1578,9 @@
   /* ── Copiar / pegar la selección (Ctrl/Cmd+C · Ctrl/Cmd+V) ── */
 
   // Marcador del payload propio en el portapapeles del sistema: permite
-  // pegar entre pestañas/recargas y convivir con el pegado de imágenes
+  // pegar entre pestañas/recargas y convivir con el pegado de imágenes.
+  // Conserva el nombre antiguo de la app a propósito (ver AUTOSAVE_KEY):
+  // renombrarlo rompería el pegado desde una pestaña ya abierta.
   const ELEMENTS_CLIPBOARD = 'sketchwire/elements';
 
   document.addEventListener('copy', e => {
@@ -1584,6 +1661,13 @@
     files.forEach((f, i) => addImageFile(f, { x: pos.x + i * 24, y: pos.y + i * 24 }));
   });
 
+  // Soltar un archivo FUERA del lienzo (panel, barra, huecos) haría que el
+  // navegador lo abriera y saliera de la app, perdiendo el trabajo en curso.
+  // Se cancela el comportamiento por defecto en toda la ventana; el drop sobre
+  // el lienzo sigue procesándose por su propio handler de arriba.
+  window.addEventListener('dragover', e => e.preventDefault());
+  window.addEventListener('drop', e => e.preventDefault());
+
   /* ── Canvas cursor ── */
 
   function updateCursor() {
@@ -1598,6 +1682,9 @@
     updateToolbarActive();
     updateCursor();
     redraw();
+    // Elegir la herramienta Emoji abre el catálogo; tras escoger uno, cada
+    // click en el lienzo lo estampa (volver a pulsarla permite cambiarlo)
+    if (id === TOOLS.EMOJI) $('modal-emoji').showModal();
   }
 
   function deleteSelection() {
@@ -1721,6 +1808,17 @@
   /* ── Panel controls wiring ── */
 
   function wireControls() {
+    // Los controles del panel (slider/checkbox/color) retienen el foco tras
+    // usarlos, y el handler global de teclado ignora los eventos cuyo target
+    // es un <input>: eso dejaba muertos TODOS los atajos (Ctrl+Z/C/V, teclas
+    // de herramienta) hasta hacer click en el lienzo. Al terminar de ajustar
+    // un control (change = release del slider / toggle / cierre del picker) se
+    // suelta el foco y los atajos vuelven a funcionar. Se registra en la fase
+    // de burbujeo (el handler propio del control ya corrió antes).
+    document.querySelector('.panel').addEventListener('change', e => {
+      if (e.target.matches('input')) e.target.blur();
+    });
+
     // Color picker
     $('color-picker').addEventListener('input', e => setColor(e.target.value));
 
@@ -1899,6 +1997,11 @@
       state.gridColor = DEFAULT_GRID_COLOR;
       $('canvas-bg-picker').value = DEFAULT_CANVAS_BG;
       $('grid-color-picker').value = DEFAULT_GRID_COLOR;
+      // El zoom vuelve al 100%. Cuenta como elección explícita del usuario
+      // (zoomManual), para que el auto-ajuste no lo agrande al siguiente
+      // redimensionado de la ventana y el 100% se mantenga.
+      zoomManual = true;
+      applyZoom(1);
       try {
         localStorage.removeItem(AUTOSAVE_KEY);
         localStorage.removeItem(PREFS_KEY);
@@ -1916,6 +2019,9 @@
       if (els) {
         saveUndo();
         state.elements = withSeeds(els);
+        // Los índices de selección previos apuntarían a elementos importados
+        // arbitrarios; se limpia como al cargar una plantilla.
+        setSelection([]);
         redraw();
       }
     });
@@ -1956,7 +2062,27 @@
     const tag = e.target.tagName;
     if (e.target === textInput || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
+    // Ignorar atajos mientras hay un gesto de puntero en curso (dibujo, resize,
+    // arrastre o marquee): borrar/deshacer/cambiar de herramienta a media
+    // interacción dejaría índices y flags a medias (p.ej. escribir en
+    // state.elements[undefined] al redimensionar tras un Supr).
+    if (state.isDrawing || state.resizing || state.dragLast || state.marquee) return;
+
     const k = e.key.toLowerCase();
+
+    // Ayuda: '?' abre el modal de atajos (y vuelve a cerrarlo)
+    if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      const help = $('modal-help');
+      if (help.open) help.close(); else help.showModal();
+      return;
+    }
+
+    // Con un modal <dialog> abierto (export, plantillas, emoji, ayuda) ningún
+    // otro atajo debe tocar el lienzo de detrás: el keydown burbujea hasta
+    // document aunque el foco esté atrapado en el diálogo. Escape lo cierra de
+    // forma nativa. (El '?' de arriba sí sigue funcionando para cerrar la ayuda.)
+    if (document.querySelector('dialog[open]')) return;
 
     // Undo / Redo (Cmd+Shift+Z es el redo estándar en macOS)
     if ((e.ctrlKey || e.metaKey) && k === 'z') {
@@ -1992,7 +2118,10 @@
     if (NUDGE[e.key] && state.selection.length) {
       e.preventDefault();
       const f = e.shiftKey ? GRID_STEP : 1;
-      saveUndo();
+      // Solo la primera pulsación apila undo: mantener la tecla (auto-repeat)
+      // extiende el mismo paso, en vez de apilar uno por repetición y expulsar
+      // todo el historial anterior (el stack está limitado a 50).
+      if (!e.repeat) saveUndo();
       state.selection.forEach(i => {
         state.elements[i] = moveElement(state.elements[i], NUDGE[e.key][0] * f, NUDGE[e.key][1] * f);
       });
@@ -2138,12 +2267,30 @@
   /* ── Modals ── */
 
   function setupModals() {
-    // <dialog> nativo: showModal() da foco, trampa de Tab y Escape gratis;
-    // un click cuyo target es el propio dialog cae en el backdrop
+    // Panel-cajón en pantallas estrechas (≤1100px): el botón "⚙ Panel" lo
+    // muestra/oculta y el fondo lo cierra. En pantallas anchas el botón está
+    // oculto por CSS y el panel es fijo, así que esta clase no tiene efecto.
+    const appEl = document.querySelector('.app');
+    $('btn-panel-toggle').addEventListener('click', () => appEl.classList.toggle('app--panel-open'));
+    $('panel-backdrop').addEventListener('click', () => appEl.classList.remove('app--panel-open'));
+
+    // Un <dialog> trata como "click en el backdrop" cualquier click cuyo
+    // target sea el propio dialog — incluido su padding interno, que cerraría
+    // el modal por error. Solo se cierra si el click cae FUERA del rectángulo
+    // del cuadro (el backdrop de verdad).
+    const closeOnBackdrop = modal => modal.addEventListener('click', e => {
+      if (e.target !== modal) return; // click en un hijo: nunca cierra
+      const r = modal.getBoundingClientRect();
+      const inside = e.clientX >= r.left && e.clientX <= r.right &&
+                     e.clientY >= r.top && e.clientY <= r.bottom;
+      if (!inside) modal.close();
+    });
+
+    // <dialog> nativo: showModal() da foco, trampa de Tab y Escape gratis
     const exportModal = $('modal-export');
     $('btn-export').addEventListener('click', () => exportModal.showModal());
     exportModal.querySelector('.modal__cancel').addEventListener('click', () => exportModal.close());
-    exportModal.addEventListener('click', e => { if (e.target === exportModal) exportModal.close(); });
+    closeOnBackdrop(exportModal);
     exportModal.querySelectorAll('[data-export]').forEach(btn => {
       btn.addEventListener('click', () => {
         Exporter[btn.dataset.export](state.elements);
@@ -2154,7 +2301,7 @@
     const tplModal = $('modal-templates');
     $('btn-templates').addEventListener('click', () => tplModal.showModal());
     tplModal.querySelector('.modal__cancel').addEventListener('click', () => tplModal.close());
-    tplModal.addEventListener('click', e => { if (e.target === tplModal) tplModal.close(); });
+    closeOnBackdrop(tplModal);
     tplModal.querySelectorAll('[data-template]').forEach(btn => {
       btn.addEventListener('click', () => {
         saveUndo();
@@ -2164,24 +2311,97 @@
         redraw();
       });
     });
+
+    const helpModal = $('modal-help');
+    $('btn-help').addEventListener('click', () => helpModal.showModal());
+    helpModal.querySelector('.modal__cancel').addEventListener('click', () => helpModal.close());
+    closeOnBackdrop(helpModal);
+
+    const emojiModal = $('modal-emoji');
+    buildEmojiCatalog();
+    emojiModal.querySelector('.modal__cancel').addEventListener('click', () => emojiModal.close());
+    closeOnBackdrop(emojiModal);
+    emojiModal.addEventListener('click', e => {
+      const btn = e.target.closest('.modal__emoji');
+      if (!btn) return;
+      state.pendingEmoji = btn.textContent;
+      updateEmojiActive();
+      emojiModal.close();
+    });
+  }
+
+  /** Rellena el modal con el catálogo de config.js (textContent, nunca HTML) */
+  function buildEmojiCatalog() {
+    const root = $('emoji-catalog');
+    root.innerHTML = '';
+    EMOJI_GROUPS.forEach(group => {
+      const wrap = document.createElement('div');
+      wrap.className = 'modal__emoji-group';
+      const label = document.createElement('span');
+      label.className = 'modal__emoji-label';
+      label.textContent = group.label;
+      wrap.appendChild(label);
+      const grid = document.createElement('div');
+      grid.className = 'modal__emoji-grid';
+      group.emojis.forEach(em => {
+        const btn = document.createElement('button');
+        btn.className = 'modal__emoji';
+        btn.type = 'button';
+        btn.textContent = em;
+        btn.title = `Insertar ${em}`;
+        grid.appendChild(btn);
+      });
+      wrap.appendChild(grid);
+      root.appendChild(wrap);
+    });
+    updateEmojiActive();
+  }
+
+  function updateEmojiActive() {
+    document.querySelectorAll('.modal__emoji').forEach(btn => {
+      const active = btn.textContent === state.pendingEmoji;
+      btn.classList.toggle('modal__emoji--active', active);
+      btn.setAttribute('aria-pressed', String(active));
+    });
   }
 
   /* ── Canvas event binding ── */
 
   // Pointer events con captura: funciona con ratón, táctil y stylus, y el
-  // trazo/drag sigue recibiendo eventos aunque el puntero salga del canvas
+  // trazo/drag sigue recibiendo eventos aunque el puntero salga del canvas.
+  // Solo se atiende UN puntero a la vez: un segundo dedo en pantalla táctil
+  // reiniciaría onMouseDown a media interacción y corrompería el trazo/arrastre.
+  let activePointerId = null;
+
+  // ¿Hay un gesto de puntero a medio hacer? (para limpiarlo en pointercancel)
+  const gestureActive = () =>
+    state.isDrawing || state.didDrag || state.resizing || state.dragLast || state.marquee;
+
   mainCanvas.addEventListener('pointerdown', e => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (activePointerId !== null) return; // ya hay un gesto en curso: ignora el 2º puntero
+    activePointerId = e.pointerId;
     mainCanvas.setPointerCapture(e.pointerId);
     onMouseDown(e);
   });
-  mainCanvas.addEventListener('pointermove', onMouseMove);
+  mainCanvas.addEventListener('pointermove', e => {
+    // En reposo (activePointerId null) se dejan pasar los moves (hover); en un
+    // gesto, solo los del puntero que lo inició
+    if (activePointerId !== null && e.pointerId !== activePointerId) return;
+    onMouseMove(e);
+  });
   mainCanvas.addEventListener('pointerup', e => {
+    if (activePointerId !== null && e.pointerId !== activePointerId) return;
     if (mainCanvas.hasPointerCapture(e.pointerId)) mainCanvas.releasePointerCapture(e.pointerId);
     onMouseUp(e);
+    activePointerId = null;
   });
   mainCanvas.addEventListener('pointercancel', e => {
-    if (state.isDrawing || state.didDrag) onMouseUp(e);
+    if (activePointerId !== null && e.pointerId !== activePointerId) return;
+    // Cerrar CUALQUIER gesto a medias (dibujo, arrastre, resize o marquee): si
+    // no, state.resizing/marquee quedaban colgados y secuestraban el siguiente.
+    if (gestureActive()) onMouseUp(e);
+    activePointerId = null;
   });
 
   /* ── Init ── */

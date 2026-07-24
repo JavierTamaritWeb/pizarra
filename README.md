@@ -2,10 +2,10 @@
 
 **Crea wireframes, diagramas y bocetos con estilo dibujado a mano, directamente en tu navegador.**
 
-![Versión](https://img.shields.io/badge/versi%C3%B3n-1.4.0-blueviolet)
+![Versión](https://img.shields.io/badge/versi%C3%B3n-1.5.0-blueviolet)
 ![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?logo=javascript&logoColor=000)
 ![Sin dependencias](https://img.shields.io/badge/dependencias-0-brightgreen)
-![Tests](https://img.shields.io/badge/tests-144%20%E2%9C%93-brightgreen)
+![Tests](https://img.shields.io/badge/tests-152%20%E2%9C%93-brightgreen)
 ![Licencia](https://img.shields.io/badge/licencia-MIT-blue)
 
 Pizarra es una aplicación de wireframing sobre canvas escrita en JavaScript puro: **sin build, sin bundler y sin `node_modules`**. Permite crear bocetos, diagramas y prototipos rápidos directamente en el navegador.
@@ -19,6 +19,7 @@ Pizarra es una aplicación de wireframing sobre canvas escrita en JavaScript pur
 - 🪣 **Relleno con color**: selecciona una forma ya dibujada y elige su color de relleno; el checkbox la vacía sin perder el color. Sin color propio se usa el tinte translúcido clásico del trazo.
 - ◠ **Semicírculos** de 180° exactos y sin puntas: el arrastre fija el diámetro (y con él el radio); después `+`/`−` o su handle ajustan el radio manteniendo la media circunferencia perfecta. `Q` convierte una flecha curva existente en semicírculo y viceversa.
 - 🧩 **Componentes UI listos**: botón, input, imagen, navbar y tarjeta, con etiquetas editables (doble click).
+- 🙂 **Emoji** (`J`): catálogo de 60 emoji en cinco categorías; elige uno y haz click para estamparlo. Se insertan como texto, así que se mueven, escalan, exportan y editan como cualquier otro elemento.
 - 🖼️ **Imágenes reales**: pega desde el portapapeles (`Ctrl/Cmd+V`) o arrastra archivos PNG/JPEG desde el escritorio.
 - 📐 **Plantillas**: landing page, dashboard y formulario para empezar en un click.
 
@@ -77,7 +78,7 @@ Pizarra guarda automáticamente el lienzo en `localStorage`. Para crear una copi
 |-------|--------|
 | `P` `L` `A` `U` `G` `E` | Lápiz · Línea · Flecha · Flecha curva · Semicírculo · Borrador |
 | `R` `O` `C` | Rectángulo · Redondeado · Círculo |
-| `T` `B` `I` `M` `N` `K` | Texto · Botón · Input · Imagen · Navbar · Tarjeta |
+| `T` `J` `B` `I` `M` `N` `K` | Texto · Emoji · Botón · Input · Imagen · Navbar · Tarjeta |
 | `V` | Mover / seleccionar |
 | `Ctrl/Cmd+Z` / `Ctrl+Y` o `Cmd+Shift+Z` | Deshacer / rehacer |
 | `Ctrl/Cmd+D` / `Ctrl/Cmd+A` | Duplicar / seleccionar todo |
@@ -87,6 +88,7 @@ Pizarra guarda automáticamente el lienzo en `localStorage`. Para crear una copi
 | `Q` | Convertir flecha curva ↔ semicírculo |
 | `+` / `−` (+`Shift`) | Ajustar curvatura — en semicírculos, el radio (fino) |
 | `Ctrl/Cmd+C` / `Ctrl/Cmd+V` | Copiar selección / pegarla (o pegar imagen del portapapeles) |
+| `?` | Abrir la ayuda con todos los atajos |
 
 ## Arquitectura
 
@@ -112,7 +114,7 @@ Principios de diseño:
 
 ## Tests
 
-144 tests con el runner nativo de Node — sin ninguna dependencia:
+152 tests con el runner nativo de Node — sin ninguna dependencia:
 
 ```bash
 node --test tests/                    # suite completa

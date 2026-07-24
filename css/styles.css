@@ -1,5 +1,5 @@
 /* ============================================================
-   SketchWire — Styles (BEM methodology)
+   Pizarra — Styles (BEM methodology)
    ============================================================ */
 
 /* ── Custom Properties ── */
@@ -189,6 +189,13 @@ input[type="range"]::-moz-range-thumb {
   transition: all var(--ease);
   background: var(--bg-hover);
   color: var(--text-primary);
+}
+
+/* `.btn { display: inline-flex }` gana en especificidad al `[hidden]` del UA,
+   así que sin esto los botones ocultados con `.hidden = true` desde JS
+   (Duplicar/Eliminar selección) se veían siempre. */
+.btn[hidden] {
+  display: none;
 }
 
 .btn:hover {
@@ -578,6 +585,115 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text-muted);
 }
 
+/* Ayuda */
+.modal--help {
+  max-width: 620px;
+  /* La lista es larga: se limita al alto de la ventana y hace scroll dentro */
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.modal__help-group {
+  margin-bottom: 18px;
+}
+
+.modal__help-title {
+  margin-bottom: 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.modal__help-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.modal__help-list li {
+  position: relative;
+  padding-left: 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.modal__help-list li::before {
+  content: "·";
+  position: absolute;
+  left: 2px;
+  color: var(--text-dim);
+}
+
+.modal__help-list strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid var(--border-main);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+/* Emoji picker */
+.modal__emoji-group {
+  margin-bottom: 12px;
+}
+
+.modal__emoji-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.modal__emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+
+.modal__emoji {
+  padding: 8px 0;
+  font-size: 24px;
+  line-height: 1.2;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: var(--bg-hover);
+  cursor: pointer;
+  transition: all var(--ease);
+}
+
+.modal__emoji:hover {
+  background: #353850;
+  transform: scale(1.12);
+}
+
+.modal__emoji--active {
+  border-color: var(--color-primary);
+}
+
+.modal__emoji:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 /* Templates list */
 .modal__list {
   display: flex;
@@ -624,9 +740,40 @@ input[type="range"]::-moz-range-thumb {
 /* En portátiles estrechos (sidebar 72 + canvas 1200 + panel 220 desbordan)
    el panel derecho se colapsa; sus controles clave siguen accesibles por
    atajos de teclado */
+/* Botón de panel y fondo: solo existen en pantallas estrechas (ver media query) */
+.panel-toggle {
+  display: none;
+}
+.panel-backdrop {
+  display: none;
+  position: fixed;
+  inset: var(--topbar-h) 0 0 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 40;
+}
+
 @media (max-width: 1100px) {
+  /* El panel deja de robar ancho al lienzo: pasa a ser un cajón deslizable
+     que se abre con el botón "⚙ Panel" de la barra. Antes se ocultaba con
+     display:none y color/trazo/zoom/relleno quedaban inaccesibles. */
   .panel {
-    display: none;
+    position: fixed;
+    top: var(--topbar-h);
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    transform: translateX(100%);
+    transition: transform 0.2s ease;
+    box-shadow: -8px 0 40px rgba(0, 0, 0, 0.4);
+  }
+  .app--panel-open .panel {
+    transform: translateX(0);
+  }
+  .app--panel-open .panel-backdrop {
+    display: block;
+  }
+  .panel-toggle {
+    display: inline-flex;
   }
 }
 

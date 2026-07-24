@@ -83,6 +83,144 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   volver exactamente a su posición previa; repetir con un solo click sin
   arrastre → no debe apilar undo.
 
+### Colocar un texto y hacer click para colocar otro descartaba el primero
+- **Síntoma:** con la herramienta Texto, escribir un texto y —sin pulsar
+  Enter— hacer click en otro punto del lienzo para poner otro **borraba el
+  primero sin guardarlo**, y además el editor nuevo no quedaba abierto.
+- **Causa:** orden de eventos determinista. El `pointerdown` del segundo click
+  ejecuta `onMouseDown → showTextInput`, que **reinicia `textInput.value=''`**
+  para el texto nuevo; solo *después* se dispara el `blur → commitText`, que
+  lee el valor ya vacío y descarta lo escrito (confirmado instrumentando el
+  `blur`: llegaba con `value=""`). Ese mismo blur cerraba el editor recién
+  abierto.
+- **Fix:** `js/app.js`, rama TEXT de `onMouseDown` — si ya hay un editor
+  abierto, la apertura del nuevo se aplaza un tick (`setTimeout(…,0)`), de modo
+  que el `blur` confirma primero el texto anterior con su valor intacto y el
+  editor nuevo se abre después, sin blur pendiente que lo cierre.
+- **Verificación manual:** Texto (`T`), click, escribir "uno", click en otro
+  punto, escribir "dos", Enter → deben quedar los dos textos.
+
+### Tras usar un control del panel, los atajos y Ctrl+Z/C/V dejaban de funcionar
+- **Síntoma:** después de mover el slider de trazo/zoom, marcar un checkbox o
+  elegir un color, `Ctrl+Z`, copiar/pegar y las teclas de herramienta **no
+  respondían** hasta hacer click en el lienzo.
+- **Causa:** el handler global de `keydown` (y el de `copy`) hace `return`
+  cuando `e.target` es un `<input>`, y el foco se quedaba en el control del
+  panel recién usado.
+- **Fix:** `js/app.js`, `wireControls` — un listener delegado en `.panel`
+  suelta el foco (`blur()`) del control al terminar de ajustarlo (`change` =
+  release del slider / toggle / cierre del picker).
+- **Verificación manual:** dibujar algo, mover el slider "Trazo", y sin tocar
+  el lienzo pulsar `Ctrl+Z` → debe deshacer.
+
+### Los atajos de teclado seguían activos con un modal abierto
+- **Síntoma:** con el modal de Exportar/Plantillas/Emoji/Ayuda abierto, pulsar
+  una tecla de herramienta, `Supr` o `Ctrl+Z` **actuaba sobre el lienzo de
+  detrás** del modal.
+- **Causa:** el listener de `keydown` vive en `document` y el evento burbujea
+  hasta ahí aunque el foco esté atrapado en el `<dialog>`; no había guard.
+- **Fix:** `js/app.js` — `if (document.querySelector('dialog[open]')) return;`
+  tras el handler de `?` (que sí sigue cerrando la ayuda; `Escape` cierra el
+  modal de forma nativa).
+- **Verificación manual:** dibujar un elemento, abrir la Ayuda, pulsar `Supr`
+  y una tecla de herramienta → el elemento y la herramienta activa no cambian.
+
+### Los botones "Duplicar/Eliminar selección" se veían siempre
+- **Síntoma:** los botones que solo deberían aparecer con una selección se
+  mostraban permanentemente, incluso con el lienzo vacío.
+- **Causa:** `.btn { display: inline-flex }` gana en especificidad a la regla
+  `[hidden]` del navegador, así que `boton.hidden = true` desde JS no ocultaba
+  nada.
+- **Fix:** `css/styles.css` — regla `.btn[hidden] { display: none }`.
+- **Verificación manual:** sin selección, los botones "Duplicar/Eliminar
+  selección" no se ven; al seleccionar un elemento, aparecen.
+
+### Gestos de puntero y atajos a media interacción (varios)
+Un segundo bloque de la auditoría, todos con la misma raíz: estado de gesto
+que quedaba a medias.
+- **`pointercancel` no cerraba un resize ni un marquee** (solo miraba
+  `isDrawing`/`didDrag`): el gesto quedaba colgado y **secuestraba el
+  siguiente**. Ahora `pointercancel` cierra cualquier gesto activo
+  (`isDrawing`/`didDrag`/`resizing`/`dragLast`/`marquee`).
+- **Un segundo dedo en pantalla táctil** disparaba otro `onMouseDown` y
+  reiniciaba el trazo/arrastre en curso. Ahora se atiende **un solo puntero a
+  la vez** (`activePointerId`): el segundo se ignora hasta soltar el primero.
+- **Atajos a mitad de un gesto** (`Supr`, `Ctrl+Z`, tecla de herramienta
+  mientras se arrastra/redimensiona) dejaban índices y flags a medias — p.ej.
+  borrar durante un resize escribía en `state.elements[undefined]`. El
+  `keydown` ahora ignora los atajos si hay un gesto de puntero en curso.
+- **Confirmar una edición de texto sin cambiar nada** apilaba un undo y
+  **vaciaba el redoStack**. `commitText` solo apila undo si el valor (o la
+  etiqueta) cambió de verdad.
+- **Click en el padding interior de un modal** lo cerraba como si fuera el
+  backdrop (un `<dialog>` da `e.target === dialog` tanto en su padding como en
+  el backdrop). Ahora solo cierra si el click cae **fuera del rectángulo** del
+  cuadro (`getBoundingClientRect`).
+- **Verificación:** `verify-plausibles.js`, `verify-noop.js` y
+  `verify-multitouch.js` (Supr a mitad de resize no borra; edición no-op
+  conserva el redo; click en padding no cierra pero en el backdrop sí; segundo
+  puntero ignorado sin corromper el trazo).
+
+### En ventanas ≤1100px el panel entero desaparecía sin alternativa
+- **Síntoma:** en una ventana estrecha (`@media (max-width:1100px)`) el panel
+  derecho se ocultaba con `display:none`, y con él **color, trazo, tamaño de
+  texto, zoom, relleno, fondo/cuadrícula y los botones**, sin ninguna forma
+  de acceder a esos ajustes.
+- **Fix:** `index.html` / `css/styles.css` / `js/app.js` — el panel pasa a ser
+  un **cajón deslizable**: botón `⚙ Panel` en la barra (solo visible ≤1100px)
+  que lo muestra/oculta, con un fondo para cerrarlo. En pantallas anchas el
+  botón está oculto y el panel sigue fijo como antes.
+- **Verificación manual:** estrechar la ventana por debajo de 1100px → aparece
+  "⚙ Panel"; al pulsarlo se abre el panel y sus controles son usables.
+
+### Anclar los dos extremos de una flecha al mismo elemento la colapsaba
+- **Síntoma:** arrastrar ambos extremos de una flecha sobre el mismo elemento
+  la dejaba con longitud ~0 (invisible).
+- **Causa:** `resolveAnchors` proyecta cada extremo hacia el otro sobre el
+  borde del elemento; con los dos anclados al mismo rectángulo convergían al
+  mismo punto.
+- **Fix:** `js/app.js` — al fijar un anclaje (creación y arrastre de extremo)
+  se rechaza si el otro extremo ya ancla ese mismo elemento (queda libre); y
+  `resolveAnchors` ignora una flecha cuyos dos anclajes comparten `id`
+  (defensa ante JSON importado).
+- **Verificación manual:** anclar un extremo a un rect y arrastrar el otro al
+  mismo rect → la flecha conserva su longitud (el segundo extremo no se ancla).
+
+### Otros arreglos menores de la auditoría
+- **Importar JSON no limpiaba la selección** (`js/app.js`): los índices
+  previos apuntaban a elementos importados arbitrarios. Ahora hace
+  `setSelection([])` como al cargar una plantilla.
+- **Nudge con la flecha mantenida** apilaba un undo por cada repetición y
+  expulsaba el historial (límite 50): ahora solo la primera pulsación apila
+  undo (`if (!e.repeat)`), así el mantenido es un único paso.
+- **Soltar un archivo fuera del lienzo** hacía que el navegador lo abriera y
+  saliera de la app: `window` cancela ahora el `dragover`/`drop` por defecto
+  (el drop sobre el lienzo sigue funcionando).
+- **`isValidElement` aceptaba `type:'arc'`/`'emoji'`** (ids de herramienta, no
+  tipos de elemento): un JSON importado colaba elementos fantasma invisibles
+  pero seleccionables. Ahora se excluyen junto a `select`. Cubierto por test.
+
+### La herramienta Texto no creaba nada (el editor se cerraba solo)
+- **Síntoma:** con la herramienta Texto, al hacer click en el lienzo el
+  textarea aparecía y desaparecía en el mismo instante, así que era
+  **imposible crear texto**: lo escrito no llegaba a ninguna parte. Editar un
+  texto ya existente con doble click sí funcionaba, lo que enmascaraba el
+  fallo. Reproducido tanto en headless como en un navegador con ventana.
+- **Causa:** `showTextInput()` llamaba a `textInput.focus()` de forma
+  síncrona dentro del handler de `pointerdown`. La acción por defecto del
+  evento mueve el foco al `body` justo después de los listeners (el `<canvas>`
+  no es enfocable), lo que disparaba el `blur` del textarea → `commitText()`
+  → valor vacío → `hidden = true` y ningún elemento creado. Por doble click
+  no ocurría porque el cambio de foco ya había sucedido antes.
+- **Fix:** `js/app.js` — el `focus()`/`select()` se aplaza un tick con
+  `setTimeout(…, 0)`, de modo que se aplica después del cambio de foco por
+  defecto (y se aborta si para entonces el textarea ya está oculto).
+- **Verificación manual:** herramienta Texto (`T`), click en el lienzo → el
+  cursor debe quedarse parpadeando en el recuadro; escribir y pulsar Enter
+  debe crear el texto. Comprobar además que el doble click sobre un texto (o
+  un emoji) sigue abriendo el editor con su contenido y que guardar no
+  duplica el elemento.
+
 ### Con zoom > 100% no se podía llegar a la parte izquierda/superior del lienzo
 - **Síntoma:** al ampliar, el lienzo crecía hacia los cuatro lados pero el
   scroll solo alcanzaba la parte derecha/inferior: al 200 % quedaban ~960 px

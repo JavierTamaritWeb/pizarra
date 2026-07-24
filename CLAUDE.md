@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-SketchWire ("pizarra") is a canvas-based wireframing/sketching web app with a hand-drawn aesthetic. Pure vanilla HTML/CSS/JS — no build system, no package manager, no dependencies, no tests. UI text is in Spanish.
+Pizarra is a canvas-based wireframing/sketching web app with a hand-drawn aesthetic. Pure vanilla HTML/CSS/JS — no build system, no package manager, no dependencies. UI text is in Spanish.
+
+The app was formerly called SketchWire, so that name survives in identifiers that must not change: the `localStorage` keys `sketchwire.autosave`/`sketchwire.prefs` and the clipboard marker `sketchwire/elements` in app.js. **Renaming those would orphan every user's saved canvas and preferences** — leave them alone.
 
 ## Running
 
@@ -51,6 +53,10 @@ Requires touching several files in sync: add the tool id to `TOOLS` and a sideba
 
 Panel controls follow an Excalidraw-style dual semantic: **with a selection they edit the selected elements** (immutable copies + one undo step per gesture); **without a selection they set the creation default** (`state.lineWidth`, `state.doubleHead`, `state.fillShapes`, …). `redrawNow` is the single sync point that pushes the right value back into each control (single selection → element's value; no selection → default; multi-selection → left untouched). Any future panel control inherits this question — follow the same pattern (see the stroke slider, the "Doble punta"/"Rellenar formas" checkboxes and the fill color picker in `wireControls`). The stroke *color* picker is the one control that still only sets the creation default.
 
+### Emoji
+
+`TOOLS.EMOJI` is creation-mode only, like `TOOLS.ARC` — **not an element type**. Picking the tool opens the `#modal-emoji` catalogue (built from `EMOJI_GROUPS` in config.js), and `placeEmoji()` stamps the chosen character as an ordinary `text` element centred on the click, at `max(state.fontSize, EMOJI_MIN_SIZE)`. Because it is just a `text` element, rendering, hit-testing, resize, undo, autosave and all five export formats work with no emoji-specific code — keep it that way rather than introducing an `emoji` type. The catalogue is injected with `textContent`, never `innerHTML`.
+
 ### Shape fill
 
 Only `FILLABLE_TYPES` (rect, roundedRect, circle) take a fill; UI components carry their own as part of their design. Two fields: `fill` (boolean, on/off) and the optional `fillColor` (hex). They are deliberately independent — the checkbox toggles `fill` only and never touches `fillColor`, so emptying a shape and refilling it recovers the same color. `Renderer.fillStyle(el)` is the single place that resolves the two: `el.fillColor || el.color + '20'`, so **a shape without `fillColor` keeps the classic translucent stroke tint** and projects saved before fill had its own color render identically — preserve that fallback. `fillColor` is interpolated into the SVG/HTML exports, so `isValidElement` validates it as hex just like `color`.
@@ -61,4 +67,4 @@ Zoom is applied as a CSS `transform: scale()` on the canvas wrapper; `getPos()` 
 
 ### Canvas background / grid color
 
-`state.canvasBg` and `state.gridColor` (defaults `DEFAULT_CANVAS_BG`/`DEFAULT_GRID_COLOR` in app.js) are cosmetic prefs, not part of `state.elements` — they persist to their own `localStorage` key (`sketchwire.prefs`, via `savePrefs`/`restorePrefs`) separately from the autosave, and are not undo-tracked (same treatment as `state.zoom`/`showGrid`). `Renderer.drawGrid(ctx, w, h, color)` takes a single base color and varies only `globalAlpha` for the minor vs. major grid lines, rather than two hardcoded colors. "Limpiar todo" resets both to their defaults and clears the prefs key, in addition to clearing elements.
+`state.canvasBg` and `state.gridColor` (defaults `DEFAULT_CANVAS_BG`/`DEFAULT_GRID_COLOR` in app.js) are cosmetic prefs, not part of `state.elements` — they persist to their own `localStorage` key (`sketchwire.prefs`, via `savePrefs`/`restorePrefs`) separately from the autosave, and are not undo-tracked (same treatment as `state.zoom`/`showGrid`). `Renderer.drawGrid(ctx, w, h, color)` takes a single base color and varies only `globalAlpha` for the minor vs. major grid lines, rather than two hardcoded colors. "Limpiar todo" resets both to their defaults, clears the prefs key and returns the zoom to 100% (setting `zoomManual` so the auto-fit does not immediately grow it again), in addition to clearing elements.

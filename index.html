@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SketchWire — Bocetos Web</title>
+  <title>Pizarra — Bocetos Web</title>
   <meta name="description" content="Aplicación de wireframing y bocetos web con exportación a múltiples formatos" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -19,15 +19,21 @@
     <header class="topbar">
       <div class="topbar__brand">
         <span class="topbar__logo-icon" aria-hidden="true">✎</span>
-        <span class="topbar__logo-text">Sketch<span class="topbar__logo-accent">Wire</span></span>
-        <span class="topbar__badge">v1.4.0</span>
+        <span class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></span>
+        <span class="topbar__badge">v1.5.0</span>
       </div>
       <nav class="topbar__actions">
+        <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes">
+          <span class="btn__icon">⚙</span> Panel
+        </button>
         <button class="btn btn--ghost" id="btn-import" title="Importar JSON">
           <span class="btn__icon">📂</span> Importar
         </button>
         <button class="btn btn--ghost" id="btn-templates" title="Plantillas">
           <span class="btn__icon">📐</span> Plantillas
+        </button>
+        <button class="btn btn--ghost" id="btn-help" title="Ayuda y atajos (?)">
+          <span class="btn__icon">❔</span> Ayuda
         </button>
         <button class="btn btn--ghost" id="btn-undo" title="Deshacer (Ctrl+Z)">
           <span class="btn__icon">↩</span> Deshacer
@@ -149,27 +155,16 @@
 
         <button class="btn btn--danger btn--block" id="btn-clear">🗑 Limpiar todo</button>
 
-        <!-- Shortcuts hint -->
+        <!-- Los atajos viven ahora en el modal de Ayuda (botón ❔ de la barra
+             superior o tecla ?), donde caben legibles y agrupados por tema -->
         <footer class="panel__footer">
-          <p>⌨️ Ctrl+Z deshacer · Ctrl+Y rehacer</p>
-          <p>Ctrl+V o arrastrar: imágenes PNG/JPG</p>
-          <p>Ctrl+D duplicar · Ctrl+A todo · Del borrar</p>
-          <p>Shift+click o arrastre en vacío: multi-selección · arrastra el grupo desde cualquier punto de su marco</p>
-          <p>Ctrl+C copia la selección · Ctrl+V la pega (también entre pestañas)</p>
-          <p>Selecciona una forma y elige "Color de relleno" para rellenarla · el checkbox la vacía sin perder el color</p>
-          <p>Flechas mover (Shift: 20px)</p>
-          <p>Tecla por herramienta en su tooltip</p>
-          <p>Alt desactiva el ajuste a cuadrícula</p>
-          <p>F: invertir giro de flecha curva · Shift al trazar: curva al otro lado</p>
-          <p>D: invertir dirección de flecha · S: curva en S (dos handles)</p>
-          <p>Herramienta ◠ (G): semicírculo de 180° · el arrastre fija el diámetro</p>
-          <p>+/− o su handle turquesa: radio · Q: convertir flecha curva ↔ semicírculo</p>
-          <p>Suelta el extremo de una flecha sobre un elemento para anclarla</p>
-          <p>Arrastra el handle de la etiqueta para deslizarla por el trazo · doble click en él: recentrarla</p>
-          <p>Shift al curvar: arco simétrico (curva simple) · doble click en el handle: resetear · +/−: ajustar curvatura</p>
+          <p>⌨️ <kbd>?</kbd> o el botón <strong>Ayuda</strong>: atajos y trucos</p>
         </footer>
       </aside>
     </div>
+
+    <!-- Fondo para cerrar el panel-cajón en pantallas estrechas (≤1100px) -->
+    <div class="panel-backdrop" id="panel-backdrop"></div>
   </div>
 
   <!-- ===== MODAL: EXPORT ===== -->
@@ -203,6 +198,83 @@
           <small>Proyecto reutilizable (importar después)</small>
         </button>
       </div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
+  <!-- ===== MODAL: AYUDA ===== -->
+  <dialog class="modal modal--help" id="modal-help" aria-labelledby="modal-help-title">
+      <h3 class="modal__heading" id="modal-help-title">Ayuda</h3>
+      <p class="modal__sub">Atajos y trucos de Pizarra</p>
+
+      <section class="modal__help-group">
+        <h4 class="modal__help-title">General</h4>
+        <ul class="modal__help-list">
+          <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> deshacer · <kbd>Ctrl</kbd>+<kbd>Y</kbd> rehacer</li>
+          <li><kbd>Ctrl</kbd>+<kbd>D</kbd> duplicar · <kbd>Ctrl</kbd>+<kbd>A</kbd> todo · <kbd>Supr</kbd> borrar</li>
+          <li>Flechas: mover la selección (<kbd>Shift</kbd>: 20 px)</li>
+          <li>Cada herramienta muestra su tecla en el tooltip</li>
+          <li><kbd>Alt</kbd> desactiva el ajuste a cuadrícula</li>
+        </ul>
+      </section>
+
+      <section class="modal__help-group">
+        <h4 class="modal__help-title">Selección y portapapeles</h4>
+        <ul class="modal__help-list">
+          <li><kbd>Shift</kbd>+click o arrastre en vacío: multi-selección · arrastra el grupo desde cualquier punto de su marco</li>
+          <li><kbd>Ctrl</kbd>+<kbd>C</kbd> copia la selección · <kbd>Ctrl</kbd>+<kbd>V</kbd> la pega (también entre pestañas)</li>
+          <li><kbd>Ctrl</kbd>+<kbd>V</kbd> o arrastrar un archivo: imágenes PNG/JPG</li>
+        </ul>
+      </section>
+
+      <section class="modal__help-group">
+        <h4 class="modal__help-title">Formas y relleno</h4>
+        <ul class="modal__help-list">
+          <li>Selecciona una forma y elige <strong>"Color de relleno"</strong> para rellenarla</li>
+          <li>El checkbox <strong>"Rellenar formas"</strong> la vacía sin perder el color: al volver a marcarlo lo recupera</li>
+          <li>Sin selección, ambos fijan el valor por defecto de las próximas formas</li>
+        </ul>
+      </section>
+
+      <section class="modal__help-group">
+        <h4 class="modal__help-title">🙂 Emoji</h4>
+        <ul class="modal__help-list">
+          <li>Pulsa la herramienta <strong>Emoji</strong> (<kbd>J</kbd>): se abre el catálogo</li>
+          <li>Elige uno y haz click en el lienzo para <strong>estamparlo</strong>, centrado en el punto pulsado</li>
+          <li>Cada click coloca el mismo emoji; vuelve a pulsar la herramienta para <strong>cambiarlo</strong></li>
+          <li>El tamaño lo fija el slider <strong>Texto</strong> (mínimo 32 px): ajústalo antes de estampar</li>
+          <li>Con <strong>Mover</strong> (<kbd>V</kbd>) se selecciona, mueve, duplica y borra como cualquier elemento</li>
+          <li>Doble click sobre él lo edita: ahí puedes escribir <strong>cualquier</strong> emoji, aunque no esté en el catálogo</li>
+        </ul>
+      </section>
+
+      <section class="modal__help-group">
+        <h4 class="modal__help-title">Flechas y curvas</h4>
+        <ul class="modal__help-list">
+          <li><kbd>F</kbd>: invertir el giro de la flecha curva · <kbd>Shift</kbd> al trazar: curva al otro lado</li>
+          <li><kbd>D</kbd>: invertir la dirección · <kbd>S</kbd>: curva en S (dos handles)</li>
+          <li><kbd>Shift</kbd> al curvar: arco simétrico · doble click en el handle: resetear · <kbd>+</kbd>/<kbd>−</kbd>: ajustar la curvatura</li>
+          <li>Suelta el extremo de una flecha sobre un elemento para <strong>anclarla</strong>: lo seguirá al moverlo</li>
+          <li>Arrastra el handle de la etiqueta para deslizarla por el trazo · doble click en él: recentrarla</li>
+        </ul>
+      </section>
+
+      <section class="modal__help-group">
+        <h4 class="modal__help-title">Semicírculos</h4>
+        <ul class="modal__help-list">
+          <li>Herramienta <strong>◠</strong> (<kbd>G</kbd>): semicírculo de 180° · el arrastre fija el diámetro</li>
+          <li><kbd>+</kbd>/<kbd>−</kbd> o su handle turquesa: cambiar el radio</li>
+          <li><kbd>Q</kbd>: convertir flecha curva ↔ semicírculo</li>
+        </ul>
+      </section>
+
+      <button class="btn btn--ghost btn--block modal__cancel">Cerrar</button>
+  </dialog>
+
+  <!-- ===== MODAL: EMOJI ===== -->
+  <dialog class="modal" id="modal-emoji" aria-labelledby="modal-emoji-title">
+      <h3 class="modal__heading" id="modal-emoji-title">Insertar emoji</h3>
+      <p class="modal__sub">Elige uno y haz click en el lienzo para colocarlo</p>
+      <div id="emoji-catalog"></div>
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
   </dialog>
 
