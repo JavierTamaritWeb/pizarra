@@ -7,18 +7,23 @@ versionado es [SemVer](https://semver.org/lang/es/).
 ## [1.6.0] — 2026-07-24
 
 ### Añadido
-- **Relleno sólido o translúcido**: nuevo checkbox "Relleno translúcido" en la
-  sección Relleno del panel. Sin marcar, la forma se rellena con su color de
-  forma sólida (comportamiento actual); marcado, con ese color al ~40 % de
-  opacidad. Sigue la misma semántica dual del resto de controles: con
-  selección edita las formas seleccionadas (un paso de undo), sin selección
-  fija el valor por defecto de las próximas formas.
-- El campo `fillTransparent` es booleano y se conserva en los cinco formatos
-  de exportación (PNG/JPG vía render, SVG, HTML y JSON). Las formas sin el
-  campo se ven exactamente igual que antes (sólido si tenían color, tinte
-  clásico si no), así que los proyectos guardados no cambian.
-- 8 tests nuevos (render, export SVG/HTML, validación y round-trip): la suite
-  pasa de 153 a 161.
+- **Relleno sólido o translúcido regulable** para círculo/elipse, rectángulo y
+  rectángulo redondeado: el checkbox "Relleno translúcido" alterna el modo y
+  un nuevo slider permite ajustar la opacidad del 0 al 100 % (40 % por
+  defecto). Ambos siguen la semántica dual del panel: con selección editan
+  las formas seleccionadas (un paso de undo por gesto); sin selección fijan
+  los valores de las próximas formas.
+- Los campos `fillTransparent` y `fillOpacity` se conservan en los cinco
+  formatos de exportación (PNG/JPG vía render, SVG, HTML y JSON). Las formas
+  translúcidas antiguas sin `fillOpacity` mantienen el 40 %, y las formas sin
+  `fillTransparent` se ven igual que antes.
+- **Dos modos globales de solapamiento**: "Normal" mantiene la mezcla actual y
+  "Bordes ocultos" dibuja discontinuos solo los tramos del contorno inferior
+  cubiertos por rectángulos, redondeados o círculos/elipses superiores. El
+  cálculo usa la geometría real y el orden de capas, se actualiza en vivo y
+  se conserva en autoguardado, JSON y los cinco formatos de exportación.
+- 16 tests nuevos (render, geometría, z-order, export SVG/HTML, validación y
+  round-trip): la suite pasa de 153 a 169.
 
 ## [1.5.0] — 2026-07-23
 

@@ -24,6 +24,7 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Sketchy.line, 'function');
   assert.equal(typeof ctx.Renderer, 'object');
   assert.equal(typeof ctx.Renderer.renderElement, 'function');
+  assert.equal(typeof ctx.Renderer.renderElements, 'function');
   assert.equal(typeof ctx.Exporter, 'object');
   assert.equal(typeof ctx.Exporter.png, 'function');
   assert.equal(typeof ctx.Templates, 'object');

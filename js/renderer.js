@@ -84,14 +84,193 @@ const Renderer = (() => {
    * el de los proyectos guardados antes de que el relleno tuviera color
    * propio, así que `fillColor` ausente nunca cambia cómo se ven.
    */
-  // Alfa (hex) del relleno translúcido: ~40%, distinguible del tinte clásico 0x20
-  const FILL_ALPHA = '66';
+  const DEFAULT_FILL_OPACITY = 0.4;
+
+  function withOpacity(color, opacity) {
+    const alpha = Math.round(Math.min(1, Math.max(0, opacity)) * 255)
+      .toString(16).padStart(2, '0');
+    // `color` puede traer alfa propio; la opacidad regulada lo sustituye.
+    return color.slice(0, 7) + alpha;
+  }
 
   function fillStyle(el) {
-    // Translúcido explícito: el color propio (o el del trazo) a ~40%
-    if (el.fillTransparent === true) return (el.fillColor || el.color) + FILL_ALPHA;
+    // Los proyectos anteriores no tienen fillOpacity: conservan el 40%.
+    if (el.fillTransparent === true) {
+      const opacity = el.fillOpacity !== undefined ? el.fillOpacity : DEFAULT_FILL_OPACITY;
+      return withOpacity(el.fillColor || el.color, opacity);
+    }
     // Sólido / clásico: color propio opaco, o el tinte 0x20 del trazo si no hay
-    return el.fillColor || el.color + '20';
+    return el.fillColor || el.color.slice(0, 7) + '20';
+  }
+
+  /* ── Bordes ocultos de formas solapadas ── */
+
+  const OVERLAP_SHAPE_TYPES = new Set(['rect', 'roundedRect', 'circle']);
+  const OUTLINE_STEP = 4;
+
+  function isOverlapShape(el) {
+    return !!el && OVERLAP_SHAPE_TYPES.has(el.type);
+  }
+
+  function _box(el) {
+    const x2 = el.x + el.w, y2 = el.y + el.h;
+    return {
+      x: Math.min(el.x, x2),
+      y: Math.min(el.y, y2),
+      w: Math.abs(el.w),
+      h: Math.abs(el.h),
+    };
+  }
+
+  /** Punto dentro de la geometría real de una forma, no de su bounding box. */
+  function pointInOverlapShape(point, el) {
+    if (!isOverlapShape(el)) return false;
+    const b = _box(el);
+    if (point.x < b.x || point.x > b.x + b.w ||
+        point.y < b.y || point.y > b.y + b.h) return false;
+    if (el.type === 'rect') return true;
+    if (el.type === 'circle') {
+      const rx = b.w / 2, ry = b.h / 2;
+      if (!rx || !ry) return false;
+      const dx = (point.x - (b.x + rx)) / rx;
+      const dy = (point.y - (b.y + ry)) / ry;
+      return dx * dx + dy * dy <= 1;
+    }
+    const r = Math.min(12, b.w / 2, b.h / 2);
+    if (point.x >= b.x + r && point.x <= b.x + b.w - r) return true;
+    if (point.y >= b.y + r && point.y <= b.y + b.h - r) return true;
+    const cx = point.x < b.x + r ? b.x + r : b.x + b.w - r;
+    const cy = point.y < b.y + r ? b.y + r : b.y + b.h - r;
+    return (point.x - cx) ** 2 + (point.y - cy) ** 2 <= r * r;
+  }
+
+  function _pushLine(points, x1, y1, x2, y2) {
+    const count = Math.max(1, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / OUTLINE_STEP));
+    for (let i = 0; i < count; i++) {
+      const t = i / count;
+      points.push({ x: x1 + (x2 - x1) * t, y: y1 + (y2 - y1) * t });
+    }
+  }
+
+  function _pushArc(points, cx, cy, r, start, end) {
+    const count = Math.max(2, Math.ceil(Math.abs(end - start) * r / OUTLINE_STEP));
+    for (let i = 0; i < count; i++) {
+      const a = start + (end - start) * i / count;
+      points.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r });
+    }
+  }
+
+  function _outlinePoints(el) {
+    const b = _box(el);
+    const points = [];
+    if (!b.w || !b.h) return points;
+    if (el.type === 'circle') {
+      const rx = b.w / 2, ry = b.h / 2;
+      const circumference = Math.PI * (3 * (rx + ry) - Math.sqrt((3 * rx + ry) * (rx + 3 * ry)));
+      const count = Math.max(48, Math.ceil(circumference / OUTLINE_STEP));
+      for (let i = 0; i < count; i++) {
+        const a = Math.PI * 2 * i / count;
+        points.push({ x: b.x + rx + Math.cos(a) * rx, y: b.y + ry + Math.sin(a) * ry });
+      }
+      return points;
+    }
+    if (el.type === 'rect') {
+      _pushLine(points, b.x, b.y, b.x + b.w, b.y);
+      _pushLine(points, b.x + b.w, b.y, b.x + b.w, b.y + b.h);
+      _pushLine(points, b.x + b.w, b.y + b.h, b.x, b.y + b.h);
+      _pushLine(points, b.x, b.y + b.h, b.x, b.y);
+      return points;
+    }
+    const r = Math.min(12, b.w / 2, b.h / 2);
+    _pushLine(points, b.x + r, b.y, b.x + b.w - r, b.y);
+    _pushArc(points, b.x + b.w - r, b.y + r, r, -Math.PI / 2, 0);
+    _pushLine(points, b.x + b.w, b.y + r, b.x + b.w, b.y + b.h - r);
+    _pushArc(points, b.x + b.w - r, b.y + b.h - r, r, 0, Math.PI / 2);
+    _pushLine(points, b.x + b.w - r, b.y + b.h, b.x + r, b.y + b.h);
+    _pushArc(points, b.x + r, b.y + b.h - r, r, Math.PI / 2, Math.PI);
+    _pushLine(points, b.x, b.y + b.h - r, b.x, b.y + r);
+    _pushArc(points, b.x + r, b.y + r, r, Math.PI, Math.PI * 1.5);
+    return points;
+  }
+
+  function _seedNoise(seed, index, axis) {
+    const n = Math.sin((Number(seed) || 0) * 12.9898 + index * 78.233 + axis * 37.719) * 43758.5453;
+    return (n - Math.floor(n)) * 2 - 1;
+  }
+
+  function _jitterOutline(points, seed) {
+    return points.map((p, i) => ({
+      x: p.x + _seedNoise(seed, i, 0) * 0.65,
+      y: p.y + _seedNoise(seed, i, 1) * 0.65,
+    }));
+  }
+
+  /**
+   * Para cada segmento del contorno guarda el índice de la forma superior
+   * que finalmente lo cubre. -1 significa que el segmento sigue visible.
+   */
+  function buildOverlapPlan(elements) {
+    const plan = elements.map(el => {
+      if (!isOverlapShape(el)) return null;
+      const ideal = _outlinePoints(el);
+      return {
+        el,
+        ideal,
+        points: _jitterOutline(ideal, el.seed),
+        targets: new Array(ideal.length).fill(-1),
+      };
+    });
+    for (let i = 0; i < plan.length; i++) {
+      const info = plan[i];
+      if (!info || !info.ideal.length) continue;
+      for (let s = 0; s < info.ideal.length; s++) {
+        const a = info.ideal[s];
+        const b = info.ideal[(s + 1) % info.ideal.length];
+        const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        for (let j = i + 1; j < elements.length; j++) {
+          if (plan[j] && pointInOverlapShape(mid, elements[j])) info.targets[s] = j;
+        }
+      }
+    }
+    return plan;
+  }
+
+  /** Devuelve subtrazos continuos del contorno asignados a un target. */
+  function overlapRuns(info, target) {
+    if (!info || !info.points.length) return [];
+    const runs = [];
+    let run = null;
+    for (let i = 0; i < info.points.length; i++) {
+      if (info.targets[i] !== target) {
+        run = null;
+        continue;
+      }
+      if (!run) {
+        run = [info.points[i]];
+        runs.push(run);
+      }
+      run.push(info.points[(i + 1) % info.points.length]);
+    }
+    return runs;
+  }
+
+  function _drawOverlapRuns(ctx, info, target, dashed) {
+    const runs = overlapRuns(info, target);
+    if (!runs.length) return;
+    ctx.save();
+    ctx.strokeStyle = info.el.color;
+    ctx.lineWidth = info.el.lineWidth;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.setLineDash(dashed ? [4 * info.el.lineWidth, 4 * info.el.lineWidth] : []);
+    ctx.beginPath();
+    runs.forEach(run => {
+      ctx.moveTo(run[0].x, run[0].y);
+      for (let i = 1; i < run.length; i++) ctx.lineTo(run[i].x, run[i].y);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
   }
 
   /* ── UI component helpers ── */
@@ -198,7 +377,7 @@ const Renderer = (() => {
 
   /* ── Public: render a single element ── */
 
-  function renderElement(ctx, el) {
+  function renderElement(ctx, el, options = {}) {
     ctx.save();
     // Jitter determinista: el mismo seed reproduce exactamente el mismo
     // trazo en cada redraw (sin seed, cae en Math.random y "tiembla")
@@ -280,21 +459,21 @@ const Renderer = (() => {
       }
 
       case 'rect':
-        if (el.fill) {
+        if (el.fill && options.shapeFill !== false) {
           ctx.fillStyle = fillStyle(el);
           ctx.fillRect(el.x, el.y, el.w, el.h);
         }
-        Sketchy.rect(ctx, el.x, el.y, el.w, el.h);
+        if (options.shapeStroke !== false) Sketchy.rect(ctx, el.x, el.y, el.w, el.h);
         break;
 
       case 'roundedRect':
-        if (el.fill) {
+        if (el.fill && options.shapeFill !== false) {
           ctx.fillStyle = fillStyle(el);
           ctx.beginPath();
           ctx.roundRect(el.x, el.y, el.w, el.h, 12);
           ctx.fill();
         }
-        Sketchy.roundedRect(ctx, el.x, el.y, el.w, el.h, 12);
+        if (options.shapeStroke !== false) Sketchy.roundedRect(ctx, el.x, el.y, el.w, el.h, 12);
         break;
 
       case 'circle': {
@@ -302,13 +481,13 @@ const Renderer = (() => {
         const ry = Math.abs(el.h) / 2;
         const cx = el.x + el.w / 2;
         const cy = el.y + el.h / 2;
-        if (el.fill) {
+        if (el.fill && options.shapeFill !== false) {
           ctx.fillStyle = fillStyle(el);
           ctx.beginPath();
           ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
           ctx.fill();
         }
-        Sketchy.ellipse(ctx, cx, cy, rx, ry);
+        if (options.shapeStroke !== false) Sketchy.ellipse(ctx, cx, cy, rx, ry);
         break;
       }
 
@@ -346,6 +525,38 @@ const Renderer = (() => {
 
     Sketchy.setSeed(null);
     ctx.restore();
+  }
+
+  /**
+   * Render coordinado de toda la escena. En modo hidden-dashed los fills se
+   * mantienen en su z-order, los tramos visibles se dibujan sólidos y cada
+   * tramo oculto se difiere hasta la forma superior que lo cubre.
+   */
+  function renderElements(ctx, elements, overlapMode = 'normal') {
+    if (overlapMode !== 'hidden-dashed') {
+      elements.forEach(el => renderElement(ctx, el));
+      return;
+    }
+    const plan = buildOverlapPlan(elements);
+    elements.forEach((el, index) => {
+      const current = plan[index];
+      if (!current) {
+        renderElement(ctx, el);
+        return;
+      }
+      renderElement(ctx, el, { shapeStroke: false });
+      for (let lower = 0; lower < index; lower++) {
+        if (plan[lower]) _drawOverlapRuns(ctx, plan[lower], index, true);
+      }
+      if (current.targets.every(target => target === -1)) {
+        // Una forma cuyo borde no queda oculto conserva exactamente el trazo
+        // Sketchy tradicional; solo se sustituye el contorno al tener que
+        // dividirlo en segmentos visibles/ocultos.
+        renderElement(ctx, el, { shapeFill: false });
+      } else {
+        _drawOverlapRuns(ctx, current, -1, false);
+      }
+    });
   }
 
   /* ── Grid ── */
@@ -402,5 +613,15 @@ const Renderer = (() => {
     ctx.restore();
   }
 
-  return { renderElement, drawGrid, drawSelection, setImageLoadCallback };
+  return {
+    renderElement,
+    renderElements,
+    buildOverlapPlan,
+    overlapRuns,
+    isOverlapShape,
+    pointInOverlapShape,
+    drawGrid,
+    drawSelection,
+    setImageLoadCallback,
+  };
 })();

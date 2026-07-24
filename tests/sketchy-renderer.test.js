@@ -742,6 +742,15 @@ test('renderElement rect fillTransparent: usa el color propio con alfa 0x66', ()
   assert.deepEqual(ctx.callsTo('set fillStyle')[0].args, ['#ff880066']);
 });
 
+test('renderElement formas fillOpacity: modula rect, roundedRect y circle entre 0 y 1', () => {
+  const transparent = render(baseEl({ type: 'rect', x: 0, y: 0, w: 50, h: 50, fill: true, fillColor: '#ff8800', fillTransparent: true, fillOpacity: 0 }));
+  const half = render(baseEl({ type: 'roundedRect', x: 0, y: 0, w: 50, h: 50, fill: true, fillColor: '#ff8800', fillTransparent: true, fillOpacity: 0.5 }));
+  const opaque = render(baseEl({ type: 'circle', x: 0, y: 0, w: 50, h: 50, fill: true, fillColor: '#ff8800', fillTransparent: true, fillOpacity: 1 }));
+  assert.deepEqual(transparent.callsTo('set fillStyle')[0].args, ['#ff880000']);
+  assert.deepEqual(half.callsTo('set fillStyle')[0].args, ['#ff880080']);
+  assert.deepEqual(opaque.callsTo('set fillStyle')[0].args, ['#ff8800ff']);
+});
+
 test('renderElement rect fillTransparent sin fillColor: tinte del trazo a 0x66', () => {
   const ctx = render(baseEl({ type: 'rect', x: 0, y: 0, w: 50, h: 50, fill: true, fillTransparent: true }));
   assert.deepEqual(ctx.callsTo('set fillStyle')[0].args, ['#1a1a2e66']);
@@ -750,4 +759,55 @@ test('renderElement rect fillTransparent sin fillColor: tinte del trazo a 0x66',
 test('renderElement rect sin fillTransparent: sólido (fillColor opaco) — retrocompat', () => {
   const ctx = render(baseEl({ type: 'rect', x: 0, y: 0, w: 50, h: 50, fill: true, fillColor: '#ff8800' }));
   assert.deepEqual(ctx.callsTo('set fillStyle')[0].args, ['#ff8800']);
+});
+
+test('pointInOverlapShape usa la geometría real de círculo y esquinas redondeadas', () => {
+  const circle = baseEl({ type: 'circle', x: 0, y: 0, w: 100, h: 100 });
+  const rounded = baseEl({ type: 'roundedRect', x: 0, y: 0, w: 100, h: 60 });
+  assert.equal(Renderer.pointInOverlapShape({ x: 50, y: 50 }, circle), true);
+  assert.equal(Renderer.pointInOverlapShape({ x: 2, y: 2 }, circle), false, 'fuera de la elipse aunque esté en su bbox');
+  assert.equal(Renderer.pointInOverlapShape({ x: 50, y: 30 }, rounded), true);
+  assert.equal(Renderer.pointInOverlapShape({ x: 1, y: 1 }, rounded), false, 'respeta la esquina redondeada');
+});
+
+test('buildOverlapPlan marca solo parte del contorno inferior y respeta el z-order', () => {
+  const rect = baseEl({ type: 'rect', x: 0, y: 20, w: 100, h: 60, seed: 1 });
+  const circle = baseEl({ type: 'circle', x: 60, y: 0, w: 80, h: 80, seed: 2 });
+  const plan = Renderer.buildOverlapPlan([rect, circle]);
+  assert.ok(plan[0].targets.includes(1), 'hay borde del rectángulo cubierto por el círculo superior');
+  assert.ok(plan[0].targets.includes(-1), 'el resto del borde del rectángulo sigue visible');
+  assert.ok(plan[1].targets.every(t => t === -1), 'la forma superior no queda oculta');
+
+  const reverse = Renderer.buildOverlapPlan([circle, rect]);
+  assert.ok(reverse[0].targets.includes(1), 'al invertir el orden se oculta parte del círculo');
+  assert.ok(reverse[1].targets.every(t => t === -1));
+});
+
+test('buildOverlapPlan asigna cada tramo a la forma superior más alta', () => {
+  const lower = baseEl({ type: 'rect', x: 0, y: 0, w: 100, h: 100, seed: 1 });
+  const coverA = baseEl({ type: 'circle', x: 70, y: -20, w: 60, h: 60, seed: 2 });
+  const coverB = { ...coverA, seed: 3 };
+  const plan = Renderer.buildOverlapPlan([lower, coverA, coverB]);
+  assert.ok(plan[0].targets.includes(2));
+  assert.equal(plan[0].targets.includes(1), false, 'la cobertura duplicada se asigna solo a la capa superior');
+});
+
+test('renderElements permite alternar normal/hidden-dashed y es determinista', () => {
+  const elements = [
+    baseEl({ type: 'rect', x: 0, y: 20, w: 100, h: 60, fill: true, fillColor: '#ff0000', seed: 11 }),
+    baseEl({ type: 'circle', x: 60, y: 0, w: 80, h: 80, fill: true, fillColor: '#0000ff', seed: 22 }),
+  ];
+  const normal = createCtxStub();
+  Renderer.renderElements(normal, elements, 'normal');
+  assert.equal(normal.callsTo('setLineDash').some(c => c.args[0][0] === 8), false);
+
+  const hiddenA = createCtxStub();
+  const hiddenB = createCtxStub();
+  Renderer.renderElements(hiddenA, elements, 'hidden-dashed');
+  Renderer.renderElements(hiddenB, elements, 'hidden-dashed');
+  assert.ok(hiddenA.callsTo('setLineDash').some(c => c.args[0][0] === 8));
+  assert.deepEqual(
+    hiddenA.calls.filter(c => c.name === 'moveTo' || c.name === 'lineTo').map(c => [c.name, ...c.args]),
+    hiddenB.calls.filter(c => c.name === 'moveTo' || c.name === 'lineTo').map(c => [c.name, ...c.args]),
+  );
 });

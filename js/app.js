@@ -18,7 +18,9 @@
     zoom:        1,
     fillShapes:  false,
     fillColor:   null,  // color de relleno; null = tinte translúcido del trazo
-    fillTransparent: false, // relleno translúcido (~40%) en vez de sólido
+    fillTransparent: false, // usa fillOpacity en vez de relleno sólido
+    fillOpacity: 0.4,   // opacidad del relleno translúcido (0..1)
+    overlapMode: 'normal', // normal | hidden-dashed
     pendingEmoji: EMOJI_GROUPS[0].emojis[0], // el que se estampa con la herramienta Emoji
     doubleHead:  false, // nuevas flechas con punta en ambos extremos
     dashed:      false, // nuevas líneas/flechas con trazo discontinuo
@@ -585,7 +587,10 @@
     clearTimeout(autosaveTimer);
     autosaveTimer = setTimeout(() => {
       try {
-        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(state.elements));
+        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({
+          elements: state.elements,
+          settings: { overlapMode: state.overlapMode },
+        }));
       } catch (_) { /* almacenamiento lleno o bloqueado: se ignora */ }
     }, 500);
   }
@@ -595,7 +600,15 @@
       const raw = localStorage.getItem(AUTOSAVE_KEY);
       if (!raw) return;
       const saved = JSON.parse(raw);
-      if (Array.isArray(saved)) state.elements = saved.filter(Exporter.isValidElement);
+      if (Array.isArray(saved)) {
+        // Formato histórico: solo el array de elementos.
+        state.elements = saved.filter(Exporter.isValidElement);
+      } else if (saved && Array.isArray(saved.elements)) {
+        state.elements = saved.elements.filter(Exporter.isValidElement);
+        if (saved.settings && ['normal', 'hidden-dashed'].includes(saved.settings.overlapMode)) {
+          state.overlapMode = saved.settings.overlapMode;
+        }
+      }
     } catch (_) { /* autosave corrupto: se ignora */ }
   }
 
@@ -606,6 +619,7 @@
       localStorage.setItem(PREFS_KEY, JSON.stringify({
         canvasBg: state.canvasBg,
         gridColor: state.gridColor,
+        overlapMode: state.overlapMode,
       }));
     } catch (_) { /* almacenamiento lleno o bloqueado: se ignora */ }
   }
@@ -618,6 +632,9 @@
       if (!prefs || typeof prefs !== 'object') return;
       if (HEX_RE.test(prefs.canvasBg)) state.canvasBg = prefs.canvasBg;
       if (HEX_RE.test(prefs.gridColor)) state.gridColor = prefs.gridColor;
+      if (['normal', 'hidden-dashed'].includes(prefs.overlapMode)) {
+        state.overlapMode = prefs.overlapMode;
+      }
     } catch (_) { /* prefs corruptas: se ignoran */ }
   }
 
@@ -691,13 +708,11 @@
     ctx.fillStyle = state.canvasBg;
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
     if (state.showGrid) Renderer.drawGrid(ctx, CANVAS_W, CANVAS_H, state.gridColor);
-    state.elements.forEach(el => {
-      try {
-        Renderer.renderElement(ctx, el);
-      } catch (err) {
-        console.warn('Elemento no renderizable, se omite:', el, err);
-      }
-    });
+    try {
+      Renderer.renderElements(ctx, state.elements, state.overlapMode);
+    } catch (err) {
+      console.warn('No se pudo renderizar la escena:', err);
+    }
     // Sanea índices que hayan quedado fuera de rango y dibuja la selección
     // (handles de resize solo con un único elemento seleccionado)
     state.selection = state.selection.filter(i => state.elements[i]);
@@ -774,6 +789,10 @@
       if (FILLABLE_TYPES.includes(sel.type)) {
         $('check-fill').checked = sel.fill === true;
         $('check-fill-transparent').checked = sel.fillTransparent === true;
+        const opacity = sel.fillOpacity !== undefined ? sel.fillOpacity : 0.4;
+        $('fill-opacity-slider').value = Math.round(opacity * 100);
+        $('fill-opacity-val').textContent = String(Math.round(opacity * 100));
+        $('fill-opacity-slider').disabled = sel.fillTransparent !== true;
         // Sin fillColor propio el relleno es el tinte del trazo: se muestra
         // ese color como punto de partida del picker
         $('fill-color-picker').value = hex6(sel.fillColor || sel.color);
@@ -785,6 +804,9 @@
       $('check-dash').checked = state.dashed;
       $('check-fill').checked = state.fillShapes;
       $('check-fill-transparent').checked = state.fillTransparent;
+      $('fill-opacity-slider').value = Math.round(state.fillOpacity * 100);
+      $('fill-opacity-val').textContent = String(Math.round(state.fillOpacity * 100));
+      $('fill-opacity-slider').disabled = !state.fillTransparent;
       $('fill-color-picker').value = hex6(state.fillColor || state.color);
     }
     scheduleAutosave();
@@ -1348,6 +1370,7 @@
         // Sin fillColor, el relleno cae en el tinte del trazo (aspecto clásico)
         if (state.fillShapes && state.fillColor) shape.fillColor = state.fillColor;
         if (state.fillShapes && state.fillTransparent) shape.fillTransparent = true;
+        shape.fillOpacity = state.fillOpacity;
         state.elements.push(shape);
       }
     }
@@ -1919,9 +1942,11 @@
       }
     });
 
-    // Relleno translúcido — semántica dual: sólido (off) o al ~40% (on).
+    // Relleno translúcido — semántica dual: sólido (off) o con la opacidad
+    // elegida en el slider (on).
     $('check-fill-transparent').addEventListener('change', e => {
       const on = e.target.checked;
+      $('fill-opacity-slider').disabled = !on;
       if (state.selection.length) {
         const shapes = state.selection.filter(i => FILLABLE_TYPES.includes(state.elements[i].type));
         if (!shapes.length) return;
@@ -1937,6 +1962,40 @@
         state.fillTransparent = on;
       }
     });
+
+    // Opacidad del relleno translúcido — 0..100% en UI, 0..1 en el modelo.
+    // Como el grosor, todo el arrastre sobre una selección es un único undo.
+    let fillOpacityGestureSnap = null;
+    $('fill-opacity-slider').addEventListener('input', e => {
+      const opacity = +e.target.value / 100;
+      $('fill-opacity-val').textContent = e.target.value;
+      if (state.selection.length) {
+        const shapes = state.selection.filter(i => FILLABLE_TYPES.includes(state.elements[i].type));
+        if (!shapes.length) return;
+        if (!fillOpacityGestureSnap) fillOpacityGestureSnap = snapshot();
+        shapes.forEach(i => {
+          state.elements[i] = { ...state.elements[i], fillOpacity: opacity };
+        });
+        redraw();
+      } else {
+        state.fillOpacity = opacity;
+      }
+    });
+
+    function commitFillOpacityGesture() {
+      if (!fillOpacityGestureSnap) return;
+      const snap = fillOpacityGestureSnap;
+      fillOpacityGestureSnap = null;
+      const unchanged = snap.length === state.elements.length &&
+        snap.every((el, i) => el === state.elements[i] ||
+          (el.fillOpacity !== undefined ? el.fillOpacity : 0.4) ===
+          (state.elements[i].fillOpacity !== undefined ? state.elements[i].fillOpacity : 0.4));
+      if (unchanged) state.elements = snap;
+      else pushUndo(snap);
+    }
+    $('fill-opacity-slider').addEventListener('change', commitFillOpacityGesture);
+    $('fill-opacity-slider').addEventListener('pointerup', commitFillOpacityGesture);
+    $('fill-opacity-slider').addEventListener('pointercancel', commitFillOpacityGesture);
 
     // Color de relleno — misma semántica dual. Elegir un color implica querer
     // relleno, así que además lo activa (el checkbox sigue siendo el "off").
@@ -1956,6 +2015,12 @@
         state.fillShapes = true;
         $('check-fill').checked = true;
       }
+    });
+    $('overlap-mode').value = state.overlapMode;
+    $('overlap-mode').addEventListener('change', e => {
+      state.overlapMode = e.target.value === 'hidden-dashed' ? 'hidden-dashed' : 'normal';
+      savePrefs();
+      redraw();
     });
     // Doble punta — semántica dual: con selección aplica/quita heads:'both'
     // a las flechas seleccionadas (los no-flecha se ignoran); sin selección
@@ -2018,8 +2083,10 @@
       // El fondo y la cuadrícula también vuelven a su color original
       state.canvasBg = DEFAULT_CANVAS_BG;
       state.gridColor = DEFAULT_GRID_COLOR;
+      state.overlapMode = 'normal';
       $('canvas-bg-picker').value = DEFAULT_CANVAS_BG;
       $('grid-color-picker').value = DEFAULT_GRID_COLOR;
+      $('overlap-mode').value = 'normal';
       // El zoom vuelve al 100%. Cuenta como elección explícita del usuario
       // (zoomManual), para que el auto-ajuste no lo agrande al siguiente
       // redimensionado de la ventana y el 100% se mantenga.
@@ -2042,6 +2109,9 @@
       if (els) {
         saveUndo();
         state.elements = withSeeds(els);
+        state.overlapMode = els.overlapMode === 'hidden-dashed' ? 'hidden-dashed' : 'normal';
+        $('overlap-mode').value = state.overlapMode;
+        savePrefs();
         // Los índices de selección previos apuntarían a elementos importados
         // arbitrarios; se limpia como al cargar una plantilla.
         setSelection([]);
@@ -2316,7 +2386,7 @@
     closeOnBackdrop(exportModal);
     exportModal.querySelectorAll('[data-export]').forEach(btn => {
       btn.addEventListener('click', () => {
-        Exporter[btn.dataset.export](state.elements);
+        Exporter[btn.dataset.export](state.elements, { overlapMode: state.overlapMode });
         exportModal.close();
       });
     });

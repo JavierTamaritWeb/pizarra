@@ -20,14 +20,14 @@ const Exporter = (() => {
   /**
    * Render elements to a temp canvas (no grid) and return its data URL.
    */
-  function _renderClean(elements, format, quality) {
+  function _renderClean(elements, format, quality, options = {}) {
     const c = document.createElement('canvas');
     c.width = CANVAS_W;
     c.height = CANVAS_H;
     const ctx = c.getContext('2d');
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-    elements.forEach(el => Renderer.renderElement(ctx, el));
+    Renderer.renderElements(ctx, elements, options.overlapMode);
     // El borrador (destination-out) perfora el fondo: repintar blanco por
     // detrás para que el PNG no salga transparente ni el JPG negro
     ctx.globalCompositeOperation = 'destination-over';
@@ -39,37 +39,54 @@ const Exporter = (() => {
 
   /* ── Public exports ── */
 
-  function png(elements) {
-    const url = _renderClean(elements, 'image/png');
+  function png(elements, options = {}) {
+    const url = _renderClean(elements, 'image/png', undefined, options);
     const a = document.createElement('a');
     a.download = 'wireframe.png';
     a.href = url;
     a.click();
   }
 
-  function jpg(elements) {
-    const url = _renderClean(elements, 'image/jpeg', 0.95);
+  function jpg(elements, options = {}) {
+    const url = _renderClean(elements, 'image/jpeg', 0.95, options);
     const a = document.createElement('a');
     a.download = 'wireframe.jpg';
     a.href = url;
     a.click();
   }
 
-  function svg(elements) {
+  function svg(elements, options = {}) {
     let out = `<svg xmlns="http://www.w3.org/2000/svg" width="${CANVAS_W}" height="${CANVAS_H}" viewBox="0 0 ${CANVAS_W} ${CANVAS_H}">\n`;
     out += `<rect width="100%" height="100%" fill="white"/>\n`;
     out += `<style>@import url('https://fonts.googleapis.com/css2?family=Architects+Daughter&amp;display=swap');</style>\n`;
 
-    elements.forEach(el => { out += _svgElement(el); });
+    out += _svgScene(elements, options.overlapMode);
 
     out += '</svg>';
     _downloadBlob('wireframe.svg', new Blob([out], { type: 'image/svg+xml' }));
   }
 
   const FONT_FALLBACK = 'Architects Daughter, Segoe Print, Comic Neue, cursive';
+  const DEFAULT_FILL_OPACITY = 0.4;
 
   /** Tipos sin representación HTML propia: van en un <svg> incrustado */
   const VECTOR_TYPES = ['pencil', 'eraser', 'line', 'arrow', 'curveArrow', 'circle'];
+
+  function _alphaHex(opacity) {
+    return Math.round(Math.min(1, Math.max(0, opacity)) * 255)
+      .toString(16).padStart(2, '0');
+  }
+
+  /** Mismo criterio de relleno que Renderer.fillStyle. */
+  function _fillColor(el) {
+    const stroke = String(el.color);
+    const own = el.fillColor ? String(el.fillColor) : null;
+    if (el.fillTransparent) {
+      const opacity = el.fillOpacity !== undefined ? el.fillOpacity : DEFAULT_FILL_OPACITY;
+      return (own || stroke).slice(0, 7) + _alphaHex(opacity);
+    }
+    return own || stroke.slice(0, 7) + '20';
+  }
 
   /**
    * Etiqueta de flecha en SVG: <text> centrado en el punto medio del trazo
@@ -112,11 +129,7 @@ const Exporter = (() => {
   function _svgElement(el) {
     const color = _escapeXml(String(el.color));
     const lw = _escapeXml(String(el.lineWidth));
-    // Relleno: mismo criterio que Renderer.fillStyle — translúcido (~40%),
-    // color propio opaco, o el tinte 0x20 del trazo si no hay color propio
-    const fillCol = el.fillTransparent
-      ? (el.fillColor ? _escapeXml(String(el.fillColor)) : color) + '66'
-      : (el.fillColor ? _escapeXml(String(el.fillColor)) : color + '20');
+    const fillCol = _escapeXml(_fillColor(el));
     const s = `stroke="${color}" stroke-width="${lw}" fill="none" stroke-linecap="round"`;
     const sf = `stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="${el.fill ? fillCol : 'none'}"`;
     // Cuerpo con trazo discontinuo opcional (las puntas siempre usan `s`, sólidas)
@@ -239,7 +252,48 @@ const Exporter = (() => {
     return out;
   }
 
-  function html(elements) {
+  function _svgShapeFill(el) {
+    if (!el.fill) return '';
+    const fill = _escapeXml(_fillColor(el));
+    if (el.type === 'circle') {
+      return `<ellipse cx="${el.x + el.w / 2}" cy="${el.y + el.h / 2}" rx="${Math.abs(el.w) / 2}" ry="${Math.abs(el.h) / 2}" fill="${fill}" stroke="none"/>\n`;
+    }
+    return `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}"${el.type === 'roundedRect' ? ' rx="12"' : ''} fill="${fill}" stroke="none"/>\n`;
+  }
+
+  function _svgOverlapRuns(info, target, dashed) {
+    const runs = Renderer.overlapRuns(info, target);
+    if (!runs.length) return '';
+    const d = runs.map(run => run.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`).join(' ')).join(' ');
+    const color = _escapeXml(String(info.el.color));
+    const lw = _escapeXml(String(info.el.lineWidth));
+    const dash = dashed ? ` stroke-dasharray="${4 * info.el.lineWidth} ${4 * info.el.lineWidth}"` : '';
+    return `<path d="${d}" stroke="${color}" stroke-width="${lw}" fill="none" stroke-linecap="round" stroke-linejoin="round"${dash}/>\n`;
+  }
+
+  /** Escena SVG coordinada para conservar orden y bordes ocultos parciales. */
+  function _svgScene(elements, overlapMode = 'normal') {
+    if (overlapMode !== 'hidden-dashed') {
+      return elements.map(_svgElement).join('');
+    }
+    const plan = Renderer.buildOverlapPlan(elements);
+    let out = '';
+    elements.forEach((el, index) => {
+      const current = plan[index];
+      if (!current) {
+        out += _svgElement(el);
+        return;
+      }
+      out += _svgShapeFill(el);
+      for (let lower = 0; lower < index; lower++) {
+        if (plan[lower]) out += _svgOverlapRuns(plan[lower], index, true);
+      }
+      out += _svgOverlapRuns(current, -1, false);
+    });
+    return out;
+  }
+
+  function html(elements, options = {}) {
     let out = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -258,25 +312,29 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
 <div class="wireframe">
 `;
 
-    // Tipos sin representación HTML (lápiz, líneas, flechas, círculos,
-    // borrador): se incrustan como un <svg> superpuesto del mismo tamaño
-    const vectors = elements.filter(el => VECTOR_TYPES.includes(el.type));
-    if (vectors.length) {
+    if (options.overlapMode === 'hidden-dashed') {
+      // El recorte parcial de contornos requiere SVG; en este modo la escena
+      // completa se conserva en un único lienzo vectorial con su z-order.
       out += `  <svg width="${CANVAS_W}" height="${CANVAS_H}" viewBox="0 0 ${CANVAS_W} ${CANVAS_H}" style="left:0;top:0;pointer-events:none;">\n`;
-      vectors.forEach(el => { out += '    ' + _svgElement(el); });
+      out += _svgScene(elements, 'hidden-dashed').split('\n').filter(Boolean).map(line => `    ${line}\n`).join('');
       out += `  </svg>\n`;
-    }
+    } else {
+      // Tipos sin representación HTML (lápiz, líneas, flechas, círculos,
+      // borrador): se incrustan como un <svg> superpuesto del mismo tamaño
+      const vectors = elements.filter(el => VECTOR_TYPES.includes(el.type));
+      if (vectors.length) {
+        out += `  <svg width="${CANVAS_W}" height="${CANVAS_H}" viewBox="0 0 ${CANVAS_W} ${CANVAS_H}" style="left:0;top:0;pointer-events:none;">\n`;
+        vectors.forEach(el => { out += '    ' + _svgElement(el); });
+        out += `  </svg>\n`;
+      }
 
-    elements.forEach(el => {
+      elements.forEach(el => {
       const color = _escapeHtml(String(el.color));
       const lw = _escapeHtml(String(el.lineWidth));
       switch (el.type) {
         case 'rect':
         case 'roundedRect': {
-          // Relleno: mismo criterio que Renderer.fillStyle (translúcido/sólido/tinte)
-          const bg = el.fillTransparent
-            ? (el.fillColor ? _escapeHtml(String(el.fillColor)) : color) + '66'
-            : (el.fillColor ? _escapeHtml(String(el.fillColor)) : color + '20');
+          const bg = _escapeHtml(_fillColor(el));
           out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};${el.type === 'roundedRect' ? 'border-radius:12px;' : ''}${el.fill ? `background:${bg};` : ''}"></div>\n`;
           break;
         }
@@ -302,16 +360,20 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
           out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};border-radius:10px;overflow:hidden;"><div style="height:45%;background:${color}10;border-bottom:1px solid ${color}30;"></div><div style="padding:12px;"><h3 style="color:${color};">${_escapeHtml(el.label || 'Card Title')}</h3><p style="color:${color}60;margin-top:6px;">Description text</p></div></div>\n`;
           break;
       }
-    });
+      });
+    }
 
     out += `</div>\n</body>\n</html>`;
     _downloadBlob('wireframe.html', new Blob([out], { type: 'text/html' }));
   }
 
-  function json(elements) {
+  function json(elements, options = {}) {
     const data = {
       version: 1,
       canvasSize: { w: CANVAS_W, h: CANVAS_H },
+      settings: {
+        overlapMode: options.overlapMode === 'hidden-dashed' ? 'hidden-dashed' : 'normal',
+      },
       elements,
     };
     _downloadBlob('wireframe.json', new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
@@ -358,6 +420,9 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
     if (el.fill !== undefined && typeof el.fill !== 'boolean') return false;
     // fillTransparent (relleno translúcido): booleano
     if (el.fillTransparent !== undefined && typeof el.fillTransparent !== 'boolean') return false;
+    // fillOpacity: opacidad del relleno translúcido, inclusiva entre 0 y 1
+    if (el.fillOpacity !== undefined &&
+        !(_isNum(el.fillOpacity) && el.fillOpacity >= 0 && el.fillOpacity <= 1)) return false;
     // fillColor (color de relleno propio): se interpola en los exports
     // SVG/HTML, así que se valida como hex igual que `color`
     if (el.fillColor !== undefined &&
@@ -425,6 +490,12 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
             if (discarded > 0) {
               alert(`Se descartaron ${discarded} elemento(s) inválido(s) del archivo`);
             }
+            Object.defineProperty(valid, 'overlapMode', {
+              value: data.settings && data.settings.overlapMode === 'hidden-dashed'
+                ? 'hidden-dashed'
+                : 'normal',
+              enumerable: false,
+            });
             resolve(valid);
           } catch {
             alert('Archivo JSON inválido');

@@ -881,11 +881,11 @@ test("Exporter.isValidElement: rechaza type:'arc' y type:'emoji' (herramientas d
    Relleno translúcido (fillTransparent)
    ──────────────────────────────────────────────────────────── */
 
-test('Exporter.svg: fillTransparent aplica alfa 0x66 al color de relleno', () => {
+test('Exporter.svg: fillOpacity aplica el alfa regulado al color de relleno', () => {
   const ctx = freshCtx();
-  ctx.Exporter.svg([{ ...elRectFill, fillColor: '#ff8800', fillTransparent: true }]);
+  ctx.Exporter.svg([{ ...elRectFill, fillColor: '#ff8800', fillTransparent: true, fillOpacity: 0.25 }]);
   const rect = lastBlob(ctx).content.split('\n').find(l => l.startsWith('<rect x='));
-  assert.ok(rect.includes('fill="#ff880066"'), 'debe llevar el color con alfa 0x66');
+  assert.ok(rect.includes('fill="#ff880040"'), '25% de opacidad debe producir alfa 0x40');
   assert.equal((rect.match(/fill="/g) || []).length, 1, 'un único atributo fill');
 });
 
@@ -896,29 +896,79 @@ test('Exporter.svg: sin fillTransparent el relleno sigue sólido (retrocompat)',
   assert.ok(rect.includes('fill="#ff8800"') && !rect.includes('#ff880066'));
 });
 
-test('Exporter.html: fillTransparent → background con alfa 0x66', () => {
+test('Exporter.html: fillOpacity → background con el alfa regulado', () => {
   const ctx = freshCtx();
-  ctx.Exporter.html([{ ...elRectFill, fillColor: '#ff8800', fillTransparent: true }]);
-  assert.match(lastBlob(ctx).content, /background:#ff880066;/);
+  ctx.Exporter.html([{ ...elRectFill, fillColor: '#ff8800', fillTransparent: true, fillOpacity: 0.5 }]);
+  assert.match(lastBlob(ctx).content, /background:#ff880080;/);
 });
 
-test('Exporter.isValidElement: fillTransparent debe ser booleano', () => {
+test('Exporter.isValidElement: fillTransparent es booleano y fillOpacity está entre 0 y 1', () => {
   const ctx = freshCtx();
   const v = el => ctx.Exporter.isValidElement(el);
   assert.ok(v({ ...elRectFill, fillTransparent: true }));
   assert.ok(v({ ...elRectFill, fillTransparent: false }));
+  assert.ok(v({ ...elRectFill, fillOpacity: 0 }));
+  assert.ok(v({ ...elRectFill, fillOpacity: 0.4 }));
+  assert.ok(v({ ...elRectFill, fillOpacity: 1 }));
   assert.ok(v(elRectFill), 'sin el campo sigue válido');
   assert.equal(v({ ...elRectFill, fillTransparent: 'yes' }), false);
   assert.equal(v({ ...elRectFill, fillTransparent: 1 }), false);
+  assert.equal(v({ ...elRectFill, fillOpacity: -0.01 }), false);
+  assert.equal(v({ ...elRectFill, fillOpacity: 1.01 }), false);
+  assert.equal(v({ ...elRectFill, fillOpacity: '0.4' }), false);
 });
 
-test('round-trip JSON conserva fillTransparent', async () => {
+test('round-trip JSON conserva fillTransparent y fillOpacity', async () => {
   const ctx = freshCtx();
-  ctx.Exporter.json([{ ...elRectFill, fillColor: '#ff8800', fillTransparent: true }]);
+  ctx.Exporter.json([{ ...elRectFill, fillColor: '#ff8800', fillTransparent: true, fillOpacity: 0.73 }]);
   const jsonStr = lastBlob(ctx).content;
   const p = ctx.Exporter.importJSON();
   const input = ctx.document.created[ctx.document.created.length - 1];
   input.onchange({ target: { files: [{ text: jsonStr }] } });
   const back = JSON.parse(JSON.stringify(await p));
   assert.equal(back[0].fillTransparent, true);
+  assert.equal(back[0].fillOpacity, 0.73);
+});
+
+test('Exporter.svg: el modo de solapamiento alterna bordes normales u ocultos discontinuos', () => {
+  const elements = [
+    { ...elRectFill, x: 0, y: 20, w: 100, h: 60, seed: 1 },
+    { ...base, type: 'circle', x: 60, y: 0, w: 80, h: 80, fill: true, seed: 2 },
+  ];
+  const normalCtx = freshCtx();
+  normalCtx.Exporter.svg(elements, { overlapMode: 'normal' });
+  assert.doesNotMatch(lastBlob(normalCtx).content, /stroke-dasharray="8 8"/);
+
+  const hiddenCtx = freshCtx();
+  hiddenCtx.Exporter.svg(elements, { overlapMode: 'hidden-dashed' });
+  const hidden = lastBlob(hiddenCtx).content;
+  assert.match(hidden, /stroke-dasharray="8 8"/);
+  assert.match(hidden, /<path d="[^"]+"[^>]*stroke="#333344"/);
+});
+
+test('Exporter.html: hidden-dashed conserva la escena en SVG con tramos discontinuos', () => {
+  const ctx = freshCtx();
+  const elements = [
+    { ...elRectFill, x: 0, y: 20, w: 100, h: 60, seed: 1 },
+    { ...base, type: 'circle', x: 60, y: 0, w: 80, h: 80, fill: true, seed: 2 },
+  ];
+  ctx.Exporter.html(elements, { overlapMode: 'hidden-dashed' });
+  const out = lastBlob(ctx).content;
+  assert.match(out, /<svg /);
+  assert.match(out, /stroke-dasharray="8 8"/);
+});
+
+test('Exporter.json/importJSON conserva overlapMode y los proyectos antiguos usan normal', async () => {
+  const modern = freshCtx();
+  modern.Exporter.json([elRectFill], { overlapMode: 'hidden-dashed' });
+  const modernImport = modern.Exporter.importJSON();
+  const modernInput = modern.document.created[modern.document.created.length - 1];
+  modernInput.onchange({ target: { files: [{ text: lastBlob(modern).content }] } });
+  assert.equal((await modernImport).overlapMode, 'hidden-dashed');
+
+  const legacy = freshCtx();
+  const legacyImport = legacy.Exporter.importJSON();
+  const legacyInput = legacy.document.created[legacy.document.created.length - 1];
+  legacyInput.onchange({ target: { files: [{ text: JSON.stringify({ elements: [elRectFill] }) }] } });
+  assert.equal((await legacyImport).overlapMode, 'normal');
 });

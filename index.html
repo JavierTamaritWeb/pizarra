@@ -88,6 +88,17 @@
           <label class="panel__check">
             <input type="checkbox" id="check-fill-transparent" /> Relleno translúcido
           </label>
+          <h3 class="panel__title">Opacidad: <span id="fill-opacity-val">40</span>%</h3>
+          <input class="panel__slider" type="range" id="fill-opacity-slider"
+                 min="0" max="100" step="1" value="40"
+                 aria-label="Opacidad del relleno translúcido" disabled />
+          <label class="panel__field" for="overlap-mode">
+            <span class="panel__title">Solapamiento</span>
+            <select class="panel__select" id="overlap-mode">
+              <option value="normal">Normal</option>
+              <option value="hidden-dashed">Bordes ocultos</option>
+            </select>
+          </label>
           <div class="panel__canvas-colors">
             <label class="panel__canvas-color">
               <input class="panel__color-picker" type="color" id="fill-color-picker" value="#4ecdc4" />
@@ -234,7 +245,9 @@
         <ul class="modal__help-list">
           <li>Selecciona una forma y elige <strong>"Color de relleno"</strong> para rellenarla</li>
           <li>El checkbox <strong>"Rellenar formas"</strong> la vacía sin perder el color: al volver a marcarlo lo recupera</li>
-          <li><strong>"Relleno translúcido"</strong> alterna entre relleno sólido o semitransparente (~40%)</li>
+          <li><strong>"Relleno translúcido"</strong> alterna entre relleno sólido o con transparencia</li>
+          <li>El control <strong>"Opacidad"</strong> regula la transparencia del relleno entre 0 y 100%</li>
+          <li><strong>"Solapamiento"</strong> alterna entre la mezcla normal y los bordes ocultos discontinuos</li>
           <li>Sin selección, todos fijan el valor por defecto de las próximas formas</li>
         </ul>
       </section>
