@@ -2,7 +2,7 @@
 
 **Crea wireframes, diagramas y bocetos con estilo dibujado a mano, directamente en tu navegador.**
 
-![Versión](https://img.shields.io/badge/versi%C3%B3n-1.8.1-blueviolet)
+![Versión](https://img.shields.io/badge/versi%C3%B3n-1.9.0-blueviolet)
 ![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?logo=javascript&logoColor=000)
 ![Sin dependencias](https://img.shields.io/badge/dependencias-0-brightgreen)
 ![Tests](https://img.shields.io/badge/tests-206%20%E2%9C%93-brightgreen)

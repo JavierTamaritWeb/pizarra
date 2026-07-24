@@ -4,7 +4,7 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
-## Próxima versión
+## [1.9.0] — 2026-07-24
 
 ### Añadido
 - Botones **Cuadrado** (`4`) y **Trapecio** (`7`) en la barra de Formas.
