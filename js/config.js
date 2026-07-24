@@ -26,7 +26,49 @@ const TOOLS = Object.freeze({
   INPUT:            'input',
   NAV:              'nav',
   CARD:             'card',
+  // Edificios — herramientas de creación (NO tipos de elemento): cada una
+  // produce elementos de tipos ya existentes (rect/line). Ver js/building.js.
+  BUILD_PLANTA: 'planta',         BUILD_ALZADO: 'alzado',
+  BUILD_PERFIL: 'perfil',         BUILD_FACADE: 'fachada',
+  BUILD_ROOF2:  'tejadoDosAguas', BUILD_ROOF1:  'tejadoUnAgua',
+  BUILD_ROOFF:  'tejadoPlano',    BUILD_DOOR:   'puerta',
+  BUILD_WINDOW: 'ventana',
 });
+
+/** Herramientas de la sección "Edificios": todas son SOLO de creación
+    (producen rect/line), nunca valores de `el.type`. */
+const BUILDING_TOOLS = Object.freeze([
+  TOOLS.BUILD_PLANTA, TOOLS.BUILD_ALZADO, TOOLS.BUILD_PERFIL,
+  TOOLS.BUILD_FACADE, TOOLS.BUILD_ROOF2, TOOLS.BUILD_ROOF1, TOOLS.BUILD_ROOFF,
+  TOOLS.BUILD_DOOR, TOOLS.BUILD_WINDOW,
+]);
+
+/** Formas de huella del botón Planta (catálogo del modal). Ampliable.
+    El icono lo dibuja app.js (plantaIcon) a partir del id. */
+const PLANTA_SHAPES = Object.freeze([
+  { id: 'rect',     name: 'Rectangular' },
+  { id: 'l',        name: 'En L' },
+  { id: 'u',        name: 'En U (jardín)' },
+  { id: 'claustro', name: 'Claustro' },
+]);
+
+/** Tipos del botón Puerta (catálogo del modal). El icono lo dibuja app.js
+    (doorIcon) a partir del id. */
+const DOOR_TYPES = Object.freeze([
+  { id: 'door',      name: 'Puerta' },
+  { id: 'arch',      name: 'Puerta de arco' },
+  { id: 'frame',     name: 'Marco' },
+  { id: 'archFrame', name: 'Marco de arco' },
+]);
+
+/** Tipos del botón Ventana (catálogo del modal). El icono lo dibuja app.js
+    (windowIcon) a partir del id. */
+const WINDOW_TYPES = Object.freeze([
+  { id: 'window',    name: 'Ventana' },
+  { id: 'arch',      name: 'Ventana de arco' },
+  { id: 'frame',     name: 'Marco' },
+  { id: 'archFrame', name: 'Marco de arco' },
+]);
 
 const TOOL_GROUPS = [
   {
@@ -69,6 +111,20 @@ const TOOL_GROUPS = [
     label: 'Edición',
     tools: [
       { id: TOOLS.SELECT, icon: '👆', name: 'Mover', key: 'v' },
+    ],
+  },
+  {
+    label: 'Edificios',
+    tools: [
+      { id: TOOLS.BUILD_PLANTA, icon: '▭',  name: 'Planta',         key: 'w' },
+      { id: TOOLS.BUILD_ALZADO, icon: '🏠', name: 'Alzado',         key: 'x' },
+      { id: TOOLS.BUILD_PERFIL, icon: '🏠', name: 'Perfil',         key: 'h' },
+      { id: TOOLS.BUILD_FACADE, icon: '▮',  name: 'Fachada',        key: '1' },
+      { id: TOOLS.BUILD_ROOF2,  icon: '△',  name: 'Tejado 2 aguas', key: '2' },
+      { id: TOOLS.BUILD_ROOF1,  icon: '◺',  name: 'Tejado 1 agua',  key: '8' },
+      { id: TOOLS.BUILD_ROOFF,  icon: '▬',  name: 'Tejado plano',   key: '9' },
+      { id: TOOLS.BUILD_DOOR,   icon: '🚪', name: 'Puerta',         key: '0' },
+      { id: TOOLS.BUILD_WINDOW, icon: '🪟', name: 'Ventana',        key: 'y' },
     ],
   },
 ];

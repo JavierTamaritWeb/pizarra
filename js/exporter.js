@@ -439,7 +439,11 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
   // Sin excluirlos, un JSON importado con type:'arc'/'emoji' pasaría la
   // validación y se colaría un elemento fantasma (el renderer no tiene caso
   // para ellos: invisible pero seleccionable).
-  const CREATION_ONLY_TOOLS = [TOOLS.SELECT, TOOLS.ARC, TOOLS.EMOJI];
+  // Las herramientas de "Edificios" (BUILDING_TOOLS) también son solo de
+  // creación: producen rect/line, nunca un el.type propio. Excluirlas evita
+  // que un JSON con type:'planta'/'alzado'/… pase isValidElement y cuele un
+  // elemento fantasma (invisible pero seleccionable).
+  const CREATION_ONLY_TOOLS = [TOOLS.SELECT, TOOLS.ARC, TOOLS.EMOJI, ...BUILDING_TOOLS];
   const ELEMENT_TYPES = Object.values(TOOLS).filter(t => !CREATION_ONLY_TOOLS.includes(t));
 
   function _isNum(v) {

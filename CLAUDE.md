@@ -19,9 +19,13 @@ python3 -m http.server 8000   # then open http://localhost:8000
 There is no lint or build command. Tests use Node's built-in runner (no dependencies):
 
 ```bash
-node --test tests/           # full suite
+node --test tests/*.test.js          # full suite
 node --test tests/exporter.test.js   # single file
 ```
+
+Use the glob (`tests/*.test.js`), not the bare directory: `node --test tests/`
+silently skips a file under Node 22.x's directory globbing, so a regression guard
+could pass unnoticed by not running at all.
 
 Tests load the global-scope scripts via `node:vm` with canvas/DOM stubs (see `tests/helpers/`). Two vm-realm gotchas: arrays/errors created inside the vm don't share host prototypes, so compare structurally (`[...arr]`, `err.name`) instead of `deepStrictEqual` against host literals or `instanceof`.
 
@@ -29,7 +33,7 @@ Tests load the global-scope scripts via `node:vm` with canvas/DOM stubs (see `te
 
 ## Architecture
 
-Scripts are plain `<script>` tags loaded in dependency order in `index.html` (config → sketchy → arc → curve-path → shape-rotation → regular-polygon → renderer → exporter → templates → app). There are no modules/imports — each file exposes a global (`TOOLS`, `Sketchy`, `ArcMath`, `CurvePath`, `ShapeRotation`, `RegularPolygon`, `Renderer`, `Exporter`, `Templates`) via IIFE, and later scripts rely on earlier globals. If you add a file, add its `<script>` tag in the right position.
+Scripts are plain `<script>` tags loaded in dependency order in `index.html` (config → sketchy → arc → curve-path → shape-rotation → regular-polygon → trapezoid → building → renderer → exporter → templates → app). There are no modules/imports — each file exposes a global (`TOOLS`, `Sketchy`, `ArcMath`, `CurvePath`, `ShapeRotation`, `RegularPolygon`, `Trapezoid`, `Building`, `Renderer`, `Exporter`, `Templates`) via IIFE, and later scripts rely on earlier globals. If you add a file, add its `<script>` tag in the right position (and, for the test harness, in `ALL_FILES`/`KNOWN_GLOBALS` of `tests/helpers/load.js`).
 
 The app is state-driven immediate-mode rendering: a single `state.elements` array of plain objects is the source of truth, and any change triggers a full canvas redraw (`redraw()` in app.js). Elements are serializable plain objects (this is what JSON export/import round-trips), so never store functions or DOM refs on them. They are also treated as immutable: operations replace the element object (`moveElement` returns a copy) rather than mutating it, which lets undo snapshots be shallow copies (`state.elements.slice()`) — preserve that discipline when adding features.
 
@@ -39,6 +43,8 @@ The app is state-driven immediate-mode rendering: a single `state.elements` arra
 - `js/curve-path.js` — pure shared geometry for `curveArrow`, including chained curves. Historical single curves keep `x1/y1/cx/cy[/cx2/cy2]/x2/y2`; a chain also carries `segments`, an ordered, continuous array of quadratic/cubic Bézier objects, while top-level `x1/y1/x2/y2` mirror only the overall endpoints for connector anchoring. Use `CurvePath` for rendering, bounds, sampling, moving, scaling, reversing and endpoint/join editing so those mirrors never drift.
 - `js/shape-rotation.js` — pure discrete rotation rules. `ShapeRotation.rotateElement` swaps a rectangle's `w/h` around its unchanged center for each 90° turn, and normalizes the `rotation` field of triangles/pentagons/hexagons after 90°/36°/30° turns. Unsupported types are returned unchanged.
 - `js/regular-polygon.js` — pure geometry for `triangle`, `pentagon` and `hexagon`: side counts, vertices, center-radius creation and real-silhouette containment. These elements use the standard `x/y/w/h` shape schema but must keep `w === h`; app resize enforces the square and import validation rejects deformed polygons.
+- `js/trapezoid.js` — pure geometry and quarter-turn rotation of the isosceles `trapezoid` element (standard `x/y/w/h` schema, free proportions).
+- `js/building.js` — pure geometry (`Building`) for the **Edificios** section (see below). `Building.elements(tool, p1, p2, opts)` returns an array of plain **existing-type** elements (`rect`/`line`/`curveArrow`), so renderer/exporter/`isValidElement`/bounds need no building-specific code. Covers plantas (rect/L/U/claustro), fachadas + alzado/perfil (multi-floor, windows + door, tiled roofs, cornice), standalone tejados, and the Puerta/Ventana types (normal/arch/frame/archFrame). Detail (mullions, sills, tiles) uses a thinner `lineWidth` than the contour; arches are `ArcMath` `curveArrow`s with `arc:true, heads:'none'`. Elements come out **without `seed`** (app.js adds it via `withSeeds`).
 - `js/renderer.js` — `Renderer.renderElement(ctx, el)` switches on `el.type` and draws each element type (shapes via Sketchy, plus composite UI components: button, input, imagePlaceholder, nav, card). Also grid and selection highlight.
 - `js/exporter.js` — export to PNG/JPG (offscreen canvas), SVG and HTML (hand-built markup strings per element type), and JSON (project format); JSON import via file picker.
 - `js/templates.js` — predefined element arrays (landing, dashboard, form).
@@ -65,6 +71,12 @@ Panel controls follow an Excalidraw-style dual semantic: **with a selection they
 ### Emoji
 
 `TOOLS.EMOJI` is creation-mode only, like `TOOLS.ARC` — **not an element type**. Picking the tool opens the `#modal-emoji` catalogue (built from `EMOJI_GROUPS` in config.js), and `placeEmoji()` stamps the chosen character as an ordinary `text` element centred on the click, at `max(state.fontSize, EMOJI_MIN_SIZE)`. Because it is just a `text` element, rendering, hit-testing, resize, undo, autosave and all five export formats work with no emoji-specific code — keep it that way rather than introducing an `emoji` type. The catalogue is injected with `textContent`, never `innerHTML`.
+
+### Edificios (sección)
+
+The **Edificios** sidebar group draws a building's exterior. Like `TOOLS.ARC`/`TOOLS.EMOJI`, **every building tool is creation-mode only — none is an element type**; each drag produces plain `rect`/`line`/`curveArrow` elements (via `js/building.js`), so render/export/undo/JSON/bounds work with no building-specific code. The one required sync point is `CREATION_ONLY_TOOLS` in exporter.js: it must include `...BUILDING_TOOLS` so `isValidElement` never accepts `type:'planta'`/`'puerta'`/… as a phantom element on JSON import. `paintOverlay` (app.js) draws the drag preview by calling `Building.elements` and stroking each `line`/`rect`/`curveArrow`, so the preview always matches what is committed.
+
+Three of the tools open a **shape-picker modal** on selection, mirroring the pattern (like `#modal-emoji`): **Planta** → `#modal-planta` (`PLANTA_SHAPES`, `state.plantaShape`), **Puerta** → `#modal-door` (`DOOR_TYPES`, `state.doorType`), **Ventana** → `#modal-window` (`WINDOW_TYPES`, `state.windowType`). Each catalogue is built in app.js with `createElementNS`/`textContent` (never `innerHTML`); its icons are inline SVG (`plantaIcon`/`doorIcon`/`windowIcon`) — the arch uses an SVG path `A` command with **`sweep-flag=1`** to bulge up (y-down coords). `update*Active` queries are scoped to their own catalogue (`$('planta-catalog').querySelectorAll(...)`) so the shared `.modal__shape` styling doesn't cross-toggle. The chosen `state.*Type` is passed into `Building.elements` as `opts` (creation default only — there is no per-element edit semantic). Regression guard for all building geometry: `tests/building.test.js`.
 
 ### Shape fill
 

@@ -2,10 +2,10 @@
 
 **Crea wireframes, diagramas y bocetos con estilo dibujado a mano, directamente en tu navegador.**
 
-![Versión](https://img.shields.io/badge/versi%C3%B3n-1.9.0-blueviolet)
+![Versión](https://img.shields.io/badge/versi%C3%B3n-1.10.0-blueviolet)
 ![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?logo=javascript&logoColor=000)
 ![Sin dependencias](https://img.shields.io/badge/dependencias-0-brightgreen)
-![Tests](https://img.shields.io/badge/tests-206%20%E2%9C%93-brightgreen)
+![Tests](https://img.shields.io/badge/tests-225%20%E2%9C%93-brightgreen)
 ![Licencia](https://img.shields.io/badge/licencia-MIT-blue)
 
 Pizarra es una aplicación de wireframing sobre canvas escrita en JavaScript puro: **sin build, sin bundler y sin `node_modules`**. Permite crear bocetos, diagramas y prototipos rápidos directamente en el navegador.
@@ -22,6 +22,7 @@ Pizarra es una aplicación de wireframing sobre canvas escrita en JavaScript pur
   100 px (16 px por defecto); un círculo indica el área exacta y cada pasada
   se deshace o rehace como una sola acción.
 - 🔺 **Formas geométricas**: botones para cuadrado (`4`), trapecio (`7`), triángulo (`3`), pentágono (`5`) y hexágono (`6`). Los polígonos regulares se arrastran desde el centro y conservan todos sus lados iguales; el trapecio admite proporciones libres.
+- 🏠 **Edificios (exterior)**: sección para bocetar el edificio por fuera. **Planta** (`w`) abre un selector de huella (rectangular, en L, en U con jardín, claustro); **Fachada** (`1`), **Alzado** (`x`) y **Perfil** (`h`) son fachadas multiplanta con **ventanas verticales** (montante en cruz y alféizar), **puerta con dintel**, **cornisa** e impostas (el número de plantas se deduce de la altura del arrastre); el Alzado lleva cubierta a dos aguas con alero, tejas, cumbrera y chimenea, y el Perfil, cubierta trapezoidal de cumbrera horizontal. Además, tejados a **dos aguas** (`2`), a **un agua** (`8`) y **plano** (`9`) — todos con **tejas**. Los botones **Puerta** (`0`) y **Ventana** (`y`) abren un modal para elegir el tipo: normal, de **arco de medio punto**, marco o marco de arco. Diseño basado en un estudio de alzado (plano de arquitecto); todo son herramientas de creación sobre líneas y rectángulos, sin tipos nuevos.
 - 🪣 **Relleno con color**: selecciona una forma geométrica (círculo/elipse, rectángulos, trapecio o polígonos regulares) y elige su color de relleno; el checkbox la vacía sin perder el color. **Relleno translúcido** alterna entre sólido y transparente, y el regulador permite ajustar su opacidad del **0 al 100 %** (40 % por defecto). Con formas seleccionadas modifica esas formas; sin selección establece el valor de las próximas. Sin color propio se conserva el tinte translúcido clásico del trazo.
 - 🫥 **Solapamiento seleccionable**: el modo **Normal** conserva la mezcla de transparencias; **Bordes ocultos** convierte en discontinuos únicamente los tramos del contorno inferior cubiertos por otra forma. Respeta rectángulos, esquinas redondeadas, círculos/elipses, trapecios, polígonos regulares y el orden de capas.
 - ◠ **Semicírculos** de 180° exactos y sin puntas: el arrastre fija el diámetro (y con él el radio); después `+`/`−` o su handle ajustan el radio manteniendo la media circunferencia perfecta. `Q` convierte una flecha curva existente en semicírculo y viceversa.
@@ -91,6 +92,7 @@ Pizarra guarda automáticamente el lienzo en `localStorage`. Para crear una copi
 | `3` `4` `5` `6` `7` | Triángulo · Cuadrado · Pentágono · Hexágono · Trapecio |
 | `T` `J` `B` `I` `M` `N` `K` | Texto · Emoji · Botón · Input · Imagen · Navbar · Tarjeta |
 | `V` | Mover / seleccionar |
+| `W` `X` `H` `1` `2` `8` `9` `0` `Y` | Edificios: Planta · Alzado · Perfil · Fachada · Tejado 2 aguas · Tejado 1 agua · Tejado plano · Puerta · Ventana |
 | `Ctrl/Cmd+Z` / `Ctrl+Y` o `Cmd+Shift+Z` | Deshacer / rehacer |
 | `Ctrl/Cmd+D` / `Ctrl/Cmd+A` | Duplicar / seleccionar todo |
 | `Shift+R` | Rotar selección: cuadrado 45° · trapecio/triángulo/rectángulo 90° · pentágono 36° · hexágono 30° |
@@ -131,10 +133,10 @@ Principios de diseño:
 
 ## Tests
 
-206 tests con el runner nativo de Node — sin ninguna dependencia:
+225 tests con el runner nativo de Node — sin ninguna dependencia:
 
 ```bash
-node --test tests/                    # suite completa
+node --test tests/*.test.js           # suite completa
 node --test tests/exporter.test.js    # un archivo
 ```
 

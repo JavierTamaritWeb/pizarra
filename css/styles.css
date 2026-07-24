@@ -759,6 +759,59 @@ kbd {
   outline-offset: 2px;
 }
 
+/* Selector de forma de planta (Edificios) */
+.modal__shape-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.modal__shape {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 10px;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--ease);
+}
+
+.modal__shape:hover {
+  background: #353850;
+}
+
+.modal__shape svg {
+  width: 46px;
+  height: 34px;
+  color: var(--text-secondary);
+}
+
+.modal__shape-name {
+  text-align: center;
+  line-height: 1.2;
+}
+
+.modal__shape--active {
+  border-color: var(--color-primary);
+  background: rgba(78, 205, 196, 0.12);
+}
+
+.modal__shape--active svg {
+  color: var(--color-primary);
+}
+
+.modal__shape:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 /* Templates list */
 .modal__list {
   display: flex;

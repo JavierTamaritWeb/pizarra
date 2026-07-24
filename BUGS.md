@@ -14,6 +14,21 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### La sección "Edificios" generaba geometría degenerada en arrastres pequeños
+- **Síntoma:** con la herramienta Planta en modo Claustro/U/L y un arrastre
+  corto (6–19 px), el elemento resultante tenía rectángulos de `w`/`h`
+  negativos o polilíneas autointersectadas; esa basura entraba en
+  `state.elements`, viajaba a autosave/JSON/undo y producía cajas de impacto
+  invertidas en el hit-test.
+- **Causa:** `_wing` (grosor de crujía) tenía un suelo fijo de 10 px, así que
+  `2·t ≥ 20` invadía cualquier caja menor de 20 px: el claustro emitía un patio
+  de tamaño negativo y la U/L cruzaban sus vértices.
+- **Fix:** `_wing` en `js/building.js` acota el grosor a `w/2−1` y `h/2−1` (nunca
+  invade la caja), y `_plantaClaustro` solo añade el patio si
+  `w−2t > 0 && h−2t > 0`. Detectado en la crítica adversarial previa a publicar.
+- **Guardia:** `tests/building.test.js` › *"cajas pequeñas: sin rects de w/h ≤ 0
+  ni polilíneas U cruzadas"*.
+
 ### El Borrador perforaba el fondo y parecía pintar una mancha oscura
 - **Síntoma:** al borrar sobre el lienzo, el trazo podía verse transparente
   u oscuro y también desaparecía la cuadrícula, dando la impresión de que la

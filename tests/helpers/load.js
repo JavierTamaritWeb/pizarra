@@ -37,10 +37,11 @@ const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 /** Globals conocidos que se copian a globalThis tras cada carga
     (los `const` top-level de un script vm no cuelgan de globalThis solos). */
 const KNOWN_GLOBALS = [
-  'TOOLS', 'TOOL_GROUPS', 'COLORS', 'CANVAS_W', 'CANVAS_H',
+  'TOOLS', 'TOOL_GROUPS', 'BUILDING_TOOLS', 'PLANTA_SHAPES', 'DOOR_TYPES', 'WINDOW_TYPES',
+  'COLORS', 'CANVAS_W', 'CANVAS_H',
   'SKETCHY_FONT', 'UI_DEFAULTS', 'EMOJI_GROUPS', 'EMOJI_MIN_SIZE',
   'Sketchy', 'ArcMath', 'CurvePath', 'ShapeRotation', 'RegularPolygon',
-  'Trapezoid', 'Renderer', 'Exporter', 'Templates',
+  'Trapezoid', 'Building', 'Renderer', 'Exporter', 'Templates',
 ];
 
 /** Orden completo de dependencias del proyecto (app.js excluido: requiere DOM real). */
@@ -52,6 +53,7 @@ const ALL_FILES = [
   'js/shape-rotation.js',
   'js/regular-polygon.js',
   'js/trapezoid.js',
+  'js/building.js',
   'js/renderer.js',
   'js/exporter.js',
   'js/templates.js',

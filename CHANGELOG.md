@@ -4,6 +4,42 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.10.0] — 2026-07-24
+
+### Añadido
+- Nueva sección de barra lateral **Edificios** para bocetar el exterior de un
+  edificio: **Planta** (`w`) con selector de huella en modal (rectangular, en L,
+  en U con jardín, claustro); **Fachada** (`1`), **Alzado** (`x`) y **Perfil**
+  (`h`) son fachadas multiplanta con **ventanas por planta y puerta en la baja**
+  (el número de plantas se deduce de la altura del arrastre); y tejados a
+  **dos aguas** (`2`), a **un agua** (`8`) y **plano** (`9`).
+  Son herramientas SOLO de creación —como Semicírculo y Emoji—: producen
+  elementos de tipos ya existentes (`line`, `rect`), sin introducir ningún tipo
+  nuevo, por lo que render, selección, exportación (PNG/JPG/SVG/HTML), undo y
+  JSON funcionan sin código específico.
+- Fachadas con **ventanas verticales** (montante en cruz + alféizar) y **puerta**
+  con dintel en la planta baja, **cornisa** e impostas; **Alzado** con cubierta a
+  dos aguas (alero volado, tejas, cumbrera y chimenea) y **Perfil** con cubierta
+  trapezoidal de cumbrera horizontal (silueta distinta); **tejas** en todos los
+  tejados. Diseño basado en un estudio de alzado (plano de arquitecto); el detalle
+  se dibuja a trazo fino y el contorno al trazo del usuario.
+- Botón **Puerta** (`0`) con **modal de tipo** (como el de Planta): *Puerta*
+  (dintel de abanico + junta), *Puerta de arco* (**arco de medio punto** —un
+  `curveArrow` de arco que comba hacia arriba— con **altura ajustable** por el
+  arrastre), *Marco* (rectangular) y *Marco de arco* (arco + jambas + umbral,
+  sin imposta ni hoja).
+- Botón **Ventana** (`y`) con **modal de tipo** análogo: *Ventana* (montante en
+  cruz + alféizar), *Ventana de arco* (arco de medio punto), *Marco* (rectangular)
+  y *Marco de arco* (arco + jambas, sin partición).
+- Módulo `js/building.js` (global `Building`) con la geometría pura y su guardia
+  de regresión `tests/building.test.js` (19 pruebas).
+
+### Interno
+- `CREATION_ONLY_TOOLS` (exporter.js) excluye las herramientas de Edificios de
+  `ELEMENT_TYPES`, evitando elementos fantasma al importar un JSON manipulado.
+- El comando de test documentado pasa a `node --test tests/*.test.js`: la forma
+  con directorio (`node --test tests/`) omite un archivo bajo el glob de Node 22.x.
+
 ## [1.9.0] — 2026-07-24
 
 ### Añadido

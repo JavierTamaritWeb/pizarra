@@ -26,6 +26,9 @@
     fillOpacity: 0.4,   // opacidad del relleno translúcido (0..1)
     overlapMode: 'normal', // normal | hidden-dashed
     pendingEmoji: EMOJI_GROUPS[0].emojis[0], // el que se estampa con la herramienta Emoji
+    plantaShape: 'rect', // forma de huella elegida en el modal de Planta (Edificios)
+    doorType: 'door',    // tipo elegido en el modal de Puerta: door|arch|frame|archFrame
+    windowType: 'window', // tipo elegido en el modal de Ventana: window|arch|frame|archFrame
     doubleHead:  false, // nuevas flechas con punta en ambos extremos
     dashed:      false, // nuevas líneas/flechas con trazo discontinuo
     curveFlip:   false, // Shift durante el trazado: curva hacia el otro lado
@@ -1447,7 +1450,28 @@
         break;
       }
       default:
-        octx.strokeRect(x, y, w, h);
+        // Preview de "Edificios": misma geometría que se creará al soltar
+        if (BUILDING_TOOLS.includes(state.tool)) {
+          const preview = Building.elements(state.tool, state.startPos, pos, {
+            color: state.color, lineWidth: state.lineWidth,
+            plantaShape: state.plantaShape, doorType: state.doorType,
+            windowType: state.windowType,
+          });
+          preview.forEach(el => {
+            if (el.type === 'line') {
+              octx.beginPath(); octx.moveTo(el.x1, el.y1); octx.lineTo(el.x2, el.y2); octx.stroke();
+            } else if (el.type === 'rect') {
+              octx.strokeRect(el.x, el.y, el.w, el.h);
+            } else if (el.type === 'curveArrow') {
+              octx.beginPath(); octx.moveTo(el.x1, el.y1);
+              if (el.cx2 !== undefined) octx.bezierCurveTo(el.cx, el.cy, el.cx2, el.cy2, el.x2, el.y2);
+              else octx.quadraticCurveTo(el.cx, el.cy, el.x2, el.y2);
+              octx.stroke();
+            }
+          });
+        } else {
+          octx.strokeRect(x, y, w, h);
+        }
     }
     octx.setLineDash([]);
   }
@@ -1763,6 +1787,19 @@
         color: state.color, lineWidth: state.lineWidth,
         seed: newSeed(),
       });
+    }
+    // Edificios — herramientas de creación: 1..N elementos de tipos ya
+    // existentes (rect/line, ver js/building.js). Un solo undo por gesto.
+    else if (BUILDING_TOOLS.includes(state.tool)) {
+      const created = withSeeds(Building.elements(state.tool, p1, p2, {
+        color: state.color, lineWidth: state.lineWidth,
+        plantaShape: state.plantaShape, doorType: state.doorType,
+        windowType: state.windowType,
+      }));
+      if (created.length) {
+        saveUndo();
+        for (const el of created) state.elements.push(el);
+      }
     }
 
     state.startPos = null;
@@ -2104,6 +2141,11 @@
     // Elegir la herramienta Emoji abre el catálogo; tras escoger uno, cada
     // click en el lienzo lo estampa (volver a pulsarla permite cambiarlo)
     if (id === TOOLS.EMOJI) $('modal-emoji').showModal();
+    // Planta abre su catálogo de huellas; reaplica el resaltado activo antes de
+    // abrir (updateEmojiActive no está acotado y comparte la clase .modal__emoji)
+    if (id === TOOLS.BUILD_PLANTA) { updatePlantaActive(); $('modal-planta').showModal(); }
+    if (id === TOOLS.BUILD_DOOR) { updateDoorActive(); $('modal-door').showModal(); }
+    if (id === TOOLS.BUILD_WINDOW) { updateWindowActive(); $('modal-window').showModal(); }
   }
 
   function deleteSelection() {
@@ -2877,6 +2919,42 @@
       updateEmojiActive();
       emojiModal.close();
     });
+
+    const plantaModal = $('modal-planta');
+    buildPlantaCatalog();
+    plantaModal.querySelector('.modal__cancel').addEventListener('click', () => plantaModal.close());
+    closeOnBackdrop(plantaModal);
+    plantaModal.addEventListener('click', e => {
+      const btn = e.target.closest('.modal__shape');
+      if (!btn) return;
+      state.plantaShape = btn.dataset.shape;
+      updatePlantaActive();
+      plantaModal.close();
+    });
+
+    const doorModal = $('modal-door');
+    buildDoorCatalog();
+    doorModal.querySelector('.modal__cancel').addEventListener('click', () => doorModal.close());
+    closeOnBackdrop(doorModal);
+    doorModal.addEventListener('click', e => {
+      const btn = e.target.closest('.modal__door');
+      if (!btn) return;
+      state.doorType = btn.dataset.door;
+      updateDoorActive();
+      doorModal.close();
+    });
+
+    const windowModal = $('modal-window');
+    buildWindowCatalog();
+    windowModal.querySelector('.modal__cancel').addEventListener('click', () => windowModal.close());
+    closeOnBackdrop(windowModal);
+    windowModal.addEventListener('click', e => {
+      const btn = e.target.closest('.modal__window');
+      if (!btn) return;
+      state.windowType = btn.dataset.window;
+      updateWindowActive();
+      windowModal.close();
+    });
   }
 
   /** Rellena el modal con el catálogo de config.js (textContent, nunca HTML) */
@@ -2904,6 +2982,205 @@
       root.appendChild(wrap);
     });
     updateEmojiActive();
+  }
+
+  /** Dibuja el icono SVG de una huella (mismo silueta que crea Building). */
+  function plantaIcon(shape) {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 44 32');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linejoin', 'round');
+    svg.setAttribute('aria-hidden', 'true');
+    const add = (tag, attrs) => {
+      const el = document.createElementNS(NS, tag);
+      for (const k in attrs) el.setAttribute(k, attrs[k]);
+      svg.appendChild(el);
+    };
+    if (shape === 'l') {
+      add('polygon', { points: '8,8 17,8 17,17 37,17 37,24 8,24' });
+    } else if (shape === 'u') {
+      add('polygon', { points: '8,8 15,8 15,20 29,20 29,8 36,8 36,24 8,24' });
+    } else if (shape === 'claustro') {
+      add('rect', { x: 8, y: 8, width: 28, height: 16 });
+      add('rect', { x: 15, y: 13, width: 14, height: 6 });
+    } else { // rect
+      add('rect', { x: 7, y: 8, width: 30, height: 16 });
+    }
+    return svg;
+  }
+
+  /** Rellena el modal de plantas desde config.js (DOM directo, nunca innerHTML) */
+  function buildPlantaCatalog() {
+    const root = $('planta-catalog');
+    root.innerHTML = '';
+    const grid = document.createElement('div');
+    grid.className = 'modal__shape-grid';
+    PLANTA_SHAPES.forEach(s => {
+      const btn = document.createElement('button');
+      btn.className = 'modal__shape';
+      btn.type = 'button';
+      btn.dataset.shape = s.id;
+      btn.title = `Planta ${s.name}`;
+      btn.appendChild(plantaIcon(s.id));
+      const name = document.createElement('span');
+      name.className = 'modal__shape-name';
+      name.textContent = s.name;
+      btn.appendChild(name);
+      grid.appendChild(btn);
+    });
+    root.appendChild(grid);
+    updatePlantaActive();
+  }
+
+  function updatePlantaActive() {
+    $('planta-catalog').querySelectorAll('.modal__shape').forEach(btn => {
+      const active = btn.dataset.shape === state.plantaShape;
+      btn.classList.toggle('modal__shape--active', active);
+      btn.setAttribute('aria-pressed', String(active));
+    });
+  }
+
+  /** Dibuja el icono SVG de un tipo de puerta (arco vía path A de SVG). */
+  function doorIcon(id) {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 36 46');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linejoin', 'round');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('aria-hidden', 'true');
+    const add = (tag, attrs) => {
+      const el = document.createElementNS(NS, tag);
+      for (const k in attrs) el.setAttribute(k, attrs[k]);
+      svg.appendChild(el);
+    };
+    const L = 8, R = 28, TOP = 8, BOT = 40, cx = 18, r = 10, spring = TOP + r;
+    const ARC = `M${L},${spring} A${r},${r} 0 0 1 ${R},${spring}`; // sweep 1 = comba hacia arriba (eje-y abajo)
+    if (id === 'frame') {
+      add('rect', { x: L, y: TOP, width: R - L, height: BOT - TOP });
+    } else if (id === 'door') {
+      add('rect', { x: L, y: TOP, width: R - L, height: BOT - TOP });
+      add('line', { x1: L, y1: TOP + 7, x2: R, y2: TOP + 7 });   // dintel
+      add('line', { x1: cx, y1: TOP + 7, x2: cx, y2: BOT });      // junta
+    } else if (id === 'arch') {
+      add('path', { d: ARC });
+      add('rect', { x: L, y: spring, width: R - L, height: BOT - spring });
+      add('line', { x1: cx, y1: spring, x2: cx, y2: BOT });       // junta
+    } else { // archFrame
+      add('path', { d: ARC });
+      add('line', { x1: L, y1: spring, x2: L, y2: BOT });         // jamba izq
+      add('line', { x1: R, y1: spring, x2: R, y2: BOT });         // jamba der
+      add('line', { x1: L, y1: BOT, x2: R, y2: BOT });            // umbral
+    }
+    return svg;
+  }
+
+  /** Rellena el modal de puertas desde config.js (DOM directo, nunca innerHTML) */
+  function buildDoorCatalog() {
+    const root = $('door-catalog');
+    root.innerHTML = '';
+    const grid = document.createElement('div');
+    grid.className = 'modal__shape-grid';
+    DOOR_TYPES.forEach(d => {
+      const btn = document.createElement('button');
+      btn.className = 'modal__shape modal__door';
+      btn.type = 'button';
+      btn.dataset.door = d.id;
+      btn.title = d.name;
+      btn.appendChild(doorIcon(d.id));
+      const name = document.createElement('span');
+      name.className = 'modal__shape-name';
+      name.textContent = d.name;
+      btn.appendChild(name);
+      grid.appendChild(btn);
+    });
+    root.appendChild(grid);
+    updateDoorActive();
+  }
+
+  function updateDoorActive() {
+    $('door-catalog').querySelectorAll('.modal__door').forEach(btn => {
+      const active = btn.dataset.door === state.doorType;
+      btn.classList.toggle('modal__shape--active', active);
+      btn.setAttribute('aria-pressed', String(active));
+    });
+  }
+
+  /** Dibuja el icono SVG de un tipo de ventana (arco vía path A de SVG). */
+  function windowIcon(id) {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 40 42');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linejoin', 'round');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('aria-hidden', 'true');
+    const add = (tag, attrs) => {
+      const el = document.createElementNS(NS, tag);
+      for (const k in attrs) el.setAttribute(k, attrs[k]);
+      svg.appendChild(el);
+    };
+    const L = 8, R = 32, TOP = 6, BOT = 34, cx = 20, r = 12, spring = TOP + r; // spring=18
+    const ARC = `M${L},${spring} A${r},${r} 0 0 1 ${R},${spring}`; // sweep 1 = comba arriba
+    const mid = (a, b) => (a + b) / 2;
+    if (id === 'frame') {
+      add('rect', { x: L, y: TOP, width: R - L, height: BOT - TOP });
+    } else if (id === 'window') {
+      add('rect', { x: L, y: TOP, width: R - L, height: BOT - TOP });
+      add('line', { x1: cx, y1: TOP, x2: cx, y2: BOT });                    // montante
+      add('line', { x1: L, y1: mid(TOP, BOT), x2: R, y2: mid(TOP, BOT) });  // travesaño
+      add('line', { x1: L - 2, y1: BOT + 3, x2: R + 2, y2: BOT + 3 });      // alféizar
+    } else if (id === 'arch') {
+      add('path', { d: ARC });
+      add('rect', { x: L, y: spring, width: R - L, height: BOT - spring });
+      add('line', { x1: cx, y1: spring, x2: cx, y2: BOT });
+      add('line', { x1: L, y1: mid(spring, BOT), x2: R, y2: mid(spring, BOT) });
+      add('line', { x1: L - 2, y1: BOT + 3, x2: R + 2, y2: BOT + 3 });      // alféizar
+    } else { // archFrame
+      add('path', { d: ARC });
+      add('line', { x1: L, y1: spring, x2: L, y2: BOT });
+      add('line', { x1: R, y1: spring, x2: R, y2: BOT });
+      add('line', { x1: L, y1: BOT, x2: R, y2: BOT });
+    }
+    return svg;
+  }
+
+  /** Rellena el modal de ventanas desde config.js (DOM directo, nunca innerHTML) */
+  function buildWindowCatalog() {
+    const root = $('window-catalog');
+    root.innerHTML = '';
+    const grid = document.createElement('div');
+    grid.className = 'modal__shape-grid';
+    WINDOW_TYPES.forEach(wt => {
+      const btn = document.createElement('button');
+      btn.className = 'modal__shape modal__window';
+      btn.type = 'button';
+      btn.dataset.window = wt.id;
+      btn.title = wt.name;
+      btn.appendChild(windowIcon(wt.id));
+      const name = document.createElement('span');
+      name.className = 'modal__shape-name';
+      name.textContent = wt.name;
+      btn.appendChild(name);
+      grid.appendChild(btn);
+    });
+    root.appendChild(grid);
+    updateWindowActive();
+  }
+
+  function updateWindowActive() {
+    $('window-catalog').querySelectorAll('.modal__window').forEach(btn => {
+      const active = btn.dataset.window === state.windowType;
+      btn.classList.toggle('modal__shape--active', active);
+      btn.setAttribute('aria-pressed', String(active));
+    });
   }
 
   function updateEmojiActive() {
