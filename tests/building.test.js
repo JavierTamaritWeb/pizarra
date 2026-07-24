@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
 const { loadAll, createCtxStub } = require('./helpers/load.js');
 
 const ctx = loadAll();
-const { Building, TOOLS, BUILDING_TOOLS, Renderer } = ctx;
+const { Building, TOOLS, BUILDING_TOOLS, DOOR_TYPES, WINDOW_TYPES, Renderer } = ctx;
 const O = { color: '#123456', lineWidth: 3 };
 const P1 = { x: 100, y: 100 }, P2 = { x: 300, y: 260 };
 const planta = (shape, p1 = { x: 0, y: 0 }, p2 = P2) =>
@@ -141,6 +141,68 @@ test('ventana tipos "frame" y "archFrame": solo el marco (sin partición)', () =
   assert.equal(archFrame.filter(e => e.type === 'line').length, 3, 'jambas + dintel inferior');
 });
 
+/* ── Tipos de puerta nuevos ── */
+test('puerta "double": marco + montante central de contorno + tiradores', () => {
+  const p1 = { x: 0, y: 0 }, p2 = { x: 90, y: 200 };
+  const full = Building.elements(TOOLS.BUILD_DOOR, p1, p2, { ...O, doorType: 'double' });
+  assert.ok(full.some(e => e.type === 'rect'), 'marco');
+  // Montante central: línea vertical en el eje con el grosor de contorno
+  const cx = 45;
+  const mullion = full.find(e => e.type === 'line' && e.x1 === cx && e.x2 === cx
+    && e.lineWidth === O.lineWidth);
+  assert.ok(mullion, 'montante central de dos hojas con trazo de contorno');
+  // "doubleFrame": solo marco + montante (sin dintel ni tiradores)
+  const frame = Building.elements(TOOLS.BUILD_DOOR, p1, p2, { ...O, doorType: 'doubleFrame' });
+  assert.equal(frame.filter(e => e.type === 'rect').length, 1);
+  assert.equal(frame.filter(e => e.type === 'line').length, 1, 'solo el montante');
+  assert.ok(full.filter(e => e.type === 'line').length > frame.filter(e => e.type === 'line').length);
+});
+
+test('puerta "panel": marco + dos paneles rehundidos con trazo fino', () => {
+  const els = Building.elements(TOOLS.BUILD_DOOR, { x: 0, y: 0 }, { x: 80, y: 200 }, { ...O, doorType: 'panel' });
+  const rects = els.filter(e => e.type === 'rect');
+  assert.equal(rects.length, 3, 'contorno + 2 paneles');
+  const contour = rects[0], panels = rects.slice(1);
+  assert.ok(panels.every(p => p.lineWidth < contour.lineWidth), 'paneles con trazo fino');
+  assert.ok(panels.every(p => p.x > contour.x && p.x + p.w < contour.x + contour.w), 'paneles dentro del marco');
+});
+
+test('puerta "garage": marco + lamas horizontales finas', () => {
+  const els = Building.elements(TOOLS.BUILD_DOOR, { x: 0, y: 0 }, { x: 120, y: 160 }, { ...O, doorType: 'garage' });
+  assert.equal(els.filter(e => e.type === 'rect').length, 1, 'un contorno');
+  const slats = els.filter(e => e.type === 'line');
+  assert.ok(slats.length >= 3, 'varias lamas');
+  assert.ok(slats.every(l => l.y1 === l.y2 && l.lineWidth < O.lineWidth), 'lamas horizontales finas');
+});
+
+/* ── Tipos de ventana nuevos ── */
+test('ventana "double": marco + montante de contorno + travesaño + alféizar', () => {
+  const els = Building.elements(TOOLS.BUILD_WINDOW, { x: 0, y: 0 }, { x: 90, y: 120 }, { ...O, windowType: 'double' });
+  assert.ok(els.some(e => e.type === 'rect'), 'marco');
+  const mullion = els.find(e => e.type === 'line' && e.x1 === 45 && e.x2 === 45 && e.lineWidth === O.lineWidth);
+  assert.ok(mullion, 'montante central de dos hojas (contorno)');
+});
+
+test('ventana "grid": marco + varios parteluces finos', () => {
+  const els = Building.elements(TOOLS.BUILD_WINDOW, { x: 0, y: 0 }, { x: 100, y: 140 }, { ...O, windowType: 'grid' });
+  assert.equal(els.filter(e => e.type === 'rect').length, 1, 'un marco');
+  const bars = els.filter(e => e.type === 'line');
+  assert.ok(bars.length >= 4, 'montantes + travesaños + alféizar');
+  assert.ok(bars.every(l => l.lineWidth < O.lineWidth), 'parteluces con trazo fino');
+});
+
+test('óculo "round" / "roundFrame": círculo (elipse) inscrito; con cruz o sin ella', () => {
+  const p1 = { x: 0, y: 0 }, p2 = { x: 100, y: 100 };
+  const round = Building.elements(TOOLS.BUILD_WINDOW, p1, p2, { ...O, windowType: 'round' });
+  const circle = round.find(e => e.type === 'circle');
+  assert.ok(circle, 'óculo dibuja un círculo (tipo existente)');
+  assert.deepEqual({ x: circle.x, y: circle.y, w: circle.w, h: circle.h }, { x: 0, y: 0, w: 100, h: 100 });
+  assert.equal(round.filter(e => e.type === 'line').length, 2, 'cruz de dos diámetros');
+  const frame = Building.elements(TOOLS.BUILD_WINDOW, p1, p2, { ...O, windowType: 'roundFrame' });
+  assert.equal(frame.length, 1, 'solo el aro');
+  assert.equal(frame[0].type, 'circle');
+});
+
 test('tejados 2 aguas / 1 agua → contorno + tejas; plano → 1 rect', () => {
   const g = Building.elements(TOOLS.BUILD_ROOF2, P1, P2, O).filter(e => e.type === 'line');
   const m = Building.elements(TOOLS.BUILD_ROOF1, P1, P2, O).filter(e => e.type === 'line');
@@ -192,12 +254,12 @@ test('todos los elementos generados se renderizan sin lanzar', () => {
       assert.doesNotThrow(() => Renderer.renderElement(stub, { ...el, seed: 1 }));
     }
   }
-  for (const dt of ['door', 'arch', 'frame', 'archFrame']) {
+  for (const dt of DOOR_TYPES.map(d => d.id)) {
     for (const el of Building.elements(TOOLS.BUILD_DOOR, P1, { x: 320, y: 460 }, { ...O, doorType: dt })) {
       assert.doesNotThrow(() => Renderer.renderElement(stub, { ...el, seed: 1 }));
     }
   }
-  for (const wt of ['window', 'arch', 'frame', 'archFrame']) {
+  for (const wt of WINDOW_TYPES.map(w => w.id)) {
     for (const el of Building.elements(TOOLS.BUILD_WINDOW, P1, { x: 260, y: 380 }, { ...O, windowType: wt })) {
       assert.doesNotThrow(() => Renderer.renderElement(stub, { ...el, seed: 1 }));
     }

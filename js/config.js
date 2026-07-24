@@ -53,21 +53,29 @@ const PLANTA_SHAPES = Object.freeze([
 ]);
 
 /** Tipos del botón Puerta (catálogo del modal). El icono lo dibuja app.js
-    (doorIcon) a partir del id. */
+    (doorIcon) a partir del id. Hojas primero, marcos al final. */
 const DOOR_TYPES = Object.freeze([
-  { id: 'door',      name: 'Puerta' },
-  { id: 'arch',      name: 'Puerta de arco' },
-  { id: 'frame',     name: 'Marco' },
-  { id: 'archFrame', name: 'Marco de arco' },
+  { id: 'door',        name: 'Puerta' },
+  { id: 'arch',        name: 'Puerta de arco' },
+  { id: 'double',      name: 'Puerta doble' },
+  { id: 'panel',       name: 'Puerta de paneles' },
+  { id: 'garage',      name: 'Puerta de garaje' },
+  { id: 'frame',       name: 'Marco' },
+  { id: 'archFrame',   name: 'Marco de arco' },
+  { id: 'doubleFrame', name: 'Marco doble' },
 ]);
 
 /** Tipos del botón Ventana (catálogo del modal). El icono lo dibuja app.js
-    (windowIcon) a partir del id. */
+    (windowIcon) a partir del id. Hojas primero, marcos al final. */
 const WINDOW_TYPES = Object.freeze([
-  { id: 'window',    name: 'Ventana' },
-  { id: 'arch',      name: 'Ventana de arco' },
-  { id: 'frame',     name: 'Marco' },
-  { id: 'archFrame', name: 'Marco de arco' },
+  { id: 'window',      name: 'Ventana' },
+  { id: 'arch',        name: 'Ventana de arco' },
+  { id: 'double',      name: 'Ventana de 2 hojas' },
+  { id: 'grid',        name: 'Ventana cuadrícula' },
+  { id: 'round',       name: 'Óculo' },
+  { id: 'frame',       name: 'Marco' },
+  { id: 'archFrame',   name: 'Marco de arco' },
+  { id: 'roundFrame',  name: 'Marco redondo' },
 ]);
 
 const TOOL_GROUPS = [

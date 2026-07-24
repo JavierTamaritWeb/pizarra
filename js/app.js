@@ -3071,6 +3071,23 @@
       add('path', { d: ARC });
       add('rect', { x: L, y: spring, width: R - L, height: BOT - spring });
       add('line', { x1: cx, y1: spring, x2: cx, y2: BOT });       // junta
+    } else if (id === 'double') {
+      add('rect', { x: L, y: TOP, width: R - L, height: BOT - TOP });
+      add('line', { x1: cx, y1: TOP, x2: cx, y2: BOT });          // montante central
+      add('line', { x1: cx - 5, y1: 26, x2: cx - 5, y2: 30 });    // tirador izq
+      add('line', { x1: cx + 5, y1: 26, x2: cx + 5, y2: 30 });    // tirador der
+    } else if (id === 'doubleFrame') {
+      add('rect', { x: L, y: TOP, width: R - L, height: BOT - TOP });
+      add('line', { x1: cx, y1: TOP, x2: cx, y2: BOT });          // montante central
+    } else if (id === 'panel') {
+      add('rect', { x: L, y: TOP, width: R - L, height: BOT - TOP });
+      add('rect', { x: L + 4, y: TOP + 4, width: R - L - 8, height: 12 });   // panel sup
+      add('rect', { x: L + 4, y: TOP + 20, width: R - L - 8, height: 12 });  // panel inf
+    } else if (id === 'garage') {
+      add('rect', { x: L, y: TOP, width: R - L, height: BOT - TOP });
+      add('line', { x1: L, y1: TOP + 8, x2: R, y2: TOP + 8 });    // lamas
+      add('line', { x1: L, y1: TOP + 16, x2: R, y2: TOP + 16 });
+      add('line', { x1: L, y1: TOP + 24, x2: R, y2: TOP + 24 });
     } else { // archFrame
       add('path', { d: ARC });
       add('line', { x1: L, y1: spring, x2: L, y2: BOT });         // jamba izq
@@ -3130,6 +3147,8 @@
     const L = 8, R = 32, TOP = 6, BOT = 34, cx = 20, r = 12, spring = TOP + r; // spring=18
     const ARC = `M${L},${spring} A${r},${r} 0 0 1 ${R},${spring}`; // sweep 1 = comba arriba
     const mid = (a, b) => (a + b) / 2;
+    const t3 = TOP + (BOT - TOP) / 3, t3b = TOP + 2 * (BOT - TOP) / 3;
+    const ccy = mid(TOP, BOT), rr = (R - L) / 2;
     if (id === 'frame') {
       add('rect', { x: L, y: TOP, width: R - L, height: BOT - TOP });
     } else if (id === 'window') {
@@ -3143,6 +3162,23 @@
       add('line', { x1: cx, y1: spring, x2: cx, y2: BOT });
       add('line', { x1: L, y1: mid(spring, BOT), x2: R, y2: mid(spring, BOT) });
       add('line', { x1: L - 2, y1: BOT + 3, x2: R + 2, y2: BOT + 3 });      // alféizar
+    } else if (id === 'double') {
+      add('rect', { x: L, y: TOP, width: R - L, height: BOT - TOP });
+      add('line', { x1: cx, y1: TOP, x2: cx, y2: BOT });                    // montante central
+      add('line', { x1: L, y1: mid(TOP, BOT), x2: R, y2: mid(TOP, BOT) });  // travesaño
+      add('line', { x1: L - 2, y1: BOT + 3, x2: R + 2, y2: BOT + 3 });      // alféizar
+    } else if (id === 'grid') {
+      add('rect', { x: L, y: TOP, width: R - L, height: BOT - TOP });
+      add('line', { x1: cx, y1: TOP, x2: cx, y2: BOT });                    // montante
+      add('line', { x1: L, y1: t3, x2: R, y2: t3 });                        // travesaños
+      add('line', { x1: L, y1: t3b, x2: R, y2: t3b });
+      add('line', { x1: L - 2, y1: BOT + 3, x2: R + 2, y2: BOT + 3 });      // alféizar
+    } else if (id === 'round') {
+      add('circle', { cx, cy: ccy, r: rr });
+      add('line', { x1: cx, y1: ccy - rr, x2: cx, y2: ccy + rr });          // cruz vertical
+      add('line', { x1: cx - rr, y1: ccy, x2: cx + rr, y2: ccy });          // cruz horizontal
+    } else if (id === 'roundFrame') {
+      add('circle', { cx, cy: ccy, r: rr });
     } else { // archFrame
       add('path', { d: ARC });
       add('line', { x1: L, y1: spring, x2: L, y2: BOT });

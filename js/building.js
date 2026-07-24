@@ -68,6 +68,15 @@ const Building = (function () {
   const _rectEl = (x, y, w, h, o) =>
     ({ type: 'rect', x, y, w, h, color: o.color, lineWidth: o.lineWidth, fill: false });
 
+  // Rect de detalle (paneles rehundidos): mismo trazo fino que _lineT.
+  const _rectT = (x, y, w, h, o) =>
+    ({ type: 'rect', x, y, w, h, color: o.color,
+       lineWidth: Math.max(1, Math.round((o.lineWidth || 2) * 0.55)), fill: false });
+
+  // Círculo/óculo (tipo 'circle' ya existente → elipse inscrita en la caja).
+  const _circleEl = (x, y, w, h, o) =>
+    ({ type: 'circle', x, y, w, h, color: o.color, lineWidth: o.lineWidth, fill: false });
+
   const _rect = (b, o) =>
     [{ type: 'rect', x: b.x, y: b.y, w: b.w, h: b.h,
        color: o.color, lineWidth: o.lineWidth, fill: false }];
@@ -111,11 +120,49 @@ const Building = (function () {
   // Despacho del botón Puerta según o.doorType (elegido en el modal).
   function _doorTool(b, o) {
     switch (o.doorType) {
-      case 'arch':      return _archDoor(b, o, false);
-      case 'archFrame': return _archDoor(b, o, true);
-      case 'frame':     return _rect(b, o);              // marco rectangular
-      default:          return _door(b.x + b.w / 2, b.y + b.h, b.w, b.h, o); // 'door'
+      case 'arch':        return _archDoor(b, o, false);
+      case 'archFrame':   return _archDoor(b, o, true);
+      case 'frame':       return _rect(b, o);              // marco rectangular
+      case 'double':      return _doubleDoor(b, o, false);
+      case 'doubleFrame': return _doubleDoor(b, o, true);  // dos hojas, sin hoja
+      case 'panel':       return _panelDoor(b, o);
+      case 'garage':      return _garageDoor(b, o);
+      default:            return _door(b.x + b.w / 2, b.y + b.h, b.w, b.h, o); // 'door'
     }
+  }
+  // Puerta doble: marco + montante central (dos hojas). frameOnly deja solo
+  // marco + montante; con hoja añade dintel y sendos tiradores.
+  function _doubleDoor(b, o, frameOnly) {
+    const { x, y, w, h } = b, cx = x + w / 2;
+    const els = [_rectEl(x, y, w, h, o), _line(cx, y, cx, y + h, o)];
+    if (!frameOnly) {
+      els.push(
+        _lineT(x, y + h * 0.16, x + w, y + h * 0.16, o),                       // dintel
+        _lineT(cx - w * 0.16, y + h * 0.52, cx - w * 0.16, y + h * 0.6, o),    // tirador izq
+        _lineT(cx + w * 0.16, y + h * 0.52, cx + w * 0.16, y + h * 0.6, o),    // tirador der
+      );
+    }
+    return els;
+  }
+  // Puerta de paneles: marco + dos paneles rehundidos (trazo fino).
+  function _panelDoor(b, o) {
+    const { x, y, w, h } = b;
+    const els = [_rectEl(x, y, w, h, o)];
+    const mx = Math.min(w * 0.18, w / 2 - 2), pw = w - 2 * mx;
+    const gap = h * 0.06, top = y + h * 0.08, ph = (h * 0.84 - gap) / 2;
+    if (pw > 2 && ph > 2) {
+      els.push(_rectT(x + mx, top, pw, ph, o));
+      els.push(_rectT(x + mx, top + ph + gap, pw, ph, o));
+    }
+    return els;
+  }
+  // Puerta de garaje/portón: marco + lamas horizontales (trazo fino).
+  function _garageDoor(b, o) {
+    const { x, y, w, h } = b;
+    const els = [_rectEl(x, y, w, h, o)];
+    const n = Math.max(3, Math.min(8, Math.round(h / 22)));
+    for (let i = 1; i < n; i++) els.push(_lineT(x, y + h * i / n, x + w, y + h * i / n, o));
+    return els;
   }
   // Puerta con arco de medio punto: vano recto (altura ajustable con el arrastre)
   // + arco superior. El arco es un curveArrow (tipo existente) sembrado desde la
@@ -153,11 +200,49 @@ const Building = (function () {
   // Despacho del botón Ventana según o.windowType (elegido en el modal).
   function _windowTool(b, o) {
     switch (o.windowType) {
-      case 'arch':      return _archWindow(b, o, false);
-      case 'archFrame': return _archWindow(b, o, true);
-      case 'frame':     return _rect(b, o);              // marco rectangular
-      default:          return _window(b.x, b.y, b.w, b.h, o); // 'window'
+      case 'arch':       return _archWindow(b, o, false);
+      case 'archFrame':  return _archWindow(b, o, true);
+      case 'frame':      return _rect(b, o);              // marco rectangular
+      case 'double':     return _doubleWindow(b, o);
+      case 'grid':       return _gridWindow(b, o);
+      case 'round':      return _roundWindow(b, o, false); // óculo con cruz
+      case 'roundFrame': return _roundWindow(b, o, true);  // óculo solo marco
+      default:           return _window(b.x, b.y, b.w, b.h, o); // 'window'
     }
+  }
+  // Ventana de 2 hojas: marco + montante central (contorno) + travesaño + alféizar.
+  function _doubleWindow(b, o) {
+    const { x, y, w, h } = b;
+    return [
+      _rectEl(x, y, w, h, o),
+      _line(x + w / 2, y, x + w / 2, y + h, o),               // montante central (dos hojas)
+      _lineT(x, y + h * 0.5, x + w, y + h * 0.5, o),           // travesaño
+      _lineT(x - 2, y + h + 3, x + w + 2, y + h + 3, o),       // alféizar
+    ];
+  }
+  // Ventana de cuadrícula (parteluces): marco + montantes/travesaños finos + alféizar.
+  function _gridWindow(b, o) {
+    const { x, y, w, h } = b;
+    const cols = Math.max(2, Math.min(4, Math.round(w / 26)));
+    const rows = Math.max(2, Math.min(5, Math.round(h / 26)));
+    const els = [_rectEl(x, y, w, h, o)];
+    for (let c = 1; c < cols; c++) els.push(_lineT(x + w * c / cols, y, x + w * c / cols, y + h, o));
+    for (let r = 1; r < rows; r++) els.push(_lineT(x, y + h * r / rows, x + w, y + h * r / rows, o));
+    els.push(_lineT(x - 2, y + h + 3, x + w + 2, y + h + 3, o)); // alféizar
+    return els;
+  }
+  // Óculo (ventana redonda): círculo inscrito + cruz (diámetros). frameOnly deja
+  // solo el aro, sin la cruz.
+  function _roundWindow(b, o, frameOnly) {
+    const { x, y, w, h } = b;
+    const els = [_circleEl(x, y, w, h, o)];
+    if (!frameOnly) {
+      els.push(
+        _lineT(x + w / 2, y, x + w / 2, y + h, o),   // diámetro vertical
+        _lineT(x, y + h / 2, x + w, y + h / 2, o),   // diámetro horizontal
+      );
+    }
+    return els;
   }
   // Ventana con arco de medio punto: parte recta con montante en cruz + alféizar
   // bajo un arco superior (curveArrow). frameOnly deja solo el marco (jambas +

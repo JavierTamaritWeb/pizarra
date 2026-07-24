@@ -4,6 +4,31 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.11.0] — 2026-07-24
+
+### Añadido
+- Más **tipos de puerta** en el modal (de 4 a **8**): además de *Puerta*,
+  *Puerta de arco*, *Marco* y *Marco de arco*, ahora **Puerta doble** (dos hojas
+  con montante central y tiradores), **Puerta de paneles** (dos paneles
+  rehundidos), **Puerta de garaje** (lamas horizontales) y **Marco doble**
+  (marco con montante central, sin hoja).
+- Más **tipos de ventana** en el modal (de 4 a **8**): además de *Ventana*,
+  *Ventana de arco*, *Marco* y *Marco de arco*, ahora **Ventana de 2 hojas**
+  (montante central + travesaño), **Ventana cuadrícula** (parteluces adaptativos),
+  **Óculo** (ventana redonda con cruz) y **Marco redondo** (solo el aro).
+- Todos son herramientas SOLO de creación: reutilizan tipos ya existentes
+  (`rect`/`line`/`circle`/`curveArrow`), por lo que render, exportación
+  (PNG/JPG/SVG/HTML), undo y JSON siguen funcionando sin código específico.
+  El óculo usa el tipo `circle`; el detalle (paneles, lamas, parteluces) va a
+  trazo fino (`_lineT`/`_rectT`).
+
+### Interno
+- Iconos SVG nuevos en `doorIcon`/`windowIcon` (app.js) para las tarjetas del
+  modal, construidos con `createElementNS` (nunca `innerHTML`).
+- La guardia de regresión `tests/building.test.js` gana 6 pruebas de geometría
+  para los tipos nuevos y sus bucles de render recorren `DOOR_TYPES`/`WINDOW_TYPES`
+  automáticamente: la suite pasa de 225 a **231** pruebas.
+
 ## [1.10.0] — 2026-07-24
 
 ### Añadido
