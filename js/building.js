@@ -1,8 +1,9 @@
 /* ============================================================
    building.js — Geometría pura de la sección "Edificios" (exterior).
-   Herramientas SOLO de creación: producen rect/line YA EXISTENTES (ningún
-   tipo nuevo → renderer/exporter/isValidElement/bounds intactos). Objetos
-   planos y serializables, sin `seed` (app.js lo pone con withSeeds) ni DOM.
+   Herramientas SOLO de creación: producen elementos YA EXISTENTES —rect, line,
+   circle (óculos) y curveArrow (arcos, arc:true/heads:'none')— sin tipos nuevos
+   (renderer/exporter/isValidElement/bounds intactos). Objetos planos y
+   serializables, sin `seed` (app.js lo pone con withSeeds) ni DOM.
      · Planta   : huella rect / L / U con jardín / claustro (elegida en modal)
      · Fachada  : muro multiplanta con ventanas y puerta
      · Alzado   : fachada con cubierta a dos aguas (alero, tejas, cumbrera, chimenea)
@@ -19,15 +20,12 @@ const Building = (function () {
   const ROOF_FRAC = 0.36;   // fracción de altura del tejado en Alzado/Perfil
   const FLOOR_H   = 58;     // altura objetivo por planta (px)
   const FLOOR_MAX = 20;
+  const BAY_W     = 74;     // ancho objetivo por vano (columna de huecos en fachada)
 
   const DEFAULTS = {
     [TOOLS.BUILD_PLANTA]: { w: 180, h: 140 },
-    [TOOLS.BUILD_FACADE]: { w: 150, h: 210 },
-    [TOOLS.BUILD_ROOFF]:  { w: 190, h: 44  },
-    [TOOLS.BUILD_ALZADO]: { w: 190, h: 300 },
-    [TOOLS.BUILD_PERFIL]: { w: 150, h: 290 },
-    [TOOLS.BUILD_ROOF2]:  { w: 160, h: 84  },
-    [TOOLS.BUILD_ROOF1]:  { w: 160, h: 84  },
+    [TOOLS.BUILD_FACADE]: { w: 170, h: 280 },
+    [TOOLS.BUILD_ROOF]:   { w: 170, h: 90  },
     [TOOLS.BUILD_DOOR]:   { w: 64,  h: 140 },
     [TOOLS.BUILD_WINDOW]: { w: 80,  h: 110 },
   };
@@ -44,12 +42,8 @@ const Building = (function () {
     };
     switch (tool) {
       case TOOLS.BUILD_PLANTA: return _planta(b, o, o.plantaShape || 'rect');
-      case TOOLS.BUILD_FACADE: return _facade(b, o);
-      case TOOLS.BUILD_ALZADO: return _gable(b, o);
-      case TOOLS.BUILD_PERFIL: return _profile(b, o);
-      case TOOLS.BUILD_ROOF2:  return _roofGable(b, o);
-      case TOOLS.BUILD_ROOF1:  return _roofMono(b, o);
-      case TOOLS.BUILD_ROOFF:  return _rect(b, o);
+      case TOOLS.BUILD_FACADE: return _facadeTool(b, o);
+      case TOOLS.BUILD_ROOF:   return _roofTool(b, o);
       case TOOLS.BUILD_DOOR:   return _doorTool(b, o);
       case TOOLS.BUILD_WINDOW: return _windowTool(b, o);
       default: return [];
@@ -77,6 +71,10 @@ const Building = (function () {
   const _circleEl = (x, y, w, h, o) =>
     ({ type: 'circle', x, y, w, h, color: o.color, lineWidth: o.lineWidth, fill: false });
 
+  // Alféizar: repisa fina que sobresale un poco bajo la base del hueco (y+h).
+  const _sill = (x, y, w, h, o) =>
+    _lineT(x - 2, y + h + 3, x + w + 2, y + h + 3, o);
+
   const _rect = (b, o) =>
     [{ type: 'rect', x: b.x, y: b.y, w: b.w, h: b.h,
        color: o.color, lineWidth: o.lineWidth, fill: false }];
@@ -95,8 +93,11 @@ const Building = (function () {
     Math.floor(w / 2) - 1, Math.floor(h / 2) - 1,
   ));
 
-  const _floorCount = bodyH =>
-    Math.max(1, Math.min(FLOOR_MAX, Math.round(bodyH / FLOOR_H)));
+  // Nº de plantas: override explícito (o.floors numérico) o derivado de la altura.
+  const _floorCount = (bodyH, floors) =>
+    (typeof floors === 'number' && floors >= 1)
+      ? Math.max(1, Math.min(FLOOR_MAX, Math.round(floors)))
+      : Math.max(1, Math.min(FLOOR_MAX, Math.round(bodyH / FLOOR_H)));
 
   /* ── huecos de fachada ── */
   // Ventana vertical: marco + montante en cruz + alféizar.
@@ -105,10 +106,10 @@ const Building = (function () {
       _rectEl(x, y, w, h, o),
       _lineT(x + w / 2, y, x + w / 2, y + h, o),
       _lineT(x, y + h * 0.42, x + w, y + h * 0.42, o),
-      _lineT(x - 2, y + h + 3, x + w + 2, y + h + 3, o),
+      _sill(x, y, w, h, o),
     ];
   }
-  // Puerta: hoja/marco + dintel de abanico + junta central.
+  // Puerta: marco + dintel (recto) + junta central de la hoja.
   function _door(cx, baseY, w, h, o) {
     const x = cx - w / 2, y = baseY - h;
     return [
@@ -164,22 +165,31 @@ const Building = (function () {
     for (let i = 1; i < n; i++) els.push(_lineT(x, y + h * i / n, x + w, y + h * i / n, o));
     return els;
   }
-  // Puerta con arco de medio punto: vano recto (altura ajustable con el arrastre)
+  // Hueco con arco de medio punto: parte recta (altura ajustable con el arrastre)
   // + arco superior. El arco es un curveArrow (tipo existente) sembrado desde la
   // línea de imposta; con sagitta negativa comba hacia arriba (perpendicular
   // u=(-dy,dx) apunta hacia abajo en una cuerda horizontal). frameOnly deja solo
-  // el marco (jambas + umbral + arco, sin imposta ni junta).
-  function _archDoor(b, o, frameOnly) {
+  // el marco (jambas + umbral + arco). Con hoja: cross=false → junta central
+  // (puerta); cross=true → montante + travesaño + alféizar (ventana).
+  function _arched(b, o, { frameOnly, cross }) {
     const { x, y, w, h } = b, cx = x + w / 2;
     const rise = Math.min(w / 2, Math.max(4, h - 6));   // medio punto si cabe; segmental si es bajo
     const springY = y + rise, bottomY = y + h, bodyH = Math.max(2, h - rise);
     const els = [];
     if (frameOnly) {
-      // Solo el marco: jambas + umbral + arco (sin imposta ni junta de hoja)
+      // Solo el marco: jambas + umbral + arco (sin hoja ni detalle interior)
       els.push(
         _line(x, springY, x, bottomY, o),
         _line(x + w, springY, x + w, bottomY, o),
         _line(x, bottomY, x + w, bottomY, o),
+      );
+    } else if (cross) {
+      // Ventana con hoja: parte recta + montante en cruz + alféizar
+      els.push(
+        _rectEl(x, springY, w, bodyH, o),
+        _lineT(cx, springY, cx, bottomY, o),
+        _lineT(x, springY + bodyH * 0.5, x + w, springY + bodyH * 0.5, o),
+        _sill(x, y, w, h, o),
       );
     } else {
       // Puerta con hoja: vano recto (jambas + umbral + imposta) + junta central
@@ -196,6 +206,7 @@ const Building = (function () {
     });
     return els;
   }
+  const _archDoor = (b, o, frameOnly) => _arched(b, o, { frameOnly, cross: false });
 
   // Despacho del botón Ventana según o.windowType (elegido en el modal).
   function _windowTool(b, o) {
@@ -217,7 +228,7 @@ const Building = (function () {
       _rectEl(x, y, w, h, o),
       _line(x + w / 2, y, x + w / 2, y + h, o),               // montante central (dos hojas)
       _lineT(x, y + h * 0.5, x + w, y + h * 0.5, o),           // travesaño
-      _lineT(x - 2, y + h + 3, x + w + 2, y + h + 3, o),       // alféizar
+      _sill(x, y, w, h, o),                                    // alféizar
     ];
   }
   // Ventana de cuadrícula (parteluces): marco + montantes/travesaños finos + alféizar.
@@ -228,7 +239,7 @@ const Building = (function () {
     const els = [_rectEl(x, y, w, h, o)];
     for (let c = 1; c < cols; c++) els.push(_lineT(x + w * c / cols, y, x + w * c / cols, y + h, o));
     for (let r = 1; r < rows; r++) els.push(_lineT(x, y + h * r / rows, x + w, y + h * r / rows, o));
-    els.push(_lineT(x - 2, y + h + 3, x + w + 2, y + h + 3, o)); // alféizar
+    els.push(_sill(x, y, w, h, o)); // alféizar
     return els;
   }
   // Óculo (ventana redonda): círculo inscrito + cruz (diámetros). frameOnly deja
@@ -244,42 +255,35 @@ const Building = (function () {
     }
     return els;
   }
-  // Ventana con arco de medio punto: parte recta con montante en cruz + alféizar
-  // bajo un arco superior (curveArrow). frameOnly deja solo el marco (jambas +
-  // dintel inferior + arco, sin montantes ni alféizar).
-  function _archWindow(b, o, frameOnly) {
-    const { x, y, w, h } = b, cx = x + w / 2;
-    const rise = Math.min(w / 2, Math.max(4, h - 6));
-    const springY = y + rise, bottomY = y + h, bodyH = Math.max(2, h - rise);
-    const els = [];
-    if (frameOnly) {
-      els.push(
-        _line(x, springY, x, bottomY, o),
-        _line(x + w, springY, x + w, bottomY, o),
-        _line(x, bottomY, x + w, bottomY, o),
-      );
-    } else {
-      els.push(
-        _rectEl(x, springY, w, bodyH, o),
-        _lineT(cx, springY, cx, bottomY, o),                               // montante vertical
-        _lineT(x, springY + bodyH * 0.5, x + w, springY + bodyH * 0.5, o),  // travesaño
-        _lineT(x - 2, bottomY + 3, x + w + 2, bottomY + 3, o),              // alféizar
-      );
-    }
-    const arc = ArcMath.arcCtrls(x, springY, x + w, springY, -rise);
-    if (arc) els.push({
-      type: 'curveArrow', x1: x, y1: springY, x2: x + w, y2: springY,
-      cx: arc.cx, cy: arc.cy, cx2: arc.cx2, cy2: arc.cy2,
-      arc: true, heads: 'none', color: o.color, lineWidth: o.lineWidth,
-    });
-    return els;
+  // Ventana con arco de medio punto (comparte geometría con la puerta de arco:
+  // parte recta + montante en cruz + alféizar bajo el arco; frameOnly = solo marco).
+  const _archWindow = (b, o, frameOnly) => _arched(b, o, { frameOnly, cross: true });
+
+  // Umbral bajo el cual un subtipo rico de hueco (rejilla, arco, óculo…) queda
+  // demasiado apretado en una fachada: por debajo se usa el hueco básico.
+  const RICH_MIN = 18;
+  // Ventana del tipo elegido (o.windowType) dimensionada al hueco; cae al básico
+  // en huecos pequeños. Con el tipo por defecto reproduce _window (retrocompat).
+  function _windowOfType(x, y, w, h, o) {
+    if (o.windowType && o.windowType !== 'window' && (w < RICH_MIN || h < RICH_MIN))
+      return _window(x, y, w, h, o);
+    return _windowTool({ x, y, w, h }, o);
+  }
+  // Puerta del tipo elegido (o.doorType), anclada por centro-base como _door; cae
+  // al básico en huecos pequeños. Con el tipo por defecto reproduce _door.
+  function _doorOfType(cx, baseY, w, h, o) {
+    if (o.doorType && o.doorType !== 'door' && (w < RICH_MIN || h < RICH_MIN))
+      return _door(cx, baseY, w, h, o);
+    return _doorTool({ x: cx - w / 2, y: baseY - h, w, h }, o);
   }
 
   // Ventanas por planta (verticales, acompasadas) + puerta centrada en PB.
   function _openings(x, y, w, h, n, o) {
     const els = [];
     const fh = h / n;
-    const cols = Math.max(1, Math.min(4, Math.round(w / 74)));
+    const cols = (typeof o.bays === 'number' && o.bays >= 1)
+      ? Math.max(1, Math.min(4, Math.round(o.bays)))
+      : Math.max(1, Math.min(4, Math.round(w / BAY_W)));
     const mg = w * 0.13, slot = (w - 2 * mg) / cols;
     const winW = Math.min(slot * 0.52, fh * 0.4), winH = fh * 0.5;
     const doorW = Math.min(slot * 0.72, fh * 0.52), doorH = fh * 0.82;
@@ -291,9 +295,9 @@ const Building = (function () {
       for (let c = 0; c < cols; c++) {
         const wx = x + mg + c * slot + (slot - winW) / 2;
         if (ground && Math.abs(wx + winW / 2 - cx) < slot * 0.62) continue; // deja sitio a la puerta
-        els.push(..._window(wx, wy, winW, winH, o));
+        els.push(..._windowOfType(wx, wy, winW, winH, o));
       }
-      if (ground && doorW > 2 && doorH > 2) els.push(..._door(cx, y + h, doorW, doorH, o));
+      if (ground && doorW > 2 && doorH > 2) els.push(..._doorOfType(cx, y + h, doorW, doorH, o));
     }
     return els;
   }
@@ -312,11 +316,12 @@ const Building = (function () {
   }
 
   /* ── cuerpo de fachada: cornisa + muro + impostas + huecos + rasante ── */
-  function _body(x, y, w, h, n, o) {
-    const els = [
-      _rectEl(x - 6, y - 8, w + 12, 8, o),                 // cornisa
-      _rectEl(x, y, w, h, o),                              // muro
-    ];
+  function _body(x, y, w, h, n, o, crown = true) {
+    // La cornisa corona la fachada plana; con tejado encima (alzado/perfil) se
+    // omite para no solaparse con el alero de la cubierta.
+    const els = [];
+    if (crown) els.push(_rectEl(x - 6, y - 8, w + 12, 8, o)); // cornisa
+    els.push(_rectEl(x, y, w, h, o));                          // muro
     const fh = h / n;
     for (let f = 1; f < n; f++) els.push(_lineT(x, y + f * fh, x + w, y + f * fh, o)); // impostas
     els.push(..._openings(x, y, w, h, n, o));
@@ -358,17 +363,29 @@ const Building = (function () {
   }
 
   /* ── fachadas / alzados / perfiles ── */
+  // Despacho del botón Fachada según o.facadeShape (elegido en el modal).
+  function _facadeTool(b, o) {
+    switch (o.facadeShape) {
+      case 'gable':   return _gable(b, o);    // alzado frontal (cubierta a dos aguas / o.roofType)
+      case 'profile': return _profile(b, o);  // perfil lateral (cubierta trapezoidal)
+      default:        return _facade(b, o);   // 'flat': fachada plana
+    }
+  }
   function _facade(b, o) {                          // fachada plana (sin cubierta a dos aguas)
-    const n = _floorCount(b.h);
+    const n = _floorCount(b.h, o.floors);
     return _body(b.x, b.y, b.w, b.h, n, o);
   }
-  function _gable(b, o) {                           // alzado
-    const roofH = b.h * ROOF_FRAC, topY = b.y + roofH, bodyH = b.h - roofH, n = _floorCount(bodyH);
-    return [..._gableRoof(b.x, topY, b.w, roofH, o), ..._body(b.x, topY, b.w, bodyH, n, o)];
+  function _gable(b, o) {                           // alzado (cubierta según o.roofType)
+    const roofH = b.h * (o.roofPitch || ROOF_FRAC), topY = b.y + roofH, bodyH = b.h - roofH, n = _floorCount(bodyH, o.floors);
+    const roofBox = { x: b.x, y: b.y, w: b.w, h: roofH };
+    const roof = o.roofType === 'hip' ? _roofHip(roofBox, o)
+      : o.roofType === 'mansard' ? _roofMansard(roofBox, o)
+      : _gableRoof(b.x, topY, b.w, roofH, o);       // 'gable' (default): dos aguas con alero+chimenea
+    return [...roof, ..._body(b.x, topY, b.w, bodyH, n, o, false)];  // sin cornisa: el tejado corona
   }
   function _profile(b, o) {                         // perfil
-    const roofH = b.h * ROOF_FRAC, topY = b.y + roofH, bodyH = b.h - roofH, n = _floorCount(bodyH);
-    return [..._trapRoof(b.x, topY, b.w, roofH, o), ..._body(b.x, topY, b.w, bodyH, n, o)];
+    const roofH = b.h * (o.roofPitch || ROOF_FRAC), topY = b.y + roofH, bodyH = b.h - roofH, n = _floorCount(bodyH, o.floors);
+    return [..._trapRoof(b.x, topY, b.w, roofH, o), ..._body(b.x, topY, b.w, bodyH, n, o, false)];
   }
 
   /* ── plantas (huellas top-down) ── */
@@ -403,6 +420,16 @@ const Building = (function () {
   }
 
   /* ── tejados sueltos (con tejas) ── */
+  // Despacho del botón Tejado según o.roofShape (elegido en el modal).
+  function _roofTool(b, o) {
+    switch (o.roofShape) {
+      case 'mono':    return _roofMono(b, o);
+      case 'flat':    return _rect(b, o);
+      case 'hip':     return _roofHip(b, o);
+      case 'mansard': return _roofMansard(b, o);
+      default:        return _roofGable(b, o);  // 'gable'
+    }
+  }
   function _roofGable(b, o) {                // triángulo: 2 pendientes + base + tejas
     const ax = b.x + b.w / 2, baseY = b.y + b.h, half = b.w / 2;
     return [
@@ -419,6 +446,32 @@ const Building = (function () {
       _line(rx, b.y, rx, baseY, o),
       _line(rx, baseY, b.x, baseY, o),
       ..._tiles(baseY, b.y, s => [b.x + s * b.w, rx], o),
+    ];
+  }
+  function _roofHip(b, o) {                  // 4 aguas: trapecio (cumbrera corta) + limatesas + tejas
+    const baseY = b.y + b.h, R = b.x + b.w;
+    const rl = b.x + b.w * 0.28, rr = b.x + b.w * 0.72;
+    return [
+      _line(b.x, baseY, rl, b.y, o),          // limatesa izquierda
+      _line(rl, b.y, rr, b.y, o),              // cumbrera (corta)
+      _line(rr, b.y, R, baseY, o),             // limatesa derecha
+      _line(R, baseY, b.x, baseY, o),          // alero/base
+      ..._tiles(baseY, b.y, s => [b.x + s * (rl - b.x), R - s * (R - rr)], o),
+    ];
+  }
+  function _roofMansard(b, o) {              // mansarda: doble pendiente con quiebre + tejas
+    const x = b.x, w = b.w, R = x + w, baseY = b.y + b.h, kneeY = b.y + b.h * 0.52;
+    const klx = x + w * 0.12, krx = R - w * 0.12;      // quiebre (ancho)
+    const tlx = x + w * 0.32, trx = R - w * 0.32;      // cumbrera (estrecha)
+    return [
+      _line(x, baseY, klx, kneeY, o),          // faldón inferior izq (empinado)
+      _line(klx, kneeY, tlx, b.y, o),          // faldón superior izq (tendido)
+      _line(tlx, b.y, trx, b.y, o),            // cumbrera
+      _line(trx, b.y, krx, kneeY, o),          // faldón superior der
+      _line(krx, kneeY, R, baseY, o),          // faldón inferior der
+      _line(R, baseY, x, baseY, o),            // alero/base
+      _lineT(klx, kneeY, krx, kneeY, o),       // línea de quiebre
+      ..._tiles(baseY, kneeY, s => [x + s * (klx - x), R - s * (R - krx)], o),
     ];
   }
 

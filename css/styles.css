@@ -577,8 +577,11 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text-primary);
   border-radius: 16px;
   padding: 28px;
-  min-width: 380px;
-  max-width: 460px;
+  /* Se adapta a pantallas estrechas (móvil ~320px) sin desbordar el viewport,
+     y hace scroll vertical si el contenido supera el alto disponible. */
+  width: min(460px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
   border: 1px solid var(--border-main);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
 }
@@ -652,10 +655,10 @@ input[type="range"]::-moz-range-thumb {
 
 /* Ayuda */
 .modal--help {
-  max-width: 620px;
+  /* Más ancho que el modal estándar, pero igualmente limitado al viewport. */
+  width: min(620px, calc(100vw - 24px));
   /* La lista es larga: se limita al alto de la ventana y hace scroll dentro */
   max-height: 85vh;
-  overflow-y: auto;
 }
 
 .modal__help-group {
@@ -764,6 +767,11 @@ kbd {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 10px;
+}
+
+/* En pantallas muy estrechas (~320px) las dos columnas no caben: una sola. */
+@media (max-width: 360px) {
+  .modal__shape-grid { grid-template-columns: 1fr; }
 }
 
 .modal__shape {

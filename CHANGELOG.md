@@ -4,6 +4,40 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.12.0] — 2026-07-24
+
+### Añadido
+- **Fachadas ricas**: Fachada, Alzado y Perfil dibujan sus huecos con el **tipo de
+  Puerta y Ventana elegido** en los modales (antes siempre usaban los básicos).
+  Elige *Óculo* o *Ventana de arco* y la fachada los coloca; igual con la puerta
+  (arco, doble, paneles, garaje).
+- **Panel de opciones de Edificios**: controla el **nº de plantas**, las
+  **ventanas por planta**, la **pendiente** y la **cubierta del alzado** en vez de
+  deducirlo solo del arrastre. Son defaults de creación y se recuerdan entre
+  sesiones.
+- **Sidebar de Edificios más compacto**: **Fachada/Alzado/Perfil** se unifican en
+  un botón **Fachada** (modal con 3 vistas: plana, alzado frontal, perfil lateral)
+  y los **tejados** en un botón **Tejado** (modal), igual que Puerta/Ventana — de
+  9 botones a 5. Dos tejados nuevos: **cuatro aguas** y **mansarda**, disponibles
+  también como cubierta del Alzado.
+- **Agrupación de edificios**: cada edificio se crea como una **unidad** — un clic
+  lo selecciona entero y se mueve, duplica o borra de una vez; **Alt+clic** aísla
+  una pieza. El clon de un edificio es un grupo independiente.
+
+### Corregido
+- La **previsualización del óculo** no mostraba el círculo al arrastrar; ahora sí,
+  y la preview respeta el trazo fino del detalle.
+- **Cancelar** (Cerrar/Escape/clic-exterior) un modal de Planta/Puerta/Ventana sin
+  elegir variante **restaura la herramienta anterior** (antes quedaba "a medias").
+- Los **modales** ya no desbordan en pantallas estrechas (~320 px) y hacen scroll.
+- El icono de **Perfil** se distingue del de Alzado; la **cornisa** deja de
+  solaparse con el tejado en Alzado/Perfil.
+
+### Interno
+- Unificado el arco de puerta/ventana (`_arched`) y extraído el alféizar (`_sill`)
+  en `js/building.js`; nuevo campo `buildingGroupId` validado en `isValidElement`
+  y preservado en el round-trip JSON. Suite de **231 → 241** pruebas.
+
 ## [1.11.0] — 2026-07-24
 
 ### Añadido

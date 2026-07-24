@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
 const { loadAll, createCtxStub } = require('./helpers/load.js');
 
 const ctx = loadAll();
-const { Building, TOOLS, BUILDING_TOOLS, DOOR_TYPES, WINDOW_TYPES, Renderer } = ctx;
+const { Building, TOOLS, BUILDING_TOOLS, DOOR_TYPES, WINDOW_TYPES, ROOF_TYPES, FACADE_TYPES, Renderer } = ctx;
 const O = { color: '#123456', lineWidth: 3 };
 const P1 = { x: 100, y: 100 }, P2 = { x: 300, y: 260 };
 const planta = (shape, p1 = { x: 0, y: 0 }, p2 = P2) =>
@@ -66,8 +66,54 @@ test('fachada: puerta centrada apoyada en la base', () => {
   assert.ok(door, 'debe haber una puerta centrada en la planta baja');
 });
 
+test('fachada rica: honra windowType (Óculo → ventanas circle)', () => {
+  const base = Building.elements(TOOLS.BUILD_FACADE, { x: 0, y: 0 }, { x: 200, y: 240 }, { ...O, windowType: 'window' });
+  const round = Building.elements(TOOLS.BUILD_FACADE, { x: 0, y: 0 }, { x: 200, y: 240 }, { ...O, windowType: 'round' });
+  assert.equal(base.filter(e => e.type === 'circle').length, 0, 'la fachada básica no lleva círculos');
+  assert.ok(round.filter(e => e.type === 'circle').length >= 1, 'con Óculo la fachada tiene ventanas circulares');
+});
+
+test('fachada rica: honra doorType (Puerta de arco → curveArrow)', () => {
+  const base = Building.elements(TOOLS.BUILD_FACADE, { x: 0, y: 0 }, { x: 200, y: 240 }, { ...O, doorType: 'door' });
+  const arch = Building.elements(TOOLS.BUILD_FACADE, { x: 0, y: 0 }, { x: 200, y: 240 }, { ...O, doorType: 'arch', windowType: 'window' });
+  assert.equal(base.filter(e => e.type === 'curveArrow').length, 0, 'la fachada básica no lleva arcos');
+  assert.ok(arch.some(e => e.type === 'curveArrow' && e.arc === true && e.heads === 'none'), 'la puerta de arco añade un curveArrow');
+});
+
+test('fachada con tipos por defecto = geometría previa (retrocompat)', () => {
+  const noOpts = Building.elements(TOOLS.BUILD_FACADE, { x: 0, y: 0 }, { x: 180, y: 240 }, O);
+  const defs = Building.elements(TOOLS.BUILD_FACADE, { x: 0, y: 0 }, { x: 180, y: 240 }, { ...O, doorType: 'door', windowType: 'window' });
+  assert.equal(defs.length, noOpts.length, 'door/window explícitos = sin opts');
+  assert.equal(noOpts.filter(e => e.type === 'circle').length, 0);
+  assert.equal(noOpts.filter(e => e.type === 'curveArrow').length, 0);
+});
+
+test('opciones: floors fija el nº de plantas (impostas = floors-1)', () => {
+  // Las impostas son las únicas líneas horizontales que van justo de x a x+w.
+  const impostas = els => els.filter(e => e.type === 'line' && e.y1 === e.y2 && e.x1 === 0 && e.x2 === 180).length;
+  const f2 = Building.elements(TOOLS.BUILD_FACADE, { x: 0, y: 0 }, { x: 180, y: 240 }, { ...O, floors: 2 });
+  const f6 = Building.elements(TOOLS.BUILD_FACADE, { x: 0, y: 0 }, { x: 180, y: 240 }, { ...O, floors: 6 });
+  assert.equal(impostas(f2), 1, '2 plantas → 1 imposta');
+  assert.equal(impostas(f6), 5, '6 plantas → 5 impostas');
+});
+
+test('opciones: más bays → más ventanas por fachada', () => {
+  const winCount = els => els.filter(e => e.type === 'rect' && e.h > e.w).length;
+  const b1 = Building.elements(TOOLS.BUILD_FACADE, { x: 0, y: 0 }, { x: 240, y: 240 }, { ...O, bays: 1, floors: 3 });
+  const b4 = Building.elements(TOOLS.BUILD_FACADE, { x: 0, y: 0 }, { x: 240, y: 240 }, { ...O, bays: 4, floors: 3 });
+  assert.ok(winCount(b4) > winCount(b1), 'bays:4 debe producir más ventanas que bays:1');
+});
+
+test('opciones: roofPitch mayor baja el arranque del cuerpo (tejado más alto)', () => {
+  // El alero del tejado es la línea horizontal superior que sobresale a la izquierda del muro.
+  const eaveY = els => Math.min(...els.filter(e => e.type === 'line' && e.y1 === e.y2 && e.x1 < 0).map(e => e.y1));
+  const low = Building.elements(TOOLS.BUILD_FACADE, { x: 0, y: 0 }, { x: 120, y: 300 }, { ...O, facadeShape: 'gable', roofPitch: 0.25 });
+  const high = Building.elements(TOOLS.BUILD_FACADE, { x: 0, y: 0 }, { x: 120, y: 300 }, { ...O, facadeShape: 'gable', roofPitch: 0.45 });
+  assert.ok(eaveY(high) > eaveY(low), 'más pendiente → tejado más alto → cuerpo empieza más abajo');
+});
+
 test('alzado: cuerpo + tejado a dos aguas (ápice) con tejas + ventanas y puerta', () => {
-  const els = Building.elements(TOOLS.BUILD_ALZADO, { x: 0, y: 0 }, { x: 120, y: 300 }, O);
+  const els = Building.elements(TOOLS.BUILD_FACADE, { x: 0, y: 0 }, { x: 120, y: 300 }, { ...O, facadeShape: 'gable' });
   const lines = els.filter(e => e.type === 'line');
   assert.ok(els.filter(e => e.type === 'rect').length >= 2);   // cuerpo + ventanas/puerta
   assert.ok(lines.some(l => l.x2 === 60 && l.y2 === 0));       // ápice arriba-centro
@@ -76,8 +122,8 @@ test('alzado: cuerpo + tejado a dos aguas (ápice) con tejas + ventanas y puerta
 
 test('perfil ≠ alzado: perfil con cumbrera horizontal, alzado con ápice puntual', () => {
   const p2 = { x: 120, y: 300 };
-  const alz = Building.elements(TOOLS.BUILD_ALZADO, { x: 0, y: 0 }, p2, O).filter(e => e.type === 'line');
-  const per = Building.elements(TOOLS.BUILD_PERFIL, { x: 0, y: 0 }, p2, O).filter(e => e.type === 'line');
+  const alz = Building.elements(TOOLS.BUILD_FACADE, { x: 0, y: 0 }, p2, { ...O, facadeShape: 'gable' }).filter(e => e.type === 'line');
+  const per = Building.elements(TOOLS.BUILD_FACADE, { x: 0, y: 0 }, p2, { ...O, facadeShape: 'profile' }).filter(e => e.type === 'line');
   const cumbreraHoriz = ls => ls.some(l => l.y1 === 0 && l.y2 === 0 && l.x1 !== l.x2);
   assert.ok(!cumbreraHoriz(alz), 'el alzado no debe tener cumbrera horizontal (es un ápice)');
   assert.ok(cumbreraHoriz(per), 'el perfil debe tener cumbrera horizontal (tejado trapezoidal)');
@@ -204,13 +250,42 @@ test('óculo "round" / "roundFrame": círculo (elipse) inscrito; con cruz o sin 
 });
 
 test('tejados 2 aguas / 1 agua → contorno + tejas; plano → 1 rect', () => {
-  const g = Building.elements(TOOLS.BUILD_ROOF2, P1, P2, O).filter(e => e.type === 'line');
-  const m = Building.elements(TOOLS.BUILD_ROOF1, P1, P2, O).filter(e => e.type === 'line');
+  const g = Building.elements(TOOLS.BUILD_ROOF, P1, P2, { ...O, roofShape: 'gable' }).filter(e => e.type === 'line');
+  const m = Building.elements(TOOLS.BUILD_ROOF, P1, P2, { ...O, roofShape: 'mono' }).filter(e => e.type === 'line');
   assert.ok(g.length >= 4, 'tejado 2 aguas: 3 contorno + ≥1 teja');
   assert.ok(m.length >= 4, 'tejado 1 agua: 3 contorno + ≥1 teja');
-  const flat = Building.elements(TOOLS.BUILD_ROOFF, P1, P2, O);
+  const flat = Building.elements(TOOLS.BUILD_ROOF, P1, P2, { ...O, roofShape: 'flat' });
   assert.equal(flat.length, 1);
   assert.equal(flat[0].type, 'rect');
+});
+
+test('tejado 4 aguas: trapecio con cumbrera más corta que el alero + tejas', () => {
+  const lines = Building.elements(TOOLS.BUILD_ROOF, { x: 0, y: 0 }, { x: 200, y: 100 }, { ...O, roofShape: 'hip' }).filter(e => e.type === 'line');
+  const ridge = lines.find(l => l.y1 === 0 && l.y2 === 0);      // cumbrera arriba
+  const base = lines.find(l => l.y1 === 100 && l.y2 === 100);   // alero abajo
+  assert.ok(ridge && base, 'debe tener cumbrera y alero horizontales');
+  assert.ok(Math.abs(ridge.x2 - ridge.x1) < Math.abs(base.x2 - base.x1), 'la cumbrera es más corta que el alero (4 aguas)');
+  assert.ok(lines.length >= 4, '4 faldones/aristas + ≥1 teja');
+});
+
+test('tejado mansarda: doble pendiente con línea de quiebre a media altura', () => {
+  const lines = Building.elements(TOOLS.BUILD_ROOF, { x: 0, y: 0 }, { x: 200, y: 100 }, { ...O, roofShape: 'mansard' }).filter(e => e.type === 'line');
+  const knee = lines.find(l => l.y1 === l.y2 && l.y1 > 0 && l.y1 < 100 && Math.abs(l.x2 - l.x1) > 100);
+  assert.ok(knee, 'debe haber una línea de quiebre horizontal a media altura');
+  assert.ok(lines.length >= 6, 'mansarda tiene doble pendiente por lado');
+});
+
+test('alzado: roofType cambia la cubierta (hip/mansarda con cumbrera horizontal; 2 aguas con ápice puntual)', () => {
+  const box = [{ x: 0, y: 0 }, { x: 160, y: 300 }];
+  const gable = Building.elements(TOOLS.BUILD_FACADE, ...box, { ...O, facadeShape: 'gable' });
+  const mansard = Building.elements(TOOLS.BUILD_FACADE, ...box, { ...O, facadeShape: 'gable', roofType: 'mansard' });
+  const hip = Building.elements(TOOLS.BUILD_FACADE, ...box, { ...O, facadeShape: 'gable', roofType: 'hip' });
+  // La cumbrera del hip/mansarda es una línea horizontal en y=0 (arriba del tejado);
+  // el alzado a dos aguas tiene ápice puntual, sin esa cumbrera horizontal.
+  const ridgeAt0 = els => els.some(e => e.type === 'line' && e.y1 === 0 && e.y2 === 0 && e.x1 !== e.x2);
+  assert.ok(!ridgeAt0(gable), 'dos aguas: ápice puntual, sin cumbrera horizontal');
+  assert.ok(ridgeAt0(hip), 'hip (4 aguas): cumbrera horizontal');
+  assert.ok(ridgeAt0(mansard), 'mansarda: cumbrera horizontal');
 });
 
 // Guarda de regresión (crítica adversarial #1): en cajas pequeñas el grosor de
@@ -223,12 +298,12 @@ test('cajas pequeñas: sin rects de w/h ≤ 0 ni polilíneas U cruzadas', () => 
   ];
   const cases = [
     ...['rect', 'l', 'u', 'claustro'].map(shape => ({ tool: TOOLS.BUILD_PLANTA, shape })),
-    { tool: TOOLS.BUILD_FACADE }, { tool: TOOLS.BUILD_ALZADO }, { tool: TOOLS.BUILD_PERFIL },
-    { tool: TOOLS.BUILD_ROOF2 }, { tool: TOOLS.BUILD_ROOF1 }, { tool: TOOLS.BUILD_ROOFF },
+    ...FACADE_TYPES.map(ft => ({ tool: TOOLS.BUILD_FACADE, facadeShape: ft.id })),
+    ...ROOF_TYPES.map(rt => ({ tool: TOOLS.BUILD_ROOF, roofShape: rt.id })),
   ];
   for (const [a, b] of smalls) {
-    for (const { tool, shape } of cases) {
-      const els = Building.elements(tool, a, b, { ...O, plantaShape: shape });
+    for (const { tool, shape, roofShape, facadeShape } of cases) {
+      const els = Building.elements(tool, a, b, { ...O, plantaShape: shape, roofShape, facadeShape });
       for (const el of els) {
         if (el.type === 'rect') {
           assert.ok(el.w > 0 && el.h > 0, `rect degenerado tool=${tool} shape=${shape}: ${el.w}x${el.h}`);
@@ -261,6 +336,16 @@ test('todos los elementos generados se renderizan sin lanzar', () => {
   }
   for (const wt of WINDOW_TYPES.map(w => w.id)) {
     for (const el of Building.elements(TOOLS.BUILD_WINDOW, P1, { x: 260, y: 380 }, { ...O, windowType: wt })) {
+      assert.doesNotThrow(() => Renderer.renderElement(stub, { ...el, seed: 1 }));
+    }
+  }
+  for (const rt of ROOF_TYPES.map(r => r.id)) {
+    for (const el of Building.elements(TOOLS.BUILD_ROOF, P1, P2, { ...O, roofShape: rt })) {
+      assert.doesNotThrow(() => Renderer.renderElement(stub, { ...el, seed: 1 }));
+    }
+  }
+  for (const ft of FACADE_TYPES.map(f => f.id)) {
+    for (const el of Building.elements(TOOLS.BUILD_FACADE, { x: 0, y: 0 }, { x: 160, y: 300 }, { ...O, facadeShape: ft })) {
       assert.doesNotThrow(() => Renderer.renderElement(stub, { ...el, seed: 1 }));
     }
   }

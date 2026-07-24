@@ -500,6 +500,8 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
     // exports, pero se validan igualmente
     const ID_RE = /^[a-z0-9]{1,32}$/i;
     if (el.id !== undefined && !(typeof el.id === 'string' && ID_RE.test(el.id))) return false;
+    // buildingGroupId: id compartido por las piezas de un mismo edificio (agrupación)
+    if (el.buildingGroupId !== undefined && !(typeof el.buildingGroupId === 'string' && ID_RE.test(el.buildingGroupId))) return false;
     const validAnchor = a => a === undefined ||
       (a !== null && typeof a === 'object' && !Array.isArray(a) &&
        typeof a.id === 'string' && ID_RE.test(a.id));

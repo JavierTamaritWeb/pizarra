@@ -18,22 +18,21 @@ test('config.js — TOOLS', async t => {
     assert.equal(Object.isFrozen(ctx.TOOLS), true);
   });
 
-  await t.test('TOOLS tiene exactamente los 32 ids esperados', () => {
+  await t.test('TOOLS tiene exactamente los 28 ids esperados', () => {
     const expected = [
       'pencil', 'line', 'rect', 'roundedRect', 'circle', 'arrow',
       'curveArrow', 'arc', 'text', 'eraser', 'select', 'imagePlaceholder',
       'button', 'input', 'nav', 'card', 'image', 'emoji',
       'square', 'trapezoid', 'triangle', 'pentagon', 'hexagon',
-      // Edificios (herramientas de creación)
-      'planta', 'alzado', 'perfil', 'fachada',
-      'tejadoDosAguas', 'tejadoUnAgua', 'tejadoPlano', 'puerta', 'ventana',
+      // Edificios (creación): Fachada y Tejado unifican sus tipos en sendos modales
+      'planta', 'fachada', 'tejado', 'puerta', 'ventana',
     ];
     const values = Object.values(ctx.TOOLS);
-    assert.equal(values.length, 32);
+    assert.equal(values.length, 28);
     assert.deepEqual([...values].sort(), [...expected].sort());
-    // Las claves también son 32 y únicas
-    assert.equal(Object.keys(ctx.TOOLS).length, 32);
-    assert.equal(new Set(values).size, 32);
+    // Las claves también son 28 y únicas
+    assert.equal(Object.keys(ctx.TOOLS).length, 28);
+    assert.equal(new Set(values).size, 28);
   });
 });
 

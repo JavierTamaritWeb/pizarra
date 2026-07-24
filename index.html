@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Architects+Daughter&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=1.11.0" />
+  <link rel="stylesheet" href="css/styles.css?v=1.12.0" />
 </head>
 <body>
 
@@ -23,7 +23,7 @@
       <div class="topbar__brand">
         <span class="topbar__logo-icon" aria-hidden="true">✎</span>
         <span class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></span>
-        <span class="topbar__badge">v1.11.0</span>
+        <span class="topbar__badge">v1.12.0</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes">
@@ -116,6 +116,49 @@
           <input class="panel__slider" type="range" id="stroke-slider"
                  min="1" max="8" step="1" value="2"
                  aria-label="Grosor del trazo" />
+        </section>
+
+        <!-- Edificios (defaults de creación para Fachada/Alzado/Perfil/Tejados) -->
+        <section class="panel__section">
+          <h3 class="panel__title">Edificios</h3>
+          <label class="panel__field" for="build-floors">
+            <span class="panel__title">Plantas</span>
+            <select class="panel__select" id="build-floors">
+              <option value="auto">Auto</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+              <option value="10">10</option>
+              <option value="12">12</option>
+            </select>
+          </label>
+          <label class="panel__field" for="build-bays">
+            <span class="panel__title">Ventanas por planta</span>
+            <select class="panel__select" id="build-bays">
+              <option value="auto">Auto</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+            </select>
+          </label>
+          <h3 class="panel__title">Pendiente del tejado: <span id="build-pitch-val">36</span>%</h3>
+          <input class="panel__slider" type="range" id="build-roof-pitch"
+                 min="20" max="50" step="1" value="36"
+                 aria-label="Pendiente del tejado (Alzado/Perfil)" />
+          <label class="panel__field" for="build-roof-type">
+            <span class="panel__title">Cubierta del alzado</span>
+            <select class="panel__select" id="build-roof-type">
+              <option value="gable">Dos aguas</option>
+              <option value="hip">Cuatro aguas</option>
+              <option value="mansard">Mansarda</option>
+            </select>
+          </label>
         </section>
 
         <!-- Font Size -->
@@ -330,6 +373,16 @@
         </ul>
       </section>
 
+      <section class="modal__help-group">
+        <h4 class="modal__help-title">🏛️ Edificios</h4>
+        <ul class="modal__help-list">
+          <li><strong>Planta</strong> (<kbd>W</kbd>), <strong>Fachada</strong> (<kbd>1</kbd>), <strong>Tejado</strong> (<kbd>2</kbd>), <strong>Puerta</strong> (<kbd>0</kbd>), <strong>Ventana</strong> (<kbd>Y</kbd>): cada una abre un catálogo de tipos al pulsarla; elige uno y arrastra en el lienzo</li>
+          <li><strong>Fachada</strong> ofrece 3 vistas (plana, alzado, perfil); el panel <strong>Edificios</strong> fija plantas, ventanas por planta, pendiente y cubierta del alzado</li>
+          <li>Si <strong>cancelas</strong> el catálogo (botón Cerrar o <kbd>Esc</kbd>) sin elegir tipo, vuelve la herramienta anterior</li>
+          <li>Cada edificio se crea como una <strong>unidad</strong>: un clic lo selecciona entero (mover/duplicar/borrar); <kbd>Alt</kbd>+clic aísla una pieza</li>
+        </ul>
+      </section>
+
       <button class="btn btn--ghost btn--block modal__cancel">Cerrar</button>
   </dialog>
 
@@ -365,6 +418,22 @@
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
   </dialog>
 
+  <!-- ===== MODAL: FACHADA ===== -->
+  <dialog class="modal" id="modal-facade" aria-labelledby="modal-facade-title">
+      <h3 class="modal__heading" id="modal-facade-title">Tipo de fachada</h3>
+      <p class="modal__sub">Elige la vista y arrástrala en el lienzo</p>
+      <div id="facade-catalog"></div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
+  <!-- ===== MODAL: TEJADO ===== -->
+  <dialog class="modal" id="modal-roof" aria-labelledby="modal-roof-title">
+      <h3 class="modal__heading" id="modal-roof-title">Tipo de tejado</h3>
+      <p class="modal__sub">Elige el tipo y arrástralo en el lienzo</p>
+      <div id="roof-catalog"></div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
   <!-- ===== MODAL: TEMPLATES ===== -->
   <dialog class="modal" id="modal-templates" aria-labelledby="modal-templates-title">
       <h3 class="modal__heading" id="modal-templates-title">Plantillas</h3>
@@ -396,17 +465,17 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="js/config.js?v=1.11.0"></script>
-  <script src="js/sketchy.js?v=1.11.0"></script>
-  <script src="js/arc.js?v=1.11.0"></script>
-  <script src="js/curve-path.js?v=1.11.0"></script>
-  <script src="js/shape-rotation.js?v=1.11.0"></script>
-  <script src="js/regular-polygon.js?v=1.11.0"></script>
-  <script src="js/trapezoid.js?v=1.11.0"></script>
-  <script src="js/building.js?v=1.11.0"></script>
-  <script src="js/renderer.js?v=1.11.0"></script>
-  <script src="js/exporter.js?v=1.11.0"></script>
-  <script src="js/templates.js?v=1.11.0"></script>
-  <script src="js/app.js?v=1.11.0"></script>
+  <script src="js/config.js?v=1.12.0"></script>
+  <script src="js/sketchy.js?v=1.12.0"></script>
+  <script src="js/arc.js?v=1.12.0"></script>
+  <script src="js/curve-path.js?v=1.12.0"></script>
+  <script src="js/shape-rotation.js?v=1.12.0"></script>
+  <script src="js/regular-polygon.js?v=1.12.0"></script>
+  <script src="js/trapezoid.js?v=1.12.0"></script>
+  <script src="js/building.js?v=1.12.0"></script>
+  <script src="js/renderer.js?v=1.12.0"></script>
+  <script src="js/exporter.js?v=1.12.0"></script>
+  <script src="js/templates.js?v=1.12.0"></script>
+  <script src="js/app.js?v=1.12.0"></script>
 </body>
 </html>

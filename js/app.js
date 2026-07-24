@@ -29,6 +29,14 @@
     plantaShape: 'rect', // forma de huella elegida en el modal de Planta (Edificios)
     doorType: 'door',    // tipo elegido en el modal de Puerta: door|arch|frame|archFrame
     windowType: 'window', // tipo elegido en el modal de Ventana: window|arch|frame|archFrame
+    roofShape: 'gable',   // tipo elegido en el modal de Tejado: gable|mono|flat|hip|mansard
+    facadeShape: 'flat',  // tipo elegido en el modal de Fachada: flat|gable|profile
+    toolBeforeModal: null, // herramienta activa antes de abrir un modal de Edificios (restaurar al cancelar)
+    variantChosen: false, // true si se eligió variante en el modal (no fue cancelación)
+    buildFloors: 'auto', // nº de plantas de Fachada/Alzado/Perfil ('auto' = según la altura)
+    buildBays: 'auto',   // ventanas por planta ('auto' = según el ancho)
+    roofPitch: 0.36,     // fracción de altura del tejado en Alzado/Perfil (0.20–0.50)
+    roofType: 'gable',   // cubierta del Alzado: gable (2 aguas) | hip (4 aguas) | mansard
     doubleHead:  false, // nuevas flechas con punta en ambos extremos
     dashed:      false, // nuevas líneas/flechas con trazo discontinuo
     curveFlip:   false, // Shift durante el trazado: curva hacia el otro lado
@@ -228,6 +236,32 @@
       }
     }
     return -1;
+  }
+
+  // Índices de todas las piezas del mismo edificio que la del índice dado (o solo
+  // [idx] si esa pieza no pertenece a ningún grupo). Permite seleccionar/mover/
+  // duplicar/borrar un edificio como una unidad; Alt+click trata la pieza sola.
+  function groupIndicesOf(idx) {
+    const gid = state.elements[idx] && state.elements[idx].buildingGroupId;
+    if (!gid) return [idx];
+    const out = [];
+    state.elements.forEach((el, i) => { if (el.buildingGroupId === gid) out.push(i); });
+    return out;
+  }
+
+  // Si la selección es exactamente un edificio (≥2 piezas, todas del mismo grupo),
+  // devuelve el bbox combinado para dibujar UNA sola caja de selección; si no, null.
+  function selectionGroupBounds() {
+    if (state.selection.length < 2) return null;
+    const gid = state.elements[state.selection[0]].buildingGroupId;
+    if (!gid || !state.selection.every(i => state.elements[i].buildingGroupId === gid)) return null;
+    let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+    state.selection.forEach(i => {
+      const b = getElementBounds(state.elements[i]);
+      x1 = Math.min(x1, b.x); y1 = Math.min(y1, b.y);
+      x2 = Math.max(x2, b.x + b.w); y2 = Math.max(y2, b.y + b.h);
+    });
+    return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
   }
 
   function moveElement(el, dx, dy) {
@@ -693,6 +727,10 @@
         gridColor: state.gridColor,
         overlapMode: state.overlapMode,
         eraserSize: state.eraserSize,
+        buildFloors: state.buildFloors,
+        buildBays: state.buildBays,
+        roofPitch: state.roofPitch,
+        roofType: state.roofType,
       }));
     } catch (_) { /* almacenamiento lleno o bloqueado: se ignora */ }
   }
@@ -713,6 +751,18 @@
           ERASER_SIZE_MAX,
           Math.max(ERASER_SIZE_MIN, prefs.eraserSize),
         );
+      }
+      if (prefs.buildFloors === 'auto' || (Number.isFinite(prefs.buildFloors) && prefs.buildFloors >= 1)) {
+        state.buildFloors = prefs.buildFloors;
+      }
+      if (prefs.buildBays === 'auto' || (Number.isFinite(prefs.buildBays) && prefs.buildBays >= 1)) {
+        state.buildBays = prefs.buildBays;
+      }
+      if (Number.isFinite(prefs.roofPitch) && prefs.roofPitch >= 0.1 && prefs.roofPitch <= 0.6) {
+        state.roofPitch = prefs.roofPitch;
+      }
+      if (['gable', 'hip', 'mansard'].includes(prefs.roofType)) {
+        state.roofType = prefs.roofType;
       }
     } catch (_) { /* prefs corruptas: se ignoran */ }
   }
@@ -815,12 +865,18 @@
     // (handles de resize solo con un único elemento seleccionado)
     state.selection = state.selection.filter(i => state.elements[i]);
     const single = state.selection.length === 1;
-    state.selection.forEach(i => {
-      const el = state.elements[i];
-      // Las flechas usan handles de extremo/curvatura, no esquinas de escala
-      const isArrow = el.type === 'arrow' || el.type === 'curveArrow';
-      Renderer.drawSelection(ctx, getElementBounds(el), single && !isArrow);
-    });
+    const groupBox = selectionGroupBounds();
+    if (groupBox) {
+      // Edificio seleccionado como unidad: una sola caja combinada (sin handles).
+      Renderer.drawSelection(ctx, groupBox, false);
+    } else {
+      state.selection.forEach(i => {
+        const el = state.elements[i];
+        // Las flechas usan handles de extremo/curvatura, no esquinas de escala
+        const isArrow = el.type === 'arrow' || el.type === 'curveArrow';
+        Renderer.drawSelection(ctx, getElementBounds(el), single && !isArrow);
+      });
+    }
     // Handles de flecha: curvatura (turquesa, con polilínea de control como
     // guía) y extremos (naranja, arrastrables para mover/anclar)
     if (single) {
@@ -1236,20 +1292,24 @@
 
       const idx = hitTest(pos);
 
-      // 3. Shift+click: toggle en la selección
+      // 3. Shift+click: toggle en la selección — el edificio completo (grupo),
+      //    o solo la pieza con Alt+Shift+click
       if (e.shiftKey) {
         if (idx >= 0) {
+          const grp = e.altKey ? [idx] : groupIndicesOf(idx);
           setSelection(state.selection.includes(idx)
-            ? state.selection.filter(i => i !== idx)
-            : [...state.selection, idx]);
+            ? state.selection.filter(i => !grp.includes(i))
+            : [...state.selection, ...grp]);
           redraw();
         }
         return;
       }
 
-      // 4. Click sobre un elemento: seleccionar (si no lo estaba) e iniciar drag
+      // 4. Click sobre un elemento: seleccionar (si no lo estaba) e iniciar drag.
+      //    Un clic normal selecciona el edificio completo; Alt+click aísla la pieza.
       if (idx >= 0) {
-        if (!state.selection.includes(idx)) setSelection([idx]);
+        if (e.altKey) setSelection([idx]);
+        else if (!state.selection.includes(idx)) setSelection(groupIndicesOf(idx));
         state.dragLast = pos;
         // Snapshot ANTES de que el drag mute state.elements
         state.dragSnapshot = snapshot();
@@ -1300,6 +1360,33 @@
 
   let overlayPending = false;
   let lastPos = null;
+
+  // Dibuja la previsualización de un edificio (elementos rect/line/circle/curveArrow
+  // producidos por Building.elements) respetando el trazo de cada pieza —el detalle
+  // usa lineWidth fino— en vez del grosor global del overlay. Mantiene el guion del
+  // trazo discontinuo ya fijado por paintOverlay.
+  function drawBuildingPreview(octx, els) {
+    octx.save();
+    els.forEach(el => {
+      octx.strokeStyle = el.color;
+      octx.lineWidth = el.lineWidth;
+      if (el.type === 'line') {
+        octx.beginPath(); octx.moveTo(el.x1, el.y1); octx.lineTo(el.x2, el.y2); octx.stroke();
+      } else if (el.type === 'rect') {
+        octx.strokeRect(el.x, el.y, el.w, el.h);
+      } else if (el.type === 'circle') {
+        octx.beginPath();
+        octx.ellipse(el.x + el.w / 2, el.y + el.h / 2, el.w / 2, el.h / 2, 0, 0, Math.PI * 2);
+        octx.stroke();
+      } else if (el.type === 'curveArrow') {
+        octx.beginPath(); octx.moveTo(el.x1, el.y1);
+        if (el.cx2 !== undefined) octx.bezierCurveTo(el.cx, el.cy, el.cx2, el.cy2, el.x2, el.y2);
+        else octx.quadraticCurveTo(el.cx, el.cy, el.x2, el.y2);
+        octx.stroke();
+      }
+    });
+    octx.restore();
+  }
 
   function paintOverlay() {
     octx.clearRect(0, 0, CANVAS_W, CANVAS_H);
@@ -1456,19 +1543,10 @@
             color: state.color, lineWidth: state.lineWidth,
             plantaShape: state.plantaShape, doorType: state.doorType,
             windowType: state.windowType,
+            floors: state.buildFloors, bays: state.buildBays, roofPitch: state.roofPitch,
+            roofType: state.roofType, roofShape: state.roofShape, facadeShape: state.facadeShape,
           });
-          preview.forEach(el => {
-            if (el.type === 'line') {
-              octx.beginPath(); octx.moveTo(el.x1, el.y1); octx.lineTo(el.x2, el.y2); octx.stroke();
-            } else if (el.type === 'rect') {
-              octx.strokeRect(el.x, el.y, el.w, el.h);
-            } else if (el.type === 'curveArrow') {
-              octx.beginPath(); octx.moveTo(el.x1, el.y1);
-              if (el.cx2 !== undefined) octx.bezierCurveTo(el.cx, el.cy, el.cx2, el.cy2, el.x2, el.y2);
-              else octx.quadraticCurveTo(el.cx, el.cy, el.x2, el.y2);
-              octx.stroke();
-            }
-          });
+          drawBuildingPreview(octx, preview);
         } else {
           octx.strokeRect(x, y, w, h);
         }
@@ -1795,9 +1873,17 @@
         color: state.color, lineWidth: state.lineWidth,
         plantaShape: state.plantaShape, doorType: state.doorType,
         windowType: state.windowType,
+        floors: state.buildFloors, bays: state.buildBays, roofPitch: state.roofPitch,
+        roofType: state.roofType, roofShape: state.roofShape, facadeShape: state.facadeShape,
       }));
       if (created.length) {
         saveUndo();
+        // Agrupa las piezas del edificio bajo un id compartido → se seleccionan,
+        // mueven, duplican y borran como una unidad (Alt+click aísla una pieza).
+        if (created.length > 1) {
+          const gid = newId();
+          for (const el of created) el.buildingGroupId = gid;
+        }
         for (const el of created) state.elements.push(el);
       }
     }
@@ -2131,8 +2217,18 @@
 
   /* ── Acciones sobre la selección ── */
 
+  // Herramientas de Edificios que abren un modal de variante al seleccionarse.
+  const MODAL_BUILD_TOOLS = [TOOLS.BUILD_PLANTA, TOOLS.BUILD_FACADE, TOOLS.BUILD_DOOR, TOOLS.BUILD_WINDOW, TOOLS.BUILD_ROOF];
+
   function selectTool(id) {
     if (id !== state.tool && state.curveChain) cancelCurveChain();
+    // Al abrir un modal de Edificios, recuerda a dónde volver si se cancela: la
+    // herramienta previa (si venimos de otra) o esta misma (reentrada para cambiar
+    // variante). El flag variantChosen distingue elegir-variante de cancelar.
+    if (MODAL_BUILD_TOOLS.includes(id)) {
+      state.toolBeforeModal = id === state.tool ? id : state.tool;
+      state.variantChosen = false;
+    }
     state.tool = id;
     setSelection([]);
     updateToolbarActive();
@@ -2146,6 +2242,8 @@
     if (id === TOOLS.BUILD_PLANTA) { updatePlantaActive(); $('modal-planta').showModal(); }
     if (id === TOOLS.BUILD_DOOR) { updateDoorActive(); $('modal-door').showModal(); }
     if (id === TOOLS.BUILD_WINDOW) { updateWindowActive(); $('modal-window').showModal(); }
+    if (id === TOOLS.BUILD_ROOF) { updateRoofActive(); $('modal-roof').showModal(); }
+    if (id === TOOLS.BUILD_FACADE) { updateFacadeActive(); $('modal-facade').showModal(); }
   }
 
   function deleteSelection() {
@@ -2166,12 +2264,17 @@
   function insertClones(sources, dx, dy) {
     const start = state.elements.length;
     const idMap = new Map();
+    const groupMap = new Map();   // buildingGroupId viejo → nuevo (cada edificio clonado es independiente)
     sources.forEach(src => {
       const copy = moveElement(src, dx, dy);
       copy.seed = newSeed();
       if (src.id) {
         copy.id = newId();
         idMap.set(src.id, copy.id);
+      }
+      if (src.buildingGroupId) {
+        if (!groupMap.has(src.buildingGroupId)) groupMap.set(src.buildingGroupId, newId());
+        copy.buildingGroupId = groupMap.get(src.buildingGroupId);
       }
       state.elements.push(copy);
     });
@@ -2471,6 +2574,32 @@
       state.overlapMode = e.target.value === 'hidden-dashed' ? 'hidden-dashed' : 'normal';
       savePrefs();
       redraw();
+    });
+
+    // Panel Edificios — SOLO fijan defaults de creación (las herramientas de
+    // Edificios son de creación: no hay elemento "edificio" que editar, así que
+    // no siguen la semántica dual del panel; no tocan la selección ni el undo).
+    $('build-floors').value = String(state.buildFloors);
+    $('build-floors').addEventListener('change', e => {
+      state.buildFloors = e.target.value === 'auto' ? 'auto' : Number(e.target.value);
+      savePrefs();
+    });
+    $('build-bays').value = String(state.buildBays);
+    $('build-bays').addEventListener('change', e => {
+      state.buildBays = e.target.value === 'auto' ? 'auto' : Number(e.target.value);
+      savePrefs();
+    });
+    $('build-roof-pitch').value = String(Math.round(state.roofPitch * 100));
+    $('build-pitch-val').textContent = String(Math.round(state.roofPitch * 100));
+    $('build-roof-pitch').addEventListener('input', e => {
+      state.roofPitch = Number(e.target.value) / 100;
+      $('build-pitch-val').textContent = e.target.value;
+    });
+    $('build-roof-pitch').addEventListener('change', savePrefs);
+    $('build-roof-type').value = state.roofType;
+    $('build-roof-type').addEventListener('change', e => {
+      state.roofType = e.target.value;
+      savePrefs();
     });
     // Doble punta — semántica dual: con selección aplica/quita heads:'both'
     // a las flechas seleccionadas (los no-flecha se ignoran); sin selección
@@ -2857,6 +2986,21 @@
 
   /* ── Modals ── */
 
+  // Si un modal de Edificios se cierra SIN elegir variante (botón Cerrar, Escape o
+  // clic en el backdrop —todos terminan en modal.close(), que emite 'close'—),
+  // restaura la herramienta previa para no quedar en una herramienta de creación
+  // "a medias". Elegir variante pone variantChosen=true y se conserva la herramienta.
+  function wireBuildModalCancel(modal) {
+    modal.addEventListener('close', () => {
+      if (state.variantChosen) { state.variantChosen = false; return; }
+      const prev = state.toolBeforeModal;
+      state.toolBeforeModal = null;
+      if (!prev || prev === state.tool) return; // reentrada: mantener la herramienta actual
+      // Evita reabrir otro modal en cascada: si la previa también abre modal, ir a Seleccionar.
+      selectTool(MODAL_BUILD_TOOLS.includes(prev) ? TOOLS.SELECT : prev);
+    });
+  }
+
   function setupModals() {
     // Panel-cajón en pantallas estrechas (≤1100px): el botón "⚙ Panel" lo
     // muestra/oculta y el fondo lo cierra. En pantallas anchas el botón está
@@ -2924,10 +3068,12 @@
     buildPlantaCatalog();
     plantaModal.querySelector('.modal__cancel').addEventListener('click', () => plantaModal.close());
     closeOnBackdrop(plantaModal);
+    wireBuildModalCancel(plantaModal);
     plantaModal.addEventListener('click', e => {
       const btn = e.target.closest('.modal__shape');
       if (!btn) return;
       state.plantaShape = btn.dataset.shape;
+      state.variantChosen = true;
       updatePlantaActive();
       plantaModal.close();
     });
@@ -2936,10 +3082,12 @@
     buildDoorCatalog();
     doorModal.querySelector('.modal__cancel').addEventListener('click', () => doorModal.close());
     closeOnBackdrop(doorModal);
+    wireBuildModalCancel(doorModal);
     doorModal.addEventListener('click', e => {
       const btn = e.target.closest('.modal__door');
       if (!btn) return;
       state.doorType = btn.dataset.door;
+      state.variantChosen = true;
       updateDoorActive();
       doorModal.close();
     });
@@ -2948,12 +3096,42 @@
     buildWindowCatalog();
     windowModal.querySelector('.modal__cancel').addEventListener('click', () => windowModal.close());
     closeOnBackdrop(windowModal);
+    wireBuildModalCancel(windowModal);
     windowModal.addEventListener('click', e => {
       const btn = e.target.closest('.modal__window');
       if (!btn) return;
       state.windowType = btn.dataset.window;
+      state.variantChosen = true;
       updateWindowActive();
       windowModal.close();
+    });
+
+    const roofModal = $('modal-roof');
+    buildRoofCatalog();
+    roofModal.querySelector('.modal__cancel').addEventListener('click', () => roofModal.close());
+    closeOnBackdrop(roofModal);
+    wireBuildModalCancel(roofModal);
+    roofModal.addEventListener('click', e => {
+      const btn = e.target.closest('.modal__roof');
+      if (!btn) return;
+      state.roofShape = btn.dataset.roof;
+      state.variantChosen = true;
+      updateRoofActive();
+      roofModal.close();
+    });
+
+    const facadeModal = $('modal-facade');
+    buildFacadeCatalog();
+    facadeModal.querySelector('.modal__cancel').addEventListener('click', () => facadeModal.close());
+    closeOnBackdrop(facadeModal);
+    wireBuildModalCancel(facadeModal);
+    facadeModal.addEventListener('click', e => {
+      const btn = e.target.closest('.modal__facade');
+      if (!btn) return;
+      state.facadeShape = btn.dataset.facade;
+      state.variantChosen = true;
+      updateFacadeActive();
+      facadeModal.close();
     });
   }
 
@@ -3214,6 +3392,114 @@
   function updateWindowActive() {
     $('window-catalog').querySelectorAll('.modal__window').forEach(btn => {
       const active = btn.dataset.window === state.windowType;
+      btn.classList.toggle('modal__shape--active', active);
+      btn.setAttribute('aria-pressed', String(active));
+    });
+  }
+
+  /** Dibuja el icono SVG de un tipo de tejado (misma silueta que crea Building). */
+  function roofIcon(id) {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 44 32');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linejoin', 'round');
+    svg.setAttribute('aria-hidden', 'true');
+    const add = (tag, attrs) => { const el = document.createElementNS(NS, tag); for (const k in attrs) el.setAttribute(k, attrs[k]); svg.appendChild(el); };
+    if (id === 'mono') {
+      add('polygon', { points: '8,24 36,10 36,24' });          // un agua
+    } else if (id === 'flat') {
+      add('rect', { x: 8, y: 15, width: 28, height: 6 });       // plano
+    } else if (id === 'hip') {
+      add('polygon', { points: '8,24 16,11 28,11 36,24' });     // cuatro aguas (trapecio)
+    } else if (id === 'mansard') {
+      add('polygon', { points: '8,24 13,16 19,10 25,10 31,16 36,24' }); // mansarda (quiebre)
+    } else { // gable
+      add('polygon', { points: '8,24 22,9 36,24' });            // dos aguas
+    }
+    return svg;
+  }
+
+  function buildRoofCatalog() {
+    const root = $('roof-catalog');
+    root.innerHTML = '';
+    const grid = document.createElement('div');
+    grid.className = 'modal__shape-grid';
+    ROOF_TYPES.forEach(rt => {
+      const btn = document.createElement('button');
+      btn.className = 'modal__shape modal__roof';
+      btn.type = 'button';
+      btn.dataset.roof = rt.id;
+      btn.title = `Tejado ${rt.name}`;
+      btn.appendChild(roofIcon(rt.id));
+      const name = document.createElement('span');
+      name.className = 'modal__shape-name';
+      name.textContent = rt.name;
+      btn.appendChild(name);
+      grid.appendChild(btn);
+    });
+    root.appendChild(grid);
+    updateRoofActive();
+  }
+
+  function updateRoofActive() {
+    $('roof-catalog').querySelectorAll('.modal__roof').forEach(btn => {
+      const active = btn.dataset.roof === state.roofShape;
+      btn.classList.toggle('modal__shape--active', active);
+      btn.setAttribute('aria-pressed', String(active));
+    });
+  }
+
+  /** Dibuja el icono SVG de un tipo de fachada (plana / alzado / perfil). */
+  function facadeIcon(id) {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 44 32');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linejoin', 'round');
+    svg.setAttribute('aria-hidden', 'true');
+    const add = (tag, attrs) => { const el = document.createElementNS(NS, tag); for (const k in attrs) el.setAttribute(k, attrs[k]); svg.appendChild(el); };
+    if (id === 'gable') {
+      add('polygon', { points: '13,14 22,6 31,14' });        // tejado a dos aguas
+      add('rect', { x: 15, y: 14, width: 14, height: 13 });  // cuerpo
+    } else if (id === 'profile') {
+      add('polygon', { points: '13,14 18,7 26,7 31,14' });   // tejado trapezoidal (perfil)
+      add('rect', { x: 15, y: 14, width: 14, height: 13 });
+    } else { // flat
+      add('rect', { x: 15, y: 6, width: 14, height: 21 });   // muro sin tejado
+    }
+    return svg;
+  }
+
+  function buildFacadeCatalog() {
+    const root = $('facade-catalog');
+    root.innerHTML = '';
+    const grid = document.createElement('div');
+    grid.className = 'modal__shape-grid';
+    FACADE_TYPES.forEach(ft => {
+      const btn = document.createElement('button');
+      btn.className = 'modal__shape modal__facade';
+      btn.type = 'button';
+      btn.dataset.facade = ft.id;
+      btn.title = ft.name;
+      btn.appendChild(facadeIcon(ft.id));
+      const name = document.createElement('span');
+      name.className = 'modal__shape-name';
+      name.textContent = ft.name;
+      btn.appendChild(name);
+      grid.appendChild(btn);
+    });
+    root.appendChild(grid);
+    updateFacadeActive();
+  }
+
+  function updateFacadeActive() {
+    $('facade-catalog').querySelectorAll('.modal__facade').forEach(btn => {
+      const active = btn.dataset.facade === state.facadeShape;
       btn.classList.toggle('modal__shape--active', active);
       btn.setAttribute('aria-pressed', String(active));
     });

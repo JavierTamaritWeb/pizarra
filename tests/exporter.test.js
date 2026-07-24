@@ -397,6 +397,18 @@ test('Exporter.isValidElement: label opcional debe ser string', () => {
   assert.ok(ctx.Exporter.isValidElement(elButton), 'sin label sigue siendo válido');
 });
 
+test('Exporter: buildingGroupId (agrupación de edificios) se valida y sobrevive el round-trip', () => {
+  const ctx = freshCtx();
+  const grouped = { ...elLine, buildingGroupId: 'ab12cd' };
+  assert.ok(ctx.Exporter.isValidElement(grouped), 'buildingGroupId con formato de id se acepta');
+  assert.equal(ctx.Exporter.isValidElement({ ...elLine, buildingGroupId: 42 }), false, 'no-string se rechaza');
+  assert.equal(ctx.Exporter.isValidElement({ ...elLine, buildingGroupId: 'x y!' }), false, 'id malformado se rechaza');
+  assert.ok(ctx.Exporter.isValidElement(elLine), 'sin buildingGroupId sigue siendo válido');
+  ctx.Exporter.json([grouped]);
+  const data = JSON.parse(lastBlob(ctx).content);
+  assert.equal(data.elements[0].buildingGroupId, 'ab12cd', 'el grupo sobrevive el export JSON');
+});
+
 /* ============================================================
    Imágenes pegadas (type: image)
    ============================================================ */

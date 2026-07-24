@@ -309,3 +309,47 @@ que quedaba a medias.
 - **Verificación manual:** crear un texto de 3+ líneas, comprobar que el
   marco de selección las envuelve todas y que el handle de resize queda en
   la esquina real.
+
+### La previsualización del óculo (Edificios) no dibujaba el círculo
+- **Síntoma:** al arrastrar con Ventana → **Óculo** (`round`/`roundFrame`), el
+  aro circular **no aparecía** durante el arrastre (solo la cruz de diámetros);
+  el óculo sí se creaba bien al soltar. Además la preview de cualquier edificio
+  dibujaba todo el detalle al grosor del contorno, ignorando el trazo fino.
+- **Causa:** el bucle de preview de edificios en `paintOverlay` (`js/app.js`)
+  solo contemplaba `line`/`rect`/`curveArrow` —**no `circle`**— y fijaba
+  `state.lineWidth`/`state.color` globales para todos los trazos.
+- **Fix:** `js/app.js` — helper `drawBuildingPreview(octx, els)` que añade la
+  rama `circle` (elipse inscrita) y aplica `el.color`/`el.lineWidth` por pieza,
+  envuelto en `save()`/`restore()`.
+- **Verificación manual:** Ventana → Óculo, arrastrar → durante el arrastre debe
+  verse el aro completo además de la cruz, con el aro más grueso que la cruz.
+
+### Cancelar el modal de variante dejaba la herramienta de Edificios "a medias"
+- **Síntoma:** al pulsar Planta/Puerta/Ventana se abre un modal de variante; si
+  se cerraba con **Escape / Cerrar / clic-exterior** sin elegir, la herramienta
+  de edificio quedaba activa igual, así que un arrastre dibujaba el edificio
+  aunque el usuario creía haber cancelado.
+- **Causa:** `selectTool` fijaba `state.tool` a la herramienta de edificio antes
+  de abrir el modal y **no guardaba la herramienta previa**; los cierres solo
+  hacían `modal.close()`.
+- **Fix:** `js/app.js` — `selectTool` guarda `state.toolBeforeModal` y resetea
+  `state.variantChosen`; los handlers de variante ponen `variantChosen=true`; un
+  listener `close` (cubre botón, Escape y backdrop) restaura la herramienta
+  previa si no se eligió variante.
+- **Verificación manual:** estar en Rectángulo, pulsar Puerta, pulsar `Esc` →
+  debe volver a Rectángulo; repetir y elegir una variante → debe quedar en
+  Puerta.
+
+### Los modales desbordaban en pantallas estrechas (~320px)
+- **Síntoma:** en móvil (~320px de ancho) los diálogos de variante (y el resto)
+  desbordaban horizontalmente el viewport; sin scroll vertical si el contenido
+  superaba el alto.
+- **Causa:** `.modal` (`css/styles.css`) usaba `min-width:380px` sin
+  `max-height`/`overflow`; solo `.modal--help` scrolleaba, y no había media query
+  para pantallas pequeñas.
+- **Fix:** `css/styles.css` — `.modal` usa `width: min(460px, calc(100vw-24px))`,
+  `max-height: calc(100vh-24px)` y `overflow-y:auto`; `.modal--help` se ajusta a
+  `min(620px, calc(100vw-24px))`; media query `≤360px` pasa `.modal__shape-grid`
+  a una sola columna.
+- **Verificación manual:** a 320px de ancho, abrir Puerta → el cuadro cabe sin
+  desborde horizontal y las variantes se apilan en una columna.

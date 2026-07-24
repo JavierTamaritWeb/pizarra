@@ -37,7 +37,7 @@ const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 /** Globals conocidos que se copian a globalThis tras cada carga
     (los `const` top-level de un script vm no cuelgan de globalThis solos). */
 const KNOWN_GLOBALS = [
-  'TOOLS', 'TOOL_GROUPS', 'BUILDING_TOOLS', 'PLANTA_SHAPES', 'DOOR_TYPES', 'WINDOW_TYPES',
+  'TOOLS', 'TOOL_GROUPS', 'BUILDING_TOOLS', 'PLANTA_SHAPES', 'DOOR_TYPES', 'WINDOW_TYPES', 'ROOF_TYPES', 'FACADE_TYPES',
   'COLORS', 'CANVAS_W', 'CANVAS_H',
   'SKETCHY_FONT', 'UI_DEFAULTS', 'EMOJI_GROUPS', 'EMOJI_MIN_SIZE',
   'Sketchy', 'ArcMath', 'CurvePath', 'ShapeRotation', 'RegularPolygon',

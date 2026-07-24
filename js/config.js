@@ -28,18 +28,15 @@ const TOOLS = Object.freeze({
   CARD:             'card',
   // Edificios — herramientas de creación (NO tipos de elemento): cada una
   // produce elementos de tipos ya existentes (rect/line). Ver js/building.js.
-  BUILD_PLANTA: 'planta',         BUILD_ALZADO: 'alzado',
-  BUILD_PERFIL: 'perfil',         BUILD_FACADE: 'fachada',
-  BUILD_ROOF2:  'tejadoDosAguas', BUILD_ROOF1:  'tejadoUnAgua',
-  BUILD_ROOFF:  'tejadoPlano',    BUILD_DOOR:   'puerta',
+  BUILD_PLANTA: 'planta',         BUILD_FACADE: 'fachada',
+  BUILD_ROOF:   'tejado',         BUILD_DOOR:   'puerta',
   BUILD_WINDOW: 'ventana',
 });
 
 /** Herramientas de la sección "Edificios": todas son SOLO de creación
     (producen rect/line), nunca valores de `el.type`. */
 const BUILDING_TOOLS = Object.freeze([
-  TOOLS.BUILD_PLANTA, TOOLS.BUILD_ALZADO, TOOLS.BUILD_PERFIL,
-  TOOLS.BUILD_FACADE, TOOLS.BUILD_ROOF2, TOOLS.BUILD_ROOF1, TOOLS.BUILD_ROOFF,
+  TOOLS.BUILD_PLANTA, TOOLS.BUILD_FACADE, TOOLS.BUILD_ROOF,
   TOOLS.BUILD_DOOR, TOOLS.BUILD_WINDOW,
 ]);
 
@@ -76,6 +73,24 @@ const WINDOW_TYPES = Object.freeze([
   { id: 'frame',       name: 'Marco' },
   { id: 'archFrame',   name: 'Marco de arco' },
   { id: 'roundFrame',  name: 'Marco redondo' },
+]);
+
+/** Tipos del botón Tejado (catálogo del modal). El icono lo dibuja app.js
+    (roofIcon) a partir del id. */
+const ROOF_TYPES = Object.freeze([
+  { id: 'gable',   name: 'Dos aguas' },
+  { id: 'mono',    name: 'Un agua' },
+  { id: 'flat',    name: 'Plano' },
+  { id: 'hip',     name: 'Cuatro aguas' },
+  { id: 'mansard', name: 'Mansarda' },
+]);
+
+/** Tipos del botón Fachada (catálogo del modal). El icono lo dibuja app.js
+    (facadeIcon) a partir del id. */
+const FACADE_TYPES = Object.freeze([
+  { id: 'flat',    name: 'Fachada plana' },
+  { id: 'gable',   name: 'Alzado (2 aguas)' },
+  { id: 'profile', name: 'Perfil (lateral)' },
 ]);
 
 const TOOL_GROUPS = [
@@ -125,12 +140,8 @@ const TOOL_GROUPS = [
     label: 'Edificios',
     tools: [
       { id: TOOLS.BUILD_PLANTA, icon: '▭',  name: 'Planta',         key: 'w' },
-      { id: TOOLS.BUILD_ALZADO, icon: '🏠', name: 'Alzado',         key: 'x' },
-      { id: TOOLS.BUILD_PERFIL, icon: '🏠', name: 'Perfil',         key: 'h' },
-      { id: TOOLS.BUILD_FACADE, icon: '▮',  name: 'Fachada',        key: '1' },
-      { id: TOOLS.BUILD_ROOF2,  icon: '△',  name: 'Tejado 2 aguas', key: '2' },
-      { id: TOOLS.BUILD_ROOF1,  icon: '◺',  name: 'Tejado 1 agua',  key: '8' },
-      { id: TOOLS.BUILD_ROOFF,  icon: '▬',  name: 'Tejado plano',   key: '9' },
+      { id: TOOLS.BUILD_FACADE, icon: '🏠', name: 'Fachada',        key: '1' },
+      { id: TOOLS.BUILD_ROOF,   icon: '△',  name: 'Tejado',         key: '2' },
       { id: TOOLS.BUILD_DOOR,   icon: '🚪', name: 'Puerta',         key: '0' },
       { id: TOOLS.BUILD_WINDOW, icon: '🪟', name: 'Ventana',        key: 'y' },
     ],
