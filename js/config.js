@@ -8,6 +8,9 @@ const TOOLS = Object.freeze({
   RECT:             'rect',
   ROUNDED_RECT:     'roundedRect',
   CIRCLE:           'circle',
+  TRIANGLE:         'triangle',
+  PENTAGON:         'pentagon',
+  HEXAGON:          'hexagon',
   ARROW:            'arrow',
   CURVE_ARROW:      'curveArrow',
   ARC:              'arc', // herramienta de creación: produce curveArrow con arc:true
@@ -41,6 +44,9 @@ const TOOL_GROUPS = [
       { id: TOOLS.RECT,         icon: '◻️', name: 'Rectángulo', key: 'r' },
       { id: TOOLS.ROUNDED_RECT, icon: '▢',  name: 'Redondeado', key: 'o' },
       { id: TOOLS.CIRCLE,       icon: '⬭',  name: 'Círculo',    key: 'c' },
+      { id: TOOLS.TRIANGLE,     icon: '△',  name: 'Triángulo regular', key: '3' },
+      { id: TOOLS.PENTAGON,     icon: '⬠',  name: 'Pentágono regular', key: '5' },
+      { id: TOOLS.HEXAGON,      icon: '⬡',  name: 'Hexágono regular',  key: '6' },
     ],
   },
   {

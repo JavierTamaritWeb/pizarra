@@ -4,6 +4,32 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.7.0] — 2026-07-24
+
+### Añadido
+- **Triángulo, pentágono y hexágono regulares** en la barra de Formas, con
+  atajos `3`, `5` y `6`. El arrastre parte del centro y el redimensionado
+  conserva un contenedor cuadrado para que todos los lados sigan siendo
+  iguales.
+- Los nuevos polígonos admiten relleno sólido/translúcido, detección por su
+  silueta real, bordes ocultos y exportación PNG, JPG, SVG, HTML y JSON.
+- 9 pruebas de geometría, renderizado, solapamiento, validación y exportación:
+  la suite pasa de 177 a 186.
+- **Flechas curvas encadenadas**: un click sin arrastrar inicia la cadena,
+  cada click fija un nuevo tramo y `Ctrl`/`Cmd`+click confirma el último y
+  coloca la punta final. `Retroceso`, `Esc` y `Enter` permiten corregir,
+  cancelar o terminar la construcción.
+- Edición de controles y puntos de unión, inversión de giro/dirección,
+  anclaje de extremos y exportación completa a PNG, JPG, SVG, HTML y JSON
+  para las cadenas.
+- 8 pruebas nuevas de geometría, continuidad, renderizado, validación,
+  exportación y round-trip JSON: la suite pasa de 169 a 177.
+
+### Cambiado
+- En pantallas de más de 1200 px, la barra lateral amplía su ancho y organiza
+  todas las herramientas en dos columnas; hasta 1200 px conserva la
+  disposición compacta de una columna.
+
 ## [1.6.0] — 2026-07-24
 
 ### Añadido

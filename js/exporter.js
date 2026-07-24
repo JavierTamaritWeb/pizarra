@@ -70,7 +70,10 @@ const Exporter = (() => {
   const DEFAULT_FILL_OPACITY = 0.4;
 
   /** Tipos sin representación HTML propia: van en un <svg> incrustado */
-  const VECTOR_TYPES = ['pencil', 'eraser', 'line', 'arrow', 'curveArrow', 'circle'];
+  const VECTOR_TYPES = [
+    'pencil', 'eraser', 'line', 'arrow', 'curveArrow', 'circle',
+    'triangle', 'pentagon', 'hexagon',
+  ];
 
   function _alphaHex(opacity) {
     return Math.round(Math.min(1, Math.max(0, opacity)) * 255)
@@ -95,6 +98,10 @@ const Exporter = (() => {
   function _svgArrowLabel(el, color) {
     if (!el.label) return '';
     const t = el.labelT !== undefined ? el.labelT : 0.5;
+    if (el.type === 'curveArrow' && CurvePath.isChain(el)) {
+      const p = CurvePath.pointAt(el, t);
+      return `<text x="${p.x}" y="${p.y}" fill="${color}" stroke="#ffffff" stroke-width="4" paint-order="stroke" font-family="${FONT_FALLBACK}" font-size="13" text-anchor="middle" dominant-baseline="middle">${_escapeXml(el.label)}</text>\n`;
+    }
     const mt = 1 - t;
     let mx, my;
     if (el.type === 'curveArrow') {
@@ -170,24 +177,27 @@ const Exporter = (() => {
         }
 
         case 'curveArrow': {
-          const cubic = el.cx2 !== undefined;
-          out += cubic
-            ? `<path d="M${el.x1} ${el.y1} C${el.cx} ${el.cy} ${el.cx2} ${el.cy2} ${el.x2} ${el.y2}" ${sBody}/>\n`
-            : `<path d="M${el.x1} ${el.y1} Q${el.cx} ${el.cy} ${el.x2} ${el.y2}" ${sBody}/>\n`;
+          const curveSegments = CurvePath.segments(el);
+          const first = curveSegments[0];
+          const curveD = curveSegments.map((seg, index) => {
+            const move = index === 0 ? `M${first.x1} ${first.y1} ` : '';
+            return seg.cx2 !== undefined
+              ? `${move}C${seg.cx} ${seg.cy} ${seg.cx2} ${seg.cy2} ${seg.x2} ${seg.y2}`
+              : `${move}Q${seg.cx} ${seg.cy} ${seg.x2} ${seg.y2}`;
+          }).join(' ');
+          out += `<path d="${curveD}" ${sBody}/>\n`;
           const chl = 10 + 2 * el.lineWidth;
+          const curveStart = CurvePath.start(el);
+          const curveEnd = CurvePath.end(el);
           // heads:'none' (semicírculos): sin punta en ningún extremo
           if (el.heads !== 'none') {
-            // Punta según la tangente en el extremo (último control → fin)
-            const ecx = cubic ? el.cx2 : el.cx, ecy = cubic ? el.cy2 : el.cy;
-            let tdx = el.x2 - ecx, tdy = el.y2 - ecy;
-            if (!tdx && !tdy) { tdx = el.x2 - el.x1; tdy = el.y2 - el.y1; }
-            out += _svgArrowHead(el.x2, el.y2, Math.atan2(tdy, tdx), chl, s);
+            const tangent = CurvePath.endTangent(el);
+            out += _svgArrowHead(curveEnd.x, curveEnd.y, Math.atan2(tangent.dy, tangent.dx), chl, s);
           }
           // Doble punta opcional: tangente en el inicio (control → inicio)
           if (el.heads === 'both') {
-            let sdx = el.x1 - el.cx, sdy = el.y1 - el.cy;
-            if (!sdx && !sdy) { sdx = el.x1 - el.x2; sdy = el.y1 - el.y2; }
-            out += _svgArrowHead(el.x1, el.y1, Math.atan2(sdy, sdx), chl, s);
+            const tangent = CurvePath.startTangent(el);
+            out += _svgArrowHead(curveStart.x, curveStart.y, Math.atan2(tangent.dy, tangent.dx), chl, s);
           }
           out += _svgArrowLabel(el, color);
           break;
@@ -208,6 +218,14 @@ const Exporter = (() => {
         case 'circle':
           out += `<ellipse cx="${el.x + el.w / 2}" cy="${el.y + el.h / 2}" rx="${Math.abs(el.w) / 2}" ry="${Math.abs(el.h) / 2}" ${sf}/>\n`;
           break;
+
+        case 'triangle':
+        case 'pentagon':
+        case 'hexagon': {
+          const points = RegularPolygon.vertices(el).map(p => `${p.x},${p.y}`).join(' ');
+          out += `<polygon points="${points}" ${sf}/>\n`;
+          break;
+        }
 
         case 'text': {
           // Multilínea: un <tspan> por línea con el mismo interlineado que el canvas
@@ -257,6 +275,10 @@ const Exporter = (() => {
     const fill = _escapeXml(_fillColor(el));
     if (el.type === 'circle') {
       return `<ellipse cx="${el.x + el.w / 2}" cy="${el.y + el.h / 2}" rx="${Math.abs(el.w) / 2}" ry="${Math.abs(el.h) / 2}" fill="${fill}" stroke="none"/>\n`;
+    }
+    if (RegularPolygon.isType(el.type)) {
+      const points = RegularPolygon.vertices(el).map(p => `${p.x},${p.y}`).join(' ');
+      return `<polygon points="${points}" fill="${fill}" stroke="none"/>\n`;
     }
     return `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}"${el.type === 'roundedRect' ? ' rx="12"' : ''} fill="${fill}" stroke="none"/>\n`;
   }
@@ -447,6 +469,14 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
       return _isNum(el.x1) && _isNum(el.y1) && _isNum(el.x2) && _isNum(el.y2);
     }
     if (el.type === 'curveArrow') {
+      if (el.segments !== undefined) {
+        if (!CurvePath.isValidSegments(el.segments, _isNum)) return false;
+        if (el.arc !== undefined || el.cx2 !== undefined || el.cy2 !== undefined) return false;
+        const first = el.segments[0];
+        const last = el.segments[el.segments.length - 1];
+        return el.x1 === first.x1 && el.y1 === first.y1 &&
+               el.x2 === last.x2 && el.y2 === last.y2;
+      }
       // Segundo control (curva en S): opcional, pero en pareja y numérico
       if ((el.cx2 !== undefined || el.cy2 !== undefined) &&
           !(_isNum(el.cx2) && _isNum(el.cy2))) return false;
@@ -461,6 +491,10 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
     }
     if (el.type === 'text') {
       return _isNum(el.x) && _isNum(el.y) && typeof el.value === 'string' && _isNum(el.fontSize);
+    }
+    if (RegularPolygon.isType(el.type)) {
+      return _isNum(el.x) && _isNum(el.y) && _isNum(el.w) && _isNum(el.h) &&
+             el.w > 0 && el.h > 0 && Math.abs(el.w - el.h) < 1e-6;
     }
     return _isNum(el.x) && _isNum(el.y) && _isNum(el.w) && _isNum(el.h);
   }

@@ -25,6 +25,7 @@
     doubleHead:  false, // nuevas flechas con punta en ambos extremos
     dashed:      false, // nuevas líneas/flechas con trazo discontinuo
     curveFlip:   false, // Shift durante el trazado: curva hacia el otro lado
+    curveChain:  null,  // borrador por clics: { start, segments, style... }
     showGrid:    true,
     snapGrid:    false,
     canvasBg:    DEFAULT_CANVAS_BG,
@@ -117,6 +118,9 @@
       return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
     }
     if (el.type === 'line' || el.type === 'arrow' || el.type === 'curveArrow') {
+      if (el.type === 'curveArrow' && CurvePath.isChain(el)) {
+        return CurvePath.bounds(el);
+      }
       // La curva cuadrática queda dentro del casco convexo de sus 3 puntos,
       // así que incluir el control da un bbox seguro
       const xs = [el.x1, el.x2], ys = [el.y1, el.y2];
@@ -173,24 +177,28 @@
         if (distToSegment(pos, el.x1, el.y1, el.x2, el.y2) <= el.lineWidth / 2 + 6) return i;
         continue;
       }
+      if (RegularPolygon.isType(el.type)) {
+        const vertices = RegularPolygon.vertices(el);
+        let hit = RegularPolygon.contains(pos, el);
+        for (let v = 0; v < vertices.length && !hit; v++) {
+          const a = vertices[v];
+          const b = vertices[(v + 1) % vertices.length];
+          hit = distToSegment(pos, a.x, a.y, b.x, b.y) <= el.lineWidth / 2 + 6;
+        }
+        if (hit) return i;
+        continue;
+      }
       // Flecha curva: distancia a la polilínea que muestrea la curva
       // (cuadrática o cúbica según tenga segundo control)
       if (el.type === 'curveArrow') {
-        const N = 20;
-        const cubic = el.cx2 !== undefined;
-        let px = el.x1, py = el.y1, hit = false;
-        for (let s = 1; s <= N && !hit; s++) {
-          const t = s / N, mt = 1 - t;
-          let qx, qy;
-          if (cubic) {
-            qx = mt * mt * mt * el.x1 + 3 * mt * mt * t * el.cx + 3 * mt * t * t * el.cx2 + t * t * t * el.x2;
-            qy = mt * mt * mt * el.y1 + 3 * mt * mt * t * el.cy + 3 * mt * t * t * el.cy2 + t * t * t * el.y2;
-          } else {
-            qx = mt * mt * el.x1 + 2 * mt * t * el.cx + t * t * el.x2;
-            qy = mt * mt * el.y1 + 2 * mt * t * el.cy + t * t * el.y2;
-          }
-          hit = distToSegment(pos, px, py, qx, qy) <= el.lineWidth / 2 + 6;
-          px = qx; py = qy;
+        const sampled = CurvePath.sample(el, 20);
+        let hit = false;
+        for (let s = 1; s < sampled.length && !hit; s++) {
+          hit = distToSegment(
+            pos,
+            sampled[s - 1].x, sampled[s - 1].y,
+            sampled[s].x, sampled[s].y
+          ) <= el.lineWidth / 2 + 6;
         }
         if (hit) return i;
         continue;
@@ -205,6 +213,9 @@
   }
 
   function moveElement(el, dx, dy) {
+    if (el.type === 'curveArrow' && CurvePath.isChain(el)) {
+      return CurvePath.move(el, dx, dy);
+    }
     const m = { ...el };
     if (m.points) {
       m.points = m.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
@@ -226,11 +237,7 @@
    * de su longitud. Con flip, hacia el otro lado.
    */
   function defaultCtrl(p1, p2, flip) {
-    const k = flip ? -0.25 : 0.25;
-    return {
-      cx: (p1.x + p2.x) / 2 - (p2.y - p1.y) * k,
-      cy: (p1.y + p2.y) / 2 + (p2.x - p1.x) * k,
-    };
+    return CurvePath.defaultCtrl(p1, p2, flip);
   }
 
   /** Refleja el punto (px,py) respecto a la recta (x1,y1)–(x2,y2). */
@@ -245,6 +252,7 @@
    * recta (x1,y1)–(x2,y2): invierte el lado del giro sin cambiar extremos.
    */
   function flipCurve(el) {
+    if (CurvePath.isChain(el)) return CurvePath.flip(el);
     const dx = el.x2 - el.x1, dy = el.y2 - el.y1;
     const len2 = dx * dx + dy * dy;
     if (!len2) return el; // extremos coincidentes: nada que reflejar
@@ -303,6 +311,16 @@
    * parametrización); en cúbica se intercambian también los controles.
    */
   function reverseArrow(el) {
+    if (el.type === 'curveArrow' && CurvePath.isChain(el)) {
+      let m = CurvePath.reverse(el);
+      if (el.labelT !== undefined) m = { ...m, labelT: 1 - el.labelT };
+      if (el.startAnchor !== undefined || el.endAnchor !== undefined) {
+        m = { ...m, startAnchor: el.endAnchor, endAnchor: el.startAnchor };
+        if (m.startAnchor === undefined) delete m.startAnchor;
+        if (m.endAnchor === undefined) delete m.endAnchor;
+      }
+      return m;
+    }
     const m = { ...el, x1: el.x2, y1: el.y2, x2: el.x1, y2: el.y1 };
     if (el.cx2 !== undefined) {
       m.cx = el.cx2; m.cy = el.cy2;
@@ -385,8 +403,20 @@
       handles.push({ name: 'labelPos', x: lp.x, y: lp.y, kind: 'label' });
     }
     if (el.type === 'curveArrow') {
-      handles.push({ name: 'ctrl', x: el.cx, y: el.cy, kind: 'ctrl' });
-      if (el.cx2 !== undefined) handles.push({ name: 'ctrl2', x: el.cx2, y: el.cy2, kind: 'ctrl' });
+      if (CurvePath.isChain(el)) {
+        CurvePath.segments(el).forEach((seg, index) => {
+          handles.push({ name: `segCtrl:${index}`, x: seg.cx, y: seg.cy, kind: 'ctrl', segment: index });
+          if (seg.cx2 !== undefined) {
+            handles.push({ name: `segCtrl2:${index}`, x: seg.cx2, y: seg.cy2, kind: 'ctrl', segment: index });
+          }
+          if (index < el.segments.length - 1) {
+            handles.push({ name: `segJoin:${index}`, x: seg.x2, y: seg.y2, kind: 'join', segment: index });
+          }
+        });
+      } else {
+        handles.push({ name: 'ctrl', x: el.cx, y: el.cy, kind: 'ctrl' });
+        if (el.cx2 !== undefined) handles.push({ name: 'ctrl2', x: el.cx2, y: el.cy2, kind: 'ctrl' });
+      }
     }
     if (el.type === 'arrow' || el.type === 'curveArrow') {
       handles.push({ name: 'p1', x: el.x1, y: el.y1, kind: 'end' });
@@ -398,14 +428,19 @@
   /* ── Conectores anclados ── */
 
   const ANCHORABLE_TYPES = [
-    TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE, TOOLS.BUTTON, TOOLS.INPUT,
+    TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE,
+    TOOLS.TRIANGLE, TOOLS.PENTAGON, TOOLS.HEXAGON,
+    TOOLS.BUTTON, TOOLS.INPUT,
     TOOLS.IMAGE_PLACEHOLDER, TOOLS.IMAGE, TOOLS.NAV, TOOLS.CARD,
   ];
   const ANCHOR_THRESHOLD = 12;
 
   // Formas geométricas: las únicas que admiten relleno (los componentes UI
   // traen el suyo propio como parte de su diseño)
-  const FILLABLE_TYPES = [TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE];
+  const REGULAR_POLYGON_TYPES = [TOOLS.TRIANGLE, TOOLS.PENTAGON, TOOLS.HEXAGON];
+  const FILLABLE_TYPES = [
+    TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE, ...REGULAR_POLYGON_TYPES,
+  ];
 
   /** <input type="color"> solo acepta #rrggbb: recorta un eventual canal alfa
       (un color importado puede venir como #rrggbbaa y lo dejaría en negro). */
@@ -494,7 +529,20 @@
       apply('endAnchor', 'x2', 'y2', 'x1', 'y1');
       if (m !== state.elements[i]) {
         // La cuerda cambió: re-proyectar los controles para conservar la forma
-        if (m.type === 'curveArrow') m = transformControlsToChord(m, old);
+        if (m.type === 'curveArrow' && CurvePath.isChain(m)) {
+          let chained = state.elements[i];
+          if (m.x1 !== old.x1 || m.y1 !== old.y1) {
+            chained = CurvePath.withEndpoint(chained, 'start', { x: m.x1, y: m.y1 });
+          }
+          if (m.x2 !== old.x2 || m.y2 !== old.y2) {
+            chained = CurvePath.withEndpoint(chained, 'end', { x: m.x2, y: m.y2 });
+          }
+          m = { ...chained, startAnchor: m.startAnchor, endAnchor: m.endAnchor };
+          if (m.startAnchor === undefined) delete m.startAnchor;
+          if (m.endAnchor === undefined) delete m.endAnchor;
+        } else if (m.type === 'curveArrow') {
+          m = transformControlsToChord(m, old);
+        }
         state.elements[i] = m;
       }
     }
@@ -536,6 +584,9 @@
    * cuadrática para curveArrow, interpolación lineal para arrow/line.
    */
   function arrowPointAt(el, t) {
+    if (el.type === 'curveArrow' && CurvePath.isChain(el)) {
+      return CurvePath.pointAt(el, t);
+    }
     const mt = 1 - t;
     if (el.type === 'curveArrow') {
       if (el.cx2 !== undefined) {
@@ -565,7 +616,7 @@
    */
   function nearestTOnArrow(el, p, N = 40) {
     let bestT = 0.5, bestD = Infinity;
-    let prev = { x: el.x1, y: el.y1 };
+    let prev = el.type === 'curveArrow' ? CurvePath.start(el) : { x: el.x1, y: el.y1 };
     for (let s = 1; s <= N; s++) {
       const q = arrowPointAt(el, s / N);
       const dx = q.x - prev.x, dy = q.y - prev.y;
@@ -735,11 +786,22 @@
           ctx.strokeStyle = '#4ecdc4';
           ctx.lineWidth = 1;
           ctx.setLineDash([3, 3]);
-          ctx.beginPath();
-          ctx.moveTo(sel.x1, sel.y1);
-          ctrls.forEach(h => ctx.lineTo(h.x, h.y));
-          ctx.lineTo(sel.x2, sel.y2);
-          ctx.stroke();
+          if (sel.type === 'curveArrow' && CurvePath.isChain(sel)) {
+            CurvePath.segments(sel).forEach(seg => {
+              ctx.beginPath();
+              ctx.moveTo(seg.x1, seg.y1);
+              ctx.lineTo(seg.cx, seg.cy);
+              if (seg.cx2 !== undefined) ctx.lineTo(seg.cx2, seg.cy2);
+              ctx.lineTo(seg.x2, seg.y2);
+              ctx.stroke();
+            });
+          } else {
+            ctx.beginPath();
+            ctx.moveTo(sel.x1, sel.y1);
+            ctrls.forEach(h => ctx.lineTo(h.x, h.y));
+            ctx.lineTo(sel.x2, sel.y2);
+            ctx.stroke();
+          }
           ctx.setLineDash([]);
         }
         handles.forEach(h => {
@@ -749,7 +811,8 @@
             ctx.fillRect(h.x - 4, h.y - 4, 8, 8);
             return;
           }
-          ctx.fillStyle = h.kind === 'ctrl' ? '#4ecdc4' : '#f39c12';
+          ctx.fillStyle = h.kind === 'ctrl' ? '#4ecdc4' :
+                          h.kind === 'join' ? '#9b59b6' : '#f39c12';
           ctx.beginPath();
           ctx.arc(h.x, h.y, 5, 0, Math.PI * 2);
           ctx.fill();
@@ -814,6 +877,59 @@
 
   /* ── Canvas events ── */
 
+  const MIN_CURVE_SEGMENT = 4;
+
+  function snappedPoint(pos, e) {
+    return state.snapGrid && !e.altKey
+      ? { x: snapVal(pos.x), y: snapVal(pos.y) }
+      : pos;
+  }
+
+  function curveChainLastPoint() {
+    const draft = state.curveChain;
+    if (!draft || !draft.segments.length) return draft ? draft.start : null;
+    const last = draft.segments[draft.segments.length - 1];
+    return { x: last.x2, y: last.y2 };
+  }
+
+  function newCurveChainSegment(from, to, flip) {
+    const c = defaultCtrl(from, to, flip);
+    return { x1: from.x, y1: from.y, cx: c.cx, cy: c.cy, x2: to.x, y2: to.y };
+  }
+
+  function cancelCurveChain() {
+    state.curveChain = null;
+    state.isDrawing = false;
+    state.startPos = null;
+    lastPos = null;
+    octx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+  }
+
+  function finishCurveChain() {
+    const draft = state.curveChain;
+    if (!draft || !draft.segments.length) return false;
+    const first = draft.segments[0];
+    const last = draft.segments[draft.segments.length - 1];
+    const el = {
+      type: TOOLS.CURVE_ARROW,
+      x1: first.x1, y1: first.y1,
+      x2: last.x2, y2: last.y2,
+      segments: draft.segments.map(seg => ({ ...seg })),
+      color: draft.color,
+      lineWidth: draft.lineWidth,
+      seed: draft.seed,
+    };
+    if (draft.heads) el.heads = draft.heads;
+    if (draft.dash) el.dash = true;
+    saveUndo();
+    state.elements.push(el);
+    attachAnchorOnCreate(el, 'startAnchor', { x: first.x1, y: first.y1 });
+    attachAnchorOnCreate(el, 'endAnchor', { x: last.x2, y: last.y2 });
+    cancelCurveChain();
+    redraw();
+    return true;
+  }
+
   /* ── Resize con handles (selección única) ── */
 
   const HANDLE_HIT = 8;
@@ -846,6 +962,9 @@
     const sy = from.h ? to.h / from.h : 1;
     const mapX = v => to.x + (v - from.x) * sx;
     const mapY = v => to.y + (v - from.y) * sy;
+    if (el.type === 'curveArrow' && CurvePath.isChain(el)) {
+      return CurvePath.scale(el, mapX, mapY);
+    }
     const m = { ...el };
     if (m.points) {
       m.points = m.points.map(p => ({ x: mapX(p.x), y: mapY(p.y) }));
@@ -871,6 +990,15 @@
     // el candidato bajo el cursor para re-anclar al soltar
     if (r.corner === 'p1' || r.corner === 'p2') {
       let copy = { ...r.original };
+      if (copy.type === 'curveArrow' && CurvePath.isChain(copy)) {
+        const which = r.corner === 'p1' ? 'start' : 'end';
+        copy = CurvePath.withEndpoint(copy, which, p);
+        delete copy[which === 'start' ? 'startAnchor' : 'endAnchor'];
+        state.elements[state.selection[0]] = copy;
+        r.anchorCandidate = findAnchorTarget(p, state.selection[0]);
+        r.did = true;
+        return;
+      }
       if (r.corner === 'p1') {
         delete copy.startAnchor;
         copy.x1 = p.x;
@@ -883,6 +1011,22 @@
       if (copy.type === 'curveArrow') copy = transformControlsToChord(copy, r.original);
       state.elements[state.selection[0]] = copy;
       r.anchorCandidate = findAnchorTarget(p, state.selection[0]);
+      r.did = true;
+      return;
+    }
+
+    if (r.corner.startsWith('segCtrl:') || r.corner.startsWith('segCtrl2:')) {
+      const second = r.corner.startsWith('segCtrl2:');
+      const index = Number(r.corner.split(':')[1]);
+      state.elements[state.selection[0]] =
+        CurvePath.withControl(r.original, index, p, second);
+      r.did = true;
+      return;
+    }
+
+    if (r.corner.startsWith('segJoin:')) {
+      const index = Number(r.corner.split(':')[1]);
+      state.elements[state.selection[0]] = CurvePath.withJoin(r.original, index, p);
       r.did = true;
       return;
     }
@@ -945,10 +1089,32 @@
     if (r.corner.includes('e')) x2 = p.x;
     if (r.corner.includes('n')) y1 = p.y;
     if (r.corner.includes('s')) y2 = p.y;
-    const to = {
+    let to = {
       x: Math.min(x1, x2), y: Math.min(y1, y2),
       w: Math.abs(x2 - x1), h: Math.abs(y2 - y1),
     };
+    if (REGULAR_POLYGON_TYPES.includes(r.original.type)) {
+      const fixed = {
+        nw: { x: f.x + f.w, y: f.y + f.h },
+        ne: { x: f.x,       y: f.y + f.h },
+        sw: { x: f.x + f.w, y: f.y },
+        se: { x: f.x,       y: f.y },
+      }[r.corner];
+      const dx = p.x - fixed.x, dy = p.y - fixed.y;
+      const size = Math.max(Math.abs(dx), Math.abs(dy));
+      const defaultSignX = r.corner.includes('w') ? -1 : 1;
+      const defaultSignY = r.corner.includes('n') ? -1 : 1;
+      const moving = {
+        x: fixed.x + (Math.sign(dx) || defaultSignX) * size,
+        y: fixed.y + (Math.sign(dy) || defaultSignY) * size,
+      };
+      to = {
+        x: Math.min(fixed.x, moving.x),
+        y: Math.min(fixed.y, moving.y),
+        w: size,
+        h: size,
+      };
+    }
     // Tamaño mínimo, salvo en dimensiones que ya eran 0 (líneas rectas)
     if ((f.w > 0 && to.w < 10) || (f.h > 0 && to.h < 10)) return;
     state.elements[state.selection[0]] = scaleElement(r.original, f, to);
@@ -957,6 +1123,14 @@
 
   function onMouseDown(e) {
     const pos = getPos(e);
+
+    // Una cadena ya iniciada consume cada nuevo clic como otro tramo.
+    if (state.tool === TOOLS.CURVE_ARROW && state.curveChain) {
+      state.isDrawing = true;
+      state.startPos = pos;
+      state.curveFlip = e.shiftKey;
+      return;
+    }
 
     // SELECT tool
     if (state.tool === TOOLS.SELECT) {
@@ -1048,7 +1222,9 @@
 
     state.isDrawing = true;
     state.startPos  = pos;
-    state.curveFlip = false;
+    state.curveFlip = (state.tool === TOOLS.CURVE_ARROW || state.tool === TOOLS.ARC)
+      ? e.shiftKey
+      : false;
 
     if (state.tool === TOOLS.PENCIL || state.tool === TOOLS.ERASER) {
       state.currentPath = [pos];
@@ -1074,6 +1250,30 @@
       octx.lineWidth = 1;
       octx.setLineDash([5, 5]);
       octx.strokeRect(x, y, w, h);
+      octx.setLineDash([]);
+      return;
+    }
+
+    // Curva encadenada: tramos fijados + siguiente tramo bajo el puntero.
+    if (state.curveChain) {
+      const draft = state.curveChain;
+      octx.strokeStyle = draft.color;
+      octx.lineWidth = draft.lineWidth;
+      octx.setLineDash([4, 4]);
+      draft.segments.forEach(seg => {
+        octx.beginPath();
+        octx.moveTo(seg.x1, seg.y1);
+        octx.quadraticCurveTo(seg.cx, seg.cy, seg.x2, seg.y2);
+        octx.stroke();
+      });
+      const from = curveChainLastPoint();
+      if (lastPos && Math.hypot(lastPos.x - from.x, lastPos.y - from.y) >= MIN_CURVE_SEGMENT) {
+        const c = defaultCtrl(from, lastPos, state.curveFlip);
+        octx.beginPath();
+        octx.moveTo(from.x, from.y);
+        octx.quadraticCurveTo(c.cx, c.cy, lastPos.x, lastPos.y);
+        octx.stroke();
+      }
       octx.setLineDash([]);
       return;
     }
@@ -1116,6 +1316,19 @@
       case TOOLS.CIRCLE:
         octx.beginPath(); octx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2); octx.stroke();
         break;
+      case TOOLS.TRIANGLE:
+      case TOOLS.PENTAGON:
+      case TOOLS.HEXAGON: {
+        const box = RegularPolygon.fromCenter(state.startPos, pos);
+        const vertices = RegularPolygon.vertices({ type: state.tool, ...box });
+        if (!vertices.length) break;
+        octx.beginPath();
+        octx.moveTo(vertices[0].x, vertices[0].y);
+        vertices.slice(1).forEach(vertex => octx.lineTo(vertex.x, vertex.y));
+        octx.closePath();
+        octx.stroke();
+        break;
+      }
       case TOOLS.LINE:
       case TOOLS.ARROW:
         octx.beginPath(); octx.moveTo(state.startPos.x, state.startPos.y); octx.lineTo(pos.x, pos.y); octx.stroke();
@@ -1160,6 +1373,13 @@
 
   function onMouseMove(e) {
     const pos = getPos(e);
+
+    if (state.tool === TOOLS.CURVE_ARROW && state.curveChain && !state.resizing) {
+      lastPos = snappedPoint(pos, e);
+      state.curveFlip = e.shiftKey;
+      scheduleOverlay();
+      if (!state.isDrawing) return;
+    }
 
     // Resize en curso
     if (state.resizing && e.buttons === 1) {
@@ -1208,6 +1428,10 @@
   }
 
   function onMouseUp(e) {
+    if (e.type === 'pointercancel' && state.curveChain) {
+      cancelCurveChain();
+      return;
+    }
     // Fin de resize: el snapshot se capturó al agarrar el handle
     if (state.resizing) {
       const r = state.resizing;
@@ -1284,6 +1508,27 @@
 
     if (!state.isDrawing) return;
     const pos = getPos(e);
+
+    // Clics posteriores de una curva encadenada. Ctrl/Cmd+clic confirma el
+    // último tramo (si no es degenerado) y añade una única punta al final.
+    if (state.tool === TOOLS.CURVE_ARROW && state.curveChain) {
+      const p = snappedPoint(pos, e);
+      const from = curveChainLastPoint();
+      if (Math.hypot(p.x - from.x, p.y - from.y) >= MIN_CURVE_SEGMENT &&
+          state.curveChain.segments.length < CurvePath.MAX_SEGMENTS) {
+        state.curveChain.segments.push(newCurveChainSegment(from, p, state.curveFlip));
+      }
+      state.isDrawing = false;
+      state.startPos = null;
+      lastPos = p;
+      if (e.ctrlKey || e.metaKey || state.curveChain.segments.length >= CurvePath.MAX_SEGMENTS) {
+        finishCurveChain();
+      } else {
+        scheduleOverlay();
+      }
+      return;
+    }
+
     octx.clearRect(0, 0, CANVAS_W, CANVAS_H);
     state.isDrawing = false;
     lastPos = null;
@@ -1354,15 +1599,37 @@
           attachAnchorOnCreate(el, 'startAnchor', p1);
           attachAnchorOnCreate(el, 'endAnchor', p2);
         }
+      } else if (state.tool === TOOLS.CURVE_ARROW) {
+        // Un clic sin arrastre inicia el modo encadenado; el elemento no entra
+        // en state.elements hasta Ctrl/Cmd+clic, así que undo/autosave reciben
+        // una sola operación completa.
+        state.curveChain = {
+          start: { ...p1 },
+          segments: [],
+          color: state.color,
+          lineWidth: state.lineWidth,
+          seed: newSeed(),
+          heads: state.doubleHead ? 'both' : undefined,
+          dash: state.dashed,
+        };
+        lastPos = { ...p1 };
+        scheduleOverlay();
       }
     }
     // Geometric shapes
-    else if ([TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE].includes(state.tool)) {
-      if (w > 3 && h > 3) {
+    else if ([TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE, ...REGULAR_POLYGON_TYPES].includes(state.tool)) {
+      const polygonBox = REGULAR_POLYGON_TYPES.includes(state.tool)
+        ? RegularPolygon.fromCenter(p1, p2)
+        : null;
+      const shapeX = polygonBox ? polygonBox.x : x;
+      const shapeY = polygonBox ? polygonBox.y : y;
+      const shapeW = polygonBox ? polygonBox.w : w;
+      const shapeH = polygonBox ? polygonBox.h : h;
+      if (shapeW > 3 && shapeH > 3) {
         saveUndo();
         const shape = {
           type: state.tool,
-          x, y, w, h,
+          x: shapeX, y: shapeY, w: shapeW, h: shapeH,
           color: state.color, lineWidth: state.lineWidth,
           fill: state.fillShapes,
           seed: newSeed(),
@@ -1527,9 +1794,22 @@
           return;
         }
       }
-      if (sel && arrowHandles(sel).some(h => h.kind === 'ctrl' && Math.hypot(pos.x - h.x, pos.y - h.y) <= HANDLE_HIT)) {
+      const hitCtrl = sel && arrowHandles(sel).find(
+        h => h.kind === 'ctrl' && Math.hypot(pos.x - h.x, pos.y - h.y) <= HANDLE_HIT
+      );
+      if (hitCtrl) {
         saveUndo();
-        if (sel.arc === true) {
+        if (CurvePath.isChain(sel)) {
+          const index = Number(hitCtrl.name.split(':')[1]);
+          const seg = sel.segments[index];
+          const c = defaultCtrl(
+            { x: seg.x1, y: seg.y1 },
+            { x: seg.x2, y: seg.y2 },
+            false
+          );
+          state.elements[state.selection[0]] =
+            CurvePath.withControl(sel, index, { x: c.cx, y: c.cy }, false);
+        } else if (sel.arc === true) {
           // Semicírculo: re-normalizar a 180° exactos, lado actual
           state.elements[state.selection[0]] = toArc(sel);
         } else if (sel.cx2 !== undefined) {
@@ -1704,6 +1984,7 @@
   /* ── Acciones sobre la selección ── */
 
   function selectTool(id) {
+    if (id !== state.tool && state.curveChain) cancelCurveChain();
     state.tool = id;
     setSelection([]);
     updateToolbarActive();
@@ -2077,6 +2358,7 @@
 
     // Clear
     $('btn-clear').addEventListener('click', () => {
+      cancelCurveChain();
       saveUndo();
       state.elements = [];
       setSelection([]);
@@ -2155,11 +2437,47 @@
     const tag = e.target.tagName;
     if (e.target === textInput || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
+    if (state.curveChain) {
+      const chainKey = e.key.toLowerCase();
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        cancelCurveChain();
+        return;
+      }
+      if (e.key === 'Backspace') {
+        e.preventDefault();
+        if (state.curveChain.segments.length) state.curveChain.segments.pop();
+        else cancelCurveChain();
+        if (state.curveChain) {
+          lastPos = curveChainLastPoint();
+          scheduleOverlay();
+        }
+        return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        finishCurveChain();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && chainKey === 'z') {
+        e.preventDefault();
+        cancelCurveChain();
+        return;
+      }
+      if (!e.ctrlKey && !e.metaKey && !e.altKey &&
+          TOOL_KEYS[chainKey] && TOOL_KEYS[chainKey] !== state.tool) {
+        e.preventDefault();
+        selectTool(TOOL_KEYS[chainKey]);
+        return;
+      }
+    }
+
     // Ignorar atajos mientras hay un gesto de puntero en curso (dibujo, resize,
     // arrastre o marquee): borrar/deshacer/cambiar de herramienta a media
     // interacción dejaría índices y flags a medias (p.ej. escribir en
     // state.elements[undefined] al redimensionar tras un Supr).
-    if (state.isDrawing || state.resizing || state.dragLast || state.marquee) return;
+    if (state.isDrawing || state.curveChain || state.resizing ||
+        state.dragLast || state.marquee) return;
 
     const k = e.key.toLowerCase();
 
@@ -2239,11 +2557,12 @@
     // (activar = snap a 180° conservando el lado, sin puntas; desactivar
     // deja la cúbica tal cual, quitando la marca y recuperando la punta)
     if (k === 'q' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey &&
-        state.selection.some(i => state.elements[i].type === 'curveArrow')) {
+        state.selection.some(i => state.elements[i].type === 'curveArrow' &&
+                                  !CurvePath.isChain(state.elements[i]))) {
       saveUndo();
       state.selection.forEach(i => {
         const el = state.elements[i];
-        if (el.type !== 'curveArrow') return;
+        if (el.type !== 'curveArrow' || CurvePath.isChain(el)) return;
         if (el.arc === true) {
           const copy = { ...el };
           delete copy.arc;
@@ -2275,7 +2594,8 @@
     // y curva en S (cúbica con dos controles)
     if (k === 's' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey &&
         state.selection.length === 1 &&
-        state.elements[state.selection[0]].type === 'curveArrow') {
+        state.elements[state.selection[0]].type === 'curveArrow' &&
+        !CurvePath.isChain(state.elements[state.selection[0]])) {
       const el = state.elements[state.selection[0]];
       saveUndo();
       if (el.cx2 !== undefined) {
@@ -2311,7 +2631,7 @@
     if ((e.key === '+' || e.key === '=' || e.key === '-') &&
         !e.ctrlKey && !e.metaKey && !e.altKey && state.selection.length === 1) {
       const el = state.elements[state.selection[0]];
-      if (el.type === 'curveArrow') {
+      if (el.type === 'curveArrow' && !CurvePath.isChain(el)) {
         // Semicírculo (siempre 180°): +/− ajustan el RADIO con pasos de
         // 5px/1px; el centro del diámetro no se mueve. En arcos anclados
         // el redraw re-materializa los extremos (el ajuste no persiste).
@@ -2468,7 +2788,8 @@
 
   // ¿Hay un gesto de puntero a medio hacer? (para limpiarlo en pointercancel)
   const gestureActive = () =>
-    state.isDrawing || state.didDrag || state.resizing || state.dragLast || state.marquee;
+    state.isDrawing || state.curveChain || state.didDrag ||
+    state.resizing || state.dragLast || state.marquee;
 
   mainCanvas.addEventListener('pointerdown', e => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -2495,6 +2816,11 @@
     // no, state.resizing/marquee quedaban colgados y secuestraban el siguiente.
     if (gestureActive()) onMouseUp(e);
     activePointerId = null;
+  });
+  // En macOS Ctrl+clic abre el menú contextual; durante una cadena debe
+  // reservarse para terminarla igual que Cmd+clic.
+  mainCanvas.addEventListener('contextmenu', e => {
+    if (state.tool === TOOLS.CURVE_ARROW && state.curveChain) e.preventDefault();
   });
 
   /* ── Init ── */

@@ -304,6 +304,45 @@ input[type="range"]::-moz-range-thumb {
   font-weight: 500;
 }
 
+/* En escritorios amplios, la colección de herramientas aprovecha el espacio
+   vertical con dos columnas. Por debajo del umbral se conserva la barra
+   compacta de una sola columna. */
+@media (min-width: 1201px) {
+  :root {
+    --sidebar-w: 132px;
+  }
+
+  .sidebar {
+    align-items: stretch;
+    padding-inline: 6px;
+  }
+
+  .sidebar__group {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 3px 2px;
+    width: 100%;
+  }
+
+  .sidebar__group-label {
+    grid-column: 1 / -1;
+    justify-self: start;
+    margin-left: 4px;
+  }
+
+  .sidebar__tool {
+    width: 100%;
+    height: 56px;
+    padding: 3px 2px;
+  }
+
+  .sidebar__tool-name {
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+  }
+}
+
 /* ============================================================
    BLOCK: canvas-area
    ============================================================ */

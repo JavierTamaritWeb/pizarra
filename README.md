@@ -2,10 +2,10 @@
 
 **Crea wireframes, diagramas y bocetos con estilo dibujado a mano, directamente en tu navegador.**
 
-![Versión](https://img.shields.io/badge/versi%C3%B3n-1.6.0-blueviolet)
+![Versión](https://img.shields.io/badge/versi%C3%B3n-1.7.0-blueviolet)
 ![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?logo=javascript&logoColor=000)
 ![Sin dependencias](https://img.shields.io/badge/dependencias-0-brightgreen)
-![Tests](https://img.shields.io/badge/tests-169%20%E2%9C%93-brightgreen)
+![Tests](https://img.shields.io/badge/tests-186%20%E2%9C%93-brightgreen)
 ![Licencia](https://img.shields.io/badge/licencia-MIT-blue)
 
 Pizarra es una aplicación de wireframing sobre canvas escrita en JavaScript puro: **sin build, sin bundler y sin `node_modules`**. Permite crear bocetos, diagramas y prototipos rápidos directamente en el navegador.
@@ -16,8 +16,9 @@ Pizarra es una aplicación de wireframing sobre canvas escrita en JavaScript pur
 
 ### Dibujo
 - ✏️ **Lápiz, líneas, flechas, formas** (rectángulo, redondeado, elipse) con trazo *sketchy* de aspecto manual — determinista: cada elemento guarda su semilla y no "tiembla" entre repintados.
-- 🪣 **Relleno con color**: selecciona una forma geométrica (círculo/elipse, rectángulo o rectángulo redondeado) y elige su color de relleno; el checkbox la vacía sin perder el color. **Relleno translúcido** alterna entre sólido y transparente, y el regulador permite ajustar su opacidad del **0 al 100 %** (40 % por defecto). Con formas seleccionadas modifica esas formas; sin selección establece el valor de las próximas. Sin color propio se conserva el tinte translúcido clásico del trazo.
-- 🫥 **Solapamiento seleccionable**: el modo **Normal** conserva la mezcla de transparencias; **Bordes ocultos** convierte en discontinuos únicamente los tramos del contorno inferior cubiertos por otra forma. Respeta rectángulos, esquinas redondeadas, círculos/elipses y el orden de capas.
+- 🔺 **Polígonos regulares**: botones para triángulo (`3`), pentágono (`5`) y hexágono (`6`). Se arrastran desde el centro, conservan todos sus lados iguales al redimensionarlos y admiten relleno y bordes ocultos.
+- 🪣 **Relleno con color**: selecciona una forma geométrica (círculo/elipse, rectángulos o polígonos regulares) y elige su color de relleno; el checkbox la vacía sin perder el color. **Relleno translúcido** alterna entre sólido y transparente, y el regulador permite ajustar su opacidad del **0 al 100 %** (40 % por defecto). Con formas seleccionadas modifica esas formas; sin selección establece el valor de las próximas. Sin color propio se conserva el tinte translúcido clásico del trazo.
+- 🫥 **Solapamiento seleccionable**: el modo **Normal** conserva la mezcla de transparencias; **Bordes ocultos** convierte en discontinuos únicamente los tramos del contorno inferior cubiertos por otra forma. Respeta rectángulos, esquinas redondeadas, círculos/elipses, polígonos regulares y el orden de capas.
 - ◠ **Semicírculos** de 180° exactos y sin puntas: el arrastre fija el diámetro (y con él el radio); después `+`/`−` o su handle ajustan el radio manteniendo la media circunferencia perfecta. `Q` convierte una flecha curva existente en semicírculo y viceversa.
 - 🧩 **Componentes UI listos**: botón, input, imagen, navbar y tarjeta, con etiquetas editables (doble click).
 - 🙂 **Emoji** (`J`): catálogo de 60 emoji en cinco categorías; elige uno y haz click para estamparlo. Se insertan como texto, así que se mueven, escalan, exportan y editan como cualquier otro elemento.
@@ -26,6 +27,7 @@ Pizarra es una aplicación de wireframing sobre canvas escrita en JavaScript pur
 
 ### Flechas de nivel diagrama
 - ↷ **Flechas curvas** con handle de curvatura: Shift al trazar la comba hacia el otro lado, `F` invierte el giro, `+`/`−` ajustan la intensidad, doble click en el handle la resetea.
+- ⛓️ **Curvas encadenadas**: un click con Flecha curva fija el inicio; cada click añade otro tramo y `Ctrl`/`Cmd`+click termina la cadena con la punta en el último extremo. `Retroceso` elimina el último tramo, `Esc` cancela y `Enter` termina. El arrastre tradicional continúa creando una curva sencilla.
 - 🔀 **Curva en S** (`S`): cúbica con dos puntos de control.
 - 🧲 **Conectores anclados**: suelta un extremo sobre un elemento y la flecha se pega a su borde — al mover o redimensionar el elemento, la flecha lo sigue conservando su curvatura.
 - 🏷️ **Etiquetas sobre el trazo** (doble click), desplazables a lo largo del trazo (arrastra su handle; doble click en él la re-centra), doble punta, trazo discontinuo, grosor por elemento y dirección invertible (`D`).
@@ -35,6 +37,7 @@ Pizarra es una aplicación de wireframing sobre canvas escrita en JavaScript pur
 - 📋 **Copiar y pegar** la selección con `Ctrl/Cmd+C` / `Ctrl/Cmd+V` — también entre pestañas. Lo pegado aparece desplazado, queda seleccionado y las flechas ancladas se re-vinculan a sus clones.
 - ↩️ Undo/redo con historial de 50 pasos (`Ctrl+Z` / `Ctrl+Y` / `Cmd+Shift+Z`).
 - 🧮 Cuadrícula con ajuste opcional (Alt lo desactiva al vuelo) y zoom 30–300%, con auto-ajuste al espacio disponible en pantallas anchas.
+- 🧰 **Barra de herramientas responsive**: conserva una columna hasta 1200 px y se reorganiza automáticamente en dos columnas desde 1201 px para reducir el desplazamiento vertical.
 - 🎨 **Fondo y color de cuadrícula personalizables** desde el panel, con persistencia entre sesiones; "Limpiar todo" los devuelve a su valor original.
 - 💾 **Autoguardado** en localStorage: tu trabajo sobrevive al refresco.
 
@@ -79,6 +82,7 @@ Pizarra guarda automáticamente el lienzo en `localStorage`. Para crear una copi
 |-------|--------|
 | `P` `L` `A` `U` `G` `E` | Lápiz · Línea · Flecha · Flecha curva · Semicírculo · Borrador |
 | `R` `O` `C` | Rectángulo · Redondeado · Círculo |
+| `3` `5` `6` | Triángulo · Pentágono · Hexágono regulares |
 | `T` `J` `B` `I` `M` `N` `K` | Texto · Emoji · Botón · Input · Imagen · Navbar · Tarjeta |
 | `V` | Mover / seleccionar |
 | `Ctrl/Cmd+Z` / `Ctrl+Y` o `Cmd+Shift+Z` | Deshacer / rehacer |
@@ -88,6 +92,7 @@ Pizarra guarda automáticamente el lienzo en `localStorage`. Para crear una copi
 | `F` / `D` / `S` | Invertir giro · invertir dirección · curva en S |
 | `Q` | Convertir flecha curva ↔ semicírculo |
 | `+` / `−` (+`Shift`) | Ajustar curvatura — en semicírculos, el radio (fino) |
+| Clicks + `Ctrl`/`Cmd`+click | Encadenar tramos de Flecha curva · terminar con punta |
 | `Ctrl/Cmd+C` / `Ctrl/Cmd+V` | Copiar selección / pegarla (o pegar imagen del portapapeles) |
 | `?` | Abrir la ayuda con todos los atajos |
 
@@ -100,6 +105,8 @@ js/
 ├── config.js       Constantes: herramientas, colores, tamaños
 ├── sketchy.js      Primitivas de trazo manual (PRNG determinista por elemento)
 ├── arc.js          Geometría de arcos circulares (ajuste de cúbica a semicírculo)
+├── curve-path.js   Geometría compartida de flechas curvas encadenadas
+├── regular-polygon.js Geometría de triángulos, pentágonos y hexágonos
 ├── renderer.js     Render por tipo de elemento + cuadrícula + selección
 ├── exporter.js     Export PNG/JPG/SVG/HTML/JSON + import validado
 ├── templates.js    Plantillas predefinidas
@@ -115,7 +122,7 @@ Principios de diseño:
 
 ## Tests
 
-169 tests con el runner nativo de Node — sin ninguna dependencia:
+186 tests con el runner nativo de Node — sin ninguna dependencia:
 
 ```bash
 node --test tests/                    # suite completa

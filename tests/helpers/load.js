@@ -39,7 +39,7 @@ const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const KNOWN_GLOBALS = [
   'TOOLS', 'TOOL_GROUPS', 'COLORS', 'CANVAS_W', 'CANVAS_H',
   'SKETCHY_FONT', 'UI_DEFAULTS', 'EMOJI_GROUPS', 'EMOJI_MIN_SIZE',
-  'Sketchy', 'ArcMath', 'Renderer', 'Exporter', 'Templates',
+  'Sketchy', 'ArcMath', 'CurvePath', 'RegularPolygon', 'Renderer', 'Exporter', 'Templates',
 ];
 
 /** Orden completo de dependencias del proyecto (app.js excluido: requiere DOM real). */
@@ -47,6 +47,8 @@ const ALL_FILES = [
   'js/config.js',
   'js/sketchy.js',
   'js/arc.js',
+  'js/curve-path.js',
+  'js/regular-polygon.js',
   'js/renderer.js',
   'js/exporter.js',
   'js/templates.js',
@@ -173,8 +175,8 @@ function getGlobal(context, name) {
 
 /**
  * Crea un contexto nuevo y carga los archivos dados en orden.
- * Si 'js/config.js' no está en la lista, se antepone automáticamente
- * (todos los demás scripts dependen de sus constantes).
+ * Si faltan, antepone config.js y curve-path.js antes de renderer.js:
+ * son dependencias globales de los scripts probados.
  *
  *   const ctx = load('js/sketchy.js', 'js/renderer.js');
  *   ctx.Renderer.renderElement(createCtxStub(), el);
@@ -183,6 +185,14 @@ function load(...files) {
   const list = files.flat();
   if (list.length === 0) list.push('js/config.js');
   if (!list.some(f => f.endsWith('config.js'))) list.unshift('js/config.js');
+  const rendererIndex = list.findIndex(f => f.endsWith('renderer.js'));
+  if (rendererIndex >= 0 && !list.some(f => f.endsWith('curve-path.js'))) {
+    list.splice(rendererIndex, 0, 'js/curve-path.js');
+  }
+  const rendererIndexAfterCurve = list.findIndex(f => f.endsWith('renderer.js'));
+  if (rendererIndexAfterCurve >= 0 && !list.some(f => f.endsWith('regular-polygon.js'))) {
+    list.splice(rendererIndexAfterCurve, 0, 'js/regular-polygon.js');
+  }
   const context = createContext();
   for (const f of list) loadScript(context, f);
   return context;

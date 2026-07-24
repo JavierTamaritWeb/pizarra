@@ -20,7 +20,7 @@
       <div class="topbar__brand">
         <span class="topbar__logo-icon" aria-hidden="true">✎</span>
         <span class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></span>
-        <span class="topbar__badge">v1.6.0</span>
+        <span class="topbar__badge">v1.7.0</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes">
@@ -243,12 +243,34 @@
       <section class="modal__help-group">
         <h4 class="modal__help-title">Formas y relleno</h4>
         <ul class="modal__help-list">
-          <li>Selecciona una forma y elige <strong>"Color de relleno"</strong> para rellenarla</li>
+          <li>El relleno se aplica a rectángulos, redondeados, círculos/elipses y polígonos regulares</li>
+          <li>Selecciona una forma y elige <strong>"Color de relleno"</strong>: el relleno se activa automáticamente</li>
           <li>El checkbox <strong>"Rellenar formas"</strong> la vacía sin perder el color: al volver a marcarlo lo recupera</li>
-          <li><strong>"Relleno translúcido"</strong> alterna entre relleno sólido o con transparencia</li>
-          <li>El control <strong>"Opacidad"</strong> regula la transparencia del relleno entre 0 y 100%</li>
-          <li><strong>"Solapamiento"</strong> alterna entre la mezcla normal y los bordes ocultos discontinuos</li>
-          <li>Sin selección, todos fijan el valor por defecto de las próximas formas</li>
+          <li><strong>"Relleno translúcido"</strong> alterna entre relleno sólido y relleno con transparencia</li>
+          <li><strong>"Opacidad"</strong> va del 0% (invisible) al 100% (opaco); el valor inicial es 40%</li>
+          <li>Con selección, estos controles modifican las formas seleccionadas; sin selección, configuran las próximas</li>
+        </ul>
+      </section>
+
+      <section class="modal__help-group">
+        <h4 class="modal__help-title">Polígonos regulares</h4>
+        <ul class="modal__help-list">
+          <li><kbd>3</kbd>: triángulo · <kbd>5</kbd>: pentágono · <kbd>6</kbd>: hexágono</li>
+          <li>Arrastra desde el <strong>centro</strong> hacia fuera para definir su tamaño</li>
+          <li>Todos sus lados permanecen iguales al crearlos y redimensionarlos</li>
+          <li>Admiten relleno sólido o translúcido y el modo de bordes ocultos</li>
+        </ul>
+      </section>
+
+      <section class="modal__help-group">
+        <h4 class="modal__help-title">Solapamiento de formas</h4>
+        <ul class="modal__help-list">
+          <li>El selector <strong>"Solapamiento"</strong> cambia el aspecto de todo el lienzo inmediatamente</li>
+          <li><strong>"Normal"</strong>: no añade líneas discontinuas y mantiene la mezcla habitual de transparencias</li>
+          <li><strong>"Bordes ocultos"</strong>: solo vuelve discontinuos los tramos del borde inferior cubiertos por otra forma</li>
+          <li>El resto del borde inferior y todo el borde de la forma superior permanecen sólidos</li>
+          <li>La forma creada más tarde queda encima; mover o redimensionar recalcula automáticamente los tramos ocultos</li>
+          <li>El modo elegido se conserva al guardar y se respeta en PNG, JPG, SVG, HTML y JSON</li>
         </ul>
       </section>
 
@@ -267,6 +289,10 @@
       <section class="modal__help-group">
         <h4 class="modal__help-title">Flechas y curvas</h4>
         <ul class="modal__help-list">
+          <li>En <strong>Flecha curva</strong>, un click sin arrastrar inicia una curva encadenada</li>
+          <li>Cada click añade un tramo; <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+click añade el último y termina con una punta de flecha</li>
+          <li><kbd>Retroceso</kbd> elimina el último tramo en construcción · <kbd>Esc</kbd> cancela la cadena · <kbd>Enter</kbd> la termina</li>
+          <li>Arrastrar sigue creando una flecha curva sencilla como antes</li>
           <li><kbd>F</kbd>: invertir el giro de la flecha curva · <kbd>Shift</kbd> al trazar: curva al otro lado</li>
           <li><kbd>D</kbd>: invertir la dirección · <kbd>S</kbd>: curva en S (dos handles)</li>
           <li><kbd>Shift</kbd> al curvar: arco simétrico · doble click en el handle: resetear · <kbd>+</kbd>/<kbd>−</kbd>: ajustar la curvatura</li>
@@ -329,6 +355,8 @@
   <script src="js/config.js"></script>
   <script src="js/sketchy.js"></script>
   <script src="js/arc.js"></script>
+  <script src="js/curve-path.js"></script>
+  <script src="js/regular-polygon.js"></script>
   <script src="js/renderer.js"></script>
   <script src="js/exporter.js"></script>
   <script src="js/templates.js"></script>

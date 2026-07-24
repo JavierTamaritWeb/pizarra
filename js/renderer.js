@@ -48,6 +48,9 @@ const Renderer = (() => {
    */
   function _arrowMid(el) {
     const t = el.labelT !== undefined ? el.labelT : 0.5;
+    if (el.type === 'curveArrow' && CurvePath.isChain(el)) {
+      return CurvePath.pointAt(el, t);
+    }
     const mt = 1 - t;
     if (el.type === 'curveArrow') {
       if (el.cx2 !== undefined) {
@@ -105,7 +108,9 @@ const Renderer = (() => {
 
   /* ── Bordes ocultos de formas solapadas ── */
 
-  const OVERLAP_SHAPE_TYPES = new Set(['rect', 'roundedRect', 'circle']);
+  const OVERLAP_SHAPE_TYPES = new Set([
+    'rect', 'roundedRect', 'circle', 'triangle', 'pentagon', 'hexagon',
+  ]);
   const OUTLINE_STEP = 4;
 
   function isOverlapShape(el) {
@@ -129,6 +134,7 @@ const Renderer = (() => {
     if (point.x < b.x || point.x > b.x + b.w ||
         point.y < b.y || point.y > b.y + b.h) return false;
     if (el.type === 'rect') return true;
+    if (RegularPolygon.isType(el.type)) return RegularPolygon.contains(point, el);
     if (el.type === 'circle') {
       const rx = b.w / 2, ry = b.h / 2;
       if (!rx || !ry) return false;
@@ -164,6 +170,14 @@ const Renderer = (() => {
     const b = _box(el);
     const points = [];
     if (!b.w || !b.h) return points;
+    if (RegularPolygon.isType(el.type)) {
+      const vertices = RegularPolygon.vertices(el);
+      vertices.forEach((vertex, index) => {
+        const next = vertices[(index + 1) % vertices.length];
+        _pushLine(points, vertex.x, vertex.y, next.x, next.y);
+      });
+      return points;
+    }
     if (el.type === 'circle') {
       const rx = b.w / 2, ry = b.h / 2;
       const circumference = Math.PI * (3 * (rx + ry) - Math.sqrt((3 * rx + ry) * (rx + 3 * ry)));
@@ -375,6 +389,32 @@ const Renderer = (() => {
     Sketchy.line(ctx, x + 12, descY + 12, x + w * 0.7, descY + 12, 0.5);
   }
 
+  function _polygonPath(ctx, vertices) {
+    if (!vertices.length) return;
+    ctx.beginPath();
+    ctx.moveTo(vertices[0].x, vertices[0].y);
+    for (let i = 1; i < vertices.length; i++) {
+      ctx.lineTo(vertices[i].x, vertices[i].y);
+    }
+    ctx.closePath();
+  }
+
+  function _regularPolygon(ctx, el, options) {
+    const vertices = RegularPolygon.vertices(el);
+    if (!vertices.length) return;
+    if (el.fill && options.shapeFill !== false) {
+      ctx.fillStyle = fillStyle(el);
+      _polygonPath(ctx, vertices);
+      ctx.fill();
+    }
+    if (options.shapeStroke !== false) {
+      vertices.forEach((point, index) => {
+        const next = vertices[(index + 1) % vertices.length];
+        Sketchy.line(ctx, point.x, point.y, next.x, next.y);
+      });
+    }
+  }
+
   /* ── Public: render a single element ── */
 
   function renderElement(ctx, el, options = {}) {
@@ -429,28 +469,32 @@ const Renderer = (() => {
       }
 
       case 'curveArrow': {
-        const cubic = el.cx2 !== undefined;
+        const curveSegments = CurvePath.segments(el);
         if (el.dash) ctx.setLineDash([4 * el.lineWidth, 4 * el.lineWidth]);
-        if (cubic) Sketchy.cubicCurve(ctx, el.x1, el.y1, el.cx, el.cy, el.cx2, el.cy2, el.x2, el.y2);
-        else Sketchy.curve(ctx, el.x1, el.y1, el.cx, el.cy, el.x2, el.y2);
+        curveSegments.forEach(seg => {
+          if (seg.cx2 !== undefined) {
+            Sketchy.cubicCurve(ctx, seg.x1, seg.y1, seg.cx, seg.cy, seg.cx2, seg.cy2, seg.x2, seg.y2);
+          } else {
+            Sketchy.curve(ctx, seg.x1, seg.y1, seg.cx, seg.cy, seg.x2, seg.y2);
+          }
+        });
         if (el.dash) ctx.setLineDash([]);
         // Punta escalada con el grosor (10 + 2·lineWidth; 14px con el default)
         const headLen = 10 + 2 * el.lineWidth;
+        const curveStart = CurvePath.start(el);
+        const curveEnd = CurvePath.end(el);
         // heads:'none' (semicírculos): trazo sin punta en ningún extremo
         if (el.heads !== 'none') {
-          // Punta orientada según la tangente en el extremo (último control → fin)
-          const ecx = cubic ? el.cx2 : el.cx, ecy = cubic ? el.cy2 : el.cy;
-          let dx = el.x2 - ecx, dy = el.y2 - ecy;
-          if (!dx && !dy) { dx = el.x2 - el.x1; dy = el.y2 - el.y1; }
-          Sketchy.arrowHead(el.x2, el.y2, Math.atan2(dy, dx), headLen).forEach(sg => {
+          // Punta orientada según la tangente del último tramo
+          const tangent = CurvePath.endTangent(el);
+          Sketchy.arrowHead(curveEnd.x, curveEnd.y, Math.atan2(tangent.dy, tangent.dx), headLen).forEach(sg => {
             Sketchy.line(ctx, sg.x1, sg.y1, sg.x2, sg.y2);
           });
         }
-        // Doble punta opcional: tangente en el inicio (primer control → inicio)
+        // Doble punta opcional: tangente del primer tramo hacia el inicio
         if (el.heads === 'both') {
-          let sdx = el.x1 - el.cx, sdy = el.y1 - el.cy;
-          if (!sdx && !sdy) { sdx = el.x1 - el.x2; sdy = el.y1 - el.y2; }
-          Sketchy.arrowHead(el.x1, el.y1, Math.atan2(sdy, sdx), headLen).forEach(sg => {
+          const tangent = CurvePath.startTangent(el);
+          Sketchy.arrowHead(curveStart.x, curveStart.y, Math.atan2(tangent.dy, tangent.dx), headLen).forEach(sg => {
             Sketchy.line(ctx, sg.x1, sg.y1, sg.x2, sg.y2);
           });
         }
@@ -490,6 +534,12 @@ const Renderer = (() => {
         if (options.shapeStroke !== false) Sketchy.ellipse(ctx, cx, cy, rx, ry);
         break;
       }
+
+      case 'triangle':
+      case 'pentagon':
+      case 'hexagon':
+        _regularPolygon(ctx, el, options);
+        break;
 
       case 'text':
         ctx.font = `${el.fontSize}px ${SKETCHY_FONT}`;
