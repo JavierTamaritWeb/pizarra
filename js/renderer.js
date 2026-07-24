@@ -3,6 +3,13 @@
    ============================================================ */
 
 const Renderer = (() => {
+  /**
+   * Tamaño real de un borrador. Los proyectos anteriores a v1.8.1 no
+   * guardaban `size`: conservamos su aspecto histórico (lineWidth × 4).
+   */
+  function eraserSize(el) {
+    return Number.isFinite(el.size) ? el.size : el.lineWidth * 4;
+  }
 
   /* ── Caché de imágenes (elementos type:image con src data-URL) ── */
 
@@ -249,8 +256,39 @@ const Renderer = (() => {
     return plan;
   }
 
-  /** Devuelve subtrazos continuos del contorno asignados a un target. */
-  function overlapRuns(info, target) {
+  function _distanceToSegment(point, a, b) {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const length2 = dx * dx + dy * dy;
+    const t = length2
+      ? Math.max(0, Math.min(1,
+          ((point.x - a.x) * dx + (point.y - a.y) * dy) / length2))
+      : 0;
+    return Math.hypot(
+      point.x - (a.x + dx * t),
+      point.y - (a.y + dy * t),
+    );
+  }
+
+  function _pointErased(point, erasers) {
+    return erasers.some(eraser => {
+      if (!eraser.points || eraser.points.length < 2) return false;
+      const radius = eraserSize(eraser) / 2;
+      for (let i = 1; i < eraser.points.length; i++) {
+        if (_distanceToSegment(point, eraser.points[i - 1], eraser.points[i]) <= radius) {
+          return true;
+        }
+      }
+      return false;
+    });
+  }
+
+  /**
+   * Devuelve subtrazos continuos del contorno asignados a un target.
+   * `erasers` permite recortar trazos ocultos que, por su render diferido,
+   * se dibujan después de un borrador aunque pertenezcan a una forma anterior.
+   */
+  function overlapRuns(info, target, erasers = []) {
     if (!info || !info.points.length) return [];
     const runs = [];
     let run = null;
@@ -265,11 +303,34 @@ const Renderer = (() => {
       }
       run.push(info.points[(i + 1) % info.points.length]);
     }
-    return runs;
+    if (!erasers.length) return runs;
+
+    const visible = [];
+    runs.forEach(source => {
+      let current = null;
+      for (let i = 1; i < source.length; i++) {
+        const a = source[i - 1];
+        const b = source[i];
+        const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        if (_pointErased(a, erasers) ||
+            _pointErased(mid, erasers) ||
+            _pointErased(b, erasers)) {
+          current = null;
+          continue;
+        }
+        if (!current) {
+          current = [a, b];
+          visible.push(current);
+        } else {
+          current.push(b);
+        }
+      }
+    });
+    return visible;
   }
 
-  function _drawOverlapRuns(ctx, info, target, dashed) {
-    const runs = overlapRuns(info, target);
+  function _drawOverlapRuns(ctx, info, target, dashed, erasers = []) {
+    const runs = overlapRuns(info, target, erasers);
     if (!runs.length) return;
     ctx.save();
     ctx.strokeStyle = info.el.color;
@@ -555,7 +616,7 @@ const Renderer = (() => {
         if (el.points.length < 2) break;
         ctx.globalCompositeOperation = 'destination-out';
         ctx.strokeStyle = 'rgba(0,0,0,1)';
-        ctx.lineWidth = el.lineWidth * 4;
+        ctx.lineWidth = eraserSize(el);
         ctx.beginPath();
         ctx.moveTo(el.points[0].x, el.points[0].y);
         for (let i = 1; i < el.points.length; i++) {
@@ -596,7 +657,12 @@ const Renderer = (() => {
       }
       renderElement(ctx, el, { shapeStroke: false });
       for (let lower = 0; lower < index; lower++) {
-        if (plan[lower]) _drawOverlapRuns(ctx, plan[lower], index, true);
+        if (plan[lower]) {
+          const interveningErasers = elements
+            .slice(lower + 1, index)
+            .filter(candidate => candidate.type === 'eraser');
+          _drawOverlapRuns(ctx, plan[lower], index, true, interveningErasers);
+        }
       }
       if (current.targets.every(target => target === -1)) {
         // Una forma cuyo borde no queda oculto conserva exactamente el trazo
@@ -636,6 +702,35 @@ const Renderer = (() => {
     ctx.restore();
   }
 
+  /**
+   * Render completo con el fondo realmente detrás de los elementos.
+   *
+   * Es importante dibujar primero el contenido sobre transparencia y añadir
+   * después cuadrícula/fondo con destination-over: así un elemento `eraser`
+   * perfora los trazos anteriores, pero nunca el propio lienzo ni su rejilla.
+   */
+  function renderScene(ctx, elements, options = {}) {
+    const width = options.width ?? CANVAS_W;
+    const height = options.height ?? CANVAS_H;
+    const background = options.background || '#ffffff';
+    ctx.clearRect(0, 0, width, height);
+    try {
+      renderElements(ctx, elements, options.overlapMode);
+    } finally {
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-over';
+      if (options.showGrid) {
+        drawGrid(ctx, width, height, options.gridColor);
+      }
+      ctx.fillStyle = background;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+      // Explícito además del restore: facilita stubs y protege a llamadores
+      // que reutilizan contextos con implementaciones parciales de save().
+      ctx.globalCompositeOperation = 'source-over';
+    }
+  }
+
   /* ── Selection highlight ── */
 
   function drawSelection(ctx, bounds, withHandles = false) {
@@ -666,6 +761,8 @@ const Renderer = (() => {
   return {
     renderElement,
     renderElements,
+    renderScene,
+    eraserSize,
     buildOverlapPlan,
     overlapRuns,
     isOverlapShape,

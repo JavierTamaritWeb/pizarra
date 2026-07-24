@@ -14,24 +14,49 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### El Borrador perforaba el fondo y parecía pintar una mancha oscura
+- **Síntoma:** al borrar sobre el lienzo, el trazo podía verse transparente
+  u oscuro y también desaparecía la cuadrícula, dando la impresión de que la
+  herramienta no funcionaba.
+- **Causa:** `redrawNow()` pintaba fondo y cuadrícula antes que los elementos;
+  el `destination-out` del borrador eliminaba por tanto las tres capas.
+- **Fix:** `Renderer.renderScene()` compone primero los elementos sobre
+  transparencia y añade después cuadrícula y fondo con `destination-over`.
+  La app y los exports raster usan ahora el mismo flujo. Mientras se arrastra,
+  `redrawNow()` incorpora un borrador temporal a la escena para mostrar el
+  resultado real en vivo, sin añadir pasos extra al undo. El tamaño se guarda
+  en `eraser.size` y es independiente del trazo normal; los elementos antiguos
+  sin ese campo conservan `lineWidth × 4`. Los bordes ocultos cuyo render se
+  difiere hasta una forma superior se recortan geométricamente con cualquier
+  borrador intermedio para que no reaparezcan después.
+- **Guardia:** `tests/sketchy-renderer.test.js` › *"renderScene: el borrador
+  elimina contenido sin perforar fondo ni cuadrícula"*.
+
 ### El borrador corrompía PNG/JPG (agujero transparente / mancha negra)
 - **Síntoma:** exportar a PNG dejaba agujeros transparentes donde se había
   borrado; en JPG salían manchas negras (la transparencia se compone sobre
   negro en `toDataURL('image/jpeg')`).
 - **Causa:** el trazo de borrador usa `globalCompositeOperation:
   'destination-out'`, que perfora también el fondo blanco ya pintado.
-- **Fix:** `js/exporter.js` (`_renderClean`) repinta blanco en una segunda
-  pasada con `destination-over` después de renderizar los elementos.
+- **Fix:** `js/exporter.js` (`_renderClean`) usa el mismo
+  `Renderer.renderScene()` que la aplicación y compone el blanco con
+  `destination-over` después de renderizar los elementos.
 - **Guardia:** `tests/exporter.test.js` › *"Exporter.png: repinta fondo
   blanco con destination-over tras renderizar (eraser)"*.
 
-### El borrador no existía en los exports SVG/HTML (lo borrado reaparecía)
+### SVG/HTML simulaban el borrador con una línea blanca
 - **Síntoma:** un trazo borrado con el borrador volvía a aparecer en el SVG
-  y el HTML exportados, porque no había `case 'eraser'`.
-- **Fix:** `js/exporter.js` emite el trazo de eraser como un `<path>` blanco
-  con `stroke-width = lineWidth * 4`.
-- **Guardia:** `tests/exporter.test.js` › *"Exporter.svg: eraser se
-  aproxima con trazo blanco de lineWidth*4"*.
+  y el HTML exportados o quedaba cubierto de blanco aunque el fondo fuese
+  diferente.
+- **Causa:** SVG no implementa `destination-out` como Canvas y se aproximaba
+  cada borrado con un `<path>` blanco.
+- **Fix:** `js/exporter.js` crea máscaras SVG secuenciales: cada borrador
+  recorta únicamente los elementos anteriores, usa su tamaño real y deja el
+  fondo fuera de la máscara. HTML utiliza una escena SVG única cuando existe
+  algún borrado para mantener el mismo orden de capas.
+- **Guardia:** `tests/exporter.test.js` › *"Exporter.svg: eraser usa máscara
+  con su tamaño real y conserva el fondo"* y *"Exporter.html: con borrador
+  usa una escena SVG única y una máscara real"*.
 
 ### Import JSON malformado rompía toda la app
 - **Síntoma:** importar un JSON con `elements` no-array, un `pencil` sin

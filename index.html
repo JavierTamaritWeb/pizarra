@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Architects+Daughter&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/styles.css?v=1.8.1" />
 </head>
 <body>
 
@@ -20,7 +20,7 @@
       <div class="topbar__brand">
         <span class="topbar__logo-icon" aria-hidden="true">✎</span>
         <span class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></span>
-        <span class="topbar__badge">v1.8.0</span>
+        <span class="topbar__badge">v1.8.1</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes">
@@ -109,8 +109,10 @@
 
         <!-- Stroke -->
         <section class="panel__section">
-          <h3 class="panel__title">Trazo: <span id="stroke-val">2</span>px</h3>
-          <input class="panel__slider" type="range" id="stroke-slider" min="1" max="8" value="2" />
+          <h3 class="panel__title"><span id="stroke-label">Trazo</span>: <span id="stroke-val">2</span>px</h3>
+          <input class="panel__slider" type="range" id="stroke-slider"
+                 min="1" max="8" step="1" value="2"
+                 aria-label="Grosor del trazo" />
         </section>
 
         <!-- Font Size -->
@@ -257,6 +259,17 @@
       </section>
 
       <section class="modal__help-group">
+        <h4 class="modal__help-title">Borrador</h4>
+        <ul class="modal__help-list">
+          <li><kbd>E</kbd>: activa el <strong>Borrador</strong>; arrastra sobre trazos, rellenos o formas para eliminarlos</li>
+          <li>Al seleccionarlo, el regulador <strong>"Trazo"</strong> cambia a <strong>"Tamaño del borrador"</strong></li>
+          <li>El tamaño se ajusta entre 4 y 100 px (16 px por defecto) y es independiente del lápiz y de las formas</li>
+          <li>El círculo del cursor muestra el área exacta que se borrará</li>
+          <li>El fondo y la cuadrícula nunca se perforan; cada pasada se puede deshacer y rehacer como una sola acción</li>
+        </ul>
+      </section>
+
+      <section class="modal__help-group">
         <h4 class="modal__help-title">Polígonos regulares</h4>
         <ul class="modal__help-list">
           <li><kbd>3</kbd>: triángulo · <kbd>5</kbd>: pentágono · <kbd>6</kbd>: hexágono</li>
@@ -356,15 +369,15 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="js/config.js"></script>
-  <script src="js/sketchy.js"></script>
-  <script src="js/arc.js"></script>
-  <script src="js/curve-path.js"></script>
-  <script src="js/shape-rotation.js"></script>
-  <script src="js/regular-polygon.js"></script>
-  <script src="js/renderer.js"></script>
-  <script src="js/exporter.js"></script>
-  <script src="js/templates.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/config.js?v=1.8.1"></script>
+  <script src="js/sketchy.js?v=1.8.1"></script>
+  <script src="js/arc.js?v=1.8.1"></script>
+  <script src="js/curve-path.js?v=1.8.1"></script>
+  <script src="js/shape-rotation.js?v=1.8.1"></script>
+  <script src="js/regular-polygon.js?v=1.8.1"></script>
+  <script src="js/renderer.js?v=1.8.1"></script>
+  <script src="js/exporter.js?v=1.8.1"></script>
+  <script src="js/templates.js?v=1.8.1"></script>
+  <script src="js/app.js?v=1.8.1"></script>
 </body>
 </html>

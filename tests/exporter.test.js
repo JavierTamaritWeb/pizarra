@@ -217,8 +217,9 @@ test('Exporter.png: no lanza con el canvas stub y descarga wireframe.png', () =>
   assert.ok(canvas, 'crea un canvas temporal');
   assert.equal(canvas.width, 1200);
   assert.equal(canvas.height, 800);
-  // Fondo blanco pintado antes de renderizar
-  assert.deepEqual(canvas._ctx.callsTo('fillRect')[0].args, [0, 0, 1200, 800]);
+  // Fondo blanco compuesto al final, realmente detrás de los elementos
+  const fills = canvas._ctx.callsTo('fillRect');
+  assert.deepEqual(fills[fills.length - 1].args, [0, 0, 1200, 800]);
   const a = ctx.document.created.find(e => e.tagName === 'A');
   assert.ok(a, 'crea el anchor de descarga');
   assert.equal(a.download, 'wireframe.png');
@@ -240,7 +241,7 @@ test('Exporter.jpg: no lanza con el canvas stub y descarga wireframe.jpg', () =>
 
 test('Exporter.isValidElement: acepta los elementos que produce la app', () => {
   const ctx = freshCtx();
-  const eraser = { ...base, type: 'eraser', points: [{ x: 1, y: 2 }, { x: 3, y: 4 }] };
+  const eraser = { ...base, type: 'eraser', size: 16, points: [{ x: 1, y: 2 }, { x: 3, y: 4 }] };
   for (const el of [elLine, elArrow, elRectFill, elRectNoFill, elPencil, elText, elButton, elInput, elNav, elCard, eraser]) {
     assert.ok(ctx.Exporter.isValidElement(el), `debe aceptar type=${el.type}`);
   }
@@ -263,6 +264,9 @@ test('Exporter.isValidElement: rechaza elementos malformados', () => {
     { ...elRectFill, color: 'red' },                                 // color no-hex
     { ...elRectFill, color: '"><script>' },                          // color malicioso
     { ...elRectFill, lineWidth: '2' },                               // lineWidth string
+    { ...elPencil, size: 16 },                                       // size solo pertenece al borrador
+    { ...base, type: 'eraser', size: 3, points: [{ x: 1, y: 2 }] }, // mínimo 4
+    { ...base, type: 'eraser', size: 101, points: [{ x: 1, y: 2 }] }, // máximo 100
     { ...elRectFill, x: NaN },
   ];
   for (const el of bad) {
@@ -274,16 +278,32 @@ test('Exporter.isValidElement: rechaza elementos malformados', () => {
    Eraser en exports
    ============================================================ */
 
-test('Exporter.svg: eraser se aproxima con trazo blanco de lineWidth*4', () => {
-  // Regresión: antes el eraser no tenía case en SVG y lo borrado reaparecía.
+test('Exporter.svg: eraser usa máscara con su tamaño real y conserva el fondo', () => {
   const ctx = freshCtx();
-  const eraser = { ...base, type: 'eraser', points: [{ x: 10, y: 10 }, { x: 50, y: 50 }] };
-  ctx.Exporter.svg([elPencil, eraser]);
+  const eraser = {
+    ...base,
+    type: 'eraser',
+    size: 72,
+    points: [{ x: 10, y: 10 }, { x: 50, y: 50 }],
+  };
+  ctx.Exporter.svg([elPencil, eraser, elLine]);
   const out = lastBlob(ctx).content;
-  const eraserPath = out.split('\n').find(l => l.includes('stroke="#ffffff"'));
-  assert.ok(eraserPath, 'debe emitir un path blanco para el eraser');
-  assert.ok(eraserPath.includes('stroke-width="8"'), 'ancho = lineWidth * 4');
-  assert.match(eraserPath, /d="M10 10 L50 50"/);
+  assert.match(out, /<mask id="pizarra-eraser-0"/);
+  assert.match(out, /d="M10 10 L50 50" stroke="black" stroke-width="72"/);
+  assert.ok(!out.includes('stroke="#ffffff"'), 'no simula el borrado pintando blanco');
+  assert.ok(out.indexOf('<rect width="100%"') < out.indexOf('<mask '),
+    'el fondo queda fuera de la máscara y nunca se perfora');
+  assert.ok(out.indexOf('d="M1 2 L3 4 L5 6"') < out.indexOf('</g>'),
+    'el contenido anterior queda dentro del grupo enmascarado');
+  assert.ok(out.indexOf('x1="10" y1="20"') > out.indexOf('</g>'),
+    'los elementos posteriores al borrador permanecen intactos');
+});
+
+test('Exporter.svg: proyectos antiguos conservan lineWidth x4 en la máscara', () => {
+  const ctx = freshCtx();
+  const legacy = { ...base, type: 'eraser', points: [{ x: 10, y: 10 }, { x: 50, y: 50 }] };
+  ctx.Exporter.svg([elPencil, legacy]);
+  assert.match(lastBlob(ctx).content, /stroke="black" stroke-width="8"/);
 });
 
 test('Exporter.png: repinta fondo blanco con destination-over tras renderizar (eraser)', () => {
@@ -298,6 +318,25 @@ test('Exporter.png: repinta fondo blanco con destination-over tras renderizar (e
   const gcoSets = canvas._ctx.callsTo('set globalCompositeOperation').map(c => c.args[0]);
   assert.ok(gcoSets.includes('destination-over'), 'usa destination-over para el fondo');
   assert.equal(gcoSets[gcoSets.length - 1], 'source-over', 'restaura source-over al final');
+});
+
+test('Exporter.html: con borrador usa una escena SVG única y una máscara real', () => {
+  const ctx = freshCtx();
+  const eraser = {
+    ...base,
+    type: 'eraser',
+    size: 24,
+    points: [{ x: 20, y: 20 }, { x: 80, y: 80 }],
+  };
+  ctx.Exporter.html([elRectFill, eraser, elButton]);
+  const out = lastBlob(ctx).content;
+  assert.match(out, /<mask id="pizarra-eraser-0"/);
+  assert.match(out, /stroke="black" stroke-width="24"/);
+  assert.ok(out.includes('<rect x="5" y="6"'), 'la forma borrable vive en el SVG');
+  assert.ok(out.includes('<rect x="10" y="10" width="120" height="40" rx="8"'),
+    'el elemento posterior también se conserva en la escena SVG');
+  assert.ok(out.includes('>Button</text>'), 'conserva la etiqueta del botón');
+  assert.ok(!out.includes('<button style='), 'no duplica componentes HTML fuera de la máscara');
 });
 
 /* ============================================================

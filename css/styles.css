@@ -398,6 +398,10 @@ input[type="range"]::-moz-range-thumb {
   cursor: move;
 }
 
+.canvas-area__canvas--eraser {
+  cursor: none;
+}
+
 .canvas-area__overlay {
   position: absolute;
   top: 0;

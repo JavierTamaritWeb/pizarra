@@ -1,6 +1,8 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { load, loadAll, getGlobal } = require('./helpers/load.js');
 
 test('config.js expone TOOLS y CANVAS_W en el contexto', () => {
@@ -26,7 +28,19 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Renderer, 'object');
   assert.equal(typeof ctx.Renderer.renderElement, 'function');
   assert.equal(typeof ctx.Renderer.renderElements, 'function');
+  assert.equal(typeof ctx.Renderer.renderScene, 'function');
+  assert.equal(typeof ctx.Renderer.eraserSize, 'function');
   assert.equal(typeof ctx.Exporter, 'object');
   assert.equal(typeof ctx.Exporter.png, 'function');
   assert.equal(typeof ctx.Templates, 'object');
+});
+
+test('index publica v1.8.1 sin caché antigua y documenta el tamaño del borrador', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  assert.match(html, /class="topbar__badge">v1\.8\.1</);
+  assert.match(html, /css\/styles\.css\?v=1\.8\.1/);
+  assert.match(html, /js\/app\.js\?v=1\.8\.1/);
+  assert.match(html, /id="stroke-label">Trazo</);
+  assert.match(html, /Tamaño del borrador/);
+  assert.match(html, /entre 4 y 100 px \(16 px por defecto\)/);
 });

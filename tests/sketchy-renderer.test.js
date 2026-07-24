@@ -242,19 +242,77 @@ test('renderElement text multilínea: un fillText por línea, interlineado fontS
   assert.equal(ctx.callsTo('set font')[0].args[0].startsWith('16px '), true);
 });
 
-test('renderElement eraser: destination-out y lineWidth x4', () => {
+test('renderElement eraser: tamaño real nuevo y compatibilidad lineWidth x4', () => {
   const pts = [{ x: 0, y: 0 }, { x: 10, y: 10 }];
   const ctx = render(baseEl({ type: 'eraser', points: pts, lineWidth: 3 }));
   assert.deepEqual(ctx.callsTo('set globalCompositeOperation')[0].args, ['destination-out']);
-  // lineWidth: primero el del elemento (3), luego el del borrador (12)
+  // Proyecto antiguo sin size: mantiene el ancho histórico lineWidth × 4.
   assert.deepEqual(ctx.callsTo('set lineWidth').map(c => c.args[0]), [3, 12]);
   assert.deepEqual(ctx.callsTo('set strokeStyle').map(c => c.args[0])[1], 'rgba(0,0,0,1)');
   assert.equal(ctx.callsTo('stroke').length, 1);
+
+  // Proyecto nuevo: size es el diámetro real e independiente del trazo.
+  const sized = render(baseEl({ type: 'eraser', points: pts, lineWidth: 3, size: 72 }));
+  assert.deepEqual(sized.callsTo('set lineWidth').map(c => c.args[0]), [3, 72]);
+  assert.equal(Renderer.eraserSize({ lineWidth: 8, size: 4 }), 4);
+  assert.equal(Renderer.eraserSize({ lineWidth: 8 }), 32);
 
   // Con 1 solo punto no dibuja ni toca globalCompositeOperation
   const single = render(baseEl({ type: 'eraser', points: [{ x: 0, y: 0 }], lineWidth: 3 }));
   assert.equal(single.callsTo('stroke').length, 0);
   assert.equal(single.callsTo('set globalCompositeOperation').length, 0);
+});
+
+test('renderScene: el borrador elimina contenido sin perforar fondo ni cuadrícula', () => {
+  const ctx = createCtxStub();
+  const elements = [
+    baseEl({ type: 'pencil', points: [{ x: 0, y: 0 }, { x: 20, y: 20 }] }),
+    baseEl({ type: 'eraser', points: [{ x: 5, y: 5 }, { x: 15, y: 15 }] }),
+  ];
+  Renderer.renderScene(ctx, elements, {
+    background: '#223344',
+    showGrid: true,
+    gridColor: '#abcdef',
+    width: 40,
+    height: 40,
+  });
+
+  const operations = ctx.callsTo('set globalCompositeOperation').map(call => call.args[0]);
+  assert.deepEqual(operations, ['destination-out', 'destination-over', 'source-over']);
+  const eraserIndex = ctx.calls.findIndex(call =>
+    call.name === 'set globalCompositeOperation' && call.args[0] === 'destination-out');
+  const backdropIndex = ctx.calls.findIndex(call =>
+    call.name === 'set globalCompositeOperation' && call.args[0] === 'destination-over');
+  assert.ok(eraserIndex < backdropIndex, 'el fondo se compone después del borrado');
+  assert.deepEqual(ctx.callsTo('fillRect').at(-1).args, [0, 0, 40, 40]);
+  assert.equal(ctx.callsTo('set fillStyle').at(-1).args[0], '#223344');
+  assert.ok(ctx.callsTo('set strokeStyle').some(call => call.args[0] === '#abcdef'));
+});
+
+test('overlapRuns recorta con el borrador los bordes ocultos de formas anteriores', () => {
+  const points = [
+    { x: 0, y: 0 },
+    { x: 5, y: 0 },
+    { x: 10, y: 0 },
+    { x: 15, y: 0 },
+    { x: 20, y: 0 },
+  ];
+  const info = {
+    el: baseEl({ type: 'rect' }),
+    points,
+    targets: points.map(() => 1),
+  };
+  const eraser = {
+    type: 'eraser',
+    color: '#000000',
+    lineWidth: 2,
+    size: 4,
+    points: [{ x: 10, y: -10 }, { x: 10, y: 10 }],
+  };
+  const runs = Renderer.overlapRuns(info, 1, [eraser]);
+  assert.ok(runs.length >= 1);
+  assert.ok(runs.flat().every(point => Math.abs(point.x - 10) > 2),
+    'ningún subtrazo diferido atraviesa el área borrada');
 });
 
 test('renderElement button: roundedRect + fill + etiqueta "Button" centrada', () => {

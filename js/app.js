@@ -9,11 +9,15 @@
 
   const DEFAULT_CANVAS_BG = '#ffffff';
   const DEFAULT_GRID_COLOR = '#cdd3de';
+  const ERASER_SIZE_MIN = 4;
+  const ERASER_SIZE_MAX = 100;
+  const DEFAULT_ERASER_SIZE = 16;
 
   const state = {
     tool:        TOOLS.PENCIL,
     color:       '#1a1a2e',
     lineWidth:   2,
+    eraserSize:  DEFAULT_ERASER_SIZE,
     fontSize:    18,
     zoom:        1,
     fillShapes:  false,
@@ -671,6 +675,7 @@
         canvasBg: state.canvasBg,
         gridColor: state.gridColor,
         overlapMode: state.overlapMode,
+        eraserSize: state.eraserSize,
       }));
     } catch (_) { /* almacenamiento lleno o bloqueado: se ignora */ }
   }
@@ -685,6 +690,12 @@
       if (HEX_RE.test(prefs.gridColor)) state.gridColor = prefs.gridColor;
       if (['normal', 'hidden-dashed'].includes(prefs.overlapMode)) {
         state.overlapMode = prefs.overlapMode;
+      }
+      if (Number.isFinite(prefs.eraserSize)) {
+        state.eraserSize = Math.min(
+          ERASER_SIZE_MAX,
+          Math.max(ERASER_SIZE_MIN, prefs.eraserSize),
+        );
       }
     } catch (_) { /* prefs corruptas: se ignoran */ }
   }
@@ -755,12 +766,31 @@
 
   function redrawNow() {
     resolveAnchors();
-    ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
-    ctx.fillStyle = state.canvasBg;
-    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-    if (state.showGrid) Renderer.drawGrid(ctx, CANVAS_W, CANVAS_H, state.gridColor);
+    // El borrador se previsualiza sobre la escena real mientras se arrastra:
+    // no se añade todavía al estado (undo sigue siendo un único gesto), pero
+    // el usuario ve el resultado final en vez de una línea roja provisional.
+    const liveEraser = state.isDrawing &&
+      state.tool === TOOLS.ERASER &&
+      state.currentPath.length > 1
+      ? {
+          type: TOOLS.ERASER,
+          points: state.currentPath,
+          color: state.color,
+          lineWidth: state.lineWidth,
+          size: state.eraserSize,
+          seed: 0,
+        }
+      : null;
+    const sceneElements = liveEraser
+      ? [...state.elements, liveEraser]
+      : state.elements;
     try {
-      Renderer.renderElements(ctx, state.elements, state.overlapMode);
+      Renderer.renderScene(ctx, sceneElements, {
+        background: state.canvasBg,
+        showGrid: state.showGrid,
+        gridColor: state.gridColor,
+        overlapMode: state.overlapMode,
+      });
     } catch (err) {
       console.warn('No se pudo renderizar la escena:', err);
     }
@@ -847,6 +877,10 @@
     // (Con multi-selección no se tocan: conservan lo último mostrado.)
     if (single) {
       const sel = state.elements[state.selection[0]];
+      $('stroke-label').textContent = 'Trazo';
+      $('stroke-slider').min = '1';
+      $('stroke-slider').max = '8';
+      $('stroke-slider').setAttribute('aria-label', 'Grosor del trazo');
       $('stroke-slider').value = sel.lineWidth;
       $('stroke-val').textContent = String(sel.lineWidth);
       if (sel.type === 'arrow' || sel.type === 'curveArrow') {
@@ -867,8 +901,16 @@
         $('fill-color-picker').value = hex6(sel.fillColor || sel.color);
       }
     } else if (!hasSel) {
-      $('stroke-slider').value = state.lineWidth;
-      $('stroke-val').textContent = String(state.lineWidth);
+      const erasing = state.tool === TOOLS.ERASER;
+      $('stroke-label').textContent = erasing ? 'Tamaño del borrador' : 'Trazo';
+      $('stroke-slider').min = erasing ? String(ERASER_SIZE_MIN) : '1';
+      $('stroke-slider').max = erasing ? String(ERASER_SIZE_MAX) : '8';
+      $('stroke-slider').setAttribute(
+        'aria-label',
+        erasing ? 'Tamaño del borrador' : 'Grosor del trazo',
+      );
+      $('stroke-slider').value = erasing ? state.eraserSize : state.lineWidth;
+      $('stroke-val').textContent = String(erasing ? state.eraserSize : state.lineWidth);
       $('check-double-head').checked = state.doubleHead;
       $('check-dash').checked = state.dashed;
       $('check-fill').checked = state.fillShapes;
@@ -1284,14 +1326,31 @@
       return;
     }
 
+    // Indicador exacto del área del borrador. Se dibuja incluso en reposo y
+    // también durante el gesto, por encima de la previsualización ya borrada.
+    if (state.tool === TOOLS.ERASER && lastPos) {
+      octx.save();
+      octx.beginPath();
+      octx.arc(lastPos.x, lastPos.y, state.eraserSize / 2, 0, Math.PI * 2);
+      octx.strokeStyle = 'rgba(255,255,255,0.95)';
+      octx.lineWidth = 3;
+      octx.stroke();
+      octx.strokeStyle = 'rgba(26,26,46,0.95)';
+      octx.lineWidth = 1;
+      octx.stroke();
+      octx.restore();
+      return;
+    }
+
     if (!state.isDrawing || !lastPos) return;
     const pos = lastPos;
 
-    // Freehand preview
-    if (state.tool === TOOLS.PENCIL || state.tool === TOOLS.ERASER) {
+    // Freehand preview. El borrador se pinta directamente en redrawNow para
+    // mostrar el borrado real en vivo; el overlay queda solo para el lápiz.
+    if (state.tool === TOOLS.PENCIL) {
       if (!state.currentPath.length) return;
-      octx.strokeStyle = state.tool === TOOLS.ERASER ? '#ff000040' : state.color;
-      octx.lineWidth   = state.tool === TOOLS.ERASER ? state.lineWidth * 4 : state.lineWidth;
+      octx.strokeStyle = state.color;
+      octx.lineWidth   = state.lineWidth;
       octx.lineCap     = 'round';
       octx.lineJoin    = 'round';
       octx.beginPath();
@@ -1380,6 +1439,14 @@
   function onMouseMove(e) {
     const pos = getPos(e);
 
+    if (state.tool === TOOLS.ERASER) {
+      lastPos = pos;
+      if (!state.isDrawing) {
+        scheduleOverlay();
+        return;
+      }
+    }
+
     if (state.tool === TOOLS.CURVE_ARROW && state.curveChain && !state.resizing) {
       lastPos = snappedPoint(pos, e);
       state.curveFlip = e.shiftKey;
@@ -1430,7 +1497,11 @@
         state.currentPath.push(pos);
       }
     }
-    scheduleOverlay();
+    if (state.tool === TOOLS.ERASER) {
+      redraw();
+      scheduleOverlay();
+    }
+    else scheduleOverlay();
   }
 
   function onMouseUp(e) {
@@ -1548,10 +1619,15 @@
         points: state.currentPath,
         color: state.color,
         lineWidth: state.lineWidth,
+        ...(state.tool === TOOLS.ERASER ? { size: state.eraserSize } : {}),
         seed: newSeed(),
       });
       state.currentPath = [];
       redraw();
+      if (state.tool === TOOLS.ERASER) {
+        lastPos = pos;
+        scheduleOverlay();
+      }
       return;
     }
 
@@ -1985,6 +2061,7 @@
 
   function updateCursor() {
     mainCanvas.classList.toggle('canvas-area__canvas--move', state.tool === TOOLS.SELECT);
+    mainCanvas.classList.toggle('canvas-area__canvas--eraser', state.tool === TOOLS.ERASER);
   }
 
   /* ── Acciones sobre la selección ── */
@@ -2154,7 +2231,10 @@
     $('stroke-slider').addEventListener('input', e => {
       const v = +e.target.value;
       $('stroke-val').textContent = e.target.value;
-      if (state.selection.length) {
+      if (state.tool === TOOLS.ERASER && !state.selection.length) {
+        state.eraserSize = v;
+        scheduleOverlay();
+      } else if (state.selection.length) {
         if (!strokeGestureSnap) strokeGestureSnap = snapshot();
         state.selection.forEach(i => {
           state.elements[i] = { ...state.elements[i], lineWidth: v };
@@ -2186,6 +2266,9 @@
       }
     }
     $('stroke-slider').addEventListener('change', commitStrokeGesture);
+    $('stroke-slider').addEventListener('change', () => {
+      if (state.tool === TOOLS.ERASER) savePrefs();
+    });
     $('stroke-slider').addEventListener('pointerup', commitStrokeGesture);
     $('stroke-slider').addEventListener('pointercancel', commitStrokeGesture);
 
@@ -2841,6 +2924,11 @@
     // no, state.resizing/marquee quedaban colgados y secuestraban el siguiente.
     if (gestureActive()) onMouseUp(e);
     activePointerId = null;
+  });
+  mainCanvas.addEventListener('pointerleave', () => {
+    if (activePointerId !== null || state.tool !== TOOLS.ERASER) return;
+    lastPos = null;
+    scheduleOverlay();
   });
   // En macOS Ctrl+clic abre el menú contextual; durante una cadena debe
   // reservarse para terminarla igual que Cmd+clic.

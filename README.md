@@ -2,10 +2,10 @@
 
 **Crea wireframes, diagramas y bocetos con estilo dibujado a mano, directamente en tu navegador.**
 
-![Versión](https://img.shields.io/badge/versi%C3%B3n-1.8.0-blueviolet)
+![Versión](https://img.shields.io/badge/versi%C3%B3n-1.8.1-blueviolet)
 ![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?logo=javascript&logoColor=000)
 ![Sin dependencias](https://img.shields.io/badge/dependencias-0-brightgreen)
-![Tests](https://img.shields.io/badge/tests-192%20%E2%9C%93-brightgreen)
+![Tests](https://img.shields.io/badge/tests-197%20%E2%9C%93-brightgreen)
 ![Licencia](https://img.shields.io/badge/licencia-MIT-blue)
 
 Pizarra es una aplicación de wireframing sobre canvas escrita en JavaScript puro: **sin build, sin bundler y sin `node_modules`**. Permite crear bocetos, diagramas y prototipos rápidos directamente en el navegador.
@@ -16,6 +16,11 @@ Pizarra es una aplicación de wireframing sobre canvas escrita en JavaScript pur
 
 ### Dibujo
 - ✏️ **Lápiz, líneas, flechas, formas** (rectángulo, redondeado, elipse) con trazo *sketchy* de aspecto manual — determinista: cada elemento guarda su semilla y no "tiembla" entre repintados.
+- 🧽 **Borrador real y regulable** (`E`): elimina trazos, rellenos y formas sin
+  perforar el fondo ni la cuadrícula. Al seleccionarlo, el control de Trazo se
+  convierte en **Tamaño del borrador**, independiente y ajustable de 4 a
+  100 px (16 px por defecto); un círculo indica el área exacta y cada pasada
+  se deshace o rehace como una sola acción.
 - 🔺 **Polígonos regulares**: botones para triángulo (`3`), pentágono (`5`) y hexágono (`6`). Se arrastran desde el centro, conservan todos sus lados iguales al redimensionarlos y admiten relleno y bordes ocultos.
 - 🪣 **Relleno con color**: selecciona una forma geométrica (círculo/elipse, rectángulos o polígonos regulares) y elige su color de relleno; el checkbox la vacía sin perder el color. **Relleno translúcido** alterna entre sólido y transparente, y el regulador permite ajustar su opacidad del **0 al 100 %** (40 % por defecto). Con formas seleccionadas modifica esas formas; sin selección establece el valor de las próximas. Sin color propio se conserva el tinte translúcido clásico del trazo.
 - 🫥 **Solapamiento seleccionable**: el modo **Normal** conserva la mezcla de transparencias; **Bordes ocultos** convierte en discontinuos únicamente los tramos del contorno inferior cubiertos por otra forma. Respeta rectángulos, esquinas redondeadas, círculos/elipses, polígonos regulares y el orden de capas.
@@ -72,7 +77,7 @@ No es necesario instalar dependencias ni ejecutar un proceso de compilación.
 
 1. Elige una herramienta en la barra lateral o usa su atajo de teclado.
 2. Dibuja sobre el lienzo; con **Mover** (`V`) puedes seleccionar, desplazar, redimensionar y duplicar elementos.
-3. Personaliza el color, grosor, relleno, cuadrícula y zoom desde el panel derecho.
+3. Personaliza el color, grosor, tamaño del borrador, relleno, cuadrícula y zoom desde el panel derecho.
 4. Exporta el resultado como PNG, JPG, SVG o HTML, o guarda el proyecto como JSON para continuar más tarde.
 
 Pizarra guarda automáticamente el lienzo en `localStorage`. Para crear una copia portátil o trabajar en otro navegador, exporta el proyecto como JSON y vuelve a importarlo cuando lo necesites.
@@ -125,7 +130,7 @@ Principios de diseño:
 
 ## Tests
 
-192 tests con el runner nativo de Node — sin ninguna dependencia:
+197 tests con el runner nativo de Node — sin ninguna dependencia:
 
 ```bash
 node --test tests/                    # suite completa

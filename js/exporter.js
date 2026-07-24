@@ -25,15 +25,10 @@ const Exporter = (() => {
     c.width = CANVAS_W;
     c.height = CANVAS_H;
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-    Renderer.renderElements(ctx, elements, options.overlapMode);
-    // El borrador (destination-out) perfora el fondo: repintar blanco por
-    // detrás para que el PNG no salga transparente ni el JPG negro
-    ctx.globalCompositeOperation = 'destination-over';
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-    ctx.globalCompositeOperation = 'source-over';
+    Renderer.renderScene(ctx, elements, {
+      background: '#ffffff',
+      overlapMode: options.overlapMode,
+    });
     return c.toDataURL(format, quality);
   }
 
@@ -152,11 +147,8 @@ const Exporter = (() => {
           break;
 
         case 'eraser':
-          // SVG no tiene destination-out: se aproxima con trazo blanco
-          if (el.points.length > 1) {
-            const d = el.points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x} ${p.y}`).join(' ');
-            out += `<path d="${d}" stroke="#ffffff" stroke-width="${el.lineWidth * 4}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>\n`;
-          }
+          // Los borradores se aplican como máscaras secuenciales en
+          // _svgScene para afectar solo a los elementos anteriores.
           break;
 
         case 'line':
@@ -283,8 +275,8 @@ const Exporter = (() => {
     return `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}"${el.type === 'roundedRect' ? ' rx="12"' : ''} fill="${fill}" stroke="none"/>\n`;
   }
 
-  function _svgOverlapRuns(info, target, dashed) {
-    const runs = Renderer.overlapRuns(info, target);
+  function _svgOverlapRuns(info, target, dashed, erasers = []) {
+    const runs = Renderer.overlapRuns(info, target, erasers);
     if (!runs.length) return '';
     const d = runs.map(run => run.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`).join(' ')).join(' ');
     const color = _escapeXml(String(info.el.color));
@@ -295,12 +287,30 @@ const Exporter = (() => {
 
   /** Escena SVG coordinada para conservar orden y bordes ocultos parciales. */
   function _svgScene(elements, overlapMode = 'normal') {
-    if (overlapMode !== 'hidden-dashed') {
-      return elements.map(_svgElement).join('');
-    }
-    const plan = Renderer.buildOverlapPlan(elements);
+    const hiddenDashed = overlapMode === 'hidden-dashed';
+    const plan = hiddenDashed ? Renderer.buildOverlapPlan(elements) : [];
+    const masks = [];
     let out = '';
     elements.forEach((el, index) => {
+      if (el.type === 'eraser') {
+        if (el.points.length < 2 || !out) return;
+        const id = `pizarra-eraser-${masks.length}`;
+        const d = el.points
+          .map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x} ${p.y}`)
+          .join(' ');
+        masks.push(
+          `<mask id="${id}" maskUnits="userSpaceOnUse" x="0" y="0" width="${CANVAS_W}" height="${CANVAS_H}">` +
+          `<rect width="${CANVAS_W}" height="${CANVAS_H}" fill="white"/>` +
+          `<path d="${d}" stroke="black" stroke-width="${Renderer.eraserSize(el)}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>` +
+          `</mask>`,
+        );
+        out = `<g mask="url(#${id})">\n${out}</g>\n`;
+        return;
+      }
+      if (!hiddenDashed) {
+        out += _svgElement(el);
+        return;
+      }
       const current = plan[index];
       if (!current) {
         out += _svgElement(el);
@@ -308,11 +318,16 @@ const Exporter = (() => {
       }
       out += _svgShapeFill(el);
       for (let lower = 0; lower < index; lower++) {
-        if (plan[lower]) out += _svgOverlapRuns(plan[lower], index, true);
+        if (plan[lower]) {
+          const interveningErasers = elements
+            .slice(lower + 1, index)
+            .filter(candidate => candidate.type === 'eraser');
+          out += _svgOverlapRuns(plan[lower], index, true, interveningErasers);
+        }
       }
       out += _svgOverlapRuns(current, -1, false);
     });
-    return out;
+    return masks.length ? `<defs>${masks.join('')}</defs>\n${out}` : out;
   }
 
   function html(elements, options = {}) {
@@ -334,11 +349,12 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
 <div class="wireframe">
 `;
 
-    if (options.overlapMode === 'hidden-dashed') {
+    const hasEraser = elements.some(el => el.type === 'eraser');
+    if (options.overlapMode === 'hidden-dashed' || hasEraser) {
       // El recorte parcial de contornos requiere SVG; en este modo la escena
       // completa se conserva en un único lienzo vectorial con su z-order.
       out += `  <svg width="${CANVAS_W}" height="${CANVAS_H}" viewBox="0 0 ${CANVAS_W} ${CANVAS_H}" style="left:0;top:0;pointer-events:none;">\n`;
-      out += _svgScene(elements, 'hidden-dashed').split('\n').filter(Boolean).map(line => `    ${line}\n`).join('');
+      out += _svgScene(elements, options.overlapMode).split('\n').filter(Boolean).map(line => `    ${line}\n`).join('');
       out += `  </svg>\n`;
     } else {
       // Tipos sin representación HTML (lápiz, líneas, flechas, círculos,
@@ -449,6 +465,10 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
     // SVG/HTML, así que se valida como hex igual que `color`
     if (el.fillColor !== undefined &&
         !(typeof el.fillColor === 'string' && HEX_COLOR.test(el.fillColor))) return false;
+    // size: ancho real del borrador nuevo (v1.8.1). Si falta, se conserva la
+    // compatibilidad histórica usando lineWidth × 4.
+    if (el.size !== undefined &&
+        !(el.type === 'eraser' && _isNum(el.size) && el.size >= 4 && el.size <= 100)) return false;
     // rotation: orientación opcional y normalizada de polígonos regulares.
     // Los rectángulos girados 90° se serializan intercambiando w/h.
     if (el.rotation !== undefined &&

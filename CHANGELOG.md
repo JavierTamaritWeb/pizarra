@@ -4,6 +4,32 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.8.1] — 2026-07-24
+
+### Añadido
+- **Tamaño del borrador independiente**, regulable de 4 a 100 px y con
+  16 px por defecto. Al activar el Borrador, el control de Trazo cambia de
+  nombre, rango y valor sin modificar el grosor del lápiz o de las formas.
+- Indicador circular sobre el lienzo que representa el área exacta del
+  borrador antes y durante cada pasada.
+- La preferencia del tamaño se conserva entre sesiones. Los proyectos
+  anteriores, que solo almacenaban `lineWidth`, mantienen su aspecto
+  histórico usando automáticamente cuatro veces ese grosor.
+
+### Corregido
+- El **Borrador** ya no perfora el color de fondo ni la cuadrícula: elimina
+  únicamente los elementos dibujados, por lo que deja de verse como una
+  mancha oscura o transparente. App y exportación raster comparten ahora el
+  mismo orden de composición, y el resultado se muestra en tiempo real
+  mientras se arrastra en vez de utilizar un trazo rojo provisional.
+- SVG y HTML aplican los borrados con máscaras vectoriales secuenciales:
+  dejan de simularlos con una línea blanca y respetan fondos, tamaños y
+  elementos creados después de cada pasada.
+- Los recursos CSS y JavaScript incluyen la versión en su URL para impedir
+  que el navegador reutilice archivos antiguos tras actualizar.
+- 5 guardias nuevas o ampliadas de render, tamaño, importación, caché,
+  solapamiento y exportación: la suite pasa de 192 a 197 pruebas.
+
 ## [1.8.0] — 2026-07-24
 
 ### Añadido
