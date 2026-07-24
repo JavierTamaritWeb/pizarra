@@ -18,6 +18,7 @@
     zoom:        1,
     fillShapes:  false,
     fillColor:   null,  // color de relleno; null = tinte translúcido del trazo
+    fillTransparent: false, // relleno translúcido (~40%) en vez de sólido
     pendingEmoji: EMOJI_GROUPS[0].emojis[0], // el que se estampa con la herramienta Emoji
     doubleHead:  false, // nuevas flechas con punta en ambos extremos
     dashed:      false, // nuevas líneas/flechas con trazo discontinuo
@@ -772,6 +773,7 @@
       }
       if (FILLABLE_TYPES.includes(sel.type)) {
         $('check-fill').checked = sel.fill === true;
+        $('check-fill-transparent').checked = sel.fillTransparent === true;
         // Sin fillColor propio el relleno es el tinte del trazo: se muestra
         // ese color como punto de partida del picker
         $('fill-color-picker').value = hex6(sel.fillColor || sel.color);
@@ -782,6 +784,7 @@
       $('check-double-head').checked = state.doubleHead;
       $('check-dash').checked = state.dashed;
       $('check-fill').checked = state.fillShapes;
+      $('check-fill-transparent').checked = state.fillTransparent;
       $('fill-color-picker').value = hex6(state.fillColor || state.color);
     }
     scheduleAutosave();
@@ -1344,6 +1347,7 @@
         };
         // Sin fillColor, el relleno cae en el tinte del trazo (aspecto clásico)
         if (state.fillShapes && state.fillColor) shape.fillColor = state.fillColor;
+        if (state.fillShapes && state.fillTransparent) shape.fillTransparent = true;
         state.elements.push(shape);
       }
     }
@@ -1912,6 +1916,25 @@
         redraw();
       } else {
         state.fillShapes = on;
+      }
+    });
+
+    // Relleno translúcido — semántica dual: sólido (off) o al ~40% (on).
+    $('check-fill-transparent').addEventListener('change', e => {
+      const on = e.target.checked;
+      if (state.selection.length) {
+        const shapes = state.selection.filter(i => FILLABLE_TYPES.includes(state.elements[i].type));
+        if (!shapes.length) return;
+        saveUndo();
+        shapes.forEach(i => {
+          const copy = { ...state.elements[i] };
+          if (on) copy.fillTransparent = true;
+          else delete copy.fillTransparent; // sólido = ausencia del flag (retrocompat)
+          state.elements[i] = copy;
+        });
+        redraw();
+      } else {
+        state.fillTransparent = on;
       }
     });
 

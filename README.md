@@ -2,10 +2,10 @@
 
 **Crea wireframes, diagramas y bocetos con estilo dibujado a mano, directamente en tu navegador.**
 
-![Versión](https://img.shields.io/badge/versi%C3%B3n-1.5.0-blueviolet)
+![Versión](https://img.shields.io/badge/versi%C3%B3n-1.6.0-blueviolet)
 ![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?logo=javascript&logoColor=000)
 ![Sin dependencias](https://img.shields.io/badge/dependencias-0-brightgreen)
-![Tests](https://img.shields.io/badge/tests-152%20%E2%9C%93-brightgreen)
+![Tests](https://img.shields.io/badge/tests-161%20%E2%9C%93-brightgreen)
 ![Licencia](https://img.shields.io/badge/licencia-MIT-blue)
 
 Pizarra es una aplicación de wireframing sobre canvas escrita en JavaScript puro: **sin build, sin bundler y sin `node_modules`**. Permite crear bocetos, diagramas y prototipos rápidos directamente en el navegador.
@@ -16,7 +16,7 @@ Pizarra es una aplicación de wireframing sobre canvas escrita en JavaScript pur
 
 ### Dibujo
 - ✏️ **Lápiz, líneas, flechas, formas** (rectángulo, redondeado, elipse) con trazo *sketchy* de aspecto manual — determinista: cada elemento guarda su semilla y no "tiembla" entre repintados.
-- 🪣 **Relleno con color**: selecciona una forma ya dibujada y elige su color de relleno; el checkbox la vacía sin perder el color. Sin color propio se usa el tinte translúcido clásico del trazo.
+- 🪣 **Relleno con color**: selecciona una forma ya dibujada y elige su color de relleno; el checkbox la vacía sin perder el color. **Relleno translúcido** alterna entre color sólido y color con ~40 % de opacidad. Con formas seleccionadas modifica esas formas; sin selección establece el valor de las próximas. Sin color propio se conserva el tinte translúcido clásico del trazo.
 - ◠ **Semicírculos** de 180° exactos y sin puntas: el arrastre fija el diámetro (y con él el radio); después `+`/`−` o su handle ajustan el radio manteniendo la media circunferencia perfecta. `Q` convierte una flecha curva existente en semicírculo y viceversa.
 - 🧩 **Componentes UI listos**: botón, input, imagen, navbar y tarjeta, con etiquetas editables (doble click).
 - 🙂 **Emoji** (`J`): catálogo de 60 emoji en cinco categorías; elige uno y haz click para estamparlo. Se insertan como texto, así que se mueven, escalan, exportan y editan como cualquier otro elemento.
@@ -114,7 +114,7 @@ Principios de diseño:
 
 ## Tests
 
-152 tests con el runner nativo de Node — sin ninguna dependencia:
+161 tests con el runner nativo de Node — sin ninguna dependencia:
 
 ```bash
 node --test tests/                    # suite completa

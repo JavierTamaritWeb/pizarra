@@ -736,3 +736,18 @@ test('renderElement arrow recta con labelT: texto interpolado sobre el segmento'
   Renderer.renderElement(ctx, el);
   assert.deepEqual(ctx.callsTo('fillText')[0].args, ['r', 25, 10]);
 });
+
+test('renderElement rect fillTransparent: usa el color propio con alfa 0x66', () => {
+  const ctx = render(baseEl({ type: 'rect', x: 0, y: 0, w: 50, h: 50, fill: true, fillColor: '#ff8800', fillTransparent: true }));
+  assert.deepEqual(ctx.callsTo('set fillStyle')[0].args, ['#ff880066']);
+});
+
+test('renderElement rect fillTransparent sin fillColor: tinte del trazo a 0x66', () => {
+  const ctx = render(baseEl({ type: 'rect', x: 0, y: 0, w: 50, h: 50, fill: true, fillTransparent: true }));
+  assert.deepEqual(ctx.callsTo('set fillStyle')[0].args, ['#1a1a2e66']);
+});
+
+test('renderElement rect sin fillTransparent: sólido (fillColor opaco) — retrocompat', () => {
+  const ctx = render(baseEl({ type: 'rect', x: 0, y: 0, w: 50, h: 50, fill: true, fillColor: '#ff8800' }));
+  assert.deepEqual(ctx.callsTo('set fillStyle')[0].args, ['#ff8800']);
+});

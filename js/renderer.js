@@ -84,7 +84,13 @@ const Renderer = (() => {
    * el de los proyectos guardados antes de que el relleno tuviera color
    * propio, así que `fillColor` ausente nunca cambia cómo se ven.
    */
+  // Alfa (hex) del relleno translúcido: ~40%, distinguible del tinte clásico 0x20
+  const FILL_ALPHA = '66';
+
   function fillStyle(el) {
+    // Translúcido explícito: el color propio (o el del trazo) a ~40%
+    if (el.fillTransparent === true) return (el.fillColor || el.color) + FILL_ALPHA;
+    // Sólido / clásico: color propio opaco, o el tinte 0x20 del trazo si no hay
     return el.fillColor || el.color + '20';
   }
 

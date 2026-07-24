@@ -112,8 +112,11 @@ const Exporter = (() => {
   function _svgElement(el) {
     const color = _escapeXml(String(el.color));
     const lw = _escapeXml(String(el.lineWidth));
-    // Relleno: color propio del elemento si lo tiene, si no el tinte del trazo
-    const fillCol = el.fillColor ? _escapeXml(String(el.fillColor)) : color + '20';
+    // Relleno: mismo criterio que Renderer.fillStyle — translúcido (~40%),
+    // color propio opaco, o el tinte 0x20 del trazo si no hay color propio
+    const fillCol = el.fillTransparent
+      ? (el.fillColor ? _escapeXml(String(el.fillColor)) : color) + '66'
+      : (el.fillColor ? _escapeXml(String(el.fillColor)) : color + '20');
     const s = `stroke="${color}" stroke-width="${lw}" fill="none" stroke-linecap="round"`;
     const sf = `stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="${el.fill ? fillCol : 'none'}"`;
     // Cuerpo con trazo discontinuo opcional (las puntas siempre usan `s`, sólidas)
@@ -270,8 +273,10 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
       switch (el.type) {
         case 'rect':
         case 'roundedRect': {
-          // Relleno: color propio del elemento si lo tiene, si no el tinte del trazo
-          const bg = el.fillColor ? _escapeHtml(String(el.fillColor)) : color + '20';
+          // Relleno: mismo criterio que Renderer.fillStyle (translúcido/sólido/tinte)
+          const bg = el.fillTransparent
+            ? (el.fillColor ? _escapeHtml(String(el.fillColor)) : color) + '66'
+            : (el.fillColor ? _escapeHtml(String(el.fillColor)) : color + '20');
           out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};${el.type === 'roundedRect' ? 'border-radius:12px;' : ''}${el.fill ? `background:${bg};` : ''}"></div>\n`;
           break;
         }
@@ -351,6 +356,8 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
     // fill (relleno de formas): booleano — `false` también se serializa, así
     // que ambos valores son válidos
     if (el.fill !== undefined && typeof el.fill !== 'boolean') return false;
+    // fillTransparent (relleno translúcido): booleano
+    if (el.fillTransparent !== undefined && typeof el.fillTransparent !== 'boolean') return false;
     // fillColor (color de relleno propio): se interpola en los exports
     // SVG/HTML, así que se valida como hex igual que `color`
     if (el.fillColor !== undefined &&

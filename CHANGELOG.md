@@ -4,6 +4,22 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.6.0] — 2026-07-24
+
+### Añadido
+- **Relleno sólido o translúcido**: nuevo checkbox "Relleno translúcido" en la
+  sección Relleno del panel. Sin marcar, la forma se rellena con su color de
+  forma sólida (comportamiento actual); marcado, con ese color al ~40 % de
+  opacidad. Sigue la misma semántica dual del resto de controles: con
+  selección edita las formas seleccionadas (un paso de undo), sin selección
+  fija el valor por defecto de las próximas formas.
+- El campo `fillTransparent` es booleano y se conserva en los cinco formatos
+  de exportación (PNG/JPG vía render, SVG, HTML y JSON). Las formas sin el
+  campo se ven exactamente igual que antes (sólido si tenían color, tinte
+  clásico si no), así que los proyectos guardados no cambian.
+- 8 tests nuevos (render, export SVG/HTML, validación y round-trip): la suite
+  pasa de 153 a 161.
+
 ## [1.5.0] — 2026-07-23
 
 ### Cambiado

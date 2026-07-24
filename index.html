@@ -20,7 +20,7 @@
       <div class="topbar__brand">
         <span class="topbar__logo-icon" aria-hidden="true">✎</span>
         <span class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></span>
-        <span class="topbar__badge">v1.5.0</span>
+        <span class="topbar__badge">v1.6.0</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes">
@@ -84,6 +84,9 @@
           <h3 class="panel__title">Relleno</h3>
           <label class="panel__check">
             <input type="checkbox" id="check-fill" /> Rellenar formas
+          </label>
+          <label class="panel__check">
+            <input type="checkbox" id="check-fill-transparent" /> Relleno translúcido
           </label>
           <div class="panel__canvas-colors">
             <label class="panel__canvas-color">
@@ -231,7 +234,8 @@
         <ul class="modal__help-list">
           <li>Selecciona una forma y elige <strong>"Color de relleno"</strong> para rellenarla</li>
           <li>El checkbox <strong>"Rellenar formas"</strong> la vacía sin perder el color: al volver a marcarlo lo recupera</li>
-          <li>Sin selección, ambos fijan el valor por defecto de las próximas formas</li>
+          <li><strong>"Relleno translúcido"</strong> alterna entre relleno sólido o semitransparente (~40%)</li>
+          <li>Sin selección, todos fijan el valor por defecto de las próximas formas</li>
         </ul>
       </section>
 

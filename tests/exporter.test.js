@@ -876,3 +876,49 @@ test("Exporter.isValidElement: rechaza type:'arc' y type:'emoji' (herramientas d
   // Un emoji real es un 'text', que sí es válido (regresión: no romper eso)
   assert.ok(v({ ...base, type: 'text', value: '🚀', fontSize: 32, x: 0, y: 0 }));
 });
+
+/* ────────────────────────────────────────────────────────────
+   Relleno translúcido (fillTransparent)
+   ──────────────────────────────────────────────────────────── */
+
+test('Exporter.svg: fillTransparent aplica alfa 0x66 al color de relleno', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.svg([{ ...elRectFill, fillColor: '#ff8800', fillTransparent: true }]);
+  const rect = lastBlob(ctx).content.split('\n').find(l => l.startsWith('<rect x='));
+  assert.ok(rect.includes('fill="#ff880066"'), 'debe llevar el color con alfa 0x66');
+  assert.equal((rect.match(/fill="/g) || []).length, 1, 'un único atributo fill');
+});
+
+test('Exporter.svg: sin fillTransparent el relleno sigue sólido (retrocompat)', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.svg([{ ...elRectFill, fillColor: '#ff8800' }]);
+  const rect = lastBlob(ctx).content.split('\n').find(l => l.startsWith('<rect x='));
+  assert.ok(rect.includes('fill="#ff8800"') && !rect.includes('#ff880066'));
+});
+
+test('Exporter.html: fillTransparent → background con alfa 0x66', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.html([{ ...elRectFill, fillColor: '#ff8800', fillTransparent: true }]);
+  assert.match(lastBlob(ctx).content, /background:#ff880066;/);
+});
+
+test('Exporter.isValidElement: fillTransparent debe ser booleano', () => {
+  const ctx = freshCtx();
+  const v = el => ctx.Exporter.isValidElement(el);
+  assert.ok(v({ ...elRectFill, fillTransparent: true }));
+  assert.ok(v({ ...elRectFill, fillTransparent: false }));
+  assert.ok(v(elRectFill), 'sin el campo sigue válido');
+  assert.equal(v({ ...elRectFill, fillTransparent: 'yes' }), false);
+  assert.equal(v({ ...elRectFill, fillTransparent: 1 }), false);
+});
+
+test('round-trip JSON conserva fillTransparent', async () => {
+  const ctx = freshCtx();
+  ctx.Exporter.json([{ ...elRectFill, fillColor: '#ff8800', fillTransparent: true }]);
+  const jsonStr = lastBlob(ctx).content;
+  const p = ctx.Exporter.importJSON();
+  const input = ctx.document.created[ctx.document.created.length - 1];
+  input.onchange({ target: { files: [{ text: jsonStr }] } });
+  const back = JSON.parse(JSON.stringify(await p));
+  assert.equal(back[0].fillTransparent, true);
+});
