@@ -4,6 +4,20 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## Próxima versión
+
+### Añadido
+- Botones **Cuadrado** (`4`) y **Trapecio** (`7`) en la barra de Formas.
+  El cuadrado se crea regular desde el centro; el trapecio isósceles se crea
+  por esquinas y admite proporciones libres.
+- Rotación discreta de 45° para cuadrados y de 90° para trapecios, siempre
+  alrededor del centro de la forma.
+- Ambas formas admiten selección por su silueta real, redimensionado,
+  relleno sólido o translúcido, bordes ocultos y exportación completa a PNG,
+  JPG, SVG, HTML y JSON.
+- 9 pruebas de configuración, geometría, rotación, renderizado,
+  solapamiento, validación y exportación: la suite pasa de 197 a 206 pruebas.
+
 ## [1.8.1] — 2026-07-24
 
 ### Añadido

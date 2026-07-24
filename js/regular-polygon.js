@@ -6,6 +6,7 @@ const RegularPolygon = (() => {
   'use strict';
 
   const SIDES = Object.freeze({
+    square: 4,
     triangle: 3,
     pentagon: 5,
     hexagon: 6,
@@ -30,9 +31,13 @@ const RegularPolygon = (() => {
     const cy = el.y + el.h / 2;
     const radius = Math.min(Math.abs(el.w), Math.abs(el.h)) / 2;
     const rotation = Number.isFinite(el.rotation) ? el.rotation * Math.PI / 180 : 0;
+    // El resto de polígonos nace con un vértice arriba. El cuadrado parte
+    // 45° antes para mostrar lados horizontales/verticales; su primer giro
+    // de 45° lo convierte en rombo sin cambiar lados, centro ni radio.
+    const startAngle = el.type === 'square' ? -Math.PI / 4 : -Math.PI / 2;
     if (!radius) return [];
     return Array.from({ length: count }, (_, index) => {
-      const angle = -Math.PI / 2 + rotation + index * Math.PI * 2 / count;
+      const angle = startAngle + rotation + index * Math.PI * 2 / count;
       return {
         x: cx + Math.cos(angle) * radius,
         y: cy + Math.sin(angle) * radius,

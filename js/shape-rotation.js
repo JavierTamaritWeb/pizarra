@@ -6,6 +6,8 @@ const ShapeRotation = (() => {
   'use strict';
 
   const STEPS = Object.freeze({
+    square: 45,
+    trapezoid: 90,
     rect: 90,
     roundedRect: 90,
     triangle: 90,
@@ -50,6 +52,20 @@ const ShapeRotation = (() => {
 
     const current = Number.isFinite(el.rotation) ? el.rotation : 0;
     const rotation = normalize(current + step(el.type));
+    if (el.type === 'trapezoid') {
+      const cx = el.x + el.w / 2;
+      const cy = el.y + el.h / 2;
+      const copy = {
+        ...el,
+        x: cx - el.h / 2,
+        y: cy - el.w / 2,
+        w: el.h,
+        h: el.w,
+      };
+      if (rotation === 0) delete copy.rotation;
+      else copy.rotation = rotation;
+      return copy;
+    }
     const copy = { ...el };
     if (rotation === 0) delete copy.rotation;
     else copy.rotation = rotation;

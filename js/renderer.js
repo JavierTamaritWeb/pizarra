@@ -116,7 +116,8 @@ const Renderer = (() => {
   /* ── Bordes ocultos de formas solapadas ── */
 
   const OVERLAP_SHAPE_TYPES = new Set([
-    'rect', 'roundedRect', 'circle', 'triangle', 'pentagon', 'hexagon',
+    'rect', 'roundedRect', 'circle', 'square', 'trapezoid',
+    'triangle', 'pentagon', 'hexagon',
   ]);
   const OUTLINE_STEP = 4;
 
@@ -142,6 +143,7 @@ const Renderer = (() => {
         point.y < b.y || point.y > b.y + b.h) return false;
     if (el.type === 'rect') return true;
     if (RegularPolygon.isType(el.type)) return RegularPolygon.contains(point, el);
+    if (el.type === 'trapezoid') return Trapezoid.contains(point, el);
     if (el.type === 'circle') {
       const rx = b.w / 2, ry = b.h / 2;
       if (!rx || !ry) return false;
@@ -179,6 +181,14 @@ const Renderer = (() => {
     if (!b.w || !b.h) return points;
     if (RegularPolygon.isType(el.type)) {
       const vertices = RegularPolygon.vertices(el);
+      vertices.forEach((vertex, index) => {
+        const next = vertices[(index + 1) % vertices.length];
+        _pushLine(points, vertex.x, vertex.y, next.x, next.y);
+      });
+      return points;
+    }
+    if (el.type === 'trapezoid') {
+      const vertices = Trapezoid.vertices(el);
       vertices.forEach((vertex, index) => {
         const next = vertices[(index + 1) % vertices.length];
         _pushLine(points, vertex.x, vertex.y, next.x, next.y);
@@ -476,6 +486,22 @@ const Renderer = (() => {
     }
   }
 
+  function _trapezoid(ctx, el, options) {
+    const vertices = Trapezoid.vertices(el);
+    if (!vertices.length) return;
+    if (el.fill && options.shapeFill !== false) {
+      ctx.fillStyle = fillStyle(el);
+      _polygonPath(ctx, vertices);
+      ctx.fill();
+    }
+    if (options.shapeStroke !== false) {
+      vertices.forEach((point, index) => {
+        const next = vertices[(index + 1) % vertices.length];
+        Sketchy.line(ctx, point.x, point.y, next.x, next.y);
+      });
+    }
+  }
+
   /* ── Public: render a single element ── */
 
   function renderElement(ctx, el, options = {}) {
@@ -596,10 +622,15 @@ const Renderer = (() => {
         break;
       }
 
+      case 'square':
       case 'triangle':
       case 'pentagon':
       case 'hexagon':
         _regularPolygon(ctx, el, options);
+        break;
+
+      case 'trapezoid':
+        _trapezoid(ctx, el, options);
         break;
 
       case 'text':

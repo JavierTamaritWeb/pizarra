@@ -67,7 +67,7 @@ const Exporter = (() => {
   /** Tipos sin representación HTML propia: van en un <svg> incrustado */
   const VECTOR_TYPES = [
     'pencil', 'eraser', 'line', 'arrow', 'curveArrow', 'circle',
-    'triangle', 'pentagon', 'hexagon',
+    'square', 'trapezoid', 'triangle', 'pentagon', 'hexagon',
   ];
 
   function _alphaHex(opacity) {
@@ -211,10 +211,17 @@ const Exporter = (() => {
           out += `<ellipse cx="${el.x + el.w / 2}" cy="${el.y + el.h / 2}" rx="${Math.abs(el.w) / 2}" ry="${Math.abs(el.h) / 2}" ${sf}/>\n`;
           break;
 
+        case 'square':
         case 'triangle':
         case 'pentagon':
         case 'hexagon': {
           const points = RegularPolygon.vertices(el).map(p => `${p.x},${p.y}`).join(' ');
+          out += `<polygon points="${points}" ${sf}/>\n`;
+          break;
+        }
+
+        case 'trapezoid': {
+          const points = Trapezoid.vertices(el).map(p => `${p.x},${p.y}`).join(' ');
           out += `<polygon points="${points}" ${sf}/>\n`;
           break;
         }
@@ -270,6 +277,10 @@ const Exporter = (() => {
     }
     if (RegularPolygon.isType(el.type)) {
       const points = RegularPolygon.vertices(el).map(p => `${p.x},${p.y}`).join(' ');
+      return `<polygon points="${points}" fill="${fill}" stroke="none"/>\n`;
+    }
+    if (el.type === 'trapezoid') {
+      const points = Trapezoid.vertices(el).map(p => `${p.x},${p.y}`).join(' ');
       return `<polygon points="${points}" fill="${fill}" stroke="none"/>\n`;
     }
     return `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}"${el.type === 'roundedRect' ? ' rx="12"' : ''} fill="${fill}" stroke="none"/>\n`;
@@ -469,11 +480,14 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
     // compatibilidad histórica usando lineWidth × 4.
     if (el.size !== undefined &&
         !(el.type === 'eraser' && _isNum(el.size) && el.size >= 4 && el.size <= 100)) return false;
-    // rotation: orientación opcional y normalizada de polígonos regulares.
-    // Los rectángulos girados 90° se serializan intercambiando w/h.
-    if (el.rotation !== undefined &&
-        !(RegularPolygon.isType(el.type) && _isNum(el.rotation) &&
-          el.rotation >= 0 && el.rotation < 360)) return false;
+    // rotation: orientación opcional y normalizada de polígonos. El trapecio
+    // solo admite cuartos de vuelta; los rectángulos siguen serializando el
+    // giro directamente en sus dimensiones.
+    if (el.rotation !== undefined) {
+      if (!(_isNum(el.rotation) && el.rotation >= 0 && el.rotation < 360)) return false;
+      if (!(RegularPolygon.isType(el.type) ||
+            (el.type === 'trapezoid' && el.rotation % 90 === 0))) return false;
+    }
     // label (etiqueta de componentes y flechas)
     if (el.label !== undefined && typeof el.label !== 'string') return false;
     // labelT (posición de la etiqueta sobre el trazo): número en (0,1) abierto
@@ -520,6 +534,10 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
     if (RegularPolygon.isType(el.type)) {
       return _isNum(el.x) && _isNum(el.y) && _isNum(el.w) && _isNum(el.h) &&
              el.w > 0 && el.h > 0 && Math.abs(el.w - el.h) < 1e-6;
+    }
+    if (el.type === 'trapezoid') {
+      return _isNum(el.x) && _isNum(el.y) && _isNum(el.w) && _isNum(el.h) &&
+             el.w > 0 && el.h > 0;
     }
     return _isNum(el.x) && _isNum(el.y) && _isNum(el.w) && _isNum(el.h);
   }

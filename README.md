@@ -5,7 +5,7 @@
 ![Versión](https://img.shields.io/badge/versi%C3%B3n-1.8.1-blueviolet)
 ![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?logo=javascript&logoColor=000)
 ![Sin dependencias](https://img.shields.io/badge/dependencias-0-brightgreen)
-![Tests](https://img.shields.io/badge/tests-197%20%E2%9C%93-brightgreen)
+![Tests](https://img.shields.io/badge/tests-206%20%E2%9C%93-brightgreen)
 ![Licencia](https://img.shields.io/badge/licencia-MIT-blue)
 
 Pizarra es una aplicación de wireframing sobre canvas escrita en JavaScript puro: **sin build, sin bundler y sin `node_modules`**. Permite crear bocetos, diagramas y prototipos rápidos directamente en el navegador.
@@ -21,9 +21,9 @@ Pizarra es una aplicación de wireframing sobre canvas escrita en JavaScript pur
   convierte en **Tamaño del borrador**, independiente y ajustable de 4 a
   100 px (16 px por defecto); un círculo indica el área exacta y cada pasada
   se deshace o rehace como una sola acción.
-- 🔺 **Polígonos regulares**: botones para triángulo (`3`), pentágono (`5`) y hexágono (`6`). Se arrastran desde el centro, conservan todos sus lados iguales al redimensionarlos y admiten relleno y bordes ocultos.
-- 🪣 **Relleno con color**: selecciona una forma geométrica (círculo/elipse, rectángulos o polígonos regulares) y elige su color de relleno; el checkbox la vacía sin perder el color. **Relleno translúcido** alterna entre sólido y transparente, y el regulador permite ajustar su opacidad del **0 al 100 %** (40 % por defecto). Con formas seleccionadas modifica esas formas; sin selección establece el valor de las próximas. Sin color propio se conserva el tinte translúcido clásico del trazo.
-- 🫥 **Solapamiento seleccionable**: el modo **Normal** conserva la mezcla de transparencias; **Bordes ocultos** convierte en discontinuos únicamente los tramos del contorno inferior cubiertos por otra forma. Respeta rectángulos, esquinas redondeadas, círculos/elipses, polígonos regulares y el orden de capas.
+- 🔺 **Formas geométricas**: botones para cuadrado (`4`), trapecio (`7`), triángulo (`3`), pentágono (`5`) y hexágono (`6`). Los polígonos regulares se arrastran desde el centro y conservan todos sus lados iguales; el trapecio admite proporciones libres.
+- 🪣 **Relleno con color**: selecciona una forma geométrica (círculo/elipse, rectángulos, trapecio o polígonos regulares) y elige su color de relleno; el checkbox la vacía sin perder el color. **Relleno translúcido** alterna entre sólido y transparente, y el regulador permite ajustar su opacidad del **0 al 100 %** (40 % por defecto). Con formas seleccionadas modifica esas formas; sin selección establece el valor de las próximas. Sin color propio se conserva el tinte translúcido clásico del trazo.
+- 🫥 **Solapamiento seleccionable**: el modo **Normal** conserva la mezcla de transparencias; **Bordes ocultos** convierte en discontinuos únicamente los tramos del contorno inferior cubiertos por otra forma. Respeta rectángulos, esquinas redondeadas, círculos/elipses, trapecios, polígonos regulares y el orden de capas.
 - ◠ **Semicírculos** de 180° exactos y sin puntas: el arrastre fija el diámetro (y con él el radio); después `+`/`−` o su handle ajustan el radio manteniendo la media circunferencia perfecta. `Q` convierte una flecha curva existente en semicírculo y viceversa.
 - 🧩 **Componentes UI listos**: botón, input, imagen, navbar y tarjeta, con etiquetas editables (doble click).
 - 🙂 **Emoji** (`J`): catálogo de 60 emoji en cinco categorías; elige uno y haz click para estamparlo. Se insertan como texto, así que se mueven, escalan, exportan y editan como cualquier otro elemento.
@@ -39,7 +39,7 @@ Pizarra es una aplicación de wireframing sobre canvas escrita en JavaScript pur
 
 ### Edición
 - 👆 Selección múltiple (Shift+click, marquee, `Ctrl/Cmd+A`), mover, duplicar (`Ctrl/Cmd+D`), redimensionar con handles y nudge con flechas. El grupo seleccionado se arrastra desde cualquier punto de su marco combinado, incluido el espacio vacío entre elementos.
-- ↻ **Rotación por pasos** desde el panel o con `Shift+R`: triángulos, rectángulos y redondeados 90°, pentágonos 36° y hexágonos 30°. En una selección múltiple, cada forma compatible usa su propio paso.
+- ↻ **Rotación por pasos** desde el panel o con `Shift+R`: cuadrados 45°; trapecios, triángulos, rectángulos y redondeados 90°; pentágonos 36° y hexágonos 30°. En una selección múltiple, cada forma compatible usa su propio paso.
 - 📋 **Copiar y pegar** la selección con `Ctrl/Cmd+C` / `Ctrl/Cmd+V` — también entre pestañas. Lo pegado aparece desplazado, queda seleccionado y las flechas ancladas se re-vinculan a sus clones.
 - ↩️ Undo/redo con historial de 50 pasos (`Ctrl+Z` / `Ctrl+Y` / `Cmd+Shift+Z`).
 - 🧮 Cuadrícula con ajuste opcional (Alt lo desactiva al vuelo) y zoom 30–300%, con auto-ajuste al espacio disponible en pantallas anchas.
@@ -88,12 +88,12 @@ Pizarra guarda automáticamente el lienzo en `localStorage`. Para crear una copi
 |-------|--------|
 | `P` `L` `A` `U` `G` `E` | Lápiz · Línea · Flecha · Flecha curva · Semicírculo · Borrador |
 | `R` `O` `C` | Rectángulo · Redondeado · Círculo |
-| `3` `5` `6` | Triángulo · Pentágono · Hexágono regulares |
+| `3` `4` `5` `6` `7` | Triángulo · Cuadrado · Pentágono · Hexágono · Trapecio |
 | `T` `J` `B` `I` `M` `N` `K` | Texto · Emoji · Botón · Input · Imagen · Navbar · Tarjeta |
 | `V` | Mover / seleccionar |
 | `Ctrl/Cmd+Z` / `Ctrl+Y` o `Cmd+Shift+Z` | Deshacer / rehacer |
 | `Ctrl/Cmd+D` / `Ctrl/Cmd+A` | Duplicar / seleccionar todo |
-| `Shift+R` | Rotar selección: triángulo/rectángulo 90° · pentágono 36° · hexágono 30° |
+| `Shift+R` | Rotar selección: cuadrado 45° · trapecio/triángulo/rectángulo 90° · pentágono 36° · hexágono 30° |
 | `Supr` / `Esc` | Borrar selección / deseleccionar |
 | Flechas (+`Shift`) | Mover selección 1px (20px) |
 | `F` / `D` / `S` | Invertir giro · invertir dirección · curva en S |
@@ -114,7 +114,8 @@ js/
 ├── arc.js          Geometría de arcos circulares (ajuste de cúbica a semicírculo)
 ├── curve-path.js   Geometría compartida de flechas curvas encadenadas
 ├── shape-rotation.js Rotación discreta de formas alrededor de su centro
-├── regular-polygon.js Geometría de triángulos, pentágonos y hexágonos
+├── regular-polygon.js Geometría de cuadrados, triángulos, pentágonos y hexágonos
+├── trapezoid.js     Geometría y rotación del trapecio
 ├── renderer.js     Render por tipo de elemento + cuadrícula + selección
 ├── exporter.js     Export PNG/JPG/SVG/HTML/JSON + import validado
 ├── templates.js    Plantillas predefinidas
@@ -130,7 +131,7 @@ Principios de diseño:
 
 ## Tests
 
-197 tests con el runner nativo de Node — sin ninguna dependencia:
+206 tests con el runner nativo de Node — sin ninguna dependencia:
 
 ```bash
 node --test tests/                    # suite completa

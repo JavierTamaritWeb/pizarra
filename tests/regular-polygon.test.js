@@ -8,7 +8,8 @@ const ctx = load('js/sketchy.js', 'js/renderer.js', 'js/exporter.js');
 const { RegularPolygon, Renderer, Exporter } = ctx;
 const base = { x: 20, y: 30, w: 100, h: 100, color: '#333344', lineWidth: 2, seed: 4 };
 
-test('RegularPolygon reconoce únicamente los tres tipos nuevos', () => {
+test('RegularPolygon reconoce cuadrado, triángulo, pentágono y hexágono', () => {
+  assert.equal(RegularPolygon.isType('square'), true);
   assert.equal(RegularPolygon.isType('triangle'), true);
   assert.equal(RegularPolygon.isType('pentagon'), true);
   assert.equal(RegularPolygon.isType('hexagon'), true);
@@ -16,7 +17,7 @@ test('RegularPolygon reconoce únicamente los tres tipos nuevos', () => {
 });
 
 test('RegularPolygon genera el número correcto de vértices y lados iguales', () => {
-  for (const [type, count] of [['triangle', 3], ['pentagon', 5], ['hexagon', 6]]) {
+  for (const [type, count] of [['square', 4], ['triangle', 3], ['pentagon', 5], ['hexagon', 6]]) {
     const vertices = RegularPolygon.vertices({ ...base, type });
     assert.equal(vertices.length, count);
     const lengths = vertices.map((p, i) => {
@@ -24,9 +25,21 @@ test('RegularPolygon genera el número correcto de vértices y lados iguales', (
       return Math.hypot(q.x - p.x, q.y - p.y);
     });
     lengths.forEach(length => assert.ok(Math.abs(length - lengths[0]) < 1e-9));
-    assert.ok(Math.abs(vertices[0].x - 70) < 1e-9, 'primer vértice centrado arriba');
-    assert.ok(Math.abs(vertices[0].y - 30) < 1e-9);
+    if (type !== 'square') {
+      assert.ok(Math.abs(vertices[0].x - 70) < 1e-9, 'primer vértice centrado arriba');
+      assert.ok(Math.abs(vertices[0].y - 30) < 1e-9);
+    }
   }
+});
+
+test('El cuadrado nace horizontal y al girar 45° se convierte en rombo', () => {
+  const initial = RegularPolygon.vertices({ ...base, type: 'square' });
+  const rotated = RegularPolygon.vertices({ ...base, type: 'square', rotation: 45 });
+  const eps = 1e-9;
+  assert.ok(Math.abs(initial[0].y - initial[3].y) < eps, 'lado superior horizontal');
+  assert.ok(Math.abs(initial[0].x - initial[1].x) < eps, 'lado derecho vertical');
+  assert.ok(Math.abs(rotated[0].x - 120) < eps, 'vértice derecho del rombo');
+  assert.ok(Math.abs(rotated[1].y - 130) < eps, 'vértice inferior del rombo');
 });
 
 test('RegularPolygon.fromCenter produce siempre un bbox cuadrado', () => {
@@ -44,7 +57,7 @@ test('RegularPolygon.contains usa la silueta real y no todo el bbox', () => {
 });
 
 test('Renderer dibuja 3/5/6 lados y aplica relleno cuando corresponde', () => {
-  for (const [type, count] of [['triangle', 3], ['pentagon', 5], ['hexagon', 6]]) {
+  for (const [type, count] of [['square', 4], ['triangle', 3], ['pentagon', 5], ['hexagon', 6]]) {
     const canvas = createCtxStub();
     Renderer.renderElement(canvas, { ...base, type, fill: true, fillColor: '#e94560' });
     assert.equal(canvas.callsTo('stroke').length, count);
@@ -75,17 +88,18 @@ test('Exporter valida polígonos cuadrados y rechaza deformados', () => {
 
 test('SVG y HTML exportan los polígonos como elementos vectoriales', () => {
   const elements = [
-    { ...base, type: 'triangle' },
-    { ...base, type: 'pentagon', x: 150 },
-    { ...base, type: 'hexagon', x: 280 },
+    { ...base, type: 'square' },
+    { ...base, type: 'triangle', x: 150 },
+    { ...base, type: 'pentagon', x: 280 },
+    { ...base, type: 'hexagon', x: 410 },
   ];
   Exporter.svg(elements);
   const svg = ctx.URL.blobs[ctx.URL.blobs.length - 1].content;
-  assert.equal((svg.match(/<polygon /g) || []).length, 3);
+  assert.equal((svg.match(/<polygon /g) || []).length, 4);
 
   Exporter.html(elements);
   const html = ctx.URL.blobs[ctx.URL.blobs.length - 1].content;
-  assert.equal((html.match(/<polygon /g) || []).length, 3);
+  assert.equal((html.match(/<polygon /g) || []).length, 4);
 });
 
 test('JSON conserva el tipo, la orientación y las dimensiones regulares', async () => {

@@ -242,14 +242,14 @@
           <li><kbd>Shift</kbd>+click o arrastre en vacío: multi-selección · arrastra el grupo desde cualquier punto de su marco</li>
           <li><kbd>Ctrl</kbd>+<kbd>C</kbd> copia la selección · <kbd>Ctrl</kbd>+<kbd>V</kbd> la pega (también entre pestañas)</li>
           <li><kbd>Ctrl</kbd>+<kbd>V</kbd> o arrastrar un archivo: imágenes PNG/JPG</li>
-          <li><kbd>Shift</kbd>+<kbd>R</kbd> o <strong>Rotar selección</strong>: triángulo/rectángulo 90° · pentágono 36° · hexágono 30°</li>
+          <li><kbd>Shift</kbd>+<kbd>R</kbd> o <strong>Rotar selección</strong>: cuadrado 45° · trapecio/triángulo/rectángulo 90° · pentágono 36° · hexágono 30°</li>
         </ul>
       </section>
 
       <section class="modal__help-group">
         <h4 class="modal__help-title">Formas y relleno</h4>
         <ul class="modal__help-list">
-          <li>El relleno se aplica a rectángulos, redondeados, círculos/elipses y polígonos regulares</li>
+          <li>El relleno se aplica a rectángulos, redondeados, círculos/elipses, trapecios y polígonos regulares</li>
           <li>Selecciona una forma y elige <strong>"Color de relleno"</strong>: el relleno se activa automáticamente</li>
           <li>El checkbox <strong>"Rellenar formas"</strong> la vacía sin perder el color: al volver a marcarlo lo recupera</li>
           <li><strong>"Relleno translúcido"</strong> alterna entre relleno sólido y relleno con transparencia</li>
@@ -270,11 +270,11 @@
       </section>
 
       <section class="modal__help-group">
-        <h4 class="modal__help-title">Polígonos regulares</h4>
+        <h4 class="modal__help-title">Formas geométricas</h4>
         <ul class="modal__help-list">
-          <li><kbd>3</kbd>: triángulo · <kbd>5</kbd>: pentágono · <kbd>6</kbd>: hexágono</li>
-          <li>Arrastra desde el <strong>centro</strong> hacia fuera para definir su tamaño</li>
-          <li>Todos sus lados permanecen iguales al crearlos y redimensionarlos</li>
+          <li><kbd>3</kbd>: triángulo · <kbd>4</kbd>: cuadrado · <kbd>5</kbd>: pentágono · <kbd>6</kbd>: hexágono · <kbd>7</kbd>: trapecio</li>
+          <li>Cuadrado, triángulo, pentágono y hexágono se arrastran desde el <strong>centro</strong> y conservan todos sus lados iguales</li>
+          <li>El trapecio se arrastra entre dos esquinas y puede redimensionarse libremente</li>
           <li>Admiten relleno sólido o translúcido y el modo de bordes ocultos</li>
         </ul>
       </section>
@@ -375,6 +375,7 @@
   <script src="js/curve-path.js?v=1.8.1"></script>
   <script src="js/shape-rotation.js?v=1.8.1"></script>
   <script src="js/regular-polygon.js?v=1.8.1"></script>
+  <script src="js/trapezoid.js?v=1.8.1"></script>
   <script src="js/renderer.js?v=1.8.1"></script>
   <script src="js/exporter.js?v=1.8.1"></script>
   <script src="js/templates.js?v=1.8.1"></script>

@@ -40,7 +40,7 @@ const KNOWN_GLOBALS = [
   'TOOLS', 'TOOL_GROUPS', 'COLORS', 'CANVAS_W', 'CANVAS_H',
   'SKETCHY_FONT', 'UI_DEFAULTS', 'EMOJI_GROUPS', 'EMOJI_MIN_SIZE',
   'Sketchy', 'ArcMath', 'CurvePath', 'ShapeRotation', 'RegularPolygon',
-  'Renderer', 'Exporter', 'Templates',
+  'Trapezoid', 'Renderer', 'Exporter', 'Templates',
 ];
 
 /** Orden completo de dependencias del proyecto (app.js excluido: requiere DOM real). */
@@ -51,6 +51,7 @@ const ALL_FILES = [
   'js/curve-path.js',
   'js/shape-rotation.js',
   'js/regular-polygon.js',
+  'js/trapezoid.js',
   'js/renderer.js',
   'js/exporter.js',
   'js/templates.js',
@@ -194,6 +195,10 @@ function load(...files) {
   const rendererIndexAfterCurve = list.findIndex(f => f.endsWith('renderer.js'));
   if (rendererIndexAfterCurve >= 0 && !list.some(f => f.endsWith('regular-polygon.js'))) {
     list.splice(rendererIndexAfterCurve, 0, 'js/regular-polygon.js');
+  }
+  const rendererIndexAfterPolygon = list.findIndex(f => f.endsWith('renderer.js'));
+  if (rendererIndexAfterPolygon >= 0 && !list.some(f => f.endsWith('trapezoid.js'))) {
+    list.splice(rendererIndexAfterPolygon, 0, 'js/trapezoid.js');
   }
   const context = createContext();
   for (const f of list) loadScript(context, f);

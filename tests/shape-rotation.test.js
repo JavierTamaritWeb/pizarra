@@ -13,12 +13,32 @@ function rotationContext(...extra) {
 
 test('ShapeRotation asigna los pasos solicitados a cada forma', () => {
   const { ShapeRotation } = rotationContext();
+  assert.equal(ShapeRotation.step('square'), 45);
+  assert.equal(ShapeRotation.step('trapezoid'), 90);
   assert.equal(ShapeRotation.step('hexagon'), 30);
   assert.equal(ShapeRotation.step('rect'), 90);
   assert.equal(ShapeRotation.step('roundedRect'), 90);
   assert.equal(ShapeRotation.step('triangle'), 90);
   assert.equal(ShapeRotation.step('pentagon'), 36);
   assert.equal(ShapeRotation.step('circle'), 0);
+});
+
+test('ShapeRotation gira el cuadrado 45° alrededor del mismo centro', () => {
+  const { ctx, ShapeRotation } = rotationContext('js/regular-polygon.js');
+  const RegularPolygon = getGlobal(ctx, 'RegularPolygon');
+  const original = { type: 'square', x: 20, y: 30, w: 100, h: 100 };
+  const rotated = ShapeRotation.rotateElement(original);
+  assert.equal(rotated.rotation, 45);
+  assert.deepEqual(
+    { x: rotated.x, y: rotated.y, w: rotated.w, h: rotated.h },
+    { x: 20, y: 30, w: 100, h: 100 },
+  );
+  const vertices = RegularPolygon.vertices(rotated);
+  assert.ok(Math.abs(vertices[0].x - 120) < 1e-9);
+  assert.ok(Math.abs(vertices[0].y - 80) < 1e-9);
+  let completed = rotated;
+  for (let i = 0; i < 7; i++) completed = ShapeRotation.rotateElement(completed);
+  assert.equal(completed.rotation, undefined);
 });
 
 test('ShapeRotation gira rectángulos 90° alrededor de su centro', () => {
@@ -30,6 +50,21 @@ test('ShapeRotation gira rectángulos 90° alrededor de su centro', () => {
     { x: 30, y: 0, w: 40, h: 80 }
   );
   assert.deepEqual(original, { type: 'rect', x: 10, y: 20, w: 80, h: 40, color: '#000000' });
+});
+
+test('ShapeRotation gira trapecios 90° sin mover su centro', () => {
+  const { ShapeRotation } = rotationContext();
+  const original = { type: 'trapezoid', x: 10, y: 20, w: 120, h: 60 };
+  let rotated = ShapeRotation.rotateElement(original);
+  assert.deepEqual(
+    { x: rotated.x, y: rotated.y, w: rotated.w, h: rotated.h, rotation: rotated.rotation },
+    { x: 40, y: -10, w: 60, h: 120, rotation: 90 },
+  );
+  for (let i = 0; i < 3; i++) rotated = ShapeRotation.rotateElement(rotated);
+  assert.deepEqual(
+    { x: rotated.x, y: rotated.y, w: rotated.w, h: rotated.h, rotation: rotated.rotation },
+    { x: 10, y: 20, w: 120, h: 60, rotation: undefined },
+  );
 });
 
 test('ShapeRotation aplica también el cuarto de vuelta a rectángulos redondeados', () => {

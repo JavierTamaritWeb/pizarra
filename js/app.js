@@ -192,6 +192,17 @@
         if (hit) return i;
         continue;
       }
+      if (el.type === TOOLS.TRAPEZOID) {
+        const vertices = Trapezoid.vertices(el);
+        let hit = Trapezoid.contains(pos, el);
+        for (let v = 0; v < vertices.length && !hit; v++) {
+          const a = vertices[v];
+          const b = vertices[(v + 1) % vertices.length];
+          hit = distToSegment(pos, a.x, a.y, b.x, b.y) <= el.lineWidth / 2 + 6;
+        }
+        if (hit) return i;
+        continue;
+      }
       // Flecha curva: distancia a la polilínea que muestrea la curva
       // (cuadrática o cúbica según tenga segundo control)
       if (el.type === 'curveArrow') {
@@ -433,7 +444,7 @@
 
   const ANCHORABLE_TYPES = [
     TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE,
-    TOOLS.TRIANGLE, TOOLS.PENTAGON, TOOLS.HEXAGON,
+    TOOLS.SQUARE, TOOLS.TRAPEZOID, TOOLS.TRIANGLE, TOOLS.PENTAGON, TOOLS.HEXAGON,
     TOOLS.BUTTON, TOOLS.INPUT,
     TOOLS.IMAGE_PLACEHOLDER, TOOLS.IMAGE, TOOLS.NAV, TOOLS.CARD,
   ];
@@ -441,9 +452,12 @@
 
   // Formas geométricas: las únicas que admiten relleno (los componentes UI
   // traen el suyo propio como parte de su diseño)
-  const REGULAR_POLYGON_TYPES = [TOOLS.TRIANGLE, TOOLS.PENTAGON, TOOLS.HEXAGON];
+  const REGULAR_POLYGON_TYPES = [
+    TOOLS.SQUARE, TOOLS.TRIANGLE, TOOLS.PENTAGON, TOOLS.HEXAGON,
+  ];
   const FILLABLE_TYPES = [
-    TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE, ...REGULAR_POLYGON_TYPES,
+    TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE, TOOLS.TRAPEZOID,
+    ...REGULAR_POLYGON_TYPES,
   ];
 
   /** <input type="color"> solo acepta #rrggbb: recorta un eventual canal alfa
@@ -1381,6 +1395,17 @@
       case TOOLS.CIRCLE:
         octx.beginPath(); octx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2); octx.stroke();
         break;
+      case TOOLS.TRAPEZOID: {
+        const vertices = Trapezoid.vertices({ x, y, w, h });
+        if (!vertices.length) break;
+        octx.beginPath();
+        octx.moveTo(vertices[0].x, vertices[0].y);
+        vertices.slice(1).forEach(vertex => octx.lineTo(vertex.x, vertex.y));
+        octx.closePath();
+        octx.stroke();
+        break;
+      }
+      case TOOLS.SQUARE:
       case TOOLS.TRIANGLE:
       case TOOLS.PENTAGON:
       case TOOLS.HEXAGON: {
@@ -1699,7 +1724,10 @@
       }
     }
     // Geometric shapes
-    else if ([TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE, ...REGULAR_POLYGON_TYPES].includes(state.tool)) {
+    else if ([
+      TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE, TOOLS.TRAPEZOID,
+      ...REGULAR_POLYGON_TYPES,
+    ].includes(state.tool)) {
       const polygonBox = REGULAR_POLYGON_TYPES.includes(state.tool)
         ? RegularPolygon.fromCenter(p1, p2)
         : null;

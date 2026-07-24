@@ -18,19 +18,19 @@ test('config.js — TOOLS', async t => {
     assert.equal(Object.isFrozen(ctx.TOOLS), true);
   });
 
-  await t.test('TOOLS tiene exactamente los 21 ids esperados', () => {
+  await t.test('TOOLS tiene exactamente los 23 ids esperados', () => {
     const expected = [
       'pencil', 'line', 'rect', 'roundedRect', 'circle', 'arrow',
       'curveArrow', 'arc', 'text', 'eraser', 'select', 'imagePlaceholder',
       'button', 'input', 'nav', 'card', 'image', 'emoji',
-      'triangle', 'pentagon', 'hexagon',
+      'square', 'trapezoid', 'triangle', 'pentagon', 'hexagon',
     ];
     const values = Object.values(ctx.TOOLS);
-    assert.equal(values.length, 21);
+    assert.equal(values.length, 23);
     assert.deepEqual([...values].sort(), [...expected].sort());
-    // Las claves también son 21 y únicas
-    assert.equal(Object.keys(ctx.TOOLS).length, 21);
-    assert.equal(new Set(values).size, 21);
+    // Las claves también son 23 y únicas
+    assert.equal(Object.keys(ctx.TOOLS).length, 23);
+    assert.equal(new Set(values).size, 23);
   });
 });
 
@@ -51,6 +51,19 @@ test('config.js — TOOL_GROUPS: cada tool referenciado existe en TOOLS', () => 
       assert.equal(typeof tool.name, 'string');
     }
   }
+});
+
+test('config.js — genera los botones Cuadrado y Trapecio con atajos propios', () => {
+  const ctx = load('js/config.js');
+  const forms = ctx.TOOL_GROUPS.find(group => group.label === 'Formas');
+  const square = forms.tools.find(tool => tool.id === ctx.TOOLS.SQUARE);
+  const trapezoid = forms.tools.find(tool => tool.id === ctx.TOOLS.TRAPEZOID);
+  assert.deepEqual(JSON.parse(JSON.stringify(square)), {
+    id: 'square', icon: '□', name: 'Cuadrado', key: '4',
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(trapezoid)), {
+    id: 'trapezoid', icon: '⏢', name: 'Trapecio', key: '7',
+  });
 });
 
 test('config.js — COLORS son colores hex válidos (#rrggbb)', () => {
