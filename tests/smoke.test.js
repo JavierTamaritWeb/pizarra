@@ -22,6 +22,7 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   const ctx = loadAll();
   assert.equal(typeof ctx.Sketchy, 'object');
   assert.equal(typeof ctx.Sketchy.line, 'function');
+  assert.equal(typeof ctx.ShapeRotation.rotateElement, 'function');
   assert.equal(typeof ctx.Renderer, 'object');
   assert.equal(typeof ctx.Renderer.renderElement, 'function');
   assert.equal(typeof ctx.Renderer.renderElements, 'function');

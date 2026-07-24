@@ -66,6 +66,9 @@ test('El solapamiento reconoce interior y contorno de polígonos regulares', () 
 test('Exporter valida polígonos cuadrados y rechaza deformados', () => {
   const triangle = { ...base, type: 'triangle' };
   assert.equal(Exporter.isValidElement(triangle), true);
+  assert.equal(Exporter.isValidElement({ ...triangle, rotation: 36 }), true);
+  assert.equal(Exporter.isValidElement({ ...triangle, rotation: -1 }), false);
+  assert.equal(Exporter.isValidElement({ ...triangle, rotation: 360 }), false);
   assert.equal(Exporter.isValidElement({ ...triangle, h: 80 }), false);
   assert.equal(Exporter.isValidElement({ ...triangle, w: 0 }), false);
 });
@@ -85,8 +88,15 @@ test('SVG y HTML exportan los polígonos como elementos vectoriales', () => {
   assert.equal((html.match(/<polygon /g) || []).length, 3);
 });
 
-test('JSON conserva el tipo y las dimensiones regulares', async () => {
-  const polygon = { ...base, type: 'hexagon', fill: true, fillTransparent: true, fillOpacity: 0.4 };
+test('JSON conserva el tipo, la orientación y las dimensiones regulares', async () => {
+  const polygon = {
+    ...base,
+    type: 'hexagon',
+    fill: true,
+    fillTransparent: true,
+    fillOpacity: 0.4,
+    rotation: 30,
+  };
   Exporter.json([polygon]);
   const json = ctx.URL.blobs[ctx.URL.blobs.length - 1].content;
   const promise = Exporter.importJSON();
@@ -96,4 +106,5 @@ test('JSON conserva el tipo y las dimensiones regulares', async () => {
   assert.equal(imported[0].type, 'hexagon');
   assert.equal(imported[0].w, imported[0].h);
   assert.equal(imported[0].fillOpacity, 0.4);
+  assert.equal(imported[0].rotation, 30);
 });

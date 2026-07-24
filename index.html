@@ -20,7 +20,7 @@
       <div class="topbar__brand">
         <span class="topbar__logo-icon" aria-hidden="true">✎</span>
         <span class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></span>
-        <span class="topbar__badge">v1.7.0</span>
+        <span class="topbar__badge">v1.8.0</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes">
@@ -162,6 +162,9 @@
           <button class="btn btn--ghost btn--block" id="btn-duplicate-sel" hidden>
             ⧉ Duplicar selección
           </button>
+          <button class="btn btn--ghost btn--block" id="btn-rotate-sel" hidden>
+            ↻ Rotar selección
+          </button>
           <button class="btn btn--danger btn--block" id="btn-delete-sel" hidden>
             🗑 Eliminar selección
           </button>
@@ -237,6 +240,7 @@
           <li><kbd>Shift</kbd>+click o arrastre en vacío: multi-selección · arrastra el grupo desde cualquier punto de su marco</li>
           <li><kbd>Ctrl</kbd>+<kbd>C</kbd> copia la selección · <kbd>Ctrl</kbd>+<kbd>V</kbd> la pega (también entre pestañas)</li>
           <li><kbd>Ctrl</kbd>+<kbd>V</kbd> o arrastrar un archivo: imágenes PNG/JPG</li>
+          <li><kbd>Shift</kbd>+<kbd>R</kbd> o <strong>Rotar selección</strong>: triángulo/rectángulo 90° · pentágono 36° · hexágono 30°</li>
         </ul>
       </section>
 
@@ -356,6 +360,7 @@
   <script src="js/sketchy.js"></script>
   <script src="js/arc.js"></script>
   <script src="js/curve-path.js"></script>
+  <script src="js/shape-rotation.js"></script>
   <script src="js/regular-polygon.js"></script>
   <script src="js/renderer.js"></script>
   <script src="js/exporter.js"></script>

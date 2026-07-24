@@ -2,10 +2,10 @@
 
 **Crea wireframes, diagramas y bocetos con estilo dibujado a mano, directamente en tu navegador.**
 
-![Versión](https://img.shields.io/badge/versi%C3%B3n-1.7.0-blueviolet)
+![Versión](https://img.shields.io/badge/versi%C3%B3n-1.8.0-blueviolet)
 ![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?logo=javascript&logoColor=000)
 ![Sin dependencias](https://img.shields.io/badge/dependencias-0-brightgreen)
-![Tests](https://img.shields.io/badge/tests-186%20%E2%9C%93-brightgreen)
+![Tests](https://img.shields.io/badge/tests-192%20%E2%9C%93-brightgreen)
 ![Licencia](https://img.shields.io/badge/licencia-MIT-blue)
 
 Pizarra es una aplicación de wireframing sobre canvas escrita en JavaScript puro: **sin build, sin bundler y sin `node_modules`**. Permite crear bocetos, diagramas y prototipos rápidos directamente en el navegador.
@@ -34,6 +34,7 @@ Pizarra es una aplicación de wireframing sobre canvas escrita en JavaScript pur
 
 ### Edición
 - 👆 Selección múltiple (Shift+click, marquee, `Ctrl/Cmd+A`), mover, duplicar (`Ctrl/Cmd+D`), redimensionar con handles y nudge con flechas. El grupo seleccionado se arrastra desde cualquier punto de su marco combinado, incluido el espacio vacío entre elementos.
+- ↻ **Rotación por pasos** desde el panel o con `Shift+R`: triángulos, rectángulos y redondeados 90°, pentágonos 36° y hexágonos 30°. En una selección múltiple, cada forma compatible usa su propio paso.
 - 📋 **Copiar y pegar** la selección con `Ctrl/Cmd+C` / `Ctrl/Cmd+V` — también entre pestañas. Lo pegado aparece desplazado, queda seleccionado y las flechas ancladas se re-vinculan a sus clones.
 - ↩️ Undo/redo con historial de 50 pasos (`Ctrl+Z` / `Ctrl+Y` / `Cmd+Shift+Z`).
 - 🧮 Cuadrícula con ajuste opcional (Alt lo desactiva al vuelo) y zoom 30–300%, con auto-ajuste al espacio disponible en pantallas anchas.
@@ -87,6 +88,7 @@ Pizarra guarda automáticamente el lienzo en `localStorage`. Para crear una copi
 | `V` | Mover / seleccionar |
 | `Ctrl/Cmd+Z` / `Ctrl+Y` o `Cmd+Shift+Z` | Deshacer / rehacer |
 | `Ctrl/Cmd+D` / `Ctrl/Cmd+A` | Duplicar / seleccionar todo |
+| `Shift+R` | Rotar selección: triángulo/rectángulo 90° · pentágono 36° · hexágono 30° |
 | `Supr` / `Esc` | Borrar selección / deseleccionar |
 | Flechas (+`Shift`) | Mover selección 1px (20px) |
 | `F` / `D` / `S` | Invertir giro · invertir dirección · curva en S |
@@ -106,6 +108,7 @@ js/
 ├── sketchy.js      Primitivas de trazo manual (PRNG determinista por elemento)
 ├── arc.js          Geometría de arcos circulares (ajuste de cúbica a semicírculo)
 ├── curve-path.js   Geometría compartida de flechas curvas encadenadas
+├── shape-rotation.js Rotación discreta de formas alrededor de su centro
 ├── regular-polygon.js Geometría de triángulos, pentágonos y hexágonos
 ├── renderer.js     Render por tipo de elemento + cuadrícula + selección
 ├── exporter.js     Export PNG/JPG/SVG/HTML/JSON + import validado
@@ -122,7 +125,7 @@ Principios de diseño:
 
 ## Tests
 
-186 tests con el runner nativo de Node — sin ninguna dependencia:
+192 tests con el runner nativo de Node — sin ninguna dependencia:
 
 ```bash
 node --test tests/                    # suite completa

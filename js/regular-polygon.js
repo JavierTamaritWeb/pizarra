@@ -29,9 +29,10 @@ const RegularPolygon = (() => {
     const cx = el.x + el.w / 2;
     const cy = el.y + el.h / 2;
     const radius = Math.min(Math.abs(el.w), Math.abs(el.h)) / 2;
+    const rotation = Number.isFinite(el.rotation) ? el.rotation * Math.PI / 180 : 0;
     if (!radius) return [];
     return Array.from({ length: count }, (_, index) => {
-      const angle = -Math.PI / 2 + index * Math.PI * 2 / count;
+      const angle = -Math.PI / 2 + rotation + index * Math.PI * 2 / count;
       return {
         x: cx + Math.cos(angle) * radius,
         y: cy + Math.sin(angle) * radius,

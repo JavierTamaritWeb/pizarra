@@ -836,6 +836,12 @@
     const hasSel = state.selection.length > 0;
     $('btn-delete-sel').hidden = !hasSel;
     $('btn-duplicate-sel').hidden = !hasSel;
+    const rotatable = state.selection.filter(i => ShapeRotation.isType(state.elements[i].type));
+    const rotateBtn = $('btn-rotate-sel');
+    rotateBtn.hidden = rotatable.length === 0;
+    rotateBtn.textContent = rotatable.length === 1 && state.selection.length === 1
+      ? `↻ Rotar ${ShapeRotation.step(state.elements[rotatable[0]].type)}°`
+      : '↻ Rotar selección';
     // Semántica dual de los controles del panel: con selección única muestran
     // los valores del elemento; sin selección, los defaults de creación.
     // (Con multi-selección no se tocan: conservan lo último mostrado.)
@@ -2043,6 +2049,16 @@
     redraw();
   }
 
+  function rotateSelection() {
+    const targets = state.selection.filter(i => ShapeRotation.isType(state.elements[i].type));
+    if (!targets.length) return;
+    saveUndo();
+    targets.forEach(i => {
+      state.elements[i] = ShapeRotation.rotateElement(state.elements[i]);
+    });
+    redraw();
+  }
+
   /* ── Build sidebar ── */
 
   function buildSidebar() {
@@ -2384,6 +2400,7 @@
     // Selection actions
     $('btn-delete-sel').addEventListener('click', deleteSelection);
     $('btn-duplicate-sel').addEventListener('click', duplicateSelection);
+    $('btn-rotate-sel').addEventListener('click', rotateSelection);
 
     // Import
     $('btn-import').addEventListener('click', async () => {
@@ -2503,6 +2520,14 @@
     }
     if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); return; }
     if ((e.ctrlKey || e.metaKey) && k === 'd') { e.preventDefault(); duplicateSelection(); return; }
+
+    // Shift+R: girar cada forma compatible por su paso discreto.
+    if (k === 'r' && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey &&
+        state.selection.some(i => ShapeRotation.isType(state.elements[i].type))) {
+      e.preventDefault();
+      rotateSelection();
+      return;
+    }
 
     if ((e.key === 'Delete' || e.key === 'Backspace') && state.selection.length) {
       e.preventDefault();

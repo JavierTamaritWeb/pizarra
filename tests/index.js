@@ -14,6 +14,7 @@ require('./smoke.test.js');
 require('./config-templates.test.js');
 require('./arc.test.js');
 require('./curve-path.test.js');
+require('./shape-rotation.test.js');
 require('./regular-polygon.test.js');
 require('./exporter.test.js');
 require('./sketchy-renderer.test.js');

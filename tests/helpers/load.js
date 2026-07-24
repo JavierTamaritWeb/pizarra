@@ -39,7 +39,8 @@ const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const KNOWN_GLOBALS = [
   'TOOLS', 'TOOL_GROUPS', 'COLORS', 'CANVAS_W', 'CANVAS_H',
   'SKETCHY_FONT', 'UI_DEFAULTS', 'EMOJI_GROUPS', 'EMOJI_MIN_SIZE',
-  'Sketchy', 'ArcMath', 'CurvePath', 'RegularPolygon', 'Renderer', 'Exporter', 'Templates',
+  'Sketchy', 'ArcMath', 'CurvePath', 'ShapeRotation', 'RegularPolygon',
+  'Renderer', 'Exporter', 'Templates',
 ];
 
 /** Orden completo de dependencias del proyecto (app.js excluido: requiere DOM real). */
@@ -48,6 +49,7 @@ const ALL_FILES = [
   'js/sketchy.js',
   'js/arc.js',
   'js/curve-path.js',
+  'js/shape-rotation.js',
   'js/regular-polygon.js',
   'js/renderer.js',
   'js/exporter.js',

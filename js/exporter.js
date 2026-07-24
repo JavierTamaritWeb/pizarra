@@ -449,6 +449,11 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
     // SVG/HTML, así que se valida como hex igual que `color`
     if (el.fillColor !== undefined &&
         !(typeof el.fillColor === 'string' && HEX_COLOR.test(el.fillColor))) return false;
+    // rotation: orientación opcional y normalizada de polígonos regulares.
+    // Los rectángulos girados 90° se serializan intercambiando w/h.
+    if (el.rotation !== undefined &&
+        !(RegularPolygon.isType(el.type) && _isNum(el.rotation) &&
+          el.rotation >= 0 && el.rotation < 360)) return false;
     // label (etiqueta de componentes y flechas)
     if (el.label !== undefined && typeof el.label !== 'string') return false;
     // labelT (posición de la etiqueta sobre el trazo): número en (0,1) abierto

@@ -4,6 +4,19 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.8.0] — 2026-07-24
+
+### Añadido
+- **Rotación discreta de formas** desde el panel o con `Shift+R`: cada
+  triángulo, rectángulo o rectángulo redondeado gira 90°, cada pentágono 36°
+  y cada hexágono 30° alrededor de su propio centro. La acción admite
+  multi-selección y un único paso de undo.
+- La orientación de los polígonos se conserva en autoguardado, portapapeles,
+  JSON, SVG, HTML, PNG y JPG; el giro de rectángulos se representa
+  intercambiando sus dimensiones.
+- 6 pruebas de pasos, centro, normalización, inmutabilidad y conservación de
+  lados: la suite pasa de 186 a 192.
+
 ## [1.7.0] — 2026-07-24
 
 ### Añadido
