@@ -31,6 +31,11 @@ const TOOLS = Object.freeze({
   BUILD_PLANTA: 'planta',         BUILD_FACADE: 'fachada',
   BUILD_ROOF:   'tejado',         BUILD_DOOR:   'puerta',
   BUILD_WINDOW: 'ventana',
+  // Jardín — herramientas de creación (NO tipos de elemento): producen
+  // rect/line/circle/curveArrow/text. Todo en vista de planta. Ver js/garden.js.
+  GARDEN_PLOT:   'jardin',        GARDEN_TREE:   'arbol',
+  GARDEN_SHRUB:  'arbusto',       GARDEN_FLOWER: 'flor',
+  GARDEN_DECOR:  'decoracion',
 });
 
 /** Herramientas de la sección "Edificios": todas son SOLO de creación
@@ -97,6 +102,67 @@ const FACADE_TYPES = Object.freeze([
   { id: 'profile', name: 'De lado',    hint: 'Perfil' },
 ]);
 
+/** Herramientas de la sección "Jardín": como las de Edificios, todas son SOLO
+    de creación (producen rect/line/circle/curveArrow/text), nunca valores de
+    `el.type`. Ver js/garden.js. */
+const GARDEN_TOOLS = Object.freeze([
+  TOOLS.GARDEN_PLOT, TOOLS.GARDEN_TREE, TOOLS.GARDEN_SHRUB,
+  TOOLS.GARDEN_FLOWER, TOOLS.GARDEN_DECOR,
+]);
+
+/* Los cinco catálogos del jardín comparten formato con los de Edificios
+   ({ id, name }) y su icono NO se dibuja a mano: app.js lo pinta con la
+   geometría real de js/garden.js, así que el icono es siempre lo que se
+   obtiene al arrastrar. Añadir una variante = añadir una entrada aquí y su
+   caso en garden.js; el modal se rellena solo. */
+
+/** Formas de la parcela del botón Jardín. */
+const PLOT_SHAPES = Object.freeze([
+  { id: 'rect',    name: 'Rectangular' },
+  { id: 'round',   name: 'Redonda' },
+  { id: 'l',       name: 'En L' },
+  { id: 'organic', name: 'Orgánica' },
+]);
+
+/** Tipos del botón Árbol (copa vista desde arriba). */
+const TREE_TYPES = Object.freeze([
+  { id: 'broadleaf', name: 'Frondoso' },
+  { id: 'conifer',   name: 'Conífera' },
+  { id: 'palm',      name: 'Palmera' },
+  { id: 'olive',     name: 'Olivo' },
+  { id: 'fruit',     name: 'Frutal' },
+  { id: 'cypress',   name: 'Ciprés' },
+]);
+
+/** Tipos del botón Arbusto. */
+const SHRUB_TYPES = Object.freeze([
+  { id: 'bush',   name: 'Mata redonda' },
+  { id: 'hedge',  name: 'Seto' },
+  { id: 'clump',  name: 'Macizo' },
+  { id: 'topiary',name: 'Topiario' },
+]);
+
+/** Tipos del botón Flor. */
+const FLOWER_TYPES = Object.freeze([
+  { id: 'daisy',     name: 'Margarita' },
+  { id: 'rose',      name: 'Rosa' },
+  { id: 'tulip',     name: 'Tulipán' },
+  { id: 'bed',       name: 'Parterre' },
+  { id: 'sunflower', name: 'Girasol' },
+]);
+
+/** Tipos del botón Decoración. */
+const DECOR_TYPES = Object.freeze([
+  { id: 'pot',      name: 'Maceta' },
+  { id: 'well',     name: 'Pozo' },
+  { id: 'can',      name: 'Regadera' },
+  { id: 'stone',    name: 'Piedra' },
+  { id: 'bench',    name: 'Banco' },
+  { id: 'fountain', name: 'Fuente' },
+  { id: 'pond',     name: 'Estanque' },
+  { id: 'path',     name: 'Camino' },
+]);
+
 const TOOL_GROUPS = [
   {
     label: 'Dibujo',
@@ -148,6 +214,23 @@ const TOOL_GROUPS = [
       { id: TOOLS.BUILD_ROOF,   icon: '△',  name: 'Tejado',         key: '2' },
       { id: TOOLS.BUILD_DOOR,   icon: '🚪', name: 'Puerta',         key: '0' },
       { id: TOOLS.BUILD_WINDOW, icon: '🪟', name: 'Ventana',        key: 'y' },
+    ],
+  },
+  {
+    label: 'Jardín',
+    // Atajos: `8 9 h x z` son las CINCO teclas sueltas que quedaban libres, y
+    // por eso van en el orden del sidebar en vez de por inicial. Ojo al elegir
+    // otras: `f`, `q`, `d` y `s` ya están cogidas por acciones de flecha curva
+    // (app.js), que se comprueban ANTES que TOOL_KEYS y solo cuando hay una
+    // curva seleccionada — o sea que la colisión sería intermitente y muda, y
+    // toda pieza de jardín lleva curvas dentro. Lo fija RESERVED_PLAIN_KEYS en
+    // tests/config-templates.test.js.
+    tools: [
+      { id: TOOLS.GARDEN_PLOT,   icon: '🟩', name: 'Jardín',     key: '8' },
+      { id: TOOLS.GARDEN_TREE,   icon: '🌳', name: 'Árbol',      key: '9' },
+      { id: TOOLS.GARDEN_SHRUB,  icon: '🌿', name: 'Arbusto',    key: 'h' },
+      { id: TOOLS.GARDEN_FLOWER, icon: '🌸', name: 'Flor',       key: 'x' },
+      { id: TOOLS.GARDEN_DECOR,  icon: '🪴', name: 'Decoración', key: 'z' },
     ],
   },
 ];

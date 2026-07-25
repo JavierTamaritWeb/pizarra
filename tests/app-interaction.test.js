@@ -12,6 +12,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { loadApp } = require('./helpers/load-app.js');
+const { loadAll } = require('./helpers/load.js');
+
+// isValidElement es pura: se toma del cargador normal en vez de hurgar en el
+// contexto vm de la app (sus `const` top-level no cuelgan de globalThis).
+const { Exporter } = loadAll();
 
 /** Desplazamiento en x de un elemento entre dos escenas (rect/line). */
 const dx = (before, after) =>
@@ -277,4 +282,169 @@ test('el panel y el modal de Fachada quedan sincronizados en ambos sentidos', ()
   modalFloors.__fire('change', { target: modalFloors });
   app.flush();
   assert.equal(panelFloors.value, '3', 'modal → panel');
+});
+
+/* ── Jardín ── */
+
+test('un árbol se crea como grupo, con su etiqueta dentro', () => {
+  const app = loadApp();
+  app.selectTool('arbol');
+  app.drag(200, 200, 300, 300);
+
+  const els = app.elements();
+  assert.ok(els.length > 2, 'un árbol son copa, detalle y etiqueta');
+  const gid = els[0].buildingGroupId;
+  assert.ok(gid, 'las piezas comparten grupo');
+  assert.ok(els.every(e => e.buildingGroupId === gid));
+  const label = els.find(e => e.type === 'text');
+  assert.ok(label, 'debe llevar etiqueta');
+  assert.equal(label.value, 'Frondoso');
+  assert.equal(label.buildingGroupId, gid, 'la etiqueta va en el grupo');
+});
+
+test('mover un árbol arrastra también su etiqueta', () => {
+  const app = loadApp();
+  app.selectTool('arbol');
+  app.drag(200, 200, 300, 300);
+  const before = app.elements();
+
+  app.selectTool('select');
+  app.click(250, 250);          // un clic selecciona el árbol entero
+  app.drag(250, 250, 290, 250); // y arrastrarlo lo mueve completo
+
+  const after = app.elements();
+  assert.equal(after.length, before.length);
+  const moved = before.map((el, i) => dx(el, after[i]));
+  assert.ok(moved.every(d => Math.abs(d - moved[0]) < 0.01),
+    'todas las piezas, etiqueta incluida, se mueven lo mismo');
+  assert.ok(Math.abs(moved[0] - 40) < 0.01, 'y se mueven lo arrastrado');
+});
+
+test('apagar las etiquetas quita el texto y persiste en prefs', () => {
+  const app = loadApp();
+  const check = app.$('check-garden-labels');
+  assert.equal(check.checked, true, 'las etiquetas vienen activadas');
+  check.checked = false;
+  check.__fire('change', { target: check });
+  app.flush();
+
+  app.selectTool('flor');
+  app.drag(100, 100, 140, 140);
+  assert.equal(app.elements().filter(e => e.type === 'text').length, 0);
+
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.gardenLabels, false);
+  assert.equal(loadApp({ prefs }).$('check-garden-labels').checked, false);
+});
+
+test('elegir variante en el catálogo cambia lo que se dibuja y persiste', () => {
+  const app = loadApp();
+  app.selectTool('decoracion');
+  app.pickVariant('decor-catalog', 'modal__decor', 'bench', 'decor');
+  app.drag(100, 100, 200, 140);
+
+  const label = app.elements().find(e => e.type === 'text');
+  assert.equal(label.value, 'Banco');
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.decorType, 'bench');
+});
+
+// Con `f`, `q`, `d` o `s` la colisión sería intermitente: esas teclas solo
+// actúan cuando hay una flecha curva seleccionada, y toda pieza de jardín
+// lleva curvas dentro.
+test('los atajos del jardín no chocan con las acciones de flecha curva', () => {
+  const app = loadApp();
+  app.selectTool('arbol');
+  app.drag(200, 200, 300, 300);
+  app.selectTool('select');
+  app.click(250, 250);          // árbol seleccionado: hay curveArrow dentro
+  const before = JSON.stringify(app.elements());
+
+  ['8', '9', 'h', 'x', 'z'].forEach(k => {
+    const ev = app.key(k);
+    assert.equal(ev.defaultPrevented, true, `el atajo ${k} debe cancelar la tecla`);
+  });
+  assert.equal(JSON.stringify(app.elements()), before,
+    'ningún atajo de jardín puede alterar el dibujo seleccionado');
+});
+
+// Lo que la previsualización no sabe pintar no da error: simplemente no sale, y
+// deja de coincidir con lo que aparece al soltar. Pasaba con las curvas
+// encadenadas (no tienen cx/cy de nivel superior, y quadraticCurveTo(undefined…)
+// es un no-op silencioso) y con las etiquetas.
+test('la previsualización del arrastre pinta la silueta encadenada y la etiqueta', () => {
+  const app = loadApp();
+  app.selectTool('arbol');
+  const canvas = app.$('main-canvas');
+  const overlay = app.$('overlay-canvas');
+  const fire = (type, x, y, extra = {}) =>
+    canvas.__fire(type, { clientX: x, clientY: y, pointerId: 1, button: 0, ...extra });
+
+  fire('pointerdown', 200, 200);
+  overlay._ctx.reset();                 // solo interesa lo que pinta el arrastre
+  fire('pointermove', 320, 320, { buttons: 1 });
+  app.flush();
+
+  const pintado = overlay._ctx.methodNames();
+  assert.ok(pintado.includes('bezierCurveTo'),
+    'la copa es una curva encadenada: sin recorrer sus segments no se dibuja nada');
+  assert.ok(pintado.includes('fillText'),
+    'la etiqueta forma parte de la pieza y debe verse ya en la previsualización');
+  fire('pointerup', 320, 320);
+});
+
+// Cancelar sin elegir variante debe devolver la herramienta anterior, en las dos
+// secciones. Nadie lo había fijado, y al añadir Jardín la condición de
+// wireBuildModalCancel pasó a mirar dos listas: sin test, romperla no se notaría.
+const activeTool = app => app.dom.document.querySelectorAll('.sidebar__tool')
+  .find(b => b.classList.contains('sidebar__tool--active')).dataset.tool;
+
+test('cancelar un catálogo devuelve la herramienta anterior (Edificios y Jardín)', () => {
+  for (const [tool, modal] of [['planta', 'modal-planta'], ['arbol', 'modal-tree']]) {
+    const app = loadApp();
+    app.selectTool('rect');
+    app.selectTool(tool);
+    assert.equal(activeTool(app), tool, `${tool} debe quedar activa con el modal abierto`);
+    app.$(modal).close();
+    app.flush();
+    assert.equal(activeTool(app), 'rect', `cancelar ${modal} debe volver a Rectángulo`);
+  }
+});
+
+// Si la herramienta previa TAMBIÉN abre catálogo, restaurarla reabriría un modal
+// en cascada nada más cerrar el anterior. Para llegar a ese caso hay que elegir
+// variante en el primero (así la herramienta se conserva) y luego cambiar al
+// segundo y cancelar.
+test('cancelar cuando la herramienta previa también abre catálogo cae en Mover', () => {
+  const app = loadApp();
+  app.selectTool('jardin');
+  app.pickVariant('plot-catalog', 'modal__plot', 'round', 'plot');
+  assert.equal(activeTool(app), 'jardin');
+  app.selectTool('flor');        // previa = jardin, que abre modal
+  app.$('modal-flower').close();
+  app.flush();
+  assert.equal(activeTool(app), 'select', 'no debe reabrir el catálogo de Jardín');
+  assert.equal(app.$('modal-plot').open, false);
+});
+
+test('elegir variante NO devuelve la herramienta anterior: se queda para dibujar', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.selectTool('arbol');
+  app.pickVariant('tree-catalog', 'modal__tree', 'palm', 'tree');
+  assert.equal(activeTool(app), 'arbol', 'tras elegir, la herramienta se conserva');
+});
+
+test('todo lo que dibuja el jardín sobrevive al round-trip JSON', () => {
+  const app = loadApp();
+  for (const tool of ['jardin', 'arbol', 'arbusto', 'flor', 'decoracion']) {
+    app.selectTool(tool);
+    app.drag(100, 100, 240, 240);
+  }
+  const els = app.elements();
+  assert.ok(els.length > 10);
+  for (const el of els) {
+    assert.ok(Exporter.isValidElement(el),
+      `elemento que no sobreviviría a la importación: ${JSON.stringify(el)}`);
+  }
 });

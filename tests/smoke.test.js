@@ -34,17 +34,21 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Exporter.png, 'function');
   assert.equal(typeof ctx.Building, 'object');
   assert.equal(typeof ctx.Building.elements, 'function');
+  assert.equal(typeof ctx.Garden, 'object');
+  assert.equal(typeof ctx.Garden.elements, 'function');
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v1.14.1 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v1.15.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v1\.14\.1</);
-  assert.match(html, /css\/styles\.css\?v=1\.14\.1/);
-  assert.match(html, /js\/app\.js\?v=1\.14\.1/);
-  assert.match(html, /js\/building\.js\?v=1\.14\.1/);
-  assert.match(html, /js\/config\.js\?v=1\.14\.1/);
+  assert.match(html, /class="topbar__badge">v1\.15\.0</);
+  assert.match(html, /css\/styles\.css\?v=1\.15\.0/);
+  assert.match(html, /js\/app\.js\?v=1\.15\.0/);
+  assert.match(html, /js\/building\.js\?v=1\.15\.0/);
+  assert.match(html, /js\/garden\.js\?v=1\.15\.0/);
+  assert.match(html, /js\/config\.js\?v=1\.15\.0/);
   assert.match(html, /id="modal-planta"/);
+  assert.match(html, /id="modal-plot"/);
   assert.match(html, /id="stroke-label">Trazo</);
   assert.match(html, /Tamaño del borrador/);
   assert.match(html, /entre 4 y 100 px \(16 px por defecto\)/);

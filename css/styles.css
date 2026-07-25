@@ -853,6 +853,18 @@ kbd {
   color: var(--text-secondary);
 }
 
+/* Icono de los catálogos de Jardín: un canvas con la geometría real, no un SVG.
+   Va algo más cuadrado que los 46×34 de Edificios porque un símbolo en planta
+   lo es. Debe coincidir con GARDEN_ICON_W/H en app.js.
+   No hereda `currentColor` —se pinta con la tinta del usuario, que además es
+   información útil—, así que la variante activa se distingue por el borde y el
+   fondo de .modal__shape--active. */
+.modal__shape-icon {
+  width: 56px;
+  height: 48px;
+  border-radius: 4px;
+}
+
 .modal__shape-name {
   text-align: center;
   line-height: 1.2;

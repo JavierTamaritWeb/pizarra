@@ -37,6 +37,13 @@
     buildBays: 'auto',   // ventanas por planta ('auto' = según el ancho)
     roofPitch: 0.36,     // fracción de altura del tejado en Alzado/Perfil (0.20–0.50)
     roofType: 'gable',   // cubierta del Alzado: gable (2 aguas) | hip (4 aguas) | mansard
+    // Jardín: variante elegida en cada modal (defaults de creación, ver js/garden.js)
+    plotShape: 'rect',   // parcela: rect|round|l|organic
+    treeType: 'broadleaf',
+    shrubType: 'bush',
+    flowerType: 'daisy',
+    decorType: 'pot',
+    gardenLabels: true,  // rotular cada pieza con el nombre de su variante
     doubleHead:  false, // nuevas flechas con punta en ambos extremos
     dashed:      false, // nuevas líneas/flechas con trazo discontinuo
     curveFlip:   false, // Shift durante el trazado: curva hacia el otro lado
@@ -739,6 +746,13 @@
         roofShape: state.roofShape,
         doorType: state.doorType,
         windowType: state.windowType,
+        // Variantes de Jardín, por el mismo motivo.
+        plotShape: state.plotShape,
+        treeType: state.treeType,
+        shrubType: state.shrubType,
+        flowerType: state.flowerType,
+        decorType: state.decorType,
+        gardenLabels: state.gardenLabels,
       }));
     } catch (_) { /* almacenamiento lleno o bloqueado: se ignora */ }
   }
@@ -782,6 +796,12 @@
       restoreVariant(prefs.roofShape,   ROOF_TYPES,    'roofShape');
       restoreVariant(prefs.doorType,    DOOR_TYPES,    'doorType');
       restoreVariant(prefs.windowType,  WINDOW_TYPES,  'windowType');
+      restoreVariant(prefs.plotShape,   PLOT_SHAPES,   'plotShape');
+      restoreVariant(prefs.treeType,    TREE_TYPES,    'treeType');
+      restoreVariant(prefs.shrubType,   SHRUB_TYPES,   'shrubType');
+      restoreVariant(prefs.flowerType,  FLOWER_TYPES,  'flowerType');
+      restoreVariant(prefs.decorType,   DECOR_TYPES,   'decorType');
+      if (typeof prefs.gardenLabels === 'boolean') state.gardenLabels = prefs.gardenLabels;
     } catch (_) { /* prefs corruptas: se ignoran */ }
   }
 
@@ -1405,11 +1425,43 @@
     };
   }
 
-  // Dibuja la previsualización de un edificio (elementos rect/line/circle/curveArrow
-  // producidos por Building.elements) respetando el trazo de cada pieza —el detalle
+  // Opts de creación de la sección Jardín. Mismo papel que buildOpts: fuente
+  // ÚNICA para la previsualización del arrastre, el commit al soltar y los
+  // iconos del catálogo.
+  //
+  // `measureText` es la única dependencia con DOM del módulo (js/garden.js es
+  // puro, como js/eraser.js): sirve para centrar la etiqueta y NO puede cambiar
+  // nada más. Se mide con la misma fuente con la que se dibujará el texto, que
+  // es lo que hace getElementBounds — si no, la etiqueta quedaría descentrada
+  // dentro de su propio recuadro de selección.
+  function gardenOpts() {
+    return {
+      color: state.color, lineWidth: state.lineWidth,
+      plotShape: state.plotShape, treeType: state.treeType,
+      shrubType: state.shrubType, flowerType: state.flowerType,
+      decorType: state.decorType,
+      labels: state.gardenLabels,
+      measureText: (value, fontSize) => {
+        ctx.save();
+        ctx.font = `${fontSize}px ${SKETCHY_FONT}`;
+        const w = ctx.measureText(value).width;
+        ctx.restore();
+        return w;
+      },
+    };
+  }
+
+  // Dibuja la previsualización de una pieza compuesta (los elementos que producen
+  // Building.elements y Garden.elements) respetando el trazo de cada una —el detalle
   // usa lineWidth fino— en vez del grosor global del overlay. Mantiene el guion del
   // trazo discontinuo ya fijado por paintOverlay.
-  function drawBuildingPreview(octx, els) {
+  //
+  // Todo tipo que una herramienta de creación pueda emitir TIENE que estar aquí: lo
+  // que falte no da error, simplemente no se dibuja, y la previsualización deja de
+  // coincidir con lo que aparece al soltar. Pasó con las curvas encadenadas, que no
+  // tienen `cx`/`cy` de nivel superior: `quadraticCurveTo(undefined, …)` es un no-op
+  // silencioso según la especificación de Canvas.
+  function drawPiecesPreview(octx, els) {
     octx.save();
     els.forEach(el => {
       octx.strokeStyle = el.color;
@@ -1423,10 +1475,20 @@
         octx.ellipse(el.x + el.w / 2, el.y + el.h / 2, el.w / 2, el.h / 2, 0, 0, Math.PI * 2);
         octx.stroke();
       } else if (el.type === 'curveArrow') {
-        octx.beginPath(); octx.moveTo(el.x1, el.y1);
-        if (el.cx2 !== undefined) octx.bezierCurveTo(el.cx, el.cy, el.cx2, el.cy2, el.x2, el.y2);
-        else octx.quadraticCurveTo(el.cx, el.cy, el.x2, el.y2);
+        // CurvePath.segments normaliza la curva suelta y la encadenada, así que
+        // la distinción vive en un único módulo.
+        const segs = CurvePath.segments(el);
+        octx.beginPath();
+        octx.moveTo(segs[0].x1, segs[0].y1);
+        segs.forEach(s => {
+          if (s.cx2 !== undefined) octx.bezierCurveTo(s.cx, s.cy, s.cx2, s.cy2, s.x2, s.y2);
+          else octx.quadraticCurveTo(s.cx, s.cy, s.x2, s.y2);
+        });
         octx.stroke();
+      } else if (el.type === 'text') {
+        // Se delega en el renderer de verdad: reimplementar aquí la fuente, el
+        // anclaje y el interlineado sería una segunda copia destinada a divergir.
+        Renderer.renderElement(octx, el);
       }
     });
     octx.restore();
@@ -1581,10 +1643,11 @@
         break;
       }
       default:
-        // Preview de "Edificios": misma geometría que se creará al soltar
+        // Preview de "Edificios" y "Jardín": misma geometría que se creará al soltar
         if (BUILDING_TOOLS.includes(state.tool)) {
-          const preview = Building.elements(state.tool, state.startPos, pos, buildOpts());
-          drawBuildingPreview(octx, preview);
+          drawPiecesPreview(octx, Building.elements(state.tool, state.startPos, pos, buildOpts()));
+        } else if (GARDEN_TOOLS.includes(state.tool)) {
+          drawPiecesPreview(octx, Garden.elements(state.tool, state.startPos, pos, gardenOpts()));
         } else {
           octx.strokeRect(x, y, w, h);
         }
@@ -1922,12 +1985,16 @@
     }
     // Edificios — herramientas de creación: 1..N elementos de tipos ya
     // existentes (rect/line, ver js/building.js). Un solo undo por gesto.
-    else if (BUILDING_TOOLS.includes(state.tool)) {
-      const created = withSeeds(Building.elements(state.tool, p1, p2, buildOpts()));
+    else if (BUILDING_TOOLS.includes(state.tool) || GARDEN_TOOLS.includes(state.tool)) {
+      const created = withSeeds(GARDEN_TOOLS.includes(state.tool)
+        ? Garden.elements(state.tool, p1, p2, gardenOpts())
+        : Building.elements(state.tool, p1, p2, buildOpts()));
       if (created.length) {
         saveUndo();
-        // Agrupa las piezas del edificio bajo un id compartido → se seleccionan,
-        // mueven, duplican y borran como una unidad (Alt+click aísla una pieza).
+        // Agrupa las piezas bajo un id compartido → se seleccionan, mueven,
+        // duplican y borran como una unidad (Alt+click aísla una pieza). El campo
+        // se llama buildingGroupId por historia; vale para cualquier herramienta
+        // compuesta y renombrarlo rompería los proyectos ya guardados.
         if (created.length > 1) {
           const gid = newId();
           for (const el of created) el.buildingGroupId = gid;
@@ -2268,12 +2335,26 @@
   // Herramientas de Edificios que abren un modal de variante al seleccionarse.
   const MODAL_BUILD_TOOLS = [TOOLS.BUILD_PLANTA, TOOLS.BUILD_FACADE, TOOLS.BUILD_DOOR, TOOLS.BUILD_WINDOW, TOOLS.BUILD_ROOF];
 
+  /* Los cinco modales del Jardín. A diferencia de Edificios —cinco parejas
+     build*Catalog/update*Active casi calcadas— aquí basta una tabla: el catálogo
+     se construye con un único constructor genérico y los iconos no se dibujan a
+     mano, los pinta la propia geometría de js/garden.js (ver gardenIcon). */
+  const GARDEN_MODALS = [
+    { tool: TOOLS.GARDEN_PLOT,   modal: 'modal-plot',   root: 'plot-catalog',   cls: 'modal__plot',   data: 'plot',   catalog: PLOT_SHAPES,   key: 'plotShape'  },
+    { tool: TOOLS.GARDEN_TREE,   modal: 'modal-tree',   root: 'tree-catalog',   cls: 'modal__tree',   data: 'tree',   catalog: TREE_TYPES,    key: 'treeType'   },
+    { tool: TOOLS.GARDEN_SHRUB,  modal: 'modal-shrub',  root: 'shrub-catalog',  cls: 'modal__shrub',  data: 'shrub',  catalog: SHRUB_TYPES,   key: 'shrubType'  },
+    { tool: TOOLS.GARDEN_FLOWER, modal: 'modal-flower', root: 'flower-catalog', cls: 'modal__flower', data: 'flower', catalog: FLOWER_TYPES,  key: 'flowerType' },
+    { tool: TOOLS.GARDEN_DECOR,  modal: 'modal-decor',  root: 'decor-catalog',  cls: 'modal__decor',  data: 'decor',  catalog: DECOR_TYPES,   key: 'decorType'  },
+  ];
+  const MODAL_GARDEN_TOOLS = GARDEN_MODALS.map(m => m.tool);
+  const gardenModalOf = tool => GARDEN_MODALS.find(m => m.tool === tool);
+
   function selectTool(id) {
     if (id !== state.tool && state.curveChain) cancelCurveChain();
     // Al abrir un modal de Edificios, recuerda a dónde volver si se cancela: la
     // herramienta previa (si venimos de otra) o esta misma (reentrada para cambiar
     // variante). El flag variantChosen distingue elegir-variante de cancelar.
-    if (MODAL_BUILD_TOOLS.includes(id)) {
+    if (MODAL_BUILD_TOOLS.includes(id) || MODAL_GARDEN_TOOLS.includes(id)) {
       state.toolBeforeModal = id === state.tool ? id : state.tool;
       state.variantChosen = false;
     }
@@ -2297,6 +2378,13 @@
       buildFacadeCatalog();
       syncBuildControls();
       $('modal-facade').showModal();
+    }
+    // Jardín: el catálogo se reconstruye al abrir porque sus iconos se pintan con
+    // la geometría real, y esa depende del color y el trazo activos.
+    const garden = gardenModalOf(id);
+    if (garden) {
+      buildGardenCatalog(garden);
+      $(garden.modal).showModal();
     }
   }
 
@@ -2677,6 +2765,16 @@
       savePrefs();
     });
     syncBuildControls();   // valores iniciales (tras restorePrefs) en ambos sitios
+
+    // Etiquetas del jardín: default de creación, NO semántica dual. Las
+    // herramientas de Jardín son solo de creación —no hay ningún elemento
+    // "jardín" que editar—, así que esto se comporta como los ajustes de
+    // Edificios y no como los checkboxes de relleno o doble punta.
+    $('check-garden-labels').checked = state.gardenLabels;
+    $('check-garden-labels').addEventListener('change', e => {
+      state.gardenLabels = e.target.checked;
+      savePrefs();
+    });
     // Doble punta — semántica dual: con selección aplica/quita heads:'both'
     // a las flechas seleccionadas (los no-flecha se ignoran); sin selección
     // fija el default para las nuevas flechas.
@@ -3077,7 +3175,8 @@
       state.toolBeforeModal = null;
       if (!prev || prev === state.tool) return; // reentrada: mantener la herramienta actual
       // Evita reabrir otro modal en cascada: si la previa también abre modal, ir a Seleccionar.
-      selectTool(MODAL_BUILD_TOOLS.includes(prev) ? TOOLS.SELECT : prev);
+      const abreModal = MODAL_BUILD_TOOLS.includes(prev) || MODAL_GARDEN_TOOLS.includes(prev);
+      selectTool(abreModal ? TOOLS.SELECT : prev);
     });
   }
 
@@ -3234,6 +3333,111 @@
     facadeModal.addEventListener('pointerover', previewOnHover);
     facadeModal.addEventListener('focusin', previewOnHover);
     facadeModal.addEventListener('close', () => { hoverShape = null; });
+
+    // Jardín: los cinco modales se cablean con la misma receta desde GARDEN_MODALS.
+    GARDEN_MODALS.forEach(cfg => {
+      const modal = $(cfg.modal);
+      buildGardenCatalog(cfg);
+      modal.querySelector('.modal__cancel').addEventListener('click', () => modal.close());
+      closeOnBackdrop(modal);
+      wireBuildModalCancel(modal);
+      modal.addEventListener('click', e => {
+        const btn = e.target.closest('.' + cfg.cls);
+        if (!btn) return;
+        state[cfg.key] = btn.dataset[cfg.data];
+        state.variantChosen = true;
+        updateGardenActive(cfg);
+        savePrefs();
+        modal.close();
+      });
+    });
+  }
+
+  /* ── Catálogos del Jardín ── */
+
+  const GARDEN_ICON_W = 56, GARDEN_ICON_H = 48;   // deben coincidir con .modal__shape canvas
+
+  /**
+   * Icono de una variante: NO es un dibujo aparte, es la propia geometría que
+   * saldrá al arrastrar, pintada por el mismo par (Garden.elements +
+   * drawPiecesPreview) que usa la previsualización. Así el icono no puede
+   * desincronizarse de lo que hace la herramienta —que es justo el riesgo de
+   * los iconos SVG a mano de Edificios— y evita dibujar 27 siluetas.
+   *
+   * Se pinta sin etiqueta: a este tamaño el texto no se leería, y el botón ya
+   * muestra el nombre debajo.
+   */
+  function gardenIcon(cfg, variantId) {
+    const canvas = document.createElement('canvas');
+    canvas.className = 'modal__shape-icon';
+    canvas.setAttribute('aria-hidden', 'true');
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = GARDEN_ICON_W * dpr;
+    canvas.height = GARDEN_ICON_H * dpr;
+    canvas.style.width = GARDEN_ICON_W + 'px';
+    canvas.style.height = GARDEN_ICON_H + 'px';
+    const ictx = canvas.getContext('2d');
+    if (!ictx) return canvas;
+    ictx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // El modal es oscuro y la tinta del dibujo no: se pinta el papel primero.
+    ictx.fillStyle = state.canvasBg;
+    ictx.fillRect(0, 0, GARDEN_ICON_W, GARDEN_ICON_H);
+
+    const opts = { ...gardenOpts(), [cfg.key]: variantId, labels: false };
+    const els = Garden.elements(cfg.tool, { x: 0, y: 0 }, { x: 100, y: 84 }, opts);
+    if (!els.length) return canvas;
+    // Ajuste por los bounds REALES: las frondas y las ondas se salen de la caja
+    // del arrastre, y recortadas el icono engañaría.
+    let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+    els.forEach(el => {
+      const b = getElementBounds(el);
+      x1 = Math.min(x1, b.x); y1 = Math.min(y1, b.y);
+      x2 = Math.max(x2, b.x + b.w); y2 = Math.max(y2, b.y + b.h);
+    });
+    const pad = 5;
+    const s = Math.min((GARDEN_ICON_W - pad * 2) / Math.max(1, x2 - x1),
+                       (GARDEN_ICON_H - pad * 2) / Math.max(1, y2 - y1));
+    ictx.translate(GARDEN_ICON_W / 2, GARDEN_ICON_H / 2);
+    ictx.scale(s, s);
+    ictx.translate(-(x1 + x2) / 2, -(y1 + y2) / 2);
+    // A esta escala el trazo fino del detalle desaparecería: se le pone suelo.
+    drawPiecesPreview(ictx, els.map(el => ({ ...el, lineWidth: Math.max(el.lineWidth, 0.9 / s) })));
+    return canvas;
+  }
+
+  /** Rellena un catálogo del jardín. Sin innerHTML: createElement y textContent. */
+  function buildGardenCatalog(cfg) {
+    const root = $(cfg.root);
+    root.innerHTML = '';
+    const grid = document.createElement('div');
+    grid.className = 'modal__shape-grid';
+    cfg.catalog.forEach(item => {
+      const btn = document.createElement('button');
+      btn.className = 'modal__shape ' + cfg.cls;
+      btn.type = 'button';
+      btn.dataset[cfg.data] = item.id;
+      btn.title = item.name;
+      btn.appendChild(gardenIcon(cfg, item.id));
+      const name = document.createElement('span');
+      name.className = 'modal__shape-name';
+      name.textContent = item.name;
+      btn.appendChild(name);
+      // El <dialog> enfoca solo su primer control; se le señala el activo para
+      // que la tecla que abrió el modal no acabe escribiendo en otro sitio.
+      if (item.id === state[cfg.key]) btn.autofocus = true;
+      grid.appendChild(btn);
+    });
+    root.appendChild(grid);
+    updateGardenActive(cfg);
+  }
+
+  /** Resalta la variante activa. La consulta va acotada a su propio catálogo. */
+  function updateGardenActive(cfg) {
+    $(cfg.root).querySelectorAll('.' + cfg.cls).forEach(btn => {
+      const active = btn.dataset[cfg.data] === state[cfg.key];
+      btn.classList.toggle('modal__shape--active', active);
+      btn.setAttribute('aria-pressed', String(active));
+    });
   }
 
   /** Rellena el modal con el catálogo de config.js (textContent, nunca HTML) */
@@ -3616,7 +3820,7 @@
 
   /**
    * Repinta la miniatura con los ajustes actuales. Usa `Building.elements` +
-   * `drawBuildingPreview` —los mismos que la previsualización del arrastre—,
+   * `drawPiecesPreview` —los mismos que la previsualización del arrastre—,
    * así que la miniatura no puede divergir de lo que se acabará dibujando.
    * `shape` permite ver una vista sin seleccionarla (hover/foco en su botón);
    * sin argumento muestra la vista elegida.
@@ -3658,7 +3862,7 @@
     );
     pctx.scale(s, s);
     // Suelo de grosor: a esta escala el trazo fino del detalle se desvanecería.
-    drawBuildingPreview(pctx, els.map(el => ({
+    drawPiecesPreview(pctx, els.map(el => ({
       ...el, lineWidth: Math.max(el.lineWidth, 0.9 / s),
     })));
     pctx.restore();

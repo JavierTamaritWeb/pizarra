@@ -19,3 +19,7 @@ require('./regular-polygon.test.js');
 require('./trapezoid.test.js');
 require('./exporter.test.js');
 require('./sketchy-renderer.test.js');
+require('./eraser.test.js');
+require('./building.test.js');
+require('./garden.test.js');
+require('./app-interaction.test.js');

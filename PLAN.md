@@ -206,3 +206,40 @@ estado**, no de dibujo.
   JSON y bounds funcionen gratis con las herramientas de Edificios. Alternativa
   barata si alguna vez se necesita: un «rehacer con estos ajustes» que borre el
   grupo seleccionado y lo regenere en la misma caja.
+
+---
+
+## 8. Sección Jardín (2026-07-25, v1.15.0)
+
+Entorno en **vista de planta**, repitiendo el patrón de Edificios: cinco
+herramientas solo de creación (`GARDEN_TOOLS`) que producen elementos de tipos
+ya existentes vía `js/garden.js`, con etiqueta de texto por pieza y agrupación
+sobre el `buildingGroupId` que ya existía.
+
+### Hecho
+1. ✅ `Jardín` (parcela con césped), `Árbol` (6), `Arbusto` (4), `Flor` (5) y
+   `Decoración` (8), todo cenital.
+2. ✅ Etiqueta con el nombre del tipo, dentro del grupo, con casilla en el panel.
+3. ✅ **Iconos pintados con la geometría real** en vez de 27 siluetas SVG a mano:
+   el icono no puede desincronizarse de lo que crea la herramienta.
+4. ✅ Un constructor de catálogos genérico (`GARDEN_MODALS`) en vez de las cinco
+   parejas copiadas que tiene Edificios.
+5. ✅ Arreglado de paso: la previsualización del arrastre no dibujaba curvas
+   encadenadas ni texto (fallo latente, ver `BUGS.md`).
+
+### Deuda consciente
+- **Las cinco parejas `build*Catalog`/`update*Active` de Edificios siguen
+  copiadas.** Adoptar el constructor genérico exigiría cubrirlas antes con
+  tests: hoy nada comprueba que pulsar `.modal__door` fije `state.doorType`, y
+  no son tan uniformes como parecen (Fachada pasa un segundo argumento al icono
+  y fija `autofocus`; Planta consulta el `.modal__shape` sin acotar). Hacerlo en
+  el mismo cambio que una sección nueva convertiría cualquier rotura en «lo
+  rompió Jardín».
+- **Editar la silueta de una copa con Alt+clic es hostil.** Al aislar una pieza,
+  una curva encadenada de 10 tramos saca ~21 manijas sobre 90 px, y arrastrar la
+  del extremo abre el lazo sin forma de volver a cerrarlo. No se llega ahí por
+  accidente (una pieza siempre es multiselección), pero conviene saberlo.
+- **El borrador deja etiquetas huérfanas.** Barrer solo la copa borra el dibujo
+  y deja la palabra flotando. Es el mismo comportamiento que borrar una ventana
+  de una fachada, y hacer `doomedIndices` consciente de grupos contradiría la
+  decisión de que el borrador va por elemento.

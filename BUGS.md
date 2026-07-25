@@ -20,6 +20,54 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### La previsualización del arrastre no dibujaba las curvas encadenadas ni el texto
+- **Síntoma:** al arrastrar una pieza de Jardín con silueta orgánica (copa de
+  árbol, piedra, estanque, parcela orgánica) la previsualización mostraba solo
+  el detalle: la silueta y la etiqueta aparecían de golpe al soltar. Preview ≠
+  resultado, que en este código cuenta como fallo.
+- **Causa:** `drawBuildingPreview` leía `el.cx`/`el.cx2` de **nivel superior**,
+  que una `curveArrow` encadenada no tiene —los suyos van dentro de
+  `segments`—, así que ejecutaba `quadraticCurveTo(undefined, undefined, …)`.
+  Según la especificación de Canvas, un argumento no finito hace que el método
+  **retorne sin hacer nada y sin avisar**. Y los elementos `text` no tenían
+  rama ninguna. Era un fallo latente: ninguna herramienta de Edificios emite
+  curvas encadenadas ni texto, así que nunca se había disparado.
+- **Fix:** `drawPiecesPreview` (renombrada, ya sirve a dos secciones) recorre
+  `CurvePath.segments(el)` —que normaliza curva suelta y encadenada en un solo
+  módulo— y delega los `text` en `Renderer.renderElement`, en vez de
+  reimplementar fuente, anclaje e interlineado y arriesgarse a que diverjan.
+- **Guardia:** `tests/app-interaction.test.js` › *"la previsualización del
+  arrastre pinta la silueta encadenada y la etiqueta"*, que inspecciona las
+  llamadas reales al contexto del canvas de overlay a mitad de arrastre.
+
+### Dos tipos de árbol distintos se dibujaban igual ("Frondoso" y "Olivo")
+- **Síntoma:** en el catálogo de Árbol, "Frondoso" y "Olivo" mostraban el mismo
+  icono a efectos prácticos: copa lobulada con radios y tronco. No había forma
+  de elegir entre ellos, ni en el catálogo ni en el lienzo.
+- **Causa:** ambos usaban `_blob` + `_spokes` + `_trunk` y solo cambiaba la
+  tabla de lóbulos, cuya diferencia se pierde a tamaño de icono. **Todos los
+  tests pasaban**: cada variante se comprobaba por separado y ninguno comparaba
+  una con sus hermanas. Detectado abriendo el catálogo en el navegador.
+- **Fix:** el olivo motea el follaje (círculos finos) en vez de marcar ramas —
+  que además es como se representa un olivo en un plano de paisajismo.
+- **Guardia:** `tests/garden.test.js` › *"dentro de un catálogo, dos variantes
+  nunca se dibujan igual"*, que compara la firma (tipos de elemento, cantidad y
+  si las curvas son siluetas cerradas o trazos abiertos) de todas las hermanas.
+
+### Un atajo nuevo podía chocar en silencio con una acción de flecha curva
+- **Síntoma:** (evitado antes de publicar) las teclas `F`, `Q`, `D` y `S` ya
+  actúan sobre las flechas curvas seleccionadas y se comprueban **antes** que
+  `TOOL_KEYS`. Asignar una de ellas a una herramienta nueva habría funcionado
+  hasta que hubiera una curva seleccionada, momento en el que la tecla haría
+  otra cosa. Y toda pieza de Jardín lleva curvas dentro, así que en la práctica
+  la colisión habría sido constante pero difícil de atribuir.
+- **Causa:** el orden del `keydown` en `app.js` no está documentado en
+  `config.js`, donde se eligen los atajos.
+- **Fix:** los atajos de Jardín usan `8 9 H X Z` (las cinco teclas sueltas que
+  quedaban) y `config.js` lleva la advertencia junto al grupo.
+- **Guardia:** `tests/config-templates.test.js` › *"ningún atajo de herramienta
+  pisa una acción ya reservada"*, con la lista `RESERVED_PLAIN_KEYS`.
+
 ### La sección "Edificios" generaba geometría degenerada en arrastres pequeños
 - **Síntoma:** con la herramienta Planta en modo Claustro/U/L y un arrastre
   corto (6–19 px), el elemento resultante tenía rectángulos de `w`/`h`
@@ -261,6 +309,26 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   planta baja acompasada"*.
 
 ---
+
+## Solo verificables manualmente (juicio visual, no lógica)
+
+### El césped de la parcela se leía como flechas «↓», y el macizo como un rombo
+- **Síntoma:** las matas de césped del botón Jardín parecían flechas apuntando
+  hacia abajo, y el arbusto "Macizo" salía como un rombo en vez de una mata.
+  Ambas cosas eran geométricamente correctas y pasaban todos los tests.
+- **Causa:** dos coincidencias de forma, no dos errores de cálculo. (1) Tres
+  trazos que convergen en un mismo punto con el central más largo **son** una
+  punta de flecha: el ojo completa el triángulo. (2) Una tabla de ocho lóbulos
+  que alterna radio alto y bajo tiene simetría de orden 4, y una silueta con
+  simetría de orden 4 es un rombo.
+- **Fix:** las briznas arrancan cada una de su propio punto y con alturas
+  escalonadas (`_tuft`), y la tabla `LOBES.clump` va desacompasada. De paso, el
+  número de matas se deduce del área en vez de un tamaño de celda fijo, que
+  dejaba las parcelas grandes con cuatro matas en fila.
+- **Verificación manual:** dibujar una parcela grande (≈400×330) y comprobar
+  que la textura se lee como hierba y está repartida; abrir el catálogo de
+  Arbusto y comprobar que "Macizo" es irregular, no un rombo. **Ningún test
+  puede juzgar esto**: la suite prueba lógica, no cómo se lee un dibujo.
 
 ## Solo verificables manualmente (lógica en `app.js`, sin arnés DOM)
 

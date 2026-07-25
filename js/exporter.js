@@ -443,7 +443,10 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
   // creación: producen rect/line, nunca un el.type propio. Excluirlas evita
   // que un JSON con type:'planta'/'alzado'/… pase isValidElement y cuele un
   // elemento fantasma (invisible pero seleccionable).
-  const CREATION_ONLY_TOOLS = [TOOLS.SELECT, TOOLS.ARC, TOOLS.EMOJI, ...BUILDING_TOOLS];
+  // Lo mismo vale para "Jardín" (GARDEN_TOOLS): producen rect/line/circle/
+  // curveArrow/text, nunca un el.type propio.
+  const CREATION_ONLY_TOOLS = [TOOLS.SELECT, TOOLS.ARC, TOOLS.EMOJI,
+    ...BUILDING_TOOLS, ...GARDEN_TOOLS];
   const ELEMENT_TYPES = Object.values(TOOLS).filter(t => !CREATION_ONLY_TOOLS.includes(t));
 
   function _isNum(v) {

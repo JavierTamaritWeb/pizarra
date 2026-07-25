@@ -18,7 +18,7 @@ test('config.js — TOOLS', async t => {
     assert.equal(Object.isFrozen(ctx.TOOLS), true);
   });
 
-  await t.test('TOOLS tiene exactamente los 28 ids esperados', () => {
+  await t.test('TOOLS tiene exactamente los 33 ids esperados', () => {
     const expected = [
       'pencil', 'line', 'rect', 'roundedRect', 'circle', 'arrow',
       'curveArrow', 'arc', 'text', 'eraser', 'select', 'imagePlaceholder',
@@ -26,13 +26,15 @@ test('config.js — TOOLS', async t => {
       'square', 'trapezoid', 'triangle', 'pentagon', 'hexagon',
       // Edificios (creación): Fachada y Tejado unifican sus tipos en sendos modales
       'planta', 'fachada', 'tejado', 'puerta', 'ventana',
+      // Jardín (creación): cada una elige su variante en su propio modal
+      'jardin', 'arbol', 'arbusto', 'flor', 'decoracion',
     ];
     const values = Object.values(ctx.TOOLS);
-    assert.equal(values.length, 28);
+    assert.equal(values.length, 33);
     assert.deepEqual([...values].sort(), [...expected].sort());
-    // Las claves también son 28 y únicas
-    assert.equal(Object.keys(ctx.TOOLS).length, 28);
-    assert.equal(new Set(values).size, 28);
+    // Las claves también son 33 y únicas
+    assert.equal(Object.keys(ctx.TOOLS).length, 33);
+    assert.equal(new Set(values).size, 33);
   });
 });
 
@@ -221,4 +223,59 @@ test('config.js — la herramienta Emoji existe en TOOL_GROUPS con atajo propio'
   // El atajo no puede chocar con el de otra herramienta
   const keys = all.filter(t => t.key).map(t => t.key);
   assert.equal(new Set(keys).size, keys.length, 'hay atajos de herramienta duplicados');
+});
+
+// app.js atiende varias teclas sueltas ANTES de mirar TOOL_KEYS (app.js:3061), y
+// además solo cuando la selección contiene una flecha curva. Una herramienta que
+// reutilizara una de ellas fallaría de forma intermitente y muda: funcionaría
+// hasta que hubiera una curva seleccionada. Toda pieza de Jardín lleva curvas,
+// así que la colisión sería constante en la práctica.
+const RESERVED_PLAIN_KEYS = Object.freeze({
+  f: 'invertir el giro de las flechas curvas',
+  q: 'alternar semicírculo',
+  d: 'invertir el sentido de la flecha',
+  s: 'curva en S',
+});
+
+test('config.js — ningún atajo de herramienta pisa una acción ya reservada', () => {
+  const ctx = load('js/config.js');
+  const all = ctx.TOOL_GROUPS.flatMap(g => g.tools);
+  for (const tool of all.filter(t => t.key)) {
+    assert.equal(
+      RESERVED_PLAIN_KEYS[tool.key], undefined,
+      `el atajo "${tool.key}" de ${tool.name} choca con «${RESERVED_PLAIN_KEYS[tool.key]}» (app.js)`);
+  }
+});
+
+test('config.js — la sección Jardín tiene sus cinco botones con atajo', () => {
+  const ctx = load('js/config.js');
+  const garden = ctx.TOOL_GROUPS.find(g => g.label === 'Jardín');
+  assert.ok(garden, 'falta el grupo Jardín en el sidebar');
+  assert.equal(garden.tools.length, 5);
+  assert.deepEqual(
+    [...garden.tools.map(t => t.id)].sort(),
+    [...ctx.GARDEN_TOOLS].sort(),
+    'los botones del sidebar y GARDEN_TOOLS deben coincidir');
+  for (const tool of garden.tools) {
+    assert.equal(typeof tool.key, 'string', `${tool.name} necesita atajo`);
+  }
+});
+
+test('config.js — los cinco catálogos del jardín están congelados y bien formados', () => {
+  const ctx = load('js/config.js');
+  const catalogs = {
+    PLOT_SHAPES: ctx.PLOT_SHAPES, TREE_TYPES: ctx.TREE_TYPES,
+    SHRUB_TYPES: ctx.SHRUB_TYPES, FLOWER_TYPES: ctx.FLOWER_TYPES,
+    DECOR_TYPES: ctx.DECOR_TYPES,
+  };
+  for (const [name, list] of Object.entries(catalogs)) {
+    assert.ok(Array.isArray(list) && list.length > 0, `${name} vacío`);
+    assert.equal(Object.isFrozen(list), true, `${name} no está congelado`);
+    const ids = list.map(v => v.id);
+    assert.equal(new Set(ids).size, ids.length, `${name} tiene ids repetidos`);
+    for (const v of list) {
+      assert.equal(typeof v.id, 'string');
+      assert.ok(v.name && typeof v.name === 'string', `${name}/${v.id} sin nombre`);
+    }
+  }
 });

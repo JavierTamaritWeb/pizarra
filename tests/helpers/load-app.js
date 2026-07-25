@@ -90,13 +90,20 @@ function loadApp({ prefs, autosave } = {}) {
       return api;
     },
 
-    /** Elige una variante en el modal abierto (Planta/Puerta/Ventana/Tejado/Fachada). */
+    /** Elige una variante en el modal abierto (Edificios o Jardín).
+        El listener de click vive en el <dialog>, no en el botón, así que hay
+        que dispararlo ahí con el botón como `target` —igual que haría el
+        borboteo real—. El id del modal se deriva del catálogo:
+        `planta-catalog` → `modal-planta`, `tree-catalog` → `modal-tree`. */
     pickVariant(catalogId, variantClass, value, datasetKey) {
       const btn = $(catalogId).querySelectorAll(`.${variantClass}`)
         .find(b => b.dataset[datasetKey] === value);
       if (!btn) throw new Error(`No existe la variante "${value}" en #${catalogId}`);
-      const modal = $(catalogId.replace('-catalog', '')) || null;
-      (modal && modal.__listenerCount('click') ? modal : btn).__fire('click', { target: btn });
+      const modal = $('modal-' + catalogId.replace('-catalog', ''));
+      if (!modal || !modal.__listenerCount('click')) {
+        throw new Error(`#${catalogId} no tiene un modal con listener de click`);
+      }
+      modal.__fire('click', { target: btn });
       dom.flush();
       return api;
     },

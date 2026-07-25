@@ -38,10 +38,11 @@ const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
     (los `const` top-level de un script vm no cuelgan de globalThis solos). */
 const KNOWN_GLOBALS = [
   'TOOLS', 'TOOL_GROUPS', 'BUILDING_TOOLS', 'PLANTA_SHAPES', 'DOOR_TYPES', 'WINDOW_TYPES', 'ROOF_TYPES', 'FACADE_TYPES',
+  'GARDEN_TOOLS', 'PLOT_SHAPES', 'TREE_TYPES', 'SHRUB_TYPES', 'FLOWER_TYPES', 'DECOR_TYPES',
   'COLORS', 'CANVAS_W', 'CANVAS_H',
   'SKETCHY_FONT', 'UI_DEFAULTS', 'EMOJI_GROUPS', 'EMOJI_MIN_SIZE',
   'Sketchy', 'ArcMath', 'CurvePath', 'ShapeRotation', 'RegularPolygon',
-  'Trapezoid', 'Eraser', 'Building', 'Renderer', 'Exporter', 'Templates',
+  'Trapezoid', 'Eraser', 'Building', 'Garden', 'Renderer', 'Exporter', 'Templates',
 ];
 
 /** Orden completo de dependencias del proyecto (app.js excluido: requiere DOM real). */
@@ -55,6 +56,7 @@ const ALL_FILES = [
   'js/trapezoid.js',
   'js/eraser.js',
   'js/building.js',
+  'js/garden.js',
   'js/renderer.js',
   'js/exporter.js',
   'js/templates.js',

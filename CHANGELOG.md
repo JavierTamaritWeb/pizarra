@@ -4,6 +4,62 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.15.0] — 2026-07-25
+
+### Añadido
+- **Sección «Jardín»** en el sidebar, después de Edificios: cinco herramientas
+  que dibujan **en vista de planta** (cenital, como un plano de paisajismo).
+  Como las de Edificios, son **solo de creación** —producen `rect`/`line`/
+  `circle`/`curveArrow`/`text` corrientes, ningún tipo de elemento nuevo—, así
+  que render, exportación, undo, JSON y bounds funcionan sin código específico.
+  - **Jardín** (`8`): parcela rectangular, redonda, en L u orgánica, con
+    textura de césped en trazo fino.
+  - **Árbol** (`9`): frondoso, conífera, palmera, olivo, frutal y ciprés.
+  - **Arbusto** (`H`): mata redonda, seto, macizo y topiario.
+  - **Flor** (`X`): margarita, rosa, tulipán, parterre y girasol.
+  - **Decoración** (`Z`): maceta, pozo, regadera, piedra, banco, fuente,
+    estanque y camino.
+- **Etiqueta de texto** en cada pieza con el nombre de su tipo, dentro del mismo
+  grupo (se mueve, duplica y borra con ella). Se apaga con la casilla
+  «Etiquetas» de la sección **Jardín** del panel, y la elección se recuerda.
+- Los **iconos de los catálogos son el dibujo real**: los pinta la propia
+  geometría de `js/garden.js` sobre un `<canvas>`, con el mismo par
+  (`Garden.elements` + el pintor de previsualización) que usa el arrastre. No
+  pueden desincronizarse de lo que crea la herramienta.
+- Cada pieza nace con el **tamaño propio de su tipo**: un seto y un camino
+  salen alargados, una flor suelta menuda.
+
+### Corregido
+- **La previsualización del arrastre no dibujaba las curvas encadenadas.**
+  `drawBuildingPreview` leía `cx`/`cy` de nivel superior, que una curva
+  encadenada no tiene, y `quadraticCurveTo(undefined, …)` no hace nada ni avisa.
+  Ninguna herramienta de Edificios las emite, así que nunca se había visto; las
+  siluetas orgánicas del jardín sí. Ahora recorre `CurvePath.segments`, dibuja
+  también los elementos `text` —delegando en el renderer de verdad, para no
+  tener una segunda copia de la fuente y el interlineado— y se llama
+  `drawPiecesPreview`, que es lo que hace.
+- `pickVariant` (arnés de tests) resolvía mal el id del modal, así que elegir
+  una variante desde un test no hacía nada. No lo usaba ningún test todavía.
+
+### Corregido tras probarlo en el navegador
+Tres cosas que **pasaban todos los tests** y solo se ven usando la aplicación:
+- **«Frondoso» y «Olivo» se dibujaban igual.** Cada variante se comprobaba por
+  separado y ninguna prueba comparaba una con sus hermanas. El olivo motea
+  ahora el follaje en vez de marcar ramas, y un test nuevo compara la firma de
+  todas las variantes de un mismo catálogo.
+- **El césped se leía como flechas «↓».** Tres briznas que salen del mismo
+  punto con la central más larga forman una punta de flecha. Ahora cada brizna
+  arranca de su sitio, y el número de matas se deduce del área (una parcela
+  grande salía con cuatro matas en fila).
+- **El arbusto «Macizo» salía como un rombo.** Su tabla de lóbulos alternaba
+  radio alto y bajo en ocho puntos: eso es simetría de orden 4.
+
+### Notas
+- Los atajos del jardín son `8 9 H X Z`, las cinco teclas sueltas que quedaban
+  libres. Un test nuevo impide que una herramienta reutilice `F`, `Q`, `D` o `S`:
+  esas ya actúan sobre las flechas curvas y se comprueban antes, así que la
+  colisión sería intermitente y muda.
+
 ## [1.14.1] — 2026-07-25
 
 Ajustes salidos de probar la aplicación en un navegador real.

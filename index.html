@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Architects+Daughter&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=1.14.1" />
+  <link rel="stylesheet" href="css/styles.css?v=1.15.0" />
 </head>
 <body>
 
@@ -23,7 +23,7 @@
       <div class="topbar__brand">
         <span class="topbar__logo-icon" aria-hidden="true">✎</span>
         <span class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></span>
-        <span class="topbar__badge">v1.14.1</span>
+        <span class="topbar__badge">v1.15.0</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes">
@@ -158,6 +158,15 @@
               <option value="hip">Cuatro aguas</option>
               <option value="mansard">Mansarda</option>
             </select>
+          </label>
+        </section>
+
+        <!-- Jardín (defaults de creación; las herramientas son solo de creación,
+             así que no siguen la semántica dual del panel) -->
+        <section class="panel__section">
+          <h3 class="panel__title">Jardín</h3>
+          <label class="panel__check">
+            <input type="checkbox" id="check-garden-labels" checked /> Etiquetas
           </label>
         </section>
 
@@ -386,6 +395,18 @@
         </ul>
       </section>
 
+      <section class="modal__help-group">
+        <h4 class="modal__help-title">🌳 Jardín</h4>
+        <ul class="modal__help-list">
+          <li><strong>Jardín</strong> (<kbd>8</kbd>), <strong>Árbol</strong> (<kbd>9</kbd>), <strong>Arbusto</strong> (<kbd>H</kbd>), <strong>Flor</strong> (<kbd>X</kbd>), <strong>Decoración</strong> (<kbd>Z</kbd>): cada una abre su catálogo; elige un tipo y arrastra en el lienzo</li>
+          <li>Todo se dibuja en <strong>vista de planta</strong> (desde arriba), como un plano de paisajismo: los árboles son su copa, los arbustos su mata y el pozo su brocal</li>
+          <li>En los catálogos, el <strong>icono es el dibujo real</strong> que vas a obtener, no una ilustración aparte</li>
+          <li>Cada pieza nace con una <strong>etiqueta</strong> que la nombra; se apaga en el panel <strong>Jardín</strong> y la elección se recuerda</li>
+          <li>Cada pieza se crea como una <strong>unidad</strong> (dibujo + etiqueta): un clic la selecciona entera; <kbd>Alt</kbd>+clic aísla una parte</li>
+          <li>El tamaño por defecto depende del tipo: un <strong>seto</strong> o un <strong>camino</strong> nacen alargados y una <strong>flor</strong> suelta, menuda</li>
+        </ul>
+      </section>
+
       <button class="btn btn--ghost btn--block modal__cancel">Cerrar</button>
   </dialog>
 
@@ -498,6 +519,45 @@
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
   </dialog>
 
+  <!-- ===== MODALES: JARDÍN =====
+       Los cinco comparten plantilla y los rellena app.js (buildGardenCatalog)
+       desde GARDEN_MODALS. Sus iconos no son SVG dibujados a mano: los pinta la
+       geometría real de js/garden.js, así que enseñan lo que van a crear. -->
+  <dialog class="modal" id="modal-plot" aria-labelledby="modal-plot-title">
+      <h3 class="modal__heading" id="modal-plot-title">Forma del jardín</h3>
+      <p class="modal__sub">Elige la parcela y arrástrala en el lienzo</p>
+      <div id="plot-catalog"></div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
+  <dialog class="modal" id="modal-tree" aria-labelledby="modal-tree-title">
+      <h3 class="modal__heading" id="modal-tree-title">Tipo de árbol</h3>
+      <p class="modal__sub">Vista desde arriba: elige la especie y arrástrala</p>
+      <div id="tree-catalog"></div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
+  <dialog class="modal" id="modal-shrub" aria-labelledby="modal-shrub-title">
+      <h3 class="modal__heading" id="modal-shrub-title">Tipo de arbusto</h3>
+      <p class="modal__sub">Vista desde arriba: elige el tipo y arrástralo</p>
+      <div id="shrub-catalog"></div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
+  <dialog class="modal" id="modal-flower" aria-labelledby="modal-flower-title">
+      <h3 class="modal__heading" id="modal-flower-title">Tipo de flor</h3>
+      <p class="modal__sub">Vista desde arriba: elige el tipo y arrástralo</p>
+      <div id="flower-catalog"></div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
+  <dialog class="modal" id="modal-decor" aria-labelledby="modal-decor-title">
+      <h3 class="modal__heading" id="modal-decor-title">Elemento decorativo</h3>
+      <p class="modal__sub">Vista desde arriba: elige el elemento y arrástralo</p>
+      <div id="decor-catalog"></div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
   <!-- ===== MODAL: TEMPLATES ===== -->
   <dialog class="modal" id="modal-templates" aria-labelledby="modal-templates-title">
       <h3 class="modal__heading" id="modal-templates-title">Plantillas</h3>
@@ -529,18 +589,19 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="js/config.js?v=1.14.1"></script>
-  <script src="js/sketchy.js?v=1.14.1"></script>
-  <script src="js/arc.js?v=1.14.1"></script>
-  <script src="js/curve-path.js?v=1.14.1"></script>
-  <script src="js/shape-rotation.js?v=1.14.1"></script>
-  <script src="js/regular-polygon.js?v=1.14.1"></script>
-  <script src="js/trapezoid.js?v=1.14.1"></script>
-  <script src="js/eraser.js?v=1.14.1"></script>
-  <script src="js/building.js?v=1.14.1"></script>
-  <script src="js/renderer.js?v=1.14.1"></script>
-  <script src="js/exporter.js?v=1.14.1"></script>
-  <script src="js/templates.js?v=1.14.1"></script>
-  <script src="js/app.js?v=1.14.1"></script>
+  <script src="js/config.js?v=1.15.0"></script>
+  <script src="js/sketchy.js?v=1.15.0"></script>
+  <script src="js/arc.js?v=1.15.0"></script>
+  <script src="js/curve-path.js?v=1.15.0"></script>
+  <script src="js/shape-rotation.js?v=1.15.0"></script>
+  <script src="js/regular-polygon.js?v=1.15.0"></script>
+  <script src="js/trapezoid.js?v=1.15.0"></script>
+  <script src="js/eraser.js?v=1.15.0"></script>
+  <script src="js/building.js?v=1.15.0"></script>
+  <script src="js/garden.js?v=1.15.0"></script>
+  <script src="js/renderer.js?v=1.15.0"></script>
+  <script src="js/exporter.js?v=1.15.0"></script>
+  <script src="js/templates.js?v=1.15.0"></script>
+  <script src="js/app.js?v=1.15.0"></script>
 </body>
 </html>
