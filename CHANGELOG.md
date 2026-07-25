@@ -4,6 +4,26 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.14.1] — 2026-07-25
+
+Ajustes salidos de probar la aplicación en un navegador real.
+
+### Corregido
+- **Pulsar `1` para abrir Fachada cambiaba «Plantas» a 1.** El atajo de
+  herramienta no cancelaba la tecla, así que seguía viva y la recibía el primer
+  control que el diálogo enfoca: el `<select>` de Plantas la interpretaba como
+  su type-ahead. Ahora el atajo hace `preventDefault` y el foco va al botón de
+  la vista activa —que además es la acción principal: Enter la confirma— en vez
+  de a un campo del formulario.
+- **El borrador se llevaba figuras enteras al barrer por su hueco.** Usaba la
+  caja del elemento, así que una sola pasada por el centro de una fachada
+  borraba el muro completo. Ahora **se borra lo que se ve**: en formas sin
+  relleno solo cuenta su contorno (el rectángulo vacío se borra por el borde, no
+  por el hueco; el círculo por el aro, no por la esquina de su caja). Si la
+  forma está rellena, el interior también es tinta y sigue contando; el texto,
+  las imágenes y los componentes de UI se borran por su caja, porque ahí la caja
+  sí es el dibujo.
+
 ## [1.14.0] — 2026-07-25
 
 ### Cambiado

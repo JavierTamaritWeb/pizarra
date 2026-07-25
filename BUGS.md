@@ -132,6 +132,49 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 - **Guardia:** `tests/building.test.js` › *"el catálogo de Fachada no promete
   una cubierta concreta en el nombre"* (cubre `name` y `hint`).
 
+### El atajo de herramienta se filtraba al modal que abría (`1` fijaba Plantas=1)
+- **Síntoma:** pulsar `1` para abrir **Fachada** abría el modal y, de paso,
+  cambiaba **Plantas** a 1 sin que el usuario tocara nada. Silencioso: el
+  siguiente edificio salía de una planta.
+- **Causa:** la rama de atajos de herramienta (`js/app.js`) llamaba a
+  `selectTool` **sin `preventDefault()`** —la rama de cadenas de curva sí lo
+  hacía, era una inconsistencia—. La tecla seguía viva y la recibía el control
+  que `<dialog>.showModal()` enfoca por defecto, el primero del formulario: el
+  `<select>` de Plantas la interpretó como su type-ahead. El fallo no existía
+  antes de v1.13.0 porque el modal solo tenía botones.
+- **Fix:** `e.preventDefault()` en la rama de atajos, y `autofocus` en el botón
+  de la vista activa dentro de `buildFacadeCatalog` para que el algoritmo de
+  enfoque del diálogo elija la acción principal (Enter la confirma) en vez de un
+  campo del formulario. Enfocarlo a mano tras `showModal()` no sirve: el diálogo
+  reaplica su autofoco después.
+- **Detectado:** probando la app en un navegador real; el arnés no simula la
+  acción por defecto del navegador.
+- **Guardia:** `tests/app-interaction.test.js` › *"el atajo de herramienta
+  cancela la tecla (no llega al modal que abre)"* y *"el modal de Fachada enfoca
+  la vista activa, no el primer &lt;select&gt;"*.
+
+### El borrador se llevaba figuras enteras al barrer por su hueco
+- **Síntoma:** con el borrador nuevo (v1.14.0), una sola pasada horizontal por
+  el centro de una fachada borraba **el muro entero**, no solo las ventanas que
+  el usuario cruzaba. Cualquier forma grande desaparecía al barrer por dentro.
+- **Causa:** `Eraser.touches` usaba la caja del elemento para las formas, por
+  coherencia con `hitTest`. Pero un rectángulo sin relleno es visualmente solo
+  su contorno: su interior está vacío y el usuario no espera perderlo al pasar
+  por ahí. Lo que vale para seleccionar (caja generosa, cómoda) es demasiado
+  agresivo para borrar.
+- **Fix:** `js/eraser.js` — para las formas de `OUTLINE_TYPES` se comprueba el
+  **contorno** (rectángulo, elipse muestreada, o los vértices reales de
+  polígonos y trapecios), y la caja solo si `el.fill`. Texto, imágenes y
+  componentes de UI siguen usando la caja: ahí la caja sí es el dibujo.
+- **Detectado:** probando la app en un navegador real. La regla anterior pasaba
+  todos los tests porque los tests la daban por buena — el fallo era de criterio,
+  no de implementación.
+- **Guardia:** `tests/eraser.test.js` › *"el interior hueco de una forma sin
+  relleno no se borra; el contorno sí"*, *"una forma RELLENA sí se borra por su
+  interior"*, *"círculos vacíos: se usa la elipse, no su caja"*, *"polígonos
+  regulares: usa la silueta real, no la caja"* y *"texto e imágenes sí se borran
+  por su caja"*.
+
 ### Lo borrado reaparecía al mover el dibujo (el borrador no borraba)
 - **Síntoma:** pasabas el borrador sobre parte de una fachada y desaparecía; al
   mover luego la fachada, lo borrado **volvía a verse**. Lo mismo con cualquier

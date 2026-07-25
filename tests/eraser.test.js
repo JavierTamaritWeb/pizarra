@@ -45,8 +45,36 @@ test('el radio del borrador amplía el alcance', () => {
 
 test('un solo punto (clic sin arrastrar) también borra', () => {
   const r = rect(100, 100, 100, 100);
-  assert.equal(Eraser.touches(r, stroke([150, 150]), 8, DEPS), true, 'clic dentro');
+  assert.equal(Eraser.touches(r, stroke([100, 150]), 8, DEPS), true, 'clic sobre el borde');
   assert.equal(Eraser.touches(r, stroke([400, 400]), 8, DEPS), false, 'clic fuera');
+});
+
+// Se borra lo que se VE: barrer por el hueco de una forma vacía no la elimina.
+// Con la caja, una pasada por el centro de una fachada se llevaba el muro entero.
+test('el interior hueco de una forma sin relleno no se borra; el contorno sí', () => {
+  const vacio = rect(100, 100, 200, 200);
+  const centro = stroke([140, 200], [260, 200]);   // cruza el interior, sin tocar bordes
+  assert.equal(Eraser.touches(vacio, centro, 6, DEPS), false, 'hueco → no borra');
+  assert.equal(Eraser.touches(vacio, stroke([90, 200], [110, 200]), 6, DEPS), true,
+    'sobre el borde izquierdo → sí borra');
+});
+
+test('una forma RELLENA sí se borra por su interior', () => {
+  const lleno = { ...rect(100, 100, 200, 200), fill: true };
+  assert.equal(Eraser.touches(lleno, stroke([140, 200], [260, 200]), 6, DEPS), true,
+    'el relleno es tinta: el interior cuenta');
+});
+
+test('círculos vacíos: se usa la elipse, no su caja', () => {
+  const c = { type: 'circle', x: 0, y: 0, w: 200, h: 200, color: '#000000', lineWidth: 2 };
+  assert.equal(Eraser.touches(c, stroke([100, 100]), 6, DEPS), false, 'centro hueco');
+  assert.equal(Eraser.touches(c, stroke([5, 5]), 6, DEPS), false, 'esquina de la caja, fuera del aro');
+  assert.equal(Eraser.touches(c, stroke([0, 100]), 6, DEPS), true, 'sobre el aro');
+});
+
+test('texto e imágenes sí se borran por su caja (su caja es su dibujo)', () => {
+  const img = { type: 'imagePlaceholder', x: 0, y: 0, w: 100, h: 100, color: '#000000', lineWidth: 2 };
+  assert.equal(Eraser.touches(img, stroke([50, 50]), 4, DEPS), true);
 });
 
 test('líneas: usa la distancia al segmento, no su caja', () => {
@@ -67,9 +95,14 @@ test('trazos de lápiz: se comparan sus puntos', () => {
   assert.equal(Eraser.touches(pencil, stroke([200, 0], [200, 40]), 3, DEPS), false);
 });
 
-test('polígonos regulares: usa la silueta real', () => {
+test('polígonos regulares: usa la silueta real, no la caja', () => {
   const tri = { type: 'triangle', x: 0, y: 0, w: 100, h: 100, color: '#000000', lineWidth: 2, rotation: 0 };
-  assert.equal(Eraser.touches(tri, stroke([50, 50]), 4, DEPS), true, 'dentro del triángulo');
+  const verts = RegularPolygon.vertices(tri);
+  const [a, b] = [verts[0], verts[1]];
+  const medio = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };   // punto sobre un lado
+  assert.equal(Eraser.touches(tri, stroke([medio.x, medio.y]), 4, DEPS), true, 'sobre un lado');
+  assert.equal(Eraser.touches(tri, stroke([2, 2]), 4, DEPS), false,
+    'esquina de la caja, fuera de la silueta → no borra');
 });
 
 test('curvas: se muestrean en vez de usar los extremos', () => {
@@ -112,8 +145,9 @@ test('las máscaras heredadas no se borran con el borrador nuevo', () => {
   assert.deepEqual([...idx], [0], 'elimina el rect, conserva la máscara');
 });
 
-test('sin deps se degrada a la caja del elemento (no lanza)', () => {
+test('sin deps se degrada sin lanzar (contorno derivado de la caja)', () => {
   const r = rect(100, 100, 100, 100);
-  assert.equal(Eraser.touches(r, stroke([150, 150]), 4), true);
+  assert.equal(Eraser.touches(r, stroke([100, 150]), 4), true, 'borde');
+  assert.equal(Eraser.touches(r, stroke([150, 150]), 4), false, 'hueco interior');
   assert.equal(Eraser.touches({ type: 'curveArrow', x1: 0, y1: 0, x2: 10, y2: 0 }, stroke([5, 0]), 4), true);
 });

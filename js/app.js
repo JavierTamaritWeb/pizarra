@@ -3054,8 +3054,12 @@
       }
     }
 
-    // Selección de herramienta por tecla
+    // Selección de herramienta por tecla. El preventDefault NO es cosmético:
+    // sin él la tecla sigue viva y, si la herramienta abre un modal, la recibe
+    // el primer control enfocado — pulsar "1" (Fachada) acababa fijando
+    // Plantas=1 por el type-ahead del <select>.
     if (!e.ctrlKey && !e.metaKey && !e.altKey && TOOL_KEYS[k]) {
+      e.preventDefault();
       selectTool(TOOL_KEYS[k]);
     }
   });
@@ -3736,6 +3740,10 @@
       hint.className = 'modal__shape-note';
       hint.textContent = ft.hint;
       btn.appendChild(hint);
+      // Sin esto el autofoco de <dialog> cae en el primer control del formulario
+      // (Plantas) y cualquier pulsación suelta lo cambia por type-ahead. La vista
+      // activa es además la acción principal: Enter la confirma.
+      if (ft.id === state.facadeShape) btn.autofocus = true;
       grid.appendChild(btn);
     });
     root.appendChild(grid);

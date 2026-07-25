@@ -120,15 +120,17 @@ function loadApp({ prefs, autosave } = {}) {
       return api;
     },
 
-    /** Tecla sobre document (atajos: Delete, ctrl+z…). */
+    /** Tecla sobre document (atajos: Delete, ctrl+z…). Devuelve el evento, para
+        poder comprobar `defaultPrevented` (los atajos que abren un modal deben
+        cancelar la tecla o se la come el control que reciba el foco). */
     key(key, opts = {}) {
-      dom.document.__fire('keydown', {
+      const ev = dom.document.__fire('keydown', {
         key, target: { tagName: 'BODY' },
         ctrlKey: false, metaKey: false, shiftKey: false, altKey: false,
-        preventDefault() {}, ...opts,
+        ...opts,
       });
       dom.flush();
-      return api;
+      return ev;
     },
   };
   return api;

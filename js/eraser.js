@@ -81,6 +81,27 @@ const Eraser = (function () {
 
   const _bounds = el => ({ x: el.x, y: el.y, w: el.w, h: el.h });
 
+  /** Contorno de una caja como polilínea cerrada. */
+  const _boxOutline = b => [
+    { x: b.x, y: b.y }, { x: b.x + b.w, y: b.y },
+    { x: b.x + b.w, y: b.y + b.h }, { x: b.x, y: b.y + b.h },
+  ];
+
+  /** Elipse inscrita en la caja, muestreada como polilínea cerrada. */
+  function _ellipseOutline(b, steps = 32) {
+    const cx = b.x + b.w / 2, cy = b.y + b.h / 2, rx = b.w / 2, ry = b.h / 2;
+    const pts = [];
+    for (let i = 0; i < steps; i++) {
+      const t = (i / steps) * Math.PI * 2;
+      pts.push({ x: cx + rx * Math.cos(t), y: cy + ry * Math.sin(t) });
+    }
+    return pts;
+  }
+
+  /** Formas cuyo "dibujo" es solo su contorno mientras no estén rellenas. */
+  const OUTLINE_TYPES = ['rect', 'roundedRect', 'circle', 'square',
+    'triangle', 'pentagon', 'hexagon', 'trapezoid'];
+
   /**
    * ¿El trazo `pts` con radio `r` toca al elemento `el`?
    * `deps` inyecta lo que vive fuera de este módulo:
@@ -105,14 +126,20 @@ const Eraser = (function () {
         : [{ x: el.x1, y: el.y1 }, { x: el.x2, y: el.y2 }];
       return _touchesPolyline(sampled, segs, r + (el.lineWidth || 1) / 2, false);
     }
-    if (deps.polygonVertices) {
-      const verts = deps.polygonVertices(el);
-      if (verts) return _touchesPolyline(verts, segs, r, true) || _touchesBox(boundsOf(el), segs, r);
+    // Formas: se borra lo que se VE. Sin relleno solo cuenta el contorno —
+    // barrer por el hueco interior de un rectángulo vacío no debe llevárselo
+    // entero (con la caja, una pasada por el centro de una fachada borraba
+    // el muro completo). Rellenas, el interior también es tinta.
+    if (OUTLINE_TYPES.includes(el.type)) {
+      const box = boundsOf(el);
+      if (el.fill && _touchesBox(box, segs, r)) return true;
+      const w = r + (el.lineWidth || 1) / 2;
+      const verts = (deps.polygonVertices && deps.polygonVertices(el))
+        || (deps.trapezoidVertices && deps.trapezoidVertices(el))
+        || (el.type === 'circle' ? _ellipseOutline(box) : _boxOutline(box));
+      return _touchesPolyline(verts, segs, w, true);
     }
-    if (deps.trapezoidVertices) {
-      const verts = deps.trapezoidVertices(el);
-      if (verts) return _touchesPolyline(verts, segs, r, true) || _touchesBox(boundsOf(el), segs, r);
-    }
+    // Texto, imágenes y componentes de UI: su caja SÍ es su dibujo.
     return _touchesBox(boundsOf(el), segs, r);
   }
 

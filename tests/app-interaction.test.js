@@ -137,6 +137,30 @@ test('los tipos elegidos en el modal de Fachada persisten en prefs', () => {
   assert.equal(again.$('facade-window-type').value, 'grid');
 });
 
+/* ── Regresión: el atajo de herramienta no debe filtrarse al modal ── */
+
+// Sin preventDefault, la tecla sigue viva y la recibe el control que el
+// <dialog> enfoca: pulsar "1" (Fachada) acababa fijando Plantas=1 por el
+// type-ahead del <select>. Detectado probando la app en un navegador real.
+test('el atajo de herramienta cancela la tecla (no llega al modal que abre)', () => {
+  const app = loadApp();
+  const ev = app.key('1');
+  assert.equal(ev.defaultPrevented, true,
+    'la tecla debe cancelarse para que no la consuma ningún control del modal');
+  assert.equal(app.$('facade-floors').value, 'auto', 'Plantas no debe cambiar sola');
+});
+
+test('el modal de Fachada enfoca la vista activa, no el primer <select>', () => {
+  const app = loadApp();
+  app.key('1');
+  const active = app.$('facade-catalog').querySelectorAll('.modal__facade')
+    .find(b => b.classList.contains('modal__shape--active'));
+  assert.ok(active, 'hay una vista activa');
+  assert.equal(active.autofocus, true,
+    'la vista activa lleva autofocus: es la acción principal y evita que un ' +
+    'select quede a tiro de una pulsación suelta');
+});
+
 /* ── Regresión: el borrador elimina de verdad, no enmascara ── */
 
 test('el borrador elimina los elementos y no deja ninguna máscara en la escena', () => {
