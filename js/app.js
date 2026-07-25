@@ -43,6 +43,7 @@
     shrubType: 'bush',
     flowerType: 'daisy',
     decorType: 'pot',
+    herbType: 'lavender',
     gardenLabels: true,  // rotular cada pieza con el nombre de su variante
     doubleHead:  false, // nuevas flechas con punta en ambos extremos
     dashed:      false, // nuevas líneas/flechas con trazo discontinuo
@@ -752,6 +753,7 @@
         shrubType: state.shrubType,
         flowerType: state.flowerType,
         decorType: state.decorType,
+        herbType: state.herbType,
         gardenLabels: state.gardenLabels,
       }));
     } catch (_) { /* almacenamiento lleno o bloqueado: se ignora */ }
@@ -801,6 +803,7 @@
       restoreVariant(prefs.shrubType,   SHRUB_TYPES,   'shrubType');
       restoreVariant(prefs.flowerType,  FLOWER_TYPES,  'flowerType');
       restoreVariant(prefs.decorType,   DECOR_TYPES,   'decorType');
+      restoreVariant(prefs.herbType,    HERB_TYPES,    'herbType');
       if (typeof prefs.gardenLabels === 'boolean') state.gardenLabels = prefs.gardenLabels;
     } catch (_) { /* prefs corruptas: se ignoran */ }
   }
@@ -1439,7 +1442,7 @@
       color: state.color, lineWidth: state.lineWidth,
       plotShape: state.plotShape, treeType: state.treeType,
       shrubType: state.shrubType, flowerType: state.flowerType,
-      decorType: state.decorType,
+      decorType: state.decorType, herbType: state.herbType,
       labels: state.gardenLabels,
       measureText: (value, fontSize) => {
         ctx.save();
@@ -2345,6 +2348,7 @@
     { tool: TOOLS.GARDEN_SHRUB,  modal: 'modal-shrub',  root: 'shrub-catalog',  cls: 'modal__shrub',  data: 'shrub',  catalog: SHRUB_TYPES,   key: 'shrubType'  },
     { tool: TOOLS.GARDEN_FLOWER, modal: 'modal-flower', root: 'flower-catalog', cls: 'modal__flower', data: 'flower', catalog: FLOWER_TYPES,  key: 'flowerType' },
     { tool: TOOLS.GARDEN_DECOR,  modal: 'modal-decor',  root: 'decor-catalog',  cls: 'modal__decor',  data: 'decor',  catalog: DECOR_TYPES,   key: 'decorType'  },
+    { tool: TOOLS.GARDEN_HERB,   modal: 'modal-herb',   root: 'herb-catalog',   cls: 'modal__herb',   data: 'herb',   catalog: HERB_TYPES,    key: 'herbType'   },
   ];
   const MODAL_GARDEN_TOOLS = GARDEN_MODALS.map(m => m.tool);
   const gardenModalOf = tool => GARDEN_MODALS.find(m => m.tool === tool);

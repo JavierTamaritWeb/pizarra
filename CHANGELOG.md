@@ -4,6 +4,24 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.16.0] — 2026-07-25
+
+### Añadido
+- **Almendro y algarrobo** en el catálogo de Árbol (Jardín), que pasa de 6 a 8
+  especies. Como el resto, en vista de planta y con silueta propia: el almendro
+  es una copa clara y abierta con la flor marcada en la periferia; el algarrobo,
+  una copa ancha, densa y festoneada con su sombra dentro. El algarrobo nace
+  además más grande por defecto (124×112), porque hace copa ancha.
+- **Nuevo botón «Aromáticas»** en Jardín, con las matas aromáticas de siempre
+  (lavanda, romero, tomillo, salvia, santolina) y las mediterráneas de porte
+  arquitectónico (agave, aloe, chumbera). En planta, una roseta de hojas
+  puntiagudas no se parece en nada a una mata redonda, y por eso viven aparte.
+  Es el **único botón sin atajo de teclado**: `8 9 H X Z` agotaron las teclas
+  sueltas libres y las que quedan ya hacen otra cosa.
+- **Arbusto** suma los leñosos mediterráneos: **adelfa**, **boj recortado** y
+  **lentisco** (de 4 a 7 tipos).
+- El jardín queda en **40 variantes** repartidas en seis catálogos.
+
 ## [1.15.0] — 2026-07-25
 
 ### Añadido

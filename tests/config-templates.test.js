@@ -18,7 +18,7 @@ test('config.js — TOOLS', async t => {
     assert.equal(Object.isFrozen(ctx.TOOLS), true);
   });
 
-  await t.test('TOOLS tiene exactamente los 33 ids esperados', () => {
+  await t.test('TOOLS tiene exactamente los 34 ids esperados', () => {
     const expected = [
       'pencil', 'line', 'rect', 'roundedRect', 'circle', 'arrow',
       'curveArrow', 'arc', 'text', 'eraser', 'select', 'imagePlaceholder',
@@ -27,14 +27,14 @@ test('config.js — TOOLS', async t => {
       // Edificios (creación): Fachada y Tejado unifican sus tipos en sendos modales
       'planta', 'fachada', 'tejado', 'puerta', 'ventana',
       // Jardín (creación): cada una elige su variante en su propio modal
-      'jardin', 'arbol', 'arbusto', 'flor', 'decoracion',
+      'jardin', 'arbol', 'arbusto', 'flor', 'decoracion', 'aromatica',
     ];
     const values = Object.values(ctx.TOOLS);
-    assert.equal(values.length, 33);
+    assert.equal(values.length, 34);
     assert.deepEqual([...values].sort(), [...expected].sort());
-    // Las claves también son 33 y únicas
-    assert.equal(Object.keys(ctx.TOOLS).length, 33);
-    assert.equal(new Set(values).size, 33);
+    // Las claves también son 34 y únicas
+    assert.equal(Object.keys(ctx.TOOLS).length, 34);
+    assert.equal(new Set(values).size, 34);
   });
 });
 
@@ -247,18 +247,19 @@ test('config.js — ningún atajo de herramienta pisa una acción ya reservada',
   }
 });
 
-test('config.js — la sección Jardín tiene sus cinco botones con atajo', () => {
+test('config.js — el sidebar de Jardín y GARDEN_TOOLS son la misma lista', () => {
   const ctx = load('js/config.js');
   const garden = ctx.TOOL_GROUPS.find(g => g.label === 'Jardín');
   assert.ok(garden, 'falta el grupo Jardín en el sidebar');
-  assert.equal(garden.tools.length, 5);
   assert.deepEqual(
     [...garden.tools.map(t => t.id)].sort(),
     [...ctx.GARDEN_TOOLS].sort(),
     'los botones del sidebar y GARDEN_TOOLS deben coincidir');
-  for (const tool of garden.tools) {
-    assert.equal(typeof tool.key, 'string', `${tool.name} necesita atajo`);
-  }
+  // Aromáticas se quedó sin atajo: `8 9 h x z` agotaron las teclas sueltas
+  // libres. Es deliberado —mejor sin atajo que pisando una acción existente—,
+  // así que se fija aquí para que el hueco no pase por descuido.
+  const sinAtajo = garden.tools.filter(t => !t.key).map(t => t.id);
+  assert.deepEqual([...sinAtajo], ['aromatica']);
 });
 
 test('config.js — los cinco catálogos del jardín están congelados y bien formados', () => {
@@ -266,7 +267,7 @@ test('config.js — los cinco catálogos del jardín están congelados y bien fo
   const catalogs = {
     PLOT_SHAPES: ctx.PLOT_SHAPES, TREE_TYPES: ctx.TREE_TYPES,
     SHRUB_TYPES: ctx.SHRUB_TYPES, FLOWER_TYPES: ctx.FLOWER_TYPES,
-    DECOR_TYPES: ctx.DECOR_TYPES,
+    DECOR_TYPES: ctx.DECOR_TYPES, HERB_TYPES: ctx.HERB_TYPES,
   };
   for (const [name, list] of Object.entries(catalogs)) {
     assert.ok(Array.isArray(list) && list.length > 0, `${name} vacío`);

@@ -39,9 +39,14 @@ const Garden = (function () {
   const DEFAULTS = {
     [TOOLS.GARDEN_PLOT]:   { w: 320, h: 240 },
     [TOOLS.GARDEN_TREE]:   { w: 96, h: 96, byVariant: {
-      palm: { w: 72, h: 72 }, cypress: { w: 40, h: 40 } } },
+      palm: { w: 72, h: 72 }, cypress: { w: 40, h: 40 },
+      carob: { w: 124, h: 112 } } },   // el algarrobo hace copa ancha
     [TOOLS.GARDEN_SHRUB]:  { w: 56, h: 56, byVariant: {
-      hedge: { w: 180, h: 40 } } },
+      hedge: { w: 180, h: 40 }, oleander: { w: 80, h: 80 },
+      box: { w: 64, h: 48 } } },
+    [TOOLS.GARDEN_HERB]:   { w: 40, h: 40, byVariant: {
+      thyme: { w: 52, h: 34 },        // el tomillo tapiza, no hace mata
+      agave: { w: 70, h: 70 }, pricklypear: { w: 76, h: 66 } } },
     [TOOLS.GARDEN_FLOWER]: { w: 28, h: 28, byVariant: {
       bed: { w: 140, h: 90 }, sunflower: { w: 36, h: 36 } } },
     [TOOLS.GARDEN_DECOR]:  { w: 48, h: 48, byVariant: {
@@ -59,6 +64,7 @@ const Garden = (function () {
     [TOOLS.GARDEN_SHRUB]:  { list: SHRUB_TYPES,   key: 'shrubType'   },
     [TOOLS.GARDEN_FLOWER]: { list: FLOWER_TYPES,  key: 'flowerType'  },
     [TOOLS.GARDEN_DECOR]:  { list: DECOR_TYPES,   key: 'decorType'   },
+    [TOOLS.GARDEN_HERB]:   { list: HERB_TYPES,    key: 'herbType'    },
   };
 
   /** Variante activa de una herramienta (la primera del catálogo por defecto). */
@@ -95,6 +101,7 @@ const Garden = (function () {
       case TOOLS.GARDEN_SHRUB:  els = _shrubTool(b, o, variant);  break;
       case TOOLS.GARDEN_FLOWER: els = _flowerTool(b, o, variant); break;
       case TOOLS.GARDEN_DECOR:  els = _decorTool(b, o, variant);  break;
+      case TOOLS.GARDEN_HERB:   els = _herbTool(b, o, variant);   break;
       default: return [];
     }
     els = els.filter(Boolean);
@@ -203,6 +210,10 @@ const Garden = (function () {
     plot:      [1, 0.95, 1, 0.93, 0.99, 0.96, 1, 0.94, 0.98, 0.95, 1, 0.96],
     broadleaf: [1, 0.92, 1.02, 0.9, 1, 0.95, 1.03, 0.9, 1.01, 0.94],
     olive:     [1, 0.86, 0.99, 0.82, 0.96, 0.88, 1.01, 0.84, 0.94],
+    // El algarrobo SÍ alterna a propósito: con 14 puntos la alternancia da
+    // simetría de orden 7, que se lee como una copa densa y festoneada. Lo que
+    // hay que evitar es alternar con pocos puntos (ver `clump`, orden 4 = rombo).
+    carob:     [1, 0.87, 1, 0.87, 1, 0.87, 1, 0.87, 1, 0.87, 1, 0.87, 1, 0.87],
     // Ojo con las tablas de 8 valores que alternan alto/bajo: dan simetría de
     // orden 4 y la silueta sale como un rombo, no como una mata. Los radios
     // tienen que ir desacompasados.
@@ -382,6 +393,21 @@ const Garden = (function () {
         }
         return [_blob(cx, cy, rx, ry, LOBES.olive, o), ...foliage, _trunk(cx, cy, r, f)];
       }
+      case 'almond': {  // almendro: copa clara y abierta, con la flor en la periferia
+        const blossom = [];
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2 + 0.2;
+          blossom.push(_dot(cx + Math.cos(a) * rx * 0.7, cy + Math.sin(a) * ry * 0.7,
+                            Math.max(1.2, r * 0.11), f));
+        }
+        return [_circleEl(b.x, b.y, b.w, b.h, o), ...blossom,
+                ..._spokes(cx, cy, rx, ry, 4, 0.16, 0.5, f),
+                _trunk(cx, cy, r, f)];
+      }
+      case 'carob':     // algarrobo: copa densa y festoneada, con su sombra dentro
+        return [_blob(cx, cy, rx, ry, LOBES.carob, o),
+                _blob(cx, cy, rx * 0.66, ry * 0.66, LOBES.carob, f),
+                _trunk(cx, cy, r, f)];
       case 'fruit': {   // copa redonda con la fruta marcada
         const fruits = [];
         for (let i = 0; i < 5; i++) {
@@ -424,6 +450,32 @@ const Garden = (function () {
         return [_circleEl(b.x, b.y, b.w, b.h, o),
                 _dot(cx, cy, r * 0.62, f),
                 _dot(cx, cy, r * 0.28, f)];
+      case 'oleander': { // adelfa: mata alta con la flor en lo alto
+        const flowers = [];
+        for (let i = 0; i < 5; i++) {
+          const a = (i / 5) * Math.PI * 2 + 0.7;
+          flowers.push(_dot(cx + Math.cos(a) * rx * 0.52, cy + Math.sin(a) * ry * 0.52,
+                            Math.max(1.4, r * 0.17), f));
+        }
+        return [_blob(cx, cy, rx, ry, LOBES.broadleaf, o), ...flowers];
+      }
+      case 'box': {     // boj recortado: masa cúbica con el follaje apretado
+        const texture = [];
+        for (let i = 1; i <= 4; i++) {
+          const x = b.x + (b.w * i) / 5;
+          texture.push(_line(x, b.y + b.h * 0.12, x, b.y + b.h * 0.88, f));
+        }
+        return [_rectEl(b.x, b.y, b.w, b.h, o), ...texture];
+      }
+      case 'mastic': {  // lentisco: mata densa e irregular, de hoja menuda
+        const leaves = [];
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2 + 0.25;
+          leaves.push(_line(cx + Math.cos(a) * rx * 0.34, cy + Math.sin(a) * ry * 0.34,
+                            cx + Math.cos(a) * rx * 0.72, cy + Math.sin(a) * ry * 0.72, f));
+        }
+        return [_blob(cx, cy, rx, ry, LOBES.stone, o), ...leaves];
+      }
       default: {        // mata redonda: círculo con el follaje insinuado
         const arcs = [];
         for (let i = 0; i < 3; i++) {
@@ -432,6 +484,84 @@ const Garden = (function () {
           arcs.push(_dot(ax, ay, r * 0.3, f));
         }
         return [_circleEl(b.x, b.y, b.w, b.h, o), ...arcs];
+      }
+    }
+  }
+
+  /* ── Aromáticas y mediterráneas ── */
+
+  /**
+   * Roseta de hojas: los brazos arrancan del centro y terminan en punta.
+   * Es la silueta de un agave o un aloe vistos desde arriba, y lo que los
+   * distingue de cualquier mata redonda.
+   */
+  function _rosette(cx, cy, rx, ry, count, o, curved) {
+    const out = [];
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2 + 0.15;
+      const tx = cx + Math.cos(a) * rx, ty = cy + Math.sin(a) * ry;
+      if (curved) {
+        const mx = (cx + tx) / 2, my = (cy + ty) / 2;
+        const len = Math.hypot(tx - cx, ty - cy);
+        out.push(_curve(cx, cy, mx - Math.sin(a) * len * 0.26, my + Math.cos(a) * len * 0.26,
+                        tx, ty, o));
+      } else {
+        out.push(_line(cx, cy, tx, ty, o));
+      }
+    }
+    return out;
+  }
+
+  function _herbTool(b, o, type) {
+    const f = _fine(o);
+    const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+    const rx = b.w / 2, ry = b.h / 2, r = Math.min(rx, ry);
+    switch (type) {
+      case 'rosemary': {  // romero: mata suelta con la hoja fina marcada
+        const needles = [];
+        for (let i = 0; i < 9; i++) {
+          const a = (i / 9) * Math.PI * 2 + 0.35;
+          needles.push(_line(cx + Math.cos(a) * rx * 0.3, cy + Math.sin(a) * ry * 0.3,
+                             cx + Math.cos(a) * rx * 0.78, cy + Math.sin(a) * ry * 0.78, f));
+        }
+        return [_blob(cx, cy, rx, ry, LOBES.clump, o), ...needles];
+      }
+      case 'thyme': {     // tomillo: tapiz bajo y menudo
+        const dots = [];
+        const spots = [[-0.45, -0.25], [0.05, -0.45], [0.45, -0.1],
+                       [-0.3, 0.3], [0.25, 0.4], [-0.05, 0.05]];
+        spots.forEach(([sx, sy]) =>
+          dots.push(_dot(cx + rx * sx * 0.85, cy + ry * sy * 0.85, Math.max(1.2, r * 0.12), f)));
+        return [_blob(cx, cy, rx, ry, LOBES.bed, o), ...dots];
+      }
+      case 'sage':        // salvia: mata con la hoja ancha
+        return [_circleEl(b.x, b.y, b.w, b.h, o),
+                ..._rosette(cx, cy, rx * 0.72, ry * 0.72, 5, f, true)];
+      case 'santolina':   // santolina: bola apretada con sus botones
+        return [_circleEl(b.x, b.y, b.w, b.h, o),
+                _dot(cx, cy, r * 0.55, f),
+                _dot(cx - rx * 0.4, cy - ry * 0.3, Math.max(1.2, r * 0.13), f),
+                _dot(cx + rx * 0.38, cy + ry * 0.34, Math.max(1.2, r * 0.13), f)];
+      case 'agave':       // agave: roseta rígida de hoja puntiaguda
+        return [..._rosette(cx, cy, rx, ry, 11, o, false),
+                _dot(cx, cy, Math.max(1.5, r * 0.13), f)];
+      case 'aloe':        // aloe: roseta menor, de hoja curva y carnosa
+        return [..._rosette(cx, cy, rx, ry, 7, o, true),
+                _dot(cx, cy, Math.max(1.5, r * 0.16), f)];
+      case 'pricklypear': { // chumbera: palas encadenadas
+        const pads = [_circleEl(b.x, b.y + b.h * 0.3, b.w * 0.5, b.h * 0.7, o),
+                      _circleEl(b.x + b.w * 0.42, b.y, b.w * 0.44, b.h * 0.62, o),
+                      _circleEl(b.x + b.w * 0.3, b.y + b.h * 0.45, b.w * 0.42, b.h * 0.55, o)];
+        return pads;
+      }
+      default: {          // lavanda: mata con las espigas asomando
+        const spikes = [];
+        for (let i = 0; i < 7; i++) {
+          const a = (i / 7) * Math.PI * 2 + 0.5;
+          spikes.push(_line(cx + Math.cos(a) * rx * 0.62, cy + Math.sin(a) * ry * 0.62,
+                            cx + Math.cos(a) * rx * 1.18, cy + Math.sin(a) * ry * 1.18, f));
+        }
+        return [_blob(cx, cy, rx * 0.78, ry * 0.78, LOBES.olive, o), ...spikes];
       }
     }
   }

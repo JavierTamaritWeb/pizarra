@@ -35,7 +35,7 @@ const TOOLS = Object.freeze({
   // rect/line/circle/curveArrow/text. Todo en vista de planta. Ver js/garden.js.
   GARDEN_PLOT:   'jardin',        GARDEN_TREE:   'arbol',
   GARDEN_SHRUB:  'arbusto',       GARDEN_FLOWER: 'flor',
-  GARDEN_DECOR:  'decoracion',
+  GARDEN_DECOR:  'decoracion',    GARDEN_HERB:   'aromatica',
 });
 
 /** Herramientas de la sección "Edificios": todas son SOLO de creación
@@ -107,7 +107,7 @@ const FACADE_TYPES = Object.freeze([
     `el.type`. Ver js/garden.js. */
 const GARDEN_TOOLS = Object.freeze([
   TOOLS.GARDEN_PLOT, TOOLS.GARDEN_TREE, TOOLS.GARDEN_SHRUB,
-  TOOLS.GARDEN_FLOWER, TOOLS.GARDEN_DECOR,
+  TOOLS.GARDEN_FLOWER, TOOLS.GARDEN_DECOR, TOOLS.GARDEN_HERB,
 ]);
 
 /* Los cinco catálogos del jardín comparten formato con los de Edificios
@@ -130,16 +130,36 @@ const TREE_TYPES = Object.freeze([
   { id: 'conifer',   name: 'Conífera' },
   { id: 'palm',      name: 'Palmera' },
   { id: 'olive',     name: 'Olivo' },
+  { id: 'almond',    name: 'Almendro' },
+  { id: 'carob',     name: 'Algarrobo' },
   { id: 'fruit',     name: 'Frutal' },
   { id: 'cypress',   name: 'Ciprés' },
 ]);
 
-/** Tipos del botón Arbusto. */
+/** Tipos del botón Arbusto: primero las formas genéricas, luego los arbustos
+    leñosos habituales en un jardín mediterráneo. */
 const SHRUB_TYPES = Object.freeze([
-  { id: 'bush',   name: 'Mata redonda' },
-  { id: 'hedge',  name: 'Seto' },
-  { id: 'clump',  name: 'Macizo' },
-  { id: 'topiary',name: 'Topiario' },
+  { id: 'bush',     name: 'Mata redonda' },
+  { id: 'hedge',    name: 'Seto' },
+  { id: 'clump',    name: 'Macizo' },
+  { id: 'topiary',  name: 'Topiario' },
+  { id: 'oleander', name: 'Adelfa' },
+  { id: 'box',      name: 'Boj recortado' },
+  { id: 'mastic',   name: 'Lentisco' },
+]);
+
+/** Tipos del botón Aromáticas: las matas aromáticas de toda la vida y las
+    mediterráneas de porte arquitectónico (roseta), que en planta se leen muy
+    distintas de un arbusto cualquiera. */
+const HERB_TYPES = Object.freeze([
+  { id: 'lavender',  name: 'Lavanda' },
+  { id: 'rosemary',  name: 'Romero' },
+  { id: 'thyme',     name: 'Tomillo' },
+  { id: 'sage',      name: 'Salvia' },
+  { id: 'santolina', name: 'Santolina' },
+  { id: 'agave',     name: 'Agave' },
+  { id: 'aloe',      name: 'Aloe' },
+  { id: 'pricklypear', name: 'Chumbera' },
 ]);
 
 /** Tipos del botón Flor. */
@@ -231,6 +251,10 @@ const TOOL_GROUPS = [
       { id: TOOLS.GARDEN_SHRUB,  icon: '🌿', name: 'Arbusto',    key: 'h' },
       { id: TOOLS.GARDEN_FLOWER, icon: '🌸', name: 'Flor',       key: 'x' },
       { id: TOOLS.GARDEN_DECOR,  icon: '🪴', name: 'Decoración', key: 'z' },
+      // Sin atajo: `8 9 h x z` agotaron las teclas sueltas libres y ninguna de
+      // las que quedan está sin uso. `key` es opcional; mejor sin atajo que
+      // pisando una acción existente.
+      { id: TOOLS.GARDEN_HERB,   icon: '🍃', name: 'Aromáticas' },
     ],
   },
 ];

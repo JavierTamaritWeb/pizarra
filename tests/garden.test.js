@@ -12,7 +12,7 @@ const { loadAll, createCtxStub } = require('./helpers/load.js');
 const ctx = loadAll();
 const {
   Garden, TOOLS, GARDEN_TOOLS, PLOT_SHAPES, TREE_TYPES, SHRUB_TYPES,
-  FLOWER_TYPES, DECOR_TYPES, Renderer, Exporter, CurvePath,
+  FLOWER_TYPES, DECOR_TYPES, HERB_TYPES, Renderer, Exporter, CurvePath,
 } = ctx;
 
 const O = { color: '#123456', lineWidth: 3 };
@@ -25,6 +25,7 @@ const VARIANT_KEY = {
   [TOOLS.GARDEN_SHRUB]:  'shrubType',
   [TOOLS.GARDEN_FLOWER]: 'flowerType',
   [TOOLS.GARDEN_DECOR]:  'decorType',
+  [TOOLS.GARDEN_HERB]:   'herbType',
 };
 
 const CATALOG = {
@@ -33,6 +34,7 @@ const CATALOG = {
   [TOOLS.GARDEN_SHRUB]:  SHRUB_TYPES,
   [TOOLS.GARDEN_FLOWER]: FLOWER_TYPES,
   [TOOLS.GARDEN_DECOR]:  DECOR_TYPES,
+  [TOOLS.GARDEN_HERB]:   HERB_TYPES,
 };
 
 /** Todas las combinaciones herramienta × variante del catálogo. */

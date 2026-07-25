@@ -437,7 +437,7 @@ test('elegir variante NO devuelve la herramienta anterior: se queda para dibujar
 
 test('todo lo que dibuja el jardín sobrevive al round-trip JSON', () => {
   const app = loadApp();
-  for (const tool of ['jardin', 'arbol', 'arbusto', 'flor', 'decoracion']) {
+  for (const tool of ['jardin', 'arbol', 'arbusto', 'flor', 'decoracion', 'aromatica']) {
     app.selectTool(tool);
     app.drag(100, 100, 240, 240);
   }
