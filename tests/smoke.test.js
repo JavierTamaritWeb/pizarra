@@ -37,14 +37,45 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v1.12.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v1.13.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v1\.12\.0</);
-  assert.match(html, /css\/styles\.css\?v=1\.12\.0/);
-  assert.match(html, /js\/app\.js\?v=1\.12\.0/);
-  assert.match(html, /js\/building\.js\?v=1\.12\.0/);
+  assert.match(html, /class="topbar__badge">v1\.13\.0</);
+  assert.match(html, /css\/styles\.css\?v=1\.13\.0/);
+  assert.match(html, /js\/app\.js\?v=1\.13\.0/);
+  assert.match(html, /js\/building\.js\?v=1\.13\.0/);
+  assert.match(html, /js\/config\.js\?v=1\.13\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="stroke-label">Trazo</);
   assert.match(html, /Tamaño del borrador/);
   assert.match(html, /entre 4 y 100 px \(16 px por defecto\)/);
+});
+
+// Los ajustes de Edificios existen DOS veces (panel + modal de Fachada) y
+// app.js los sincroniza fijando `.value` en ambos. Si a un gemelo le faltara
+// una opción o tuviera otro rango, `syncBuildControls` no fallaría: dejaría
+// el control en blanco o en otro valor, en silencio.
+test('los controles gemelos de Edificios (panel y modal) ofrecen lo mismo', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const optionsOf = id => {
+    const block = html.match(new RegExp(`id="${id}"[\\s\\S]*?</select>`));
+    assert.ok(block, `no existe el <select> #${id}`);
+    return [...block[0].matchAll(/value="([^"]+)"/g)].map(m => m[1]);
+  };
+  for (const [panelId, modalId] of [
+    ['build-floors', 'facade-floors'],
+    ['build-bays', 'facade-bays'],
+    ['build-roof-type', 'facade-roof-type'],
+  ]) {
+    assert.deepEqual([...optionsOf(panelId)], [...optionsOf(modalId)],
+      `#${panelId} y #${modalId} deben ofrecer las mismas opciones`);
+  }
+  // El slider de pendiente: mismo rango y paso en los dos sitios.
+  const rangeOf = id => {
+    const tag = html.match(new RegExp(`<input[^>]*id="${id}"[\\s\\S]*?/>`));
+    assert.ok(tag, `no existe el slider #${id}`);
+    const attrs = tag[0].replace(/\s+/g, ' ');
+    return ['min', 'max', 'step'].map(a => attrs.match(new RegExp(`${a}="([^"]+)"`))[1]);
+  };
+  assert.deepEqual([...rangeOf('build-roof-pitch')], [...rangeOf('facade-roof-pitch')],
+    'el slider de pendiente debe tener el mismo min/max/step en panel y modal');
 });

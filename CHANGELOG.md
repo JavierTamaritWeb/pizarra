@@ -4,6 +4,48 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.13.0] — 2026-07-25
+
+### Añadido
+- **Miniatura en vivo en el modal de Fachada**: se repinta con cada ajuste, así
+  que ya no hay que dibujar-deshacer-repetir para ver el efecto. No es un dibujo
+  aparte: usa la misma geometría que la previsualización del arrastre, de modo
+  que no puede divergir de lo que se acaba dibujando.
+- **Los ajustes de Edificios, junto a la elección de vista**: plantas, ventanas
+  por planta, pendiente y cubierta están ahora también **dentro** del modal de
+  Fachada, sincronizados en ambos sentidos con el panel lateral (que sigue
+  existiendo). Antes vivían solo en el panel, que en pantallas ≤1100 px es un
+  cajón oculto.
+- **Previsualización al pasar el puntero**: señalar una vista la muestra en la
+  miniatura sin elegirla; al salir vuelve la seleccionada.
+- Los ajustes que la vista elegida **ignora se atenúan** (la fachada plana no
+  tiene cubierta ni pendiente; el perfil lleva siempre la suya trapezoidal).
+
+### Cambiado
+- Las tres vistas de Fachada pasan a **lenguaje llano** —*De frente*, *Con
+  tejado*, *De lado*— con el término de arquitecto (*Fachada plana*, *Alzado*,
+  *Perfil*) como subtítulo: quien no es arquitecto no sabía cuál elegir.
+- **Todas** las variantes de Edificios se recuerdan entre sesiones. Antes solo
+  persistían plantas, vanos, pendiente y cubierta: la huella de Planta, la vista
+  de Fachada, la forma de Tejado y el tipo de Puerta y Ventana se reseteaban al
+  recargar, así que media configuración sobrevivía y media no.
+
+### Corregido
+- El botón **«Alzado (2 aguas)» dibujaba otra cubierta**: la forma real la fija
+  `roofType`, así que con *Cuatro aguas* o *Mansarda* la etiqueta mentía. El
+  nombre ya no promete una forma y el icono dibuja el faldón realmente activo.
+- La vista de **Perfil dibujaba la puerta principal centrada**, repitiendo los
+  huecos de la fachada frontal. Un canto lateral no tiene el acceso principal:
+  ahora va sin puerta y con las plantas acompasadas.
+
+### Interno
+- `buildOpts()` centraliza los opts de `Building.elements` para sus tres
+  consumidores (preview del arrastre, commit y miniatura), que antes los
+  duplicaban; `syncBuildControls()` es el único punto que reparte el estado a
+  los dos juegos de controles. Suite de **241 → 245** pruebas, con guardias
+  nuevas para el perfil sin puerta, los textos del catálogo y la coherencia
+  entre los controles gemelos del panel y el modal.
+
 ## [1.12.0] — 2026-07-24
 
 ### Añadido

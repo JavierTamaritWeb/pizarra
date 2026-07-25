@@ -106,6 +106,41 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   _escapeHtml escapa comillas dobles y simples"*, *"Exporter.html: color y
   lineWidth se escapan en los atributos style"*.
 
+### El botón «Alzado (2 aguas)» dibujaba otra cubierta distinta
+- **Síntoma:** el modal de Fachada ofrecía «Alzado (2 aguas)», pero la cubierta
+  que se dibujaba realmente la decide `state.roofType` del panel Edificios. Con
+  «Cuatro aguas» o «Mansarda» seleccionadas, el botón etiquetado *2 aguas*
+  producía un edificio con otro tejado: la etiqueta mentía y no había forma de
+  saber desde el modal qué iba a salir.
+- **Causa:** `FACADE_TYPES` (`js/config.js`) fijaba la forma en el nombre,
+  mientras que `_gable` (`js/building.js`) elige la cubierta por `o.roofType`.
+  Dos fuentes de verdad para el mismo dato, y la visible era la falsa.
+- **Fix:** el nombre deja de nombrar una forma (hoy «Con tejado», con «Alzado»
+  como subtítulo técnico) y `buildFacadeCatalog` (`js/app.js`) dibuja el icono
+  con el faldón realmente activo (`FACADE_ROOF_PTS`), reconstruyéndose en cada
+  apertura del modal (antes solo se refrescaba el resaltado) porque el usuario
+  puede haber cambiado la cubierta entretanto. El primer arreglo añadía además
+  una nota *"Cubierta: …"* bajo el botón; al meter después el propio selector de
+  cubierta y la miniatura en vivo dentro del modal, la nota pasó a ser
+  redundante y se retiró — el dato sigue a la vista, y en dos sitios mejores.
+- **Guardia:** `tests/building.test.js` › *"el catálogo de Fachada no promete
+  una cubierta concreta en el nombre"* (cubre `name` y `hint`).
+
+### El Perfil (vista lateral) dibujaba la puerta principal centrada
+- **Síntoma:** la vista **Perfil** repetía exactamente los huecos de la fachada
+  frontal: mismo ritmo de vanos y la puerta de entrada centrada en la planta
+  baja. Un canto lateral con portalón central es arquitectónicamente falso, y
+  al montar frontal + perfil el edificio parecía tener dos accesos principales.
+- **Causa:** `_profile` reutilizaba `_body` sin distinguir la vista, así que
+  `_openings` marcaba `ground = f === n - 1` también en el lateral: reservaba el
+  hueco central y añadía la puerta.
+- **Fix:** `js/building.js` — `_body`/`_openings` reciben un flag `side`;
+  con él `ground` es siempre `false`, de modo que el perfil no lleva puerta y su
+  planta baja se acompasa como el resto (ritmo uniforme, sin el hueco de la
+  entrada). `_profile` lo pasa; `_facade`/`_gable` no cambian.
+- **Guardia:** `tests/building.test.js` › *"perfil: sin puerta central y con la
+  planta baja acompasada"*.
+
 ---
 
 ## Solo verificables manualmente (lógica en `app.js`, sin arnés DOM)
@@ -353,3 +388,61 @@ que quedaba a medias.
   a una sola columna.
 - **Verificación manual:** a 320px de ancho, abrir Puerta → el cuadro cabe sin
   desborde horizontal y las variantes se apilan en una columna.
+
+### Media configuración de Edificios se perdía al recargar
+- **Síntoma:** los ajustes de la sección Edificios sobrevivían a la recarga solo
+  a medias. Plantas, vanos, pendiente y cubierta volvían tal como se dejaron,
+  pero la variante elegida en cada modal (huella de Planta, vista de Fachada,
+  forma de Tejado, tipo de Puerta y de Ventana) se reseteaba a su valor inicial
+  (`rect`/`flat`/`gable`/`door`/`window`). Quien trabajaba con puerta de arco y
+  ventana de cuadrícula tenía que volver a elegirlas en cada sesión.
+- **Causa:** `savePrefs` (`js/app.js`) serializaba `buildFloors`, `buildBays`,
+  `roofPitch` y `roofType`, pero **no** `plantaShape`, `facadeShape`,
+  `roofShape`, `doorType` ni `windowType`; además los handlers de los cinco
+  modales no llamaban a `savePrefs()` al elegir variante. Todos son defaults de
+  creación de la misma sección, así que la asimetría no tenía justificación.
+- **Fix:** `js/app.js` — `savePrefs` incluye las cinco variantes; `restorePrefs`
+  las valida contra su propio catálogo (`PLANTA_SHAPES`/`FACADE_TYPES`/
+  `ROOF_TYPES`/`DOOR_TYPES`/`WINDOW_TYPES`) con el helper `restoreVariant`, de
+  modo que un id desconocido de otra versión se ignora sin romper; los cinco
+  handlers de modal llaman a `savePrefs()`. `restorePrefs()` corre antes de
+  `setupModals()` en `init()`, así que los catálogos ya se construyen con el
+  resaltado correcto.
+- **Verificación manual:** elegir Puerta → «Puerta de arco», Ventana →
+  «Óculo», Planta → «Claustro», Fachada → «Perfil», Tejado → «Mansarda»;
+  recargar la página → al abrir cada modal debe seguir resaltada la misma
+  variante, y un arrastre debe dibujarlas sin volver a elegirlas. Comprobar
+  también que «Limpiar todo» borra la clave `sketchwire.prefs` y que tras
+  recargar vuelven los valores por defecto.
+
+### Los ajustes de Fachada estaban lejos de la elección de vista
+- **Síntoma:** el modal de Fachada solo dejaba elegir la vista; plantas,
+  ventanas por planta, pendiente y cubierta vivían en el panel lateral, que en
+  pantallas ≤1100px es un cajón oculto. Se elegía la vista a ciegas y había que
+  dibujar, deshacer, cambiar un ajuste y repetir para ver el efecto. Además se
+  ofrecían los cuatro ajustes siempre, aunque la vista elegida ignorara alguno
+  (la fachada plana no tiene cubierta ni pendiente; el perfil lleva siempre la
+  suya trapezoidal, `_profile` no mira `roofType`).
+- **Causa:** decisión de diseño inicial —un modal por catálogo, sin parámetros—
+  que no se revisó al añadir a Fachada opciones que las otras herramientas de
+  Edificios no tienen.
+- **Fix:** `#modal-facade` (`index.html`) incorpora una **miniatura en vivo**
+  (`#facade-preview`) y gemelos de los cuatro controles del panel.
+  `js/app.js`: `buildOpts()` centraliza los opts de `Building.elements` para los
+  tres consumidores (preview del arrastre, commit y miniatura);
+  `syncBuildControls()` reparte el `state` a los dos juegos de controles y
+  repinta —fijar `.value` no dispara eventos, así que no se realimentan—;
+  `renderFacadePreview(shape?)` reutiliza `Building.elements` +
+  `drawBuildingPreview`, encaja por bounds reales y pinta `state.canvasBg` de
+  papel (sobre el modal oscuro el trazo no se vería); `updateFacadeFieldsEnabled()`
+  atenúa lo que la vista ignora. Pasar el puntero por una vista la previsualiza
+  sin elegirla.
+- **Guardia:** `tests/smoke.test.js` › *"los controles gemelos de Edificios
+  (panel y modal) ofrecen lo mismo"* (opciones y rango idénticos: si divergen,
+  `syncBuildControls` dejaría un control en blanco en silencio).
+- **Verificación manual:** abrir Fachada → la miniatura muestra la vista activa;
+  cambiar Plantas/Ventanas/Pendiente/Cubierta → se repinta al instante y el
+  panel lateral refleja el mismo valor (y al revés); elegir «De frente» → se
+  atenúan Cubierta y Pendiente; elegir «De lado» → se atenúa solo Cubierta;
+  pasar el puntero por otra vista → la miniatura la muestra y al salir vuelve
+  la elegida.

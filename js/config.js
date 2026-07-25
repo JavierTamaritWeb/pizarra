@@ -86,11 +86,15 @@ const ROOF_TYPES = Object.freeze([
 ]);
 
 /** Tipos del botón Fachada (catálogo del modal). El icono lo dibuja app.js
-    (facadeIcon) a partir del id. */
+    (facadeIcon) a partir del id.
+    `name` va en lenguaje llano (quien no es arquitecto no sabe elegir entre
+    «alzado» y «perfil») y `hint` conserva el término técnico como subtítulo.
+    Ninguno de los dos puede prometer una forma de cubierta: en el alzado la
+    elige `state.roofType`, no esta entrada. */
 const FACADE_TYPES = Object.freeze([
-  { id: 'flat',    name: 'Fachada plana' },
-  { id: 'gable',   name: 'Alzado (2 aguas)' },
-  { id: 'profile', name: 'Perfil (lateral)' },
+  { id: 'flat',    name: 'De frente',  hint: 'Fachada plana' },
+  { id: 'gable',   name: 'Con tejado', hint: 'Alzado' },
+  { id: 'profile', name: 'De lado',    hint: 'Perfil' },
 ]);
 
 const TOOL_GROUPS = [

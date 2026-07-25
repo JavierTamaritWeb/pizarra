@@ -129,6 +129,53 @@ test('perfil ≠ alzado: perfil con cumbrera horizontal, alzado con ápice puntu
   assert.ok(cumbreraHoriz(per), 'el perfil debe tener cumbrera horizontal (tejado trapezoidal)');
 });
 
+// Guarda de regresión: el perfil es el canto del edificio, no una segunda
+// fachada — no lleva el acceso principal y sus plantas van acompasadas.
+test('perfil: sin puerta central y con la planta baja acompasada', () => {
+  const p1 = { x: 0, y: 0 }, p2 = { x: 260, y: 320 };   // ancho > alto del cuerpo
+  const opts = { ...O, floors: 3, bays: 3 };
+  const per = Building.elements(TOOLS.BUILD_FACADE, p1, p2, { ...opts, facadeShape: 'profile' });
+  const alz = Building.elements(TOOLS.BUILD_FACADE, p1, p2, { ...opts, facadeShape: 'gable' });
+  // La puerta es el rect estrecho centrado y apoyado en la rasante (y = 320).
+  const doorOf = els => els.find(e => e.type === 'rect' && e.w < 100
+    && Math.abs((e.x + e.w / 2) - 130) < 4 && Math.abs((e.y + e.h) - 320) < 2);
+  assert.ok(doorOf(alz), 'el alzado sí lleva la puerta principal apoyada en la base');
+  assert.equal(doorOf(per), undefined, 'el perfil no debe llevar puerta');
+  // Ritmo uniforme: las 3 plantas con los 3 vanos, sin el hueco de la entrada.
+  const rows = new Map();
+  per.filter(e => e.type === 'rect' && e.h > e.w)
+     .forEach(e => rows.set(e.y, (rows.get(e.y) || 0) + 1));
+  const counts = [...rows.values()];
+  assert.equal(counts.length, 3, 'perfil: una fila de ventanas por planta');
+  assert.ok(counts.every(c => c === 3), `perfil: 3 vanos en cada planta, hay ${counts}`);
+});
+
+// Guarda de regresión: la cubierta del alzado la fija `state.roofType` (panel
+// Edificios / modal), así que ningún texto del catálogo puede prometer una
+// forma —con «Alzado (2 aguas)» el botón mentía al tener hip/mansarda activos.
+test('el catálogo de Fachada no promete una cubierta concreta en el nombre', () => {
+  const gable = FACADE_TYPES.find(ft => ft.id === 'gable');
+  assert.ok(gable, 'sigue existiendo la vista de alzado');
+  const ROOF_WORDS = ['agua', 'aguas', 'mansarda'];
+  for (const word of ROOF_WORDS) {
+    for (const field of ['name', 'hint']) {
+      assert.ok(!gable[field].toLowerCase().includes(word),
+        `${field} del alzado («${gable[field]}») no debe fijar la cubierta: contiene «${word}»`);
+    }
+  }
+});
+
+// El catálogo se dibuja con `name` (lenguaje llano) + `hint` (término técnico):
+// si a una entrada le falta uno, el botón sale con un subtítulo "undefined".
+test('cada vista de Fachada tiene nombre llano y término técnico', () => {
+  for (const ft of FACADE_TYPES) {
+    assert.equal(typeof ft.name, 'string', `${ft.id} sin name`);
+    assert.equal(typeof ft.hint, 'string', `${ft.id} sin hint`);
+    assert.ok(ft.name.length && ft.hint.length, `${ft.id} con textos vacíos`);
+    assert.notEqual(ft.name, ft.hint, `${ft.id}: el subtítulo repite el nombre`);
+  }
+});
+
 test('puerta tipo "door": marco ajustado a la caja + dintel + junta', () => {
   const els = Building.elements(TOOLS.BUILD_DOOR, { x: 10, y: 20 }, { x: 70, y: 160 }, { ...O, doorType: 'door' });
   const frame = els.find(e => e.type === 'rect');

@@ -769,9 +769,61 @@ kbd {
   gap: 10px;
 }
 
+/* Tres vistas de Fachada en una fila: caben porque el modal ya trae arriba la
+   miniatura y los ajustes, y así la elección de vista queda en un solo golpe. */
+.modal__shape-grid--three { grid-template-columns: repeat(3, 1fr); }
+.modal__shape-grid--three .modal__shape { padding: 12px 6px; gap: 6px; }
+
 /* En pantallas muy estrechas (~320px) las dos columnas no caben: una sola. */
 @media (max-width: 360px) {
-  .modal__shape-grid { grid-template-columns: 1fr; }
+  .modal__shape-grid,
+  .modal__shape-grid--three { grid-template-columns: 1fr; }
+}
+
+/* ── Modal de Fachada: miniatura en vivo + ajustes de Edificios ──
+   Los cuatro ajustes viven a la vez aquí y en el panel (app.js los mantiene
+   sincronizados); tenerlos junto a la miniatura evita elegir a ciegas. */
+.modal__build {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+/* Fondo claro como el del lienzo: sobre el modal oscuro, un trazo de color
+   oscuro (el que se va a dibujar) sería invisible. */
+.modal__preview {
+  width: 176px;
+  height: 168px;
+  border: 1px solid var(--border-main);
+  border-radius: 8px;
+}
+
+.modal__build-fields {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.modal__field-label,
+.modal__legend {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.modal__legend { margin-bottom: 8px; }
+
+/* Ajuste que la vista elegida ignora (la cubierta en la fachada plana, o el
+   tipo de cubierta en el perfil, que siempre lleva la suya trapezoidal). */
+.modal__field--off { opacity: 0.4; }
+
+/* Apilado en modales estrechos: la miniatura pasa a ocupar todo el ancho. */
+@media (max-width: 420px) {
+  .modal__build { grid-template-columns: 1fr; }
+  .modal__preview { width: 100%; }
 }
 
 .modal__shape {
@@ -804,6 +856,15 @@ kbd {
 .modal__shape-name {
   text-align: center;
   line-height: 1.2;
+}
+
+/* Nota bajo el nombre: refleja un ajuste que vive fuera del modal
+   (p. ej. la cubierta activa del panel Edificios en el botón Alzado). */
+.modal__shape-note {
+  text-align: center;
+  line-height: 1.2;
+  font-size: 0.72rem;
+  opacity: 0.7;
 }
 
 .modal__shape--active {

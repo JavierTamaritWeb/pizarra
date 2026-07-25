@@ -162,3 +162,41 @@ La app no tiene tests ni build. Sin introducir bundler se puede montar un runner
 - localStorage/autosave entre recargas, atajos de teclado por SO (Cmd vs Ctrl), lector de pantalla y navegación por teclado.
 
 **Checklist manual mínima post-cambio** (mientras no haya automatización): dibujar uno de cada tipo → mover → undo ×2 → redo → borrar con eraser → exportar PNG/JPG/SVG/HTML/JSON → importar el JSON → verificar que el lienzo es idéntico y el contador coincide.
+
+---
+
+## 7. Revisión de la herramienta Fachada (2026-07-25)
+
+Análisis con la técnica de los seis sombreros sobre el botón **Fachada**. El
+motor geométrico estaba sano; los problemas eran de **interfaz y coherencia de
+estado**, no de dibujo.
+
+### Prioridad 1 — Arreglar lo que engaña ✅ hecho en v1.13.0
+1. ✅ El modal ofrecía «Alzado (2 aguas)» pero la cubierta real la fijaba
+   `roofType`: con *Cuatro aguas* o *Mansarda* la etiqueta mentía.
+2. ✅ Solo la mitad de los ajustes de Edificios se persistían (las variantes de
+   los cinco modales se reseteaban al recargar).
+3. ✅ El **Perfil** repetía los huecos de la fachada frontal, puerta principal
+   centrada incluida.
+
+### Prioridad 2 — Unificar la configuración ✅ hecho en v1.13.0
+4. ✅ Plantas, vanos, pendiente y cubierta viven ahora también dentro del modal
+   de Fachada, con **miniatura en vivo** y sincronizados con el panel.
+5. ✅ Las vistas pasan a lenguaje llano, con el término de arquitecto como
+   subtítulo.
+
+### Prioridad 3 — Capacidad nueva ⏳ pendiente
+6. **Escalar los vanos con el ancho.** `_openings` topa las columnas en 4
+   (`js/building.js`), así que una fachada de 600 px reparte 4 vanos gigantes en
+   vez de ~8 normales. Subir el tope a ~8 y revisar `BAY_W`; el selector
+   «Ventanas por planta» del panel y del modal debe ampliar sus opciones a la
+   vez (guardia: *"los controles gemelos de Edificios ofrecen lo mismo"*).
+7. **Planta baja comercial** (escaparate en vez de ventanas) y **balcones** como
+   opciones de fachada. Encajan como campos nuevos en `opts` + controles gemelos.
+
+### Descartado
+- **Hacer la fachada editable tras crearla.** Exigiría un tipo de elemento
+  «edificio» y rompería la decisión que hace que render, exportación, undo,
+  JSON y bounds funcionen gratis con las herramientas de Edificios. Alternativa
+  barata si alguna vez se necesita: un «rehacer con estos ajustes» que borre el
+  grupo seleccionado y lo regenere en la misma caja.

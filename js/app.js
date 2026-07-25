@@ -731,6 +731,14 @@
         buildBays: state.buildBays,
         roofPitch: state.roofPitch,
         roofType: state.roofType,
+        // Variantes elegidas en los modales de Edificios: son defaults de
+        // creación igual que los de arriba, así que persisten igual (si no,
+        // media configuración de Edificios sobrevive a la recarga y media no).
+        plantaShape: state.plantaShape,
+        facadeShape: state.facadeShape,
+        roofShape: state.roofShape,
+        doorType: state.doorType,
+        windowType: state.windowType,
       }));
     } catch (_) { /* almacenamiento lleno o bloqueado: se ignora */ }
   }
@@ -764,6 +772,16 @@
       if (['gable', 'hip', 'mansard'].includes(prefs.roofType)) {
         state.roofType = prefs.roofType;
       }
+      // Variantes de los modales: se validan contra su propio catálogo, así
+      // que un id desconocido (prefs de otra versión) se ignora sin romper.
+      const restoreVariant = (value, catalog, key) => {
+        if (catalog.some(item => item.id === value)) state[key] = value;
+      };
+      restoreVariant(prefs.plantaShape, PLANTA_SHAPES, 'plantaShape');
+      restoreVariant(prefs.facadeShape, FACADE_TYPES, 'facadeShape');
+      restoreVariant(prefs.roofShape,   ROOF_TYPES,    'roofShape');
+      restoreVariant(prefs.doorType,    DOOR_TYPES,    'doorType');
+      restoreVariant(prefs.windowType,  WINDOW_TYPES,  'windowType');
     } catch (_) { /* prefs corruptas: se ignoran */ }
   }
 
@@ -1361,6 +1379,21 @@
   let overlayPending = false;
   let lastPos = null;
 
+  // Opts de creación de la sección Edificios. Fuente ÚNICA para los tres sitios
+  // que llaman a Building.elements —previsualización del arrastre, commit al
+  // soltar y miniatura del modal de Fachada—: si cada uno armara su propio
+  // objeto, un campo nuevo se olvidaría en alguno y la preview dejaría de
+  // coincidir con lo que se dibuja.
+  function buildOpts() {
+    return {
+      color: state.color, lineWidth: state.lineWidth,
+      plantaShape: state.plantaShape, doorType: state.doorType,
+      windowType: state.windowType,
+      floors: state.buildFloors, bays: state.buildBays, roofPitch: state.roofPitch,
+      roofType: state.roofType, roofShape: state.roofShape, facadeShape: state.facadeShape,
+    };
+  }
+
   // Dibuja la previsualización de un edificio (elementos rect/line/circle/curveArrow
   // producidos por Building.elements) respetando el trazo de cada pieza —el detalle
   // usa lineWidth fino— en vez del grosor global del overlay. Mantiene el guion del
@@ -1539,13 +1572,7 @@
       default:
         // Preview de "Edificios": misma geometría que se creará al soltar
         if (BUILDING_TOOLS.includes(state.tool)) {
-          const preview = Building.elements(state.tool, state.startPos, pos, {
-            color: state.color, lineWidth: state.lineWidth,
-            plantaShape: state.plantaShape, doorType: state.doorType,
-            windowType: state.windowType,
-            floors: state.buildFloors, bays: state.buildBays, roofPitch: state.roofPitch,
-            roofType: state.roofType, roofShape: state.roofShape, facadeShape: state.facadeShape,
-          });
+          const preview = Building.elements(state.tool, state.startPos, pos, buildOpts());
           drawBuildingPreview(octx, preview);
         } else {
           octx.strokeRect(x, y, w, h);
@@ -1869,13 +1896,7 @@
     // Edificios — herramientas de creación: 1..N elementos de tipos ya
     // existentes (rect/line, ver js/building.js). Un solo undo por gesto.
     else if (BUILDING_TOOLS.includes(state.tool)) {
-      const created = withSeeds(Building.elements(state.tool, p1, p2, {
-        color: state.color, lineWidth: state.lineWidth,
-        plantaShape: state.plantaShape, doorType: state.doorType,
-        windowType: state.windowType,
-        floors: state.buildFloors, bays: state.buildBays, roofPitch: state.roofPitch,
-        roofType: state.roofType, roofShape: state.roofShape, facadeShape: state.facadeShape,
-      }));
+      const created = withSeeds(Building.elements(state.tool, p1, p2, buildOpts()));
       if (created.length) {
         saveUndo();
         // Agrupa las piezas del edificio bajo un id compartido → se seleccionan,
@@ -2243,7 +2264,13 @@
     if (id === TOOLS.BUILD_DOOR) { updateDoorActive(); $('modal-door').showModal(); }
     if (id === TOOLS.BUILD_WINDOW) { updateWindowActive(); $('modal-window').showModal(); }
     if (id === TOOLS.BUILD_ROOF) { updateRoofActive(); $('modal-roof').showModal(); }
-    if (id === TOOLS.BUILD_FACADE) { updateFacadeActive(); $('modal-facade').showModal(); }
+    // Fachada se reconstruye entera (no solo el resaltado): el icono del alzado
+    // y la miniatura dependen de ajustes que pueden haber cambiado fuera.
+    if (id === TOOLS.BUILD_FACADE) {
+      buildFacadeCatalog();
+      syncBuildControls();
+      $('modal-facade').showModal();
+    }
   }
 
   function deleteSelection() {
@@ -2576,31 +2603,36 @@
       redraw();
     });
 
-    // Panel Edificios — SOLO fijan defaults de creación (las herramientas de
+    // Edificios — SOLO fijan defaults de creación (las herramientas de
     // Edificios son de creación: no hay elemento "edificio" que editar, así que
     // no siguen la semántica dual del panel; no tocan la selección ni el undo).
-    $('build-floors').value = String(state.buildFloors);
-    $('build-floors').addEventListener('change', e => {
-      state.buildFloors = e.target.value === 'auto' ? 'auto' : Number(e.target.value);
-      savePrefs();
+    // Cada ajuste existe DOS veces: en el panel y en el modal de Fachada. Se
+    // cablean por pares contra el mismo `state`, y `syncBuildControls` reparte
+    // el valor a los dos juegos de controles después de cada cambio.
+    const wireBuildPair = (panelId, modalId, apply) => {
+      [panelId, modalId].forEach(id => $(id).addEventListener('change', e => {
+        apply(e.target.value);
+        syncBuildControls();
+        savePrefs();
+      }));
+    };
+    wireBuildPair('build-floors', 'facade-floors', v => {
+      state.buildFloors = v === 'auto' ? 'auto' : Number(v);
     });
-    $('build-bays').value = String(state.buildBays);
-    $('build-bays').addEventListener('change', e => {
-      state.buildBays = e.target.value === 'auto' ? 'auto' : Number(e.target.value);
-      savePrefs();
+    wireBuildPair('build-bays', 'facade-bays', v => {
+      state.buildBays = v === 'auto' ? 'auto' : Number(v);
     });
-    $('build-roof-pitch').value = String(Math.round(state.roofPitch * 100));
-    $('build-pitch-val').textContent = String(Math.round(state.roofPitch * 100));
-    $('build-roof-pitch').addEventListener('input', e => {
-      state.roofPitch = Number(e.target.value) / 100;
-      $('build-pitch-val').textContent = e.target.value;
+    wireBuildPair('build-roof-type', 'facade-roof-type', v => { state.roofType = v; });
+    // La pendiente actualiza en vivo al arrastrar (input) y solo persiste al
+    // soltar (change), para no escribir prefs en cada paso del slider.
+    ['build-roof-pitch', 'facade-roof-pitch'].forEach(id => {
+      $(id).addEventListener('input', e => {
+        state.roofPitch = Number(e.target.value) / 100;
+        syncBuildControls();
+      });
+      $(id).addEventListener('change', savePrefs);
     });
-    $('build-roof-pitch').addEventListener('change', savePrefs);
-    $('build-roof-type').value = state.roofType;
-    $('build-roof-type').addEventListener('change', e => {
-      state.roofType = e.target.value;
-      savePrefs();
-    });
+    syncBuildControls();   // valores iniciales (tras restorePrefs) en ambos sitios
     // Doble punta — semántica dual: con selección aplica/quita heads:'both'
     // a las flechas seleccionadas (los no-flecha se ignoran); sin selección
     // fija el default para las nuevas flechas.
@@ -3075,6 +3107,7 @@
       state.plantaShape = btn.dataset.shape;
       state.variantChosen = true;
       updatePlantaActive();
+      savePrefs();
       plantaModal.close();
     });
 
@@ -3089,6 +3122,7 @@
       state.doorType = btn.dataset.door;
       state.variantChosen = true;
       updateDoorActive();
+      savePrefs();
       doorModal.close();
     });
 
@@ -3103,6 +3137,7 @@
       state.windowType = btn.dataset.window;
       state.variantChosen = true;
       updateWindowActive();
+      savePrefs();
       windowModal.close();
     });
 
@@ -3117,6 +3152,7 @@
       state.roofShape = btn.dataset.roof;
       state.variantChosen = true;
       updateRoofActive();
+      savePrefs();
       roofModal.close();
     });
 
@@ -3131,8 +3167,25 @@
       state.facadeShape = btn.dataset.facade;
       state.variantChosen = true;
       updateFacadeActive();
+      syncBuildControls();   // la vista decide qué ajustes aplican
+      savePrefs();
       facadeModal.close();
     });
+    // Pasar el puntero (o el foco) por una vista la muestra en la miniatura sin
+    // elegirla; al salir vuelve la elegida. Un solo listener por evento: los
+    // hijos del botón resuelven al mismo `closest`, y fuera de los botones da
+    // null, así que no parpadea al moverse entre el icono y su etiqueta.
+    let hoverShape = null;
+    const previewOnHover = e => {
+      const btn = e.target.closest && e.target.closest('.modal__facade');
+      const shape = btn ? btn.dataset.facade : null;
+      if (shape === hoverShape) return;
+      hoverShape = shape;
+      renderFacadePreview(shape || undefined);
+    };
+    facadeModal.addEventListener('pointerover', previewOnHover);
+    facadeModal.addEventListener('focusin', previewOnHover);
+    facadeModal.addEventListener('close', () => { hoverShape = null; });
   }
 
   /** Rellena el modal con el catálogo de config.js (textContent, nunca HTML) */
@@ -3452,8 +3505,123 @@
     });
   }
 
-  /** Dibuja el icono SVG de un tipo de fachada (plana / alzado / perfil). */
-  function facadeIcon(id) {
+  /** Faldón del icono de Alzado según la cubierta ACTIVA (`state.roofType`):
+      el botón no puede prometer «2 aguas» si el panel Edificios tiene puesta
+      otra cubierta. Caja del tejado: x 13..31, cumbre y=6, alero y=14. */
+  const FACADE_ROOF_PTS = {
+    gable:   '13,14 22,6 31,14',                    // dos aguas (ápice)
+    hip:     '13,14 18,6 26,6 31,14',               // cuatro aguas (cumbrera corta)
+    mansard: '13,14 15,10 19,6 25,6 29,10 31,14',   // mansarda (quiebre)
+  };
+
+  /** Nombre legible de la cubierta activa (título del botón de alzado). */
+  const activeRoofName = () =>
+    (ROOF_TYPES.find(rt => rt.id === state.roofType) || ROOF_TYPES[0]).name;
+
+  /**
+   * Único punto de sincronización de los defaults de Edificios: empuja el
+   * `state` a los DOS juegos de controles (panel y modal de Fachada) y repinta
+   * la miniatura. Asignar `.value` por código no dispara eventos, así que los
+   * dos juegos no pueden realimentarse. Llamar tras cualquier cambio.
+   */
+  function syncBuildControls() {
+    const pitch = String(Math.round(state.roofPitch * 100));
+    // Cada valor va a su control del panel y a su gemelo del modal.
+    const setBoth = (panelId, modalId, value) => {
+      $(panelId).value = value;
+      $(modalId).value = value;
+    };
+    setBoth('build-floors',    'facade-floors',    String(state.buildFloors));
+    setBoth('build-bays',      'facade-bays',      String(state.buildBays));
+    setBoth('build-roof-pitch','facade-roof-pitch', pitch);
+    setBoth('build-roof-type', 'facade-roof-type',  state.roofType);
+    $('build-pitch-val').textContent = pitch;
+    $('facade-pitch-val').textContent = pitch;
+    updateFacadeFieldsEnabled();
+    renderFacadePreview();
+  }
+
+  /* ── Miniatura en vivo del modal de Fachada ──
+     Edificio de muestra: proporciones de un bloque entero para que se lean las
+     plantas. El tamaño se ajusta después a la miniatura, así que estos números
+     solo fijan la relación de aspecto. */
+  const FACADE_SAMPLE = { w: 150, h: 250 };
+  // Deben coincidir con .modal__preview en styles.css (el <canvas> está oculto
+  // mientras el modal está cerrado, así que clientWidth no sirve).
+  const FACADE_PREVIEW_W = 176, FACADE_PREVIEW_H = 168;
+
+  /**
+   * Repinta la miniatura con los ajustes actuales. Usa `Building.elements` +
+   * `drawBuildingPreview` —los mismos que la previsualización del arrastre—,
+   * así que la miniatura no puede divergir de lo que se acabará dibujando.
+   * `shape` permite ver una vista sin seleccionarla (hover/foco en su botón);
+   * sin argumento muestra la vista elegida.
+   */
+  function renderFacadePreview(shape) {
+    const cv = $('facade-preview');
+    if (!cv) return;
+    const pctx = cv.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    if (cv.width !== Math.round(FACADE_PREVIEW_W * dpr)) {
+      cv.width = Math.round(FACADE_PREVIEW_W * dpr);
+      cv.height = Math.round(FACADE_PREVIEW_H * dpr);
+    }
+    pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Papel del color real del lienzo: sobre el modal oscuro, un trazo oscuro
+    // (el que se va a dibujar) no se vería.
+    pctx.fillStyle = state.canvasBg;
+    pctx.fillRect(0, 0, FACADE_PREVIEW_W, FACADE_PREVIEW_H);
+
+    const els = Building.elements(
+      TOOLS.BUILD_FACADE, { x: 0, y: 0 }, { x: FACADE_SAMPLE.w, y: FACADE_SAMPLE.h },
+      { ...buildOpts(), facadeShape: shape || state.facadeShape },
+    );
+    if (!els.length) return;
+    // Encajar el conjunto: cornisa, alero y rasante se salen de la caja de arrastre.
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    els.forEach(el => {
+      const b = getElementBounds(el);
+      minX = Math.min(minX, b.x); minY = Math.min(minY, b.y);
+      maxX = Math.max(maxX, b.x + b.w); maxY = Math.max(maxY, b.y + b.h);
+    });
+    const pad = 10;
+    const bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY);
+    const s = Math.min((FACADE_PREVIEW_W - 2 * pad) / bw, (FACADE_PREVIEW_H - 2 * pad) / bh);
+    pctx.save();
+    pctx.translate(
+      (FACADE_PREVIEW_W - bw * s) / 2 - minX * s,
+      (FACADE_PREVIEW_H - bh * s) / 2 - minY * s,
+    );
+    pctx.scale(s, s);
+    // Suelo de grosor: a esta escala el trazo fino del detalle se desvanecería.
+    drawBuildingPreview(pctx, els.map(el => ({
+      ...el, lineWidth: Math.max(el.lineWidth, 0.9 / s),
+    })));
+    pctx.restore();
+  }
+
+  /**
+   * Atenúa y desactiva en el modal los ajustes que la vista elegida ignora:
+   * la fachada plana no lleva cubierta ni pendiente, y el perfil lleva siempre
+   * la suya trapezoidal (`_profile` no mira `roofType`). Antes se ofrecían los
+   * cuatro siempre, sugiriendo un efecto que no existía.
+   */
+  function updateFacadeFieldsEnabled() {
+    const shape = state.facadeShape;
+    const setOn = (id, on) => {
+      const el = $(id);
+      if (!el) return;
+      el.disabled = !on;
+      const field = el.closest('.panel__field');
+      if (field) field.classList.toggle('modal__field--off', !on);
+    };
+    setOn('facade-roof-type', shape === 'gable');
+    setOn('facade-roof-pitch', shape === 'gable' || shape === 'profile');
+  }
+
+  /** Dibuja el icono SVG de un tipo de fachada (plana / alzado / perfil).
+      `roofType` solo afecta al alzado, que hereda la cubierta del panel. */
+  function facadeIcon(id, roofType) {
     const NS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('viewBox', '0 0 44 32');
@@ -3463,34 +3631,49 @@
     svg.setAttribute('stroke-linejoin', 'round');
     svg.setAttribute('aria-hidden', 'true');
     const add = (tag, attrs) => { const el = document.createElementNS(NS, tag); for (const k in attrs) el.setAttribute(k, attrs[k]); svg.appendChild(el); };
+    const fine = attrs => add('rect', { ...attrs, 'stroke-width': '1.2' }); // detalle
     if (id === 'gable') {
-      add('polygon', { points: '13,14 22,6 31,14' });        // tejado a dos aguas
+      add('polygon', { points: FACADE_ROOF_PTS[roofType] || FACADE_ROOF_PTS.gable });
       add('rect', { x: 15, y: 14, width: 14, height: 13 });  // cuerpo
+      fine({ x: 19.5, y: 21, width: 5, height: 6 });          // puerta centrada
     } else if (id === 'profile') {
-      add('polygon', { points: '13,14 18,7 26,7 31,14' });   // tejado trapezoidal (perfil)
-      add('rect', { x: 15, y: 14, width: 14, height: 13 });
+      add('polygon', { points: '11,14 17,7 27,7 33,14' });    // cubierta trapezoidal
+      add('rect', { x: 13, y: 14, width: 18, height: 13 });   // canto: cuerpo más ancho
+      fine({ x: 16, y: 18, width: 4, height: 5 });            // el perfil NO lleva puerta:
+      fine({ x: 24, y: 18, width: 4, height: 5 });            // solo ventanas acompasadas
     } else { // flat
-      add('rect', { x: 15, y: 6, width: 14, height: 21 });   // muro sin tejado
+      add('rect', { x: 15, y: 6, width: 14, height: 21 });    // muro sin cubierta
+      fine({ x: 19.5, y: 21, width: 5, height: 6 });          // puerta centrada
     }
     return svg;
   }
 
+  /** Reconstruye el catálogo de Fachada. Se llama en cada apertura del modal
+      porque el icono del alzado depende de `state.roofType`, que el usuario
+      puede haber cambiado entretanto en el panel Edificios.
+      Cada botón lleva el nombre llano y, debajo, el término de arquitecto. */
   function buildFacadeCatalog() {
     const root = $('facade-catalog');
     root.innerHTML = '';
+    const roofName = activeRoofName();
     const grid = document.createElement('div');
-    grid.className = 'modal__shape-grid';
+    grid.className = 'modal__shape-grid modal__shape-grid--three';
     FACADE_TYPES.forEach(ft => {
       const btn = document.createElement('button');
       btn.className = 'modal__shape modal__facade';
       btn.type = 'button';
       btn.dataset.facade = ft.id;
-      btn.title = ft.name;
-      btn.appendChild(facadeIcon(ft.id));
+      btn.title = ft.id === 'gable' ? `${ft.name} (${ft.hint}) — cubierta: ${roofName}`
+                                    : `${ft.name} (${ft.hint})`;
+      btn.appendChild(facadeIcon(ft.id, state.roofType));
       const name = document.createElement('span');
       name.className = 'modal__shape-name';
       name.textContent = ft.name;
       btn.appendChild(name);
+      const hint = document.createElement('span');   // término técnico, secundario
+      hint.className = 'modal__shape-note';
+      hint.textContent = ft.hint;
+      btn.appendChild(hint);
       grid.appendChild(btn);
     });
     root.appendChild(grid);

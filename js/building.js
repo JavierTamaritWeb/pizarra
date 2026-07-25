@@ -7,7 +7,8 @@
      · Planta   : huella rect / L / U con jardín / claustro (elegida en modal)
      · Fachada  : muro multiplanta con ventanas y puerta
      · Alzado   : fachada con cubierta a dos aguas (alero, tejas, cumbrera, chimenea)
-     · Perfil   : vista lateral con cubierta trapezoidal (cumbrera horizontal)
+     · Perfil   : vista lateral con cubierta trapezoidal (cumbrera horizontal),
+                  sin puerta y con las plantas acompasadas (el acceso va delante)
      · Tejados  : dos aguas / un agua / plano
    Diseño basado en el estudio de alzado (plano de arquitecto): el detalle
    (montantes, alféizares, tejas, impostas) usa TRAZO FINO; los contornos usan
@@ -278,7 +279,10 @@ const Building = (function () {
   }
 
   // Ventanas por planta (verticales, acompasadas) + puerta centrada en PB.
-  function _openings(x, y, w, h, n, o) {
+  // `side` = vista lateral (Perfil): un canto no tiene el acceso principal, así
+  // que no lleva puerta y su planta baja se acompasa como las demás (ritmo
+  // uniforme, sin el hueco central que la fachada deja para la entrada).
+  function _openings(x, y, w, h, n, o, side) {
     const els = [];
     const fh = h / n;
     const cols = (typeof o.bays === 'number' && o.bays >= 1)
@@ -290,7 +294,7 @@ const Building = (function () {
     const cx = x + w / 2;
     if (winW <= 2 || winH <= 2) return els;      // demasiado pequeño para huecos
     for (let f = 0; f < n; f++) {
-      const ground = f === n - 1;
+      const ground = !side && f === n - 1;       // en perfil no hay planta de acceso
       const wy = y + f * fh + (fh - winH) / 2 - fh * 0.04;
       for (let c = 0; c < cols; c++) {
         const wx = x + mg + c * slot + (slot - winW) / 2;
@@ -316,15 +320,16 @@ const Building = (function () {
   }
 
   /* ── cuerpo de fachada: cornisa + muro + impostas + huecos + rasante ── */
-  function _body(x, y, w, h, n, o, crown = true) {
+  function _body(x, y, w, h, n, o, crown = true, side = false) {
     // La cornisa corona la fachada plana; con tejado encima (alzado/perfil) se
-    // omite para no solaparse con el alero de la cubierta.
+    // omite para no solaparse con el alero de la cubierta. `side` = vista
+    // lateral: los huecos van sin puerta (ver _openings).
     const els = [];
     if (crown) els.push(_rectEl(x - 6, y - 8, w + 12, 8, o)); // cornisa
     els.push(_rectEl(x, y, w, h, o));                          // muro
     const fh = h / n;
     for (let f = 1; f < n; f++) els.push(_lineT(x, y + f * fh, x + w, y + f * fh, o)); // impostas
-    els.push(..._openings(x, y, w, h, n, o));
+    els.push(..._openings(x, y, w, h, n, o, side));
     els.push(_line(x - 20, y + h, x + w + 20, y + h, o));  // rasante
     return els;
   }
@@ -383,9 +388,12 @@ const Building = (function () {
       : _gableRoof(b.x, topY, b.w, roofH, o);       // 'gable' (default): dos aguas con alero+chimenea
     return [...roof, ..._body(b.x, topY, b.w, bodyH, n, o, false)];  // sin cornisa: el tejado corona
   }
-  function _profile(b, o) {                         // perfil
+  // Perfil (canto del edificio): sin cornisa (la corona el tejado) y sin puerta
+  // —el acceso principal está en la fachada, no en el lateral—, con las plantas
+  // acompasadas de arriba abajo.
+  function _profile(b, o) {
     const roofH = b.h * (o.roofPitch || ROOF_FRAC), topY = b.y + roofH, bodyH = b.h - roofH, n = _floorCount(bodyH, o.floors);
-    return [..._trapRoof(b.x, topY, b.w, roofH, o), ..._body(b.x, topY, b.w, bodyH, n, o, false)];
+    return [..._trapRoof(b.x, topY, b.w, roofH, o), ..._body(b.x, topY, b.w, bodyH, n, o, false, true)];
   }
 
   /* ── plantas (huellas top-down) ── */
