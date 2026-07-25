@@ -41,7 +41,7 @@ const KNOWN_GLOBALS = [
   'COLORS', 'CANVAS_W', 'CANVAS_H',
   'SKETCHY_FONT', 'UI_DEFAULTS', 'EMOJI_GROUPS', 'EMOJI_MIN_SIZE',
   'Sketchy', 'ArcMath', 'CurvePath', 'ShapeRotation', 'RegularPolygon',
-  'Trapezoid', 'Building', 'Renderer', 'Exporter', 'Templates',
+  'Trapezoid', 'Eraser', 'Building', 'Renderer', 'Exporter', 'Templates',
 ];
 
 /** Orden completo de dependencias del proyecto (app.js excluido: requiere DOM real). */
@@ -53,6 +53,7 @@ const ALL_FILES = [
   'js/shape-rotation.js',
   'js/regular-polygon.js',
   'js/trapezoid.js',
+  'js/eraser.js',
   'js/building.js',
   'js/renderer.js',
   'js/exporter.js',

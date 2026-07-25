@@ -4,6 +4,30 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.14.0] — 2026-07-25
+
+### Cambiado
+- **El borrador elimina de verdad.** Hasta ahora no borraba: añadía al lienzo una
+  *máscara* que tapaba lo que había debajo. Como la máscara se queda fija en su
+  sitio, al mover el dibujo lo "borrado" salía de debajo y **reaparecía**; además
+  seguía viajando dentro del JSON exportado. Ahora la pasada quita los elementos
+  que toca y no deja nada en la escena. El criterio de alcance es el mismo del
+  clic de selección ampliado por el radio: **si un clic ahí seleccionaría el
+  elemento, el borrador ahí lo elimina**. Los elementos desaparecen ya mientras
+  barres, así que lo que ves durante el gesto es el resultado; cada pasada sigue
+  siendo un único paso de deshacer, y una que no toca nada no ensucia el
+  historial.
+- **Compatibilidad:** los proyectos guardados antes de esta versión conservan sus
+  máscaras y se ven exactamente igual — se siguen renderizando y exportando como
+  siempre, y el borrador nuevo no las retira (quitarlas haría reaparecer justo lo
+  que ocultan). Lo que cambia es que la herramienta ya no crea ninguna.
+
+### Interno
+- Nuevo `js/eraser.js` (`Eraser`): geometría pura de "qué toca el trazo", con
+  distancia segmento-segmento y detección de cruce. Recibe por inyección lo que
+  vive fuera (bounds, muestreo de curvas, vértices de polígonos y trapecios), así
+  que es testeable sin DOM. Suite de **253 → 273** pruebas.
+
 ## [1.13.1] — 2026-07-25
 
 ### Corregido

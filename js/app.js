@@ -849,25 +849,30 @@
     });
   }
 
+  /** Lo que Eraser necesita de fuera: bounds reales y siluetas de las formas
+      con vértices, para que borrar coincida con lo que un clic seleccionaría. */
+  const eraserDeps = () => ({
+    boundsOf: getElementBounds,
+    sampleCurve: (el, n) => CurvePath.sample(el, n),
+    polygonVertices: el => (RegularPolygon.isType(el.type) ? RegularPolygon.vertices(el) : null),
+    trapezoidVertices: el => (el.type === TOOLS.TRAPEZOID ? Trapezoid.vertices(el) : null),
+  });
+
   function redrawNow() {
     resolveAnchors();
-    // El borrador se previsualiza sobre la escena real mientras se arrastra:
-    // no se añade todavía al estado (undo sigue siendo un único gesto), pero
-    // el usuario ve el resultado final en vez de una línea roja provisional.
-    const liveEraser = state.isDrawing &&
+    // Previsualización del borrador: los elementos que la pasada va a eliminar
+    // desaparecen ya mientras se arrastra, así que lo que se ve durante el
+    // gesto es exactamente el resultado. El estado no se toca hasta soltar
+    // (undo sigue siendo un único paso por pasada).
+    const doomed = state.isDrawing &&
       state.tool === TOOLS.ERASER &&
-      state.currentPath.length > 1
-      ? {
-          type: TOOLS.ERASER,
-          points: state.currentPath,
-          color: state.color,
-          lineWidth: state.lineWidth,
-          size: state.eraserSize,
-          seed: 0,
-        }
+      state.currentPath.length
+      ? new Set(Eraser.doomedIndices(
+          state.elements, state.currentPath, state.eraserSize / 2, eraserDeps(),
+        ))
       : null;
-    const sceneElements = liveEraser
-      ? [...state.elements, liveEraser]
+    const sceneElements = doomed && doomed.size
+      ? state.elements.filter((_, i) => !doomed.has(i))
       : state.elements;
     try {
       Renderer.renderScene(ctx, sceneElements, {
@@ -1771,7 +1776,28 @@
     lastPos = null;
 
     // Freehand commit
-    if (state.tool === TOOLS.PENCIL || state.tool === TOOLS.ERASER) {
+    // Borrador: ELIMINA los elementos que toca (un solo undo por pasada). No
+    // deja ningún elemento en la escena — la máscara antigua era posicional y
+    // lo "borrado" reaparecía al mover el dibujo.
+    if (state.tool === TOOLS.ERASER) {
+      state.currentPath.push(pos);
+      const doomed = Eraser.doomedIndices(
+        state.elements, state.currentPath, state.eraserSize / 2, eraserDeps(),
+      );
+      if (doomed.length) {
+        saveUndo();
+        const kill = new Set(doomed);
+        state.elements = state.elements.filter((_, i) => !kill.has(i));
+        setSelection([]);   // los índices anteriores ya no son válidos
+      }
+      state.currentPath = [];
+      lastPos = pos;
+      redraw();
+      scheduleOverlay();
+      return;
+    }
+
+    if (state.tool === TOOLS.PENCIL) {
       state.currentPath.push(pos);
       saveUndo();
       state.elements.push({
@@ -1779,15 +1805,10 @@
         points: state.currentPath,
         color: state.color,
         lineWidth: state.lineWidth,
-        ...(state.tool === TOOLS.ERASER ? { size: state.eraserSize } : {}),
         seed: newSeed(),
       });
       state.currentPath = [];
       redraw();
-      if (state.tool === TOOLS.ERASER) {
-        lastPos = pos;
-        scheduleOverlay();
-      }
       return;
     }
 

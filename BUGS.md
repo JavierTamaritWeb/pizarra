@@ -132,6 +132,32 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 - **Guardia:** `tests/building.test.js` › *"el catálogo de Fachada no promete
   una cubierta concreta en el nombre"* (cubre `name` y `hint`).
 
+### Lo borrado reaparecía al mover el dibujo (el borrador no borraba)
+- **Síntoma:** pasabas el borrador sobre parte de una fachada y desaparecía; al
+  mover luego la fachada, lo borrado **volvía a verse**. Lo mismo con cualquier
+  elemento. Además lo "borrado" seguía viajando dentro del JSON exportado, así
+  que reaparecía al importar el proyecto en otro sitio.
+- **Causa:** el borrador no eliminaba nada. Añadía a la escena un elemento
+  `type:'eraser'` que se componía con `destination-out`, es decir una **máscara
+  fija en coordenadas del lienzo**. Al mover el contenido, este salía de debajo
+  de la máscara y volvía a ser visible; la máscara seguía donde se pintó.
+- **Fix:** nuevo módulo puro `js/eraser.js` (`Eraser.doomedIndices`/`apply`) que
+  calcula qué elementos toca el trazo, con el mismo criterio que el clic de
+  selección ampliado por el radio. La rama de borrador en `onMouseUp`
+  (`js/app.js`) ahora **elimina** esos elementos con un solo `saveUndo` por
+  pasada y no deja nada en la escena; `redrawNow` previsualiza el gesto quitando
+  ya los condenados, así que lo que se ve durante el arrastre es el resultado.
+  Una pasada que no toca nada no apila undo.
+- **Compatibilidad:** los `eraser` de proyectos anteriores se siguen
+  renderizando, exportando y validando igual, y `doomedIndices` los **excluye**
+  a propósito: borrar una máscara haría reaparecer justo lo que oculta.
+- **Guardia:** `tests/eraser.test.js` (14 casos de geometría, incluido *"las
+  máscaras heredadas no se borran con el borrador nuevo"*) y
+  `tests/app-interaction.test.js` › *"el borrador elimina los elementos y no deja
+  ninguna máscara"*, *"lo borrado no reaparece al mover el dibujo"*, *"una pasada
+  del borrador es un solo paso de undo"*, *"una pasada que no toca nada no
+  ensucia el historial"* y *"los proyectos antiguos conservan su máscara"*.
+
 ### El marco de un edificio seleccionado se tragaba todos los clics de su interior
 - **Síntoma:** tres síntomas del mismo fallo. Con un edificio seleccionado, todo
   lo dibujado dentro de su marco quedaba inalcanzable: (1) **Supr borraba el

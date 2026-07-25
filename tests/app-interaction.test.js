@@ -137,6 +137,108 @@ test('los tipos elegidos en el modal de Fachada persisten en prefs', () => {
   assert.equal(again.$('facade-window-type').value, 'grid');
 });
 
+/* ── Regresión: el borrador elimina de verdad, no enmascara ── */
+
+test('el borrador elimina los elementos y no deja ninguna máscara en la escena', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 200, 200);
+  app.drag(400, 100, 500, 200);
+  app.selectTool('eraser');
+  app.drag(90, 150, 210, 150);          // pasada sobre el primero
+
+  const els = app.elements();
+  assert.equal(els.length, 1, 'el rect barrido desaparece del estado');
+  assert.equal(els.filter(e => e.type === 'eraser').length, 0,
+    'el borrador no debe añadir ningún elemento a la escena');
+  assert.equal(els[0].x, 400, 'el rect lejano sobrevive');
+});
+
+test('lo borrado no reaparece al mover el dibujo (el fallo de la máscara)', () => {
+  const { app, count } = withFacade();
+  app.selectTool('eraser');
+  app.drag(150, 200, 250, 200);
+  const afterErase = app.elements().length;
+  assert.ok(afterErase < count, 'la pasada elimina piezas de la fachada');
+
+  app.selectTool('select');
+  app.click(100, 100);
+  app.drag(105, 412, 405, 412);          // mueve lo que queda
+  assert.equal(app.elements().length, afterErase,
+    'mover no debe resucitar nada: ya no hay máscara posicional');
+});
+
+test('una pasada del borrador es un solo paso de undo', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 200, 200);
+  app.drag(220, 100, 320, 200);
+  app.selectTool('eraser');
+  app.drag(90, 150, 330, 150);           // barre los dos de una pasada
+  assert.equal(app.elements().length, 0);
+  app.key('z', { ctrlKey: true });
+  assert.equal(app.elements().length, 2, 'un único Ctrl+Z devuelve los dos');
+});
+
+test('una pasada que no toca nada no ensucia el historial', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 200, 200);
+  app.selectTool('eraser');
+  app.drag(600, 600, 700, 700);          // al aire
+  assert.equal(app.elements().length, 1);
+  app.key('z', { ctrlKey: true });
+  assert.equal(app.elements().length, 0,
+    'el Ctrl+Z debe deshacer el rect, no una pasada vacía');
+});
+
+test('los proyectos antiguos conservan su máscara y siguen viéndose igual', () => {
+  const legacy = [
+    { type: 'rect', x: 100, y: 100, w: 100, h: 100, color: '#000000', lineWidth: 2, seed: 1 },
+    {
+      type: 'eraser', color: '#000000', lineWidth: 2, size: 16, seed: 2,
+      points: [{ x: 90, y: 150 }, { x: 210, y: 150 }],
+    },
+  ];
+  const app = loadApp({ autosave: { elements: legacy, settings: { overlapMode: 'normal' } } });
+  const loaded = app.elements();
+  assert.equal(loaded.length, 2, 'el proyecto antiguo se carga entero');
+  assert.equal(loaded.filter(e => e.type === 'eraser').length, 1, 'la máscara se conserva');
+
+  // Pasar el borrador nuevo por encima borra el rect pero NO la máscara:
+  // quitarla haría reaparecer justo lo que oculta.
+  app.selectTool('eraser');
+  app.drag(90, 150, 210, 150);
+  const after = app.elements();
+  assert.equal(after.filter(e => e.type === 'eraser').length, 1, 'la máscara sobrevive');
+  assert.equal(after.filter(e => e.type === 'rect').length, 0, 'el rect sí se elimina');
+});
+
+test('el tamaño del borrador cambia su alcance', () => {
+  const near = () => {
+    const app = loadApp();
+    app.selectTool('rect');
+    app.drag(100, 100, 200, 200);
+    return app;
+  };
+  const small = near();
+  small.$('stroke-slider').value = '4';           // el panel edita el tamaño con el borrador activo
+  small.selectTool('eraser');
+  small.$('stroke-slider').value = '4';
+  small.$('stroke-slider').__fire('input', { target: small.$('stroke-slider') });
+  small.flush();
+  small.drag(100, 88, 200, 88);                   // 12px por encima del borde
+  assert.equal(small.elements().length, 1, 'con 4px no alcanza');
+
+  const big = near();
+  big.selectTool('eraser');
+  big.$('stroke-slider').value = '60';
+  big.$('stroke-slider').__fire('input', { target: big.$('stroke-slider') });
+  big.flush();
+  big.drag(100, 88, 200, 88);
+  assert.equal(big.elements().length, 0, 'con 60px sí alcanza');
+});
+
 test('el panel y el modal de Fachada quedan sincronizados en ambos sentidos', () => {
   const app = loadApp();
   const panelFloors = app.$('build-floors');
