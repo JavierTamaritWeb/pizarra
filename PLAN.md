@@ -209,23 +209,27 @@ estado**, no de dibujo.
 
 ---
 
-## 8. Sección Jardín (2026-07-25, v1.15.0)
+## 8. Sección Jardín (2026-07-25, v1.15.0 → v1.16.0)
 
-Entorno en **vista de planta**, repitiendo el patrón de Edificios: cinco
+Entorno en **vista de planta**, repitiendo el patrón de Edificios: seis
 herramientas solo de creación (`GARDEN_TOOLS`) que producen elementos de tipos
 ya existentes vía `js/garden.js`, con etiqueta de texto por pieza y agrupación
 sobre el `buildingGroupId` que ya existía.
 
 ### Hecho
-1. ✅ `Jardín` (parcela con césped), `Árbol` (6), `Arbusto` (4), `Flor` (5) y
-   `Decoración` (8), todo cenital.
+1. ✅ `Jardín` (parcela con césped, 4), `Árbol` (8), `Arbusto` (7), `Flor` (5),
+   `Decoración` (8) y `Aromáticas` (8) — **40 variantes**, todo cenital.
 2. ✅ Etiqueta con el nombre del tipo, dentro del grupo, con casilla en el panel.
-3. ✅ **Iconos pintados con la geometría real** en vez de 27 siluetas SVG a mano:
-   el icono no puede desincronizarse de lo que crea la herramienta.
+3. ✅ **Iconos pintados con la geometría real** en vez de una silueta SVG a mano
+   por variante: el icono no puede desincronizarse de lo que crea la
+   herramienta, y la cuenta crece gratis con cada entrada del catálogo.
 4. ✅ Un constructor de catálogos genérico (`GARDEN_MODALS`) en vez de las cinco
    parejas copiadas que tiene Edificios.
 5. ✅ Arreglado de paso: la previsualización del arrastre no dibujaba curvas
    encadenadas ni texto (fallo latente, ver `BUGS.md`).
+6. ✅ (v1.16.0) Almendro y algarrobo; sección **Aromáticas** con las matas de
+   siempre y las mediterráneas de roseta (`_rosette`); adelfa, boj y lentisco
+   en Arbusto.
 
 ### Deuda consciente
 - **Las cinco parejas `build*Catalog`/`update*Active` de Edificios siguen
@@ -243,3 +247,19 @@ sobre el `buildingGroupId` que ya existía.
   y deja la palabra flotando. Es el mismo comportamiento que borrar una ventana
   de una fachada, y hacer `doomedIndices` consciente de grupos contradiría la
   decisión de que el borrador va por elemento.
+- **«Aromáticas» se quedó sin atajo de teclado.** `8 9 H X Z` agotaron las teclas
+  sueltas libres y las demás ya actúan sobre las flechas curvas. Un séptimo botón
+  tendría el mismo problema, así que si la sección sigue creciendo habrá que
+  decidir entre dejarlos sin atajo o pasar a una tecla con modificador
+  (`Alt`+algo) — que no colisiona pero es menos descubrible. Fijado por el test
+  *"el sidebar de Jardín y GARDEN_TOOLS son la misma lista"*.
+
+### Si la sección sigue creciendo
+- **Trepadoras** (buganvilla, jazmín, parra) y **frutales de huerto en bancales**
+  son las ausencias más evidentes. Las trepadoras piden algo que el módulo aún no
+  hace: dibujarse **a lo largo de una línea** (un muro, una pérgola) en vez de
+  dentro de una caja. Encajaría como una variante de arrastre —el trazo define un
+  eje, no un rectángulo—, y eso sí toca `Garden.elements`.
+- **Escala real.** Hoy el tamaño por defecto es una convención (≈20 px por metro)
+  que no está escrita en ninguna parte de la interfaz. Una regla o una cota
+  haría los planos comparables entre sí.
