@@ -4,6 +4,32 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.13.1] — 2026-07-25
+
+### Corregido
+- **Lo dibujado sobre un edificio quedaba inalcanzable.** Con un edificio
+  seleccionado, su marco combinado cubre todo su interior y se tragaba cualquier
+  clic dentro: la puerta o la ventana que pusieras encima no se podían
+  seleccionar, **arrastrarlas movía el edificio entero** dejándolas quietas, y
+  **Supr borraba el edificio** en lugar del elemento pulsado (por lo que lo que
+  creías haber borrado seguía apareciendo). Ahora, si el punto cae sobre un
+  elemento ajeno a la selección, gana ese elemento; arrastrar el grupo desde un
+  hueco de su marco y **Alt+clic** para aislar una pieza siguen funcionando.
+- **El tipo de puerta y de ventana no se podía elegir al crear una fachada.**
+  La fachada ya los respetaba, pero solo se fijaban desde las herramientas
+  Puerta y Ventana, que cambian de herramienta y sacan del flujo. El modal de
+  Fachada incorpora ahora ambos selectores, junto a la miniatura, que se repinta
+  al cambiarlos. El de puerta se atenúa en la vista *De lado*, que no lleva.
+
+### Interno
+- **`js/app.js` pasa a ser testeable.** Nuevo arnés (`tests/helpers/dom-stub.js`
+  + `load-app.js`) que construye el DOM desde el `index.html` real y ejecuta la
+  app entera bajo `node:vm`; los tests lanzan gestos de verdad (pointer, teclado,
+  clics de modal) y leen el resultado del autosave, sin ningún hook de test en
+  producción. Cierra el hueco que `PLAN.md §6` daba por inevitable. Suite de
+  **245 → 253** pruebas, con `tests/app-interaction.test.js` cubriendo los dos
+  fallos anteriores y la sincronización panel ↔ modal.
+
 ## [1.13.0] — 2026-07-25
 
 ### Añadido

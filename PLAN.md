@@ -153,6 +153,12 @@ La app no tiene tests ni build. Sin introducir bundler se puede montar un runner
 - **`sketchy.js`** — con un ctx stub que grabe llamadas (`{moveTo(), lineTo(), stroke(), ...}` acumulando en un array). Verificar: número de llamadas esperado por primitiva, coordenadas dentro de bounds ± jitter máximo, y —tras §2.2— determinismo: mismo seed ⇒ misma secuencia exacta de llamadas. Ese test de determinismo es el guardián de la reproducibilidad del render.
 - **Lógica de `app.js` hoy encerrada en el IIFE** — `getElementBounds`, `hitTest` (incluida la nueva distancia punto-segmento con casos: click sobre el segmento, click dentro del bbox pero lejos de la diagonal), `moveElement`, `snap`, y la disciplina de undo (secuencia crear→mover→undo→estado original). Requiere exponer estas funciones (p. ej. `window.__test` condicional o extraerlas a un `js/geometry.js` cargado antes de app.js, que es la opción limpia).
 
+> **Actualización (v1.13.1):** el último punto ya no requiere exponer nada. El
+> arnés `tests/helpers/load-app.js` ejecuta `js/app.js` entero bajo `node:vm`
+> con el DOM construido desde el `index.html` real, y observa el resultado a
+> través del autosave, sin hooks de test en producción. La lista de abajo se
+> reduce a lo verdaderamente visual (render, fuentes, descargas).
+
 ### Requiere pruebas manuales (navegador)
 
 - Interacción de ratón/puntero real: drag, preview en overlay, doble click de edición, handles de resize, snap con Alt.

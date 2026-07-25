@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Architects+Daughter&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=1.13.0" />
+  <link rel="stylesheet" href="css/styles.css?v=1.13.1" />
 </head>
 <body>
 
@@ -23,7 +23,7 @@
       <div class="topbar__brand">
         <span class="topbar__logo-icon" aria-hidden="true">✎</span>
         <span class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></span>
-        <span class="topbar__badge">v1.13.0</span>
+        <span class="topbar__badge">v1.13.1</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes">
@@ -378,7 +378,9 @@
         <ul class="modal__help-list">
           <li><strong>Planta</strong> (<kbd>W</kbd>), <strong>Fachada</strong> (<kbd>1</kbd>), <strong>Tejado</strong> (<kbd>2</kbd>), <strong>Puerta</strong> (<kbd>0</kbd>), <strong>Ventana</strong> (<kbd>Y</kbd>): cada una abre un catálogo de tipos al pulsarla; elige uno y arrastra en el lienzo</li>
           <li><strong>Fachada</strong> ofrece 3 vistas —de frente, con tejado y de lado— con una <strong>miniatura en vivo</strong>: plantas, ventanas por planta, pendiente y cubierta se ajustan en el propio catálogo (y siguen en el panel <strong>Edificios</strong>, sincronizados). Pasa el puntero por una vista para verla antes de elegirla</li>
+          <li>El <strong>tipo de puerta y de ventana</strong> de los huecos también se elige en ese mismo catálogo, sin cambiar de herramienta</li>
           <li>La vista <strong>de lado</strong> (perfil) no lleva puerta: el acceso principal va en la fachada</li>
+          <li>Con un edificio seleccionado, pulsar sobre algo dibujado <strong>encima</strong> lo selecciona a él; arrastrar desde un hueco del marco mueve el edificio entero</li>
           <li>Si <strong>cancelas</strong> el catálogo (botón Cerrar o <kbd>Esc</kbd>) sin elegir tipo, vuelve la herramienta anterior</li>
           <li>Cada edificio se crea como una <strong>unidad</strong>: un clic lo selecciona entero (mover/duplicar/borrar); <kbd>Alt</kbd>+clic aísla una pieza</li>
         </ul>
@@ -470,6 +472,16 @@
                    min="20" max="50" step="1" value="36"
                    aria-label="Pendiente del tejado" />
           </label>
+          <!-- Huecos: la fachada los dibuja con estos tipos. Las <option> las
+               rellena app.js desde DOOR_TYPES/WINDOW_TYPES (una sola fuente). -->
+          <label class="panel__field" for="facade-door-type">
+            <span class="modal__field-label">Puerta</span>
+            <select class="panel__select" id="facade-door-type"></select>
+          </label>
+          <label class="panel__field" for="facade-window-type">
+            <span class="modal__field-label">Ventana</span>
+            <select class="panel__select" id="facade-window-type"></select>
+          </label>
         </div>
       </div>
 
@@ -517,17 +529,17 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="js/config.js?v=1.13.0"></script>
-  <script src="js/sketchy.js?v=1.13.0"></script>
-  <script src="js/arc.js?v=1.13.0"></script>
-  <script src="js/curve-path.js?v=1.13.0"></script>
-  <script src="js/shape-rotation.js?v=1.13.0"></script>
-  <script src="js/regular-polygon.js?v=1.13.0"></script>
-  <script src="js/trapezoid.js?v=1.13.0"></script>
-  <script src="js/building.js?v=1.13.0"></script>
-  <script src="js/renderer.js?v=1.13.0"></script>
-  <script src="js/exporter.js?v=1.13.0"></script>
-  <script src="js/templates.js?v=1.13.0"></script>
-  <script src="js/app.js?v=1.13.0"></script>
+  <script src="js/config.js?v=1.13.1"></script>
+  <script src="js/sketchy.js?v=1.13.1"></script>
+  <script src="js/arc.js?v=1.13.1"></script>
+  <script src="js/curve-path.js?v=1.13.1"></script>
+  <script src="js/shape-rotation.js?v=1.13.1"></script>
+  <script src="js/regular-polygon.js?v=1.13.1"></script>
+  <script src="js/trapezoid.js?v=1.13.1"></script>
+  <script src="js/building.js?v=1.13.1"></script>
+  <script src="js/renderer.js?v=1.13.1"></script>
+  <script src="js/exporter.js?v=1.13.1"></script>
+  <script src="js/templates.js?v=1.13.1"></script>
+  <script src="js/app.js?v=1.13.1"></script>
 </body>
 </html>

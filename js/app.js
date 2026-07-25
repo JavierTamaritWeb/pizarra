@@ -1297,18 +1297,24 @@
         }
       }
 
+      const idx = hitTest(pos);
+
       // 2. Multi-selección: arrastrar desde cualquier punto del marco
       // combinado mueve todo el grupo, sin necesidad de acertar sobre un
-      // trazo (Shift+click conserva su semántica de toggle, más abajo)
-      if (!e.shiftKey && state.selection.length > 1 && posInSelectionBounds(pos)) {
+      // trazo (Shift+click conserva su semántica de toggle, más abajo).
+      // EXCEPCIÓN: si el punto cae sobre un elemento que NO está en la
+      // selección, gana ese elemento. El marco de un edificio cubre todo su
+      // interior, así que sin esta condición cualquier cosa dibujada encima
+      // quedaba inalcanzable: el clic no la seleccionaba, el arrastre movía
+      // el edificio entero y Supr lo borraba a él en vez de a lo pulsado.
+      if (!e.shiftKey && state.selection.length > 1 && posInSelectionBounds(pos) &&
+          (idx < 0 || state.selection.includes(idx))) {
         state.dragLast = pos;
         // Snapshot ANTES de que el drag mute state.elements
         state.dragSnapshot = snapshot();
         state.didDrag = false;
         return;
       }
-
-      const idx = hitTest(pos);
 
       // 3. Shift+click: toggle en la selección — el edificio completo (grupo),
       //    o solo la pieza con Alt+Shift+click
@@ -2632,6 +2638,23 @@
       });
       $(id).addEventListener('change', savePrefs);
     });
+    // Tipos de hueco de la fachada. Escriben el MISMO state que los modales de
+    // las herramientas Puerta y Ventana, así que elegir aquí equivale a haber
+    // pasado por ellas — pero sin abandonar el flujo de Fachada.
+    fillVariantSelect('facade-door-type', DOOR_TYPES);
+    fillVariantSelect('facade-window-type', WINDOW_TYPES);
+    $('facade-door-type').addEventListener('change', e => {
+      state.doorType = e.target.value;
+      updateDoorActive();
+      syncBuildControls();
+      savePrefs();
+    });
+    $('facade-window-type').addEventListener('change', e => {
+      state.windowType = e.target.value;
+      updateWindowActive();
+      syncBuildControls();
+      savePrefs();
+    });
     syncBuildControls();   // valores iniciales (tras restorePrefs) en ambos sitios
     // Doble punta — semántica dual: con selección aplica/quita heads:'both'
     // a las flechas seleccionadas (los no-flecha se ignoran); sin selección
@@ -3537,8 +3560,24 @@
     setBoth('build-roof-type', 'facade-roof-type',  state.roofType);
     $('build-pitch-val').textContent = pitch;
     $('facade-pitch-val').textContent = pitch;
+    // Tipos de hueco: solo existen en el modal (su gemelo son los catálogos de
+    // las herramientas Puerta y Ventana, que escriben el mismo state).
+    $('facade-door-type').value = state.doorType;
+    $('facade-window-type').value = state.windowType;
     updateFacadeFieldsEnabled();
     renderFacadePreview();
+  }
+
+  /** Rellena un <select> con un catálogo de config.js (textContent, nunca HTML). */
+  function fillVariantSelect(id, catalog) {
+    const sel = $(id);
+    sel.innerHTML = '';
+    catalog.forEach(item => {
+      const opt = document.createElement('option');
+      opt.value = item.id;
+      opt.textContent = item.name;
+      sel.appendChild(opt);
+    });
   }
 
   /* ── Miniatura en vivo del modal de Fachada ──
@@ -3617,6 +3656,8 @@
     };
     setOn('facade-roof-type', shape === 'gable');
     setOn('facade-roof-pitch', shape === 'gable' || shape === 'profile');
+    // El perfil es un canto: no lleva puerta (ver _profile en building.js).
+    setOn('facade-door-type', shape !== 'profile');
   }
 
   /** Dibuja el icono SVG de un tipo de fachada (plana / alzado / perfil).

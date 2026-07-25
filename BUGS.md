@@ -3,9 +3,15 @@
 Registro de bugs encontrados y corregidos en Pizarra, para que no se repitan.
 Cada entrada indica el síntoma, la causa raíz, dónde se arregló y su
 **guardia de regresión**: el test automático que falla si el bug vuelve, o
-—cuando el código vive en `js/app.js`, que requiere DOM real y por eso queda
-fuera del arnés `node:vm` de `tests/` (ver `CLAUDE.md`)— los pasos de
-verificación manual que hay que repetir antes de tocar esa zona.
+—cuando no se puede automatizar— los pasos de verificación manual que hay que
+repetir antes de tocar esa zona.
+
+> **Desde v1.13.1 `js/app.js` también es testeable.** El arnés
+> `tests/helpers/load-app.js` levanta la app entera bajo `node:vm` con el DOM
+> construido a partir del `index.html` real, y los tests lanzan gestos de
+> verdad (pointer, teclado, modales) leyendo el resultado del autosave. Las
+> entradas de la sección "solo verificables manualmente" son anteriores: al
+> tocar una de esas zonas, conviértela en test en vez de repetir los pasos.
 
 Al corregir un bug nuevo, añade aquí una entrada con el mismo formato y, si
 el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
@@ -125,6 +131,50 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   redundante y se retiró — el dato sigue a la vista, y en dos sitios mejores.
 - **Guardia:** `tests/building.test.js` › *"el catálogo de Fachada no promete
   una cubierta concreta en el nombre"* (cubre `name` y `hint`).
+
+### El marco de un edificio seleccionado se tragaba todos los clics de su interior
+- **Síntoma:** tres síntomas del mismo fallo. Con un edificio seleccionado, todo
+  lo dibujado dentro de su marco quedaba inalcanzable: (1) **Supr borraba el
+  edificio** en lugar del elemento pulsado, así que lo que el usuario creía
+  haber borrado seguía apareciendo después; (2) **arrastrar una puerta o ventana
+  puesta encima movía el edificio entero** y dejaba la pieza quieta; (3) el clic
+  nunca cambiaba la selección, sin pista visual de por qué.
+- **Causa:** el paso 2 de `onMouseDown` (`js/app.js`) implementa la comodidad de
+  "arrastrar la multiselección desde cualquier punto de su marco combinado" y
+  **retornaba antes de llamar a `hitTest`**. Con elementos sueltos el marco es
+  pequeño y apenas molesta, pero un edificio es *siempre* multiselección y su
+  marco cubre toda la fachada: cualquier clic dentro se interpretaba como
+  "arrastrar el grupo", nunca como "seleccionar lo que hay debajo del cursor".
+- **Fix:** `js/app.js` — `hitTest(pos)` se calcula **antes** de esa rama y la
+  comodidad solo se aplica si el punto no cae sobre un elemento ajeno a la
+  selección (`idx < 0 || state.selection.includes(idx)`). Si cae sobre uno
+  ajeno, se sigue al flujo normal y gana ese elemento. La comodidad original
+  (arrastrar desde un hueco del marco) y `Alt`+clic no cambian.
+- **Guardia:** `tests/app-interaction.test.js` › *"con un edificio seleccionado,
+  Supr borra el elemento pulsado, no el edificio"*, *"…arrastrar un elemento de
+  encima lo mueve a él"* y *"sigue funcionando arrastrar el edificio desde un
+  hueco de su marco"* (esta última evita "arreglarlo" quitando la comodidad).
+
+### El tipo de puerta y ventana no se podía elegir al crear una fachada
+- **Síntoma:** la fachada dibuja sus huecos con `state.doorType`/`windowType`,
+  pero esos valores solo se fijaban desde las herramientas **Puerta** y
+  **Ventana**, que al seleccionarlas cambian la herramienta activa. Desde el
+  flujo de Fachada no había forma de elegirlos: había que salir a otra
+  herramienta, elegir, y volver — y quien no lo supiera se quedaba siempre con
+  la puerta y la ventana básicas.
+- **Causa:** al unificar los ajustes en el modal de Fachada (v1.13.0) se
+  llevaron los cuatro del panel (plantas, vanos, pendiente, cubierta) pero no
+  los dos tipos de hueco, que viven en otros modales.
+- **Fix:** `index.html` + `js/app.js` — el modal de Fachada incorpora
+  `#facade-door-type` y `#facade-window-type`, rellenados por
+  `fillVariantSelect()` desde `DOOR_TYPES`/`WINDOW_TYPES` (una sola fuente de
+  verdad). Escriben el mismo `state` que los catálogos de esas herramientas y
+  refrescan su resaltado (`updateDoorActive`/`updateWindowActive`), así que
+  ambos caminos quedan sincronizados. El selector de puerta se atenúa en la
+  vista *De lado*, que no lleva.
+- **Guardia:** `tests/app-interaction.test.js` › *"el modal de Fachada permite
+  elegir el tipo de puerta y de ventana"* y *"los tipos elegidos en el modal de
+  Fachada persisten en prefs"*.
 
 ### El Perfil (vista lateral) dibujaba la puerta principal centrada
 - **Síntoma:** la vista **Perfil** repetía exactamente los huecos de la fachada

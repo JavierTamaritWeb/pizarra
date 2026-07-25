@@ -10,6 +10,7 @@ const METHODS = [
   'save', 'restore', 'clearRect', 'ellipse', 'roundRect', 'closePath',
   'rect', 'clip', 'translate', 'rotate', 'scale', 'drawImage',
   'quadraticCurveTo', 'bezierCurveTo', 'measureText',
+  'setTransform', 'resetTransform', 'transform', 'createLinearGradient',
 ];
 
 const PROPS = [
