@@ -1,93 +1,146 @@
+<div align="center">
+
 # ✎ Pizarra
 
-**Crea wireframes, diagramas y bocetos con estilo dibujado a mano, directamente en tu navegador.**
+**Wireframes, diagramas y bocetos con estética dibujada a mano — en el navegador y sin instalar nada.**
 
-![Versión](https://img.shields.io/badge/versi%C3%B3n-1.16.1-blueviolet)
-![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?logo=javascript&logoColor=000)
-![Sin dependencias](https://img.shields.io/badge/dependencias-0-brightgreen)
-![Tests](https://img.shields.io/badge/tests-321%20%2B%2021%20e2e%20%E2%9C%93-brightgreen)
-![Licencia](https://img.shields.io/badge/licencia-MIT-blue)
+[![Versión](https://img.shields.io/badge/versión-1.16.1-blueviolet?style=flat-square)](CHANGELOG.md)
+[![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?style=flat-square&logo=javascript&logoColor=000)](js/)
+[![Dependencias](https://img.shields.io/badge/dependencias-0-brightgreen?style=flat-square)](#arquitectura)
+[![Tests](https://img.shields.io/badge/tests-321%20unitarios%20%2B%2021%20e2e-brightgreen?style=flat-square)](#tests)
+[![Licencia](https://img.shields.io/badge/licencia-MIT-blue?style=flat-square)](LICENSE)
 
-Pizarra es una aplicación de wireframing sobre canvas escrita en JavaScript puro: **sin build, sin bundler y sin `node_modules`**. Permite crear bocetos, diagramas y prototipos rápidos directamente en el navegador.
+<img src="docs/pizarra.png" alt="La interfaz de Pizarra: barra de herramientas a la izquierda, lienzo con un wireframe de landing page dibujado a mano en el centro y panel de ajustes a la derecha" width="900">
+
+</div>
 
 ---
 
+Pizarra es una aplicación de wireframing sobre `<canvas>` escrita en JavaScript puro. **Sin build, sin bundler y sin dependencias**: se clona el repositorio, se abre `index.html` y ya está funcionando.
+
+- **Cero fricción** — no hay `npm install` ni proceso de compilación. Abrir el archivo *es* ejecutar la aplicación.
+- **Trazo dibujado a mano, pero estable** — el temblor del estilo *sketchy* nace de un PRNG con semilla por elemento, así que el mismo dibujo se repinta idéntico en cada frame.
+- **Tu trabajo es tuyo** — todo vive en el navegador (`localStorage`); nada se envía a ningún servidor. El proyecto se exporta a JSON y se vuelve a importar cuando quieras.
+- **Cinco formatos de salida** — PNG, JPG, SVG, HTML y JSON.
+
+## Índice
+
+- [Inicio rápido](#inicio-rápido)
+- [Características](#características)
+  - [Dibujo y formas](#dibujo-y-formas)
+  - [Flechas de nivel diagrama](#flechas-de-nivel-diagrama)
+  - [Edificios y Jardín](#edificios-y-jardín)
+  - [Edición](#edición)
+  - [Exportación](#exportación)
+- [Cómo usar Pizarra](#cómo-usar-pizarra)
+- [Atajos de teclado](#atajos-de-teclado)
+- [Arquitectura](#arquitectura)
+- [Tests](#tests)
+- [Documentación del proyecto](#documentación-del-proyecto)
+- [Compatibilidad](#compatibilidad)
+- [Licencia](#licencia)
+
+## Inicio rápido
+
+```bash
+git clone https://github.com/JavierTamaritWeb/pizarra.git
+cd pizarra
+open index.html          # macOS · en Linux: xdg-open · en Windows: start
+```
+
+Si prefieres servirla (recomendado para probar el pegado de imágenes y la importación de archivos):
+
+```bash
+python3 -m http.server 8000     # → http://localhost:8000
+```
+
+No hay dependencias que instalar ni nada que compilar.
+
 ## Características
 
-### Dibujo
-- ✏️ **Lápiz, líneas, flechas, formas** (rectángulo, redondeado, elipse) con trazo *sketchy* de aspecto manual — determinista: cada elemento guarda su semilla y no "tiembla" entre repintados.
-- 🧽 **Borrador real y regulable** (`E`): **elimina de verdad** los elementos que
-  toca — no los tapa. Lo borrado no reaparece al mover el dibujo, ni queda
-  oculto en el archivo exportado. Al seleccionarlo, el control de Trazo se
-  convierte en **Tamaño del borrador**, independiente y ajustable de 4 a
-  100 px (16 px por defecto); un círculo indica el alcance, los elementos
-  desaparecen mientras barres y cada pasada se deshace o rehace como una sola
-  acción. Borra **lo que se ve**: una forma sin relleno se borra por su contorno,
-  no por su hueco, así que barrer entre las ventanas de una fachada no se lleva
-  el muro. Los proyectos creados antes de la v1.14.0 conservan sus máscaras
-  antiguas y se siguen viendo igual.
-- 🔺 **Formas geométricas**: botones para cuadrado (`4`), trapecio (`7`), triángulo (`3`), pentágono (`5`) y hexágono (`6`). Los polígonos regulares se arrastran desde el centro y conservan todos sus lados iguales; el trapecio admite proporciones libres.
-- 🏠 **Edificios (exterior)**: sección para bocetar el edificio por fuera. **Planta** (`w`) abre un selector de huella (rectangular, en L, en U con jardín, claustro); **Fachada** (`1`) abre un modal con **miniatura en vivo** y **3 vistas** —*De frente*, *Con tejado* y *De lado*— y fachadas multiplanta cuyas **ventanas y puerta respetan el tipo elegido** en los modales de Puerta/Ventana (óculo, arco, rejilla, doble, garaje…). Ahí mismo (y también en el panel lateral **Edificios**, sincronizados) se fijan el **nº de plantas**, las **ventanas por planta**, la **pendiente** y la **cubierta** —dos aguas, cuatro aguas o mansarda—, o se dejan en *Auto* (deducido del arrastre); la miniatura se repinta con cada cambio y señalar una vista la previsualiza sin elegirla. El **tipo de puerta y de ventana** que llevarán los huecos también se elige ahí mismo, sin salir del flujo. La vista *De lado* va sin puerta: el acceso principal está en la fachada. El botón **Tejado** (`2`) abre un modal con **5 tipos** (dos aguas, un agua, plano, cuatro aguas, mansarda), todos con **tejas**. Los botones **Puerta** (`0`) y **Ventana** (`y`) abren un modal con **8 tipos** cada uno (normal, arco, doble, paneles/rejilla, garaje/óculo, y solo-marco). Cada edificio se crea como una **unidad**: un clic lo selecciona entero para mover/duplicar/borrar de una vez, y **Alt+clic** aísla una pieza. Diseño basado en un estudio de alzado (plano de arquitecto); todo son herramientas de creación sobre líneas, rectángulos, círculos y arcos, sin tipos nuevos.
-- 🌳 **Jardín (vista de planta)**: sección para trazar el entorno como un plano de paisajismo, todo visto desde arriba. **Jardín** (`8`) dibuja la parcela —rectangular, redonda, en L u orgánica— con textura de césped; **Árbol** (`9`) ofrece 8 especies por su copa (frondoso, conífera, palmera, olivo, almendro, algarrobo, frutal, ciprés); **Arbusto** (`H`) da mata redonda, seto, macizo, topiario y los leñosos mediterráneos (adelfa, boj recortado, lentisco); **Flor** (`X`), margarita, rosa, tulipán, parterre y girasol; **Decoración** (`Z`), 8 elementos (maceta, pozo, regadera, piedra, banco, fuente, estanque y camino); y **Aromáticas** reúne las matas de siempre (lavanda, romero, tomillo, salvia, santolina) junto a las mediterráneas de roseta (agave, aloe, chumbera) — 40 variantes en total. Cada pieza nace con una **etiqueta** que la nombra —se apaga con la casilla «Etiquetas» del panel— y como una **unidad**: un clic la selecciona entera (dibujo + etiqueta) y **Alt+clic** aísla una parte. En los catálogos, **el icono es el dibujo real** que vas a obtener: lo pinta la misma geometría que crea la herramienta, así que no puede engañar. El tamaño por defecto depende del tipo: un seto o un camino nacen alargados, una flor suelta menuda. Como en Edificios, todo son herramientas de creación sobre líneas, rectángulos, círculos, curvas y texto, sin tipos nuevos.
-- 🪣 **Relleno con color**: selecciona una forma geométrica (círculo/elipse, rectángulos, trapecio o polígonos regulares) y elige su color de relleno; el checkbox la vacía sin perder el color. **Relleno translúcido** alterna entre sólido y transparente, y el regulador permite ajustar su opacidad del **0 al 100 %** (40 % por defecto). Con formas seleccionadas modifica esas formas; sin selección establece el valor de las próximas. Sin color propio se conserva el tinte translúcido clásico del trazo.
-- 🫥 **Solapamiento seleccionable**: el modo **Normal** conserva la mezcla de transparencias; **Bordes ocultos** convierte en discontinuos únicamente los tramos del contorno inferior cubiertos por otra forma. Respeta rectángulos, esquinas redondeadas, círculos/elipses, trapecios, polígonos regulares y el orden de capas.
-- ◠ **Semicírculos** de 180° exactos y sin puntas: el arrastre fija el diámetro (y con él el radio); después `+`/`−` o su handle ajustan el radio manteniendo la media circunferencia perfecta. `Q` convierte una flecha curva existente en semicírculo y viceversa.
-- 🧩 **Componentes UI listos**: botón, input, imagen, navbar y tarjeta, con etiquetas editables (doble click).
-- 🙂 **Emoji** (`J`): catálogo de 60 emoji en cinco categorías; elige uno y haz click para estamparlo. Se insertan como texto, así que se mueven, escalan, exportan y editan como cualquier otro elemento.
-- 🖼️ **Imágenes reales**: pega desde el portapapeles (`Ctrl/Cmd+V`) o arrastra archivos PNG/JPEG desde el escritorio.
-- 📐 **Plantillas**: landing page, dashboard y formulario para empezar en un click.
+### Dibujo y formas
+
+| | |
+|---|---|
+| **Trazo a mano alzada** | Lápiz, línea, flecha y flecha curva con jitter determinista: cada elemento guarda su semilla y no "tiembla" entre repintados. |
+| **Formas** | Rectángulo, redondeado, elipse, cuadrado, trapecio, triángulo, pentágono y hexágono. Los polígonos regulares se arrastran desde el centro y conservan sus lados iguales; el trapecio admite proporciones libres. |
+| **Semicírculos** | 180° exactos y sin puntas. El arrastre fija el diámetro; después `+`/`−` o su handle ajustan el radio manteniendo la media circunferencia. `Q` convierte una flecha curva en semicírculo y viceversa. |
+| **Relleno** | Color propio por forma, modo sólido o translúcido y opacidad del 0 al 100 %. Vaciar una forma no le hace perder el color: al volver a rellenarla recupera el mismo. |
+| **Solapamiento** | El modo **Bordes ocultos** vuelve discontinuos solo los tramos del contorno inferior que otra forma tapa, respetando el orden de capas. |
+| **Componentes UI** | Botón, input, imagen, navbar y tarjeta, con etiquetas editables (doble clic). |
+| **Emoji e imágenes** | Catálogo de 60 emoji en cinco categorías; imágenes pegadas con `Ctrl/Cmd+V` o arrastradas desde el escritorio. |
+| **Borrador real** | Borra **lo que se ve**, no la caja: una forma sin relleno se borra por su contorno, así que barrer entre las ventanas de una fachada no se lleva el muro. Elimina de verdad los elementos —lo borrado no reaparece al mover el dibujo ni viaja oculto dentro del archivo exportado— y cada pasada se deshace como una sola acción. Tamaño ajustable de 4 a 100 px. |
+| **Plantillas** | Landing page, dashboard y formulario, para empezar con estructura. |
 
 ### Flechas de nivel diagrama
-- ↷ **Flechas curvas** con handle de curvatura: Shift al trazar la comba hacia el otro lado, `F` invierte el giro, `+`/`−` ajustan la intensidad, doble click en el handle la resetea.
-- ⛓️ **Curvas encadenadas**: un click con Flecha curva fija el inicio; cada click añade otro tramo y `Ctrl`/`Cmd`+click termina la cadena con la punta en el último extremo. `Retroceso` elimina el último tramo, `Esc` cancela y `Enter` termina. El arrastre tradicional continúa creando una curva sencilla.
-- 🔀 **Curva en S** (`S`): cúbica con dos puntos de control.
-- 🧲 **Conectores anclados**: suelta un extremo sobre un elemento y la flecha se pega a su borde — al mover o redimensionar el elemento, la flecha lo sigue conservando su curvatura.
-- 🏷️ **Etiquetas sobre el trazo** (doble click), desplazables a lo largo del trazo (arrastra su handle; doble click en él la re-centra), doble punta, trazo discontinuo, grosor por elemento y dirección invertible (`D`).
+
+- **Curvatura con handle**: `Shift` al trazar comba hacia el otro lado, `F` invierte el giro, `+`/`−` ajustan la intensidad y el doble clic en el handle la resetea.
+- **Curvas encadenadas**: cada clic añade un tramo continuo y `Ctrl`/`Cmd`+clic termina la cadena con la punta; `Retroceso` deshace el último tramo y `Esc` cancela.
+- **Conectores anclados**: suelta un extremo sobre un elemento y la flecha se pega a su borde — al moverlo o redimensionarlo, la flecha lo sigue conservando su curvatura.
+- **Etiquetas sobre el trazo**, desplazables a lo largo de la curva, más doble punta, trazo discontinuo, grosor por elemento y dirección invertible (`D`).
+
+### Edificios y Jardín
+
+Dos secciones para bocetar arquitectura y entorno con la misma estética. Ninguna introduce tipos de elemento nuevos: cada arrastre produce líneas, rectángulos, círculos, curvas y texto corrientes, así que la exportación, el undo y el JSON funcionan igual que con el resto del dibujo.
+
+<img src="docs/edificios-jardin.png" alt="Un alzado de edificio de tres plantas con tejado a dos aguas, rodeado de una parcela con árboles, parterre, fuente y seto, todos etiquetados" width="820">
+
+**Edificios** (alzado) — planta, fachada, tejado, puerta y ventana. La fachada abre un modal con **miniatura en vivo**, tres vistas y los ajustes de plantas, ventanas por planta, pendiente y cubierta, todos sincronizados con el panel lateral.
+
+**Jardín** (vista de planta) — parcela, árboles, arbustos, flores, decoración y aromáticas: **40 variantes** en seis catálogos. En los catálogos **el icono es el dibujo real**, porque lo pinta la misma geometría que crea la herramienta: no puede engañar.
+
+Cada edificio y cada pieza de jardín se crea como una **unidad** — un clic la selecciona entera para mover, duplicar o borrar, y `Alt`+clic aísla una parte.
+
+<details>
+<summary><b>Ver el catálogo completo</b></summary>
+
+| Herramienta | Variantes |
+|---|---|
+| **Planta** (`W`) | Rectangular · en L · en U con jardín · claustro |
+| **Fachada** (`1`) | De frente · con tejado · de lado — multiplanta, con la puerta y las ventanas del tipo elegido |
+| **Tejado** (`2`) | Dos aguas · un agua · plano · cuatro aguas · mansarda (todos con tejas) |
+| **Puerta** (`0`) | Normal · arco · doble · paneles · garaje · y sus versiones solo-marco |
+| **Ventana** (`Y`) | Normal · arco · doble · rejilla · óculo · y sus versiones solo-marco |
+| **Jardín** (`8`) | Parcela rectangular · redonda · en L · orgánica, con textura de césped |
+| **Árbol** (`9`) | Frondoso · conífera · palmera · olivo · almendro · algarrobo · frutal · ciprés |
+| **Arbusto** (`H`) | Mata redonda · seto · macizo · topiario · adelfa · boj recortado · lentisco |
+| **Flor** (`X`) | Margarita · rosa · tulipán · parterre · girasol |
+| **Decoración** (`Z`) | Maceta · pozo · regadera · piedra · banco · fuente · estanque · camino |
+| **Aromáticas** | Lavanda · romero · tomillo · salvia · santolina · agave · aloe · chumbera |
+
+Cada pieza de jardín nace con una **etiqueta** que la nombra, dentro del mismo grupo (se mueve y se borra con ella); se apaga con la casilla «Etiquetas» del panel. El tamaño por defecto depende del tipo: un seto o un camino nacen alargados, una flor suelta menuda.
+
+</details>
 
 ### Edición
-- 👆 Selección múltiple (Shift+click, marquee, `Ctrl/Cmd+A`), mover, duplicar (`Ctrl/Cmd+D`), redimensionar con handles y nudge con flechas. El grupo seleccionado se arrastra desde cualquier punto de su marco combinado, incluido el espacio vacío entre elementos.
-- ↻ **Rotación por pasos** desde el panel o con `Shift+R`: cuadrados 45°; trapecios, triángulos, rectángulos y redondeados 90°; pentágonos 36° y hexágonos 30°. En una selección múltiple, cada forma compatible usa su propio paso.
-- 📋 **Copiar y pegar** la selección con `Ctrl/Cmd+C` / `Ctrl/Cmd+V` — también entre pestañas. Lo pegado aparece desplazado, queda seleccionado y las flechas ancladas se re-vinculan a sus clones.
-- ↩️ Undo/redo con historial de 50 pasos (`Ctrl+Z` / `Ctrl+Y` / `Cmd+Shift+Z`).
-- 🧮 Cuadrícula con ajuste opcional (Alt lo desactiva al vuelo) y zoom 30–300%, con auto-ajuste al espacio disponible en pantallas anchas.
-- 🧰 **Barra de herramientas responsive**: conserva una columna hasta 1200 px y se reorganiza automáticamente en dos columnas desde 1201 px para reducir el desplazamiento vertical.
-- 🎨 **Fondo y color de cuadrícula personalizables** desde el panel, con persistencia entre sesiones; "Limpiar todo" los devuelve a su valor original.
-- 💾 **Autoguardado** en localStorage: tu trabajo sobrevive al refresco.
+
+- **Selección múltiple** con `Shift`+clic, marquee o `Ctrl/Cmd+A`; el grupo se arrastra desde cualquier punto de su marco combinado, incluido el espacio vacío entre elementos.
+- **Rotación por pasos** (`Shift+R`): cuadrados 45°, trapecios/triángulos/rectángulos 90°, pentágonos 36°, hexágonos 30°. En una selección múltiple cada forma usa su propio paso.
+- **Copiar y pegar** (`Ctrl/Cmd+C` / `V`), también entre pestañas: lo pegado aparece desplazado, queda seleccionado y las flechas ancladas se re-vinculan a sus clones.
+- **Undo/redo** con historial de 50 pasos.
+- **Cuadrícula** con ajuste opcional (`Alt` lo desactiva al vuelo) y **zoom 30–300 %** con auto-ajuste al espacio disponible en pantallas anchas.
+- **Fondo y color de cuadrícula** personalizables, con persistencia entre sesiones.
+- **Autoguardado** en `localStorage`: el trabajo sobrevive al refresco.
+- **Interfaz responsive**: la barra de herramientas pasa a dos columnas desde 1201 px y el panel se convierte en un cajón deslizable por debajo de 1100 px.
 
 ### Exportación
+
 | Formato | Detalle |
 |---------|---------|
 | **PNG / JPG** | Imagen rasterizada del lienzo limpio |
 | **SVG** | Vectorial escalable, fiel al render |
 | **HTML** | Página editable con componentes reales + SVG incrustado para los trazos |
-| **JSON** | Proyecto reutilizable — expórtalo e impórtalo después (con validación robusta) |
-
-## Inicio rápido
-
-Puedes clonar el repositorio y abrir la aplicación directamente:
-
-```bash
-git clone https://github.com/JavierTamaritWeb/pizarra.git
-cd pizarra
-open index.html
-```
-
-También puedes servirla localmente para acceder desde `http://localhost:8000`:
-
-```bash
-python3 -m http.server 8000
-```
-
-No es necesario instalar dependencias ni ejecutar un proceso de compilación.
+| **JSON** | Proyecto reutilizable — expórtalo e impórtalo después, con validación por tipo de elemento |
 
 ## Cómo usar Pizarra
 
-1. Elige una herramienta en la barra lateral o usa su atajo de teclado.
-2. Dibuja sobre el lienzo; con **Mover** (`V`) puedes seleccionar, desplazar, redimensionar y duplicar elementos.
-3. Personaliza el color, grosor, tamaño del borrador, relleno, cuadrícula y zoom desde el panel derecho.
-4. Exporta el resultado como PNG, JPG, SVG o HTML, o guarda el proyecto como JSON para continuar más tarde.
+1. Elige una herramienta en la barra lateral o con su atajo de teclado.
+2. Dibuja sobre el lienzo. Con **Mover** (`V`) seleccionas, desplazas, redimensionas y duplicas.
+3. Ajusta color, grosor, relleno, cuadrícula y zoom desde el panel derecho. Los controles tienen doble uso: **con algo seleccionado editan la selección; sin selección fijan el valor de lo próximo que dibujes.**
+4. Exporta como PNG, JPG, SVG o HTML — o guarda el proyecto como JSON para seguir más tarde.
 
-Pizarra guarda automáticamente el lienzo en `localStorage`. Para crear una copia portátil o trabajar en otro navegador, exporta el proyecto como JSON y vuelve a importarlo cuando lo necesites.
+> [!TIP]
+> Pulsa `?` en cualquier momento para abrir la ayuda con todos los atajos.
 
 ## Atajos de teclado
 
@@ -98,61 +151,66 @@ Pizarra guarda automáticamente el lienzo en `localStorage`. Para crear una copi
 | `3` `4` `5` `6` `7` | Triángulo · Cuadrado · Pentágono · Hexágono · Trapecio |
 | `T` `J` `B` `I` `M` `N` `K` | Texto · Emoji · Botón · Input · Imagen · Navbar · Tarjeta |
 | `V` | Mover / seleccionar |
-| `W` `1` `2` `0` `Y` | Edificios: Planta · Fachada · Tejado · Puerta · Ventana (cada una abre un modal con sus tipos) |
-| `8` `9` `H` `X` `Z` | Jardín: Jardín · Árbol · Arbusto · Flor · Decoración (cada una abre un modal con sus tipos). **Aromáticas** no tiene atajo: ya no quedaban teclas sueltas libres |
-| `Ctrl/Cmd+Z` / `Ctrl+Y` o `Cmd+Shift+Z` | Deshacer / rehacer |
-| `Ctrl/Cmd+D` / `Ctrl/Cmd+A` | Duplicar / seleccionar todo |
-| `Shift+R` | Rotar selección: cuadrado 45° · trapecio/triángulo/rectángulo 90° · pentágono 36° · hexágono 30° |
-| `Supr` / `Esc` | Borrar selección / deseleccionar |
-| Flechas (+`Shift`) | Mover selección 1px (20px) |
-| `F` / `D` / `S` | Invertir giro · invertir dirección · curva en S |
+| `W` `1` `2` `0` `Y` | Edificios: Planta · Fachada · Tejado · Puerta · Ventana |
+| `8` `9` `H` `X` `Z` | Jardín: Jardín · Árbol · Arbusto · Flor · Decoración |
+| `Ctrl/Cmd+Z` · `Ctrl+Y` o `Cmd+Shift+Z` | Deshacer · rehacer |
+| `Ctrl/Cmd+D` · `Ctrl/Cmd+A` | Duplicar · seleccionar todo |
+| `Ctrl/Cmd+C` · `Ctrl/Cmd+V` | Copiar selección · pegarla (o pegar una imagen del portapapeles) |
+| `Shift+R` | Rotar la selección un paso |
+| `Supr` · `Esc` | Borrar selección · deseleccionar |
+| Flechas (+`Shift`) | Mover la selección 1 px (20 px) |
+| `F` · `D` · `S` | Invertir giro · invertir dirección · curva en S |
 | `Q` | Convertir flecha curva ↔ semicírculo |
-| `+` / `−` (+`Shift`) | Ajustar curvatura — en semicírculos, el radio (fino) |
-| Clicks + `Ctrl`/`Cmd`+click | Encadenar tramos de Flecha curva · terminar con punta |
-| `Ctrl/Cmd+C` / `Ctrl/Cmd+V` | Copiar selección / pegarla (o pegar imagen del portapapeles) |
+| `+` · `−` (+`Shift`) | Ajustar curvatura — en semicírculos, el radio (fino) |
 | `?` | Abrir la ayuda con todos los atajos |
+
+Las herramientas que abren catálogo (Edificios y Jardín) muestran su modal de tipos al pulsar el atajo. **Aromáticas** es la única sin atajo: `8 9 H X Z` agotaron las teclas sueltas libres.
 
 ## Arquitectura
 
 ```
-index.html          Shell de la app (scripts en orden de dependencia)
-css/styles.css      Estilos (BEM, tema oscuro)
+index.html               Shell de la app (scripts en orden de dependencia)
+css/styles.css           Estilos (BEM, tema oscuro)
 js/
-├── config.js       Constantes: herramientas, colores, tamaños
-├── sketchy.js      Primitivas de trazo manual (PRNG determinista por elemento)
-├── arc.js          Geometría de arcos circulares (ajuste de cúbica a semicírculo)
-├── curve-path.js   Geometría compartida de flechas curvas encadenadas
-├── shape-rotation.js Rotación discreta de formas alrededor de su centro
-├── regular-polygon.js Geometría de cuadrados, triángulos, pentágonos y hexágonos
-├── trapezoid.js     Geometría y rotación del trapecio
-├── eraser.js       Qué elementos toca un trazo de borrador (geometría pura)
-├── building.js     Geometría de la sección Edificios (solo creación)
-├── garden.js       Geometría de la sección Jardín, en vista de planta
-├── renderer.js     Render por tipo de elemento + cuadrícula + selección
-├── exporter.js     Export PNG/JPG/SVG/HTML/JSON + import validado
-├── templates.js    Plantillas predefinidas
-└── app.js          Controlador: estado, eventos, undo/redo, conectores
-tests/              Suite con el runner nativo de Node (sin dependencias)
+├── config.js            Constantes: herramientas, colores, tamaños
+├── sketchy.js           Primitivas de trazo manual (PRNG determinista por elemento)
+├── arc.js               Geometría de arcos circulares (ajuste de cúbica a semicírculo)
+├── curve-path.js        Geometría compartida de flechas curvas encadenadas
+├── shape-rotation.js    Rotación discreta de formas alrededor de su centro
+├── regular-polygon.js   Geometría de cuadrados, triángulos, pentágonos y hexágonos
+├── trapezoid.js         Geometría y rotación del trapecio
+├── eraser.js            Qué elementos toca un trazo de borrador
+├── building.js          Geometría de la sección Edificios
+├── garden.js            Geometría de la sección Jardín, en vista de planta
+├── renderer.js          Render por tipo de elemento + cuadrícula + selección
+├── exporter.js          Export PNG/JPG/SVG/HTML/JSON + import validado
+├── templates.js         Plantillas predefinidas
+└── app.js               Controlador: estado, eventos, undo/redo, conectores
+tests/                   Suite unitaria (runner nativo de Node)
+e2e/                     Suite end-to-end (Playwright)
 ```
 
-Principios de diseño:
+Cada módulo se expone como un global mediante una IIFE y `index.html` los carga en orden de dependencia. No hay imports ni bundler.
 
-- **Un solo estado fuente de verdad** (`state.elements`): objetos planos, serializables e inmutables — cada edición produce copias, lo que hace el undo trivial y el autoguardado gratuito.
-- **Render determinista**: el jitter del estilo sketchy usa un PRNG sembrado por elemento; el mismo dibujo se repinta idéntico.
-- **Import seguro**: todo JSON importado pasa por un validador por tipo de elemento (whitelists, colores hex, data-URLs de imagen restringidas) que además evita inyecciones en los archivos exportados.
+**Principios de diseño**
+
+- **Un solo estado fuente de verdad** (`state.elements`): objetos planos, serializables e inmutables. Cada edición produce copias, lo que hace el undo trivial y el autoguardado gratuito.
+- **Módulos de geometría puros**: `arc`, `curve-path`, `regular-polygon`, `trapezoid`, `eraser`, `building` y `garden` no tocan el DOM ni el canvas — reciben números y devuelven elementos planos. Por eso se pueden probar sin navegador.
+- **Render determinista**: el jitter usa un PRNG sembrado por elemento; el mismo dibujo se repinta idéntico.
+- **Import seguro**: todo JSON importado pasa por un validador por tipo de elemento (whitelist de tipos, colores hex, data-URLs de imagen restringidas) que además evita inyecciones en los archivos exportados.
 
 ## Tests
 
-**321 tests con el runner nativo de Node**, sin ninguna dependencia:
+**321 tests unitarios** con el runner nativo de Node, sin ninguna dependencia:
 
 ```bash
 node --test tests/*.test.js           # suite completa
 node --test tests/exporter.test.js    # un archivo
 ```
 
-Los módulos se cargan en un contexto `node:vm` con stubs de canvas/DOM (ver `tests/helpers/`), incluido `js/app.js` completo: los tests lanzan gestos reales (puntero, teclado, modales) y leen el resultado del autoguardado, sin necesidad de hooks de test en el código de producción.
+Los módulos se cargan en un contexto `node:vm` con stubs de canvas y DOM, incluido `js/app.js` completo: los tests lanzan gestos reales —puntero, teclado, modales— y leen el resultado del autoguardado, sin ningún hook de test en el código de producción.
 
-**Y 21 tests end-to-end en un navegador real** (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco y acciones por defecto del navegador.
+**21 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco y acciones por defecto del navegador.
 
 ```bash
 npm install && npm run e2e:install    # una vez (descarga Chromium)
@@ -160,9 +218,21 @@ npm run test:e2e                      # suite e2e
 npm run test:all                      # las dos
 ```
 
-> La aplicación sigue **sin dependencias**: `package.json` y `node_modules` existen solo para esta suite. `index.html` carga sus `<script>` directamente, y se abre en el navegador tal cual.
+> [!NOTE]
+> La aplicación sigue **sin dependencias**: `package.json` y `node_modules` existen solo para la suite e2e. `index.html` carga sus `<script>` directamente y se abre en el navegador tal cual.
 
-La hoja de ruta de mejoras vive en [`PLAN.md`](PLAN.md), los errores corregidos y su guardia de regresión en [`BUGS.md`](BUGS.md), y el historial de versiones en [`CHANGELOG.md`](CHANGELOG.md).
+## Documentación del proyecto
+
+| Documento | Contenido |
+|---|---|
+| [`CHANGELOG.md`](CHANGELOG.md) | Historial de versiones |
+| [`BUGS.md`](BUGS.md) | Cada error corregido con su síntoma, causa raíz y **guardia de regresión** |
+| [`PLAN.md`](PLAN.md) | Hoja de ruta de mejoras |
+| [`CLAUDE.md`](CLAUDE.md) | Guía de arquitectura para trabajar en el código |
+
+## Compatibilidad
+
+Navegadores de escritorio modernos (Chrome, Edge, Firefox y Safari en versiones recientes). La aplicación usa canvas 2D, `localStorage` y `<dialog>` nativo para los modales.
 
 ## Licencia
 
