@@ -412,42 +412,6 @@ test('solo el camino empedrado trae cantos, y van en trazo fino', () => {
   }
 });
 
-// El empedrado se calcula aparte de los bordes, así que lo que hay que fijar es
-// que siga SU MISMA ondulación: si se despegara, los cantos de la cresta
-// asomarían fuera del camino. Se comprueba en varias inclinaciones porque la
-// onda vive en coordenadas de camino y es el giro lo que podría descuadrarla:
-// un signo suelto en la normal se vería solo fuera de la horizontal.
-test('los cantos caben entre los bordes, en cualquier inclinación', () => {
-  for (const deg of [0, 90, 30, -45, 135]) {
-    const { a, p1, p2 } = at(deg, 320);
-    const els = make(TOOLS.GARDEN_PATH, 'pathPaved', { labels: false }, p1, p2);
-    const edges = els.filter(el => el.type === 'curveArrow' && !cobbles([el]).length);
-    assert.equal(edges.length, 2, `${deg}°: hacen falta los dos bordes para acotar`);
-    // Coordenadas de camino: u a lo largo del eje, v perpendicular.
-    const sin = Math.sin(a), cos = Math.cos(a);
-    const uv = p => ({ u: (p.x - p1.x) * cos + (p.y - p1.y) * sin,
-                       v: (p.x - p1.x) * -sin + (p.y - p1.y) * cos });
-    // Desvío de un borde a una u dada, muestreando la curva real.
-    const vAt = (edge, u) => {
-      const pts = CurvePath.sample(edge, 120).map(uv);
-      let best = pts[0];
-      for (const p of pts) if (Math.abs(p.u - u) < Math.abs(best.u - u)) best = p;
-      return best.v;
-    };
-    const [lo, hi] = uv({ x: edges[0].x1, y: edges[0].y1 }).v <
-                     uv({ x: edges[1].x1, y: edges[1].y1 }).v ? edges : [edges[1], edges[0]];
-    const stones = cobbles(els);
-    assert.ok(stones.length >= 6, `${deg}°: no hay empedrado que comprobar`);
-    for (const c of stones) {
-      const cb = CurvePath.bounds(c);
-      const p = uv({ x: cb.x + cb.w / 2, y: cb.y + cb.h / 2 });
-      const r = Math.max(cb.w, cb.h) / 2;      // radio circunscrito: cota estricta
-      assert.ok(p.v - r > vAt(lo, p.u) - 1, `${deg}°: un canto asoma por un borde`);
-      assert.ok(p.v + r < vAt(hi, p.u) + 1, `${deg}°: un canto asoma por el otro`);
-    }
-  }
-});
-
 test('dos cantos consecutivos no salen calcados', () => {
   const stones = cobbles(make(TOOLS.GARDEN_PATH, 'pathStraightPaved', { labels: false }));
   // Firma relativa al centro: el tamaño es el mismo, lo que debe variar es la forma
@@ -461,118 +425,125 @@ test('dos cantos consecutivos no salen calcados', () => {
     'un empedrado con todos los cantos idénticos se lee como una fila de puntos');
 });
 
-test('las cuatro variantes de camino nacen en vertical, con la misma caja', () => {
-  const click = [{ x: 0, y: 0 }, { x: 1, y: 1 }];   // arrastre < MIN_SPAN
-  const boxes = PATH_IDS.map(id =>
-    unionBounds(make(TOOLS.GARDEN_PATH, id, { labels: false }, ...click)));
-  for (let i = 0; i < boxes.length; i++) {
-    assert.ok(boxes[i].h > boxes[i].w * 2,
-      `${PATH_IDS[i]} debe nacer vertical: ${boxes[i].w}×${boxes[i].h}`);
-    assert.equal(boxes[i].h, boxes[0].h,
-      'las cuatro variantes comparten caja: solo cambian trazado y acabado');
-  }
-});
+/* El arrastre se lee como CAJA: el lado largo es el recorrido y el corto, el
+   grosor. Es la única forma de sacar los dos de un solo gesto —un arrastre da
+   dos datos, y el tercero tendría que venir de una tecla o de un segundo
+   paso—, y a cambio el camino sale horizontal o vertical, nunca en diagonal. */
 
-/* El arrastre ES el recorrido: el camino sale en la dirección del gesto y con
-   su inclinación. Antes se normalizaba a una caja, y `Math.min`/`Math.abs`
-   tiraban justo el dato que aquí manda —hacia dónde va—, así que solo se podían
-   trazar caminos horizontales. Un sendero de jardín cruza en diagonal tan a
-   menudo como en horizontal. */
-
-const ORIGIN = { x: 200, y: 200 };
-/** Arrastre de largo `L` desde ORIGIN con `deg` grados de inclinación. */
-const at = (deg, L = 300) => {
-  const a = deg * Math.PI / 180;
-  return { a, p1: ORIGIN,
-           p2: { x: ORIGIN.x + Math.cos(a) * L, y: ORIGIN.y + Math.sin(a) * L } };
-};
-
-test('el camino va en la dirección del arrastre, con cualquier inclinación', () => {
-  // Los dos casos que se piden a ojo, en crudo:
-  const linesOf = (p1, p2) => make(TOOLS.GARDEN_PATH, 'pathStraight', { labels: false }, p1, p2)
-    .filter(el => el.type === 'line');
-  const horiz = linesOf({ x: 0, y: 0 }, { x: 300, y: 0 });
-  assert.ok(horiz.length === 2 && horiz.every(e => e.y1 === e.y2 && e.x1 !== e.x2),
-    'arrastrando en horizontal, el camino cruza');
-  const vert = linesOf({ x: 0, y: 0 }, { x: 0, y: 300 });
-  assert.ok(vert.length === 2 && vert.every(e => e.x1 === e.x2 && e.y1 !== e.y2),
-    'arrastrando en vertical, el camino baja');
-
-  // Y en cualquier ángulo: los bordes son paralelos al arrastre, van en su
-  // mismo sentido y quedan a lado y lado del eje, a la misma distancia.
-  for (const deg of [0, 90, 30, -45, 135, 180, -120]) {
-    const { a, p1, p2 } = at(deg);
-    const edges = linesOf(p1, p2);
-    assert.equal(edges.length, 2, `${deg}°: hacen falta los dos bordes`);
-    const sin = Math.sin(a), cos = Math.cos(a);
-    for (const e of edges) {
-      const ex = e.x2 - e.x1, ey = e.y2 - e.y1;
-      assert.ok(Math.abs(ex * sin - ey * cos) < 1e-9,
-        `${deg}°: el borde no es paralelo al arrastre`);
-      assert.ok(ex * cos + ey * sin > 0, `${deg}°: el borde va al revés`);
-    }
-    const offset = e => (e.x1 - p1.x) * -sin + (e.y1 - p1.y) * cos;
-    const [d1, d2] = edges.map(offset);
-    assert.ok(d1 * d2 < 0, `${deg}°: los bordes deben caer a lados opuestos del eje`);
-    assert.ok(Math.abs(Math.abs(d1) - Math.abs(d2)) < 1e-9,
-      `${deg}°: y a la misma distancia`);
-  }
-});
-
-/* El ancho salía del lado corto de la caja; desde que el arrastre es el
-   recorrido ya no hay tal lado, así que lo manda `pathWidth` (el ajuste del
-   panel). Sin él quedaría un camino de ancho fijo, que es justo lo que se
-   perdió al ganar la inclinación libre. */
-test('el ancho del camino lo manda pathWidth, medido entre sus dos bordes', () => {
-  const { p1, p2 } = at(0, 300);        // horizontal: el ancho se lee en y
-  const anchoDe = w => {
-    const [a, b] = make(TOOLS.GARDEN_PATH, 'pathStraight', { labels: false, pathWidth: w }, p1, p2)
+test('el recorrido va por el lado largo del arrastre', () => {
+  const linesOf = (p1, p2, opts = {}) =>
+    make(TOOLS.GARDEN_PATH, 'pathStraight', { labels: false, ...opts }, p1, p2)
       .filter(el => el.type === 'line');
-    return Math.abs(a.y1 - b.y1);
+
+  const horiz = linesOf({ x: 0, y: 0 }, { x: 300, y: 80 });
+  assert.equal(horiz.length, 2);
+  assert.ok(horiz.every(e => e.y1 === e.y2 && e.x1 !== e.x2),
+    'una caja apaisada da un camino horizontal');
+
+  const vert = linesOf({ x: 0, y: 0 }, { x: 80, y: 300 });
+  assert.ok(vert.every(e => e.x1 === e.x2 && e.y1 !== e.y2),
+    'y una caja alta, uno vertical');
+
+  // El recorrido ocupa el lado largo entero y va centrado en el corto.
+  assert.equal(Math.min(...horiz.map(e => e.x1)), 0);
+  assert.equal(Math.max(...horiz.map(e => e.x2)), 300);
+  assert.equal(horiz.reduce((s, e) => s + e.y1, 0) / 2, 40, 'centrado en el lado corto');
+});
+
+/* Lo que se pidió expresamente: mover el ratón en perpendicular mientras se
+   arrastra tiene que engordar el camino. Es lo que se perdió al probar a que el
+   arrastre fuera solo el recorrido. */
+test('mover el ratón en perpendicular engorda el camino', () => {
+  const anchoDe = (p2, opts = {}) => {
+    const [a, b] = make(TOOLS.GARDEN_PATH, 'pathStraight', { labels: false, ...opts },
+      { x: 0, y: 0 }, p2).filter(el => el.type === 'line');
+    return Math.abs(a.y1 - b.y1);       // recorrido horizontal: el grosor va en y
   };
-  assert.equal(anchoDe(20), 20, 'el ancho pedido es el que separa los bordes');
-  assert.equal(anchoDe(64), 64);
-  assert.ok(anchoDe(20) < anchoDe(64), 'y el ajuste manda de verdad');
+  const fino = anchoDe({ x: 300, y: 30 });
+  const medio = anchoDe({ x: 300, y: 90 });
+  const gordo = anchoDe({ x: 300, y: 160 });
+  assert.ok(fino < medio && medio < gordo,
+    `bajando más el ratón, camino más grueso: ${fino} < ${medio} < ${gordo}`);
+  // Y el grosor es una fracción fija del lado corto: lo que sobra es el vaivén.
+  assert.equal(medio, 90 * 0.6);
 
-  // Se acota a los topes del slider, vengan de donde vengan (prefs de otra
-  // versión, JSON manipulado): un camino de 4000 px no es un camino.
-  assert.equal(anchoDe(-50), Garden.PATH_W_MIN);
-  assert.equal(anchoDe(4000), Garden.PATH_W_MAX);
-
-  // Sin el dato, la reserva proporcional al recorrido (la que usan los iconos).
-  const sinDato = make(TOOLS.GARDEN_PATH, 'pathStraight', { labels: false }, p1, p2)
-    .filter(el => el.type === 'line');
-  const auto = Math.abs(sinDato[0].y1 - sinDato[1].y1);
-  assert.ok(auto > Garden.PATH_W_MIN && auto < Garden.PATH_W_MAX,
-    `la reserva debe caer dentro de los topes, y vale ${auto}`);
+  // Un arrastre en línea recta no tiene lado corto que leer: ahí manda el
+  // ajuste del panel, que es su papel —el de ancho por defecto—.
+  assert.equal(anchoDe({ x: 300, y: 0 }, { pathWidth: 52 }), 52);
+  assert.equal(anchoDe({ x: 300, y: 3 }, { pathWidth: 52 }), 52, 'y por debajo de MIN_SPAN');
+  // Ese sí se acota, venga de donde venga (prefs viejas, JSON manipulado).
+  assert.equal(anchoDe({ x: 300, y: 0 }, { pathWidth: -50 }), Garden.PATH_W_MIN);
+  assert.equal(anchoDe({ x: 300, y: 0 }, { pathWidth: 4000 }), Garden.PATH_W_MAX);
 });
 
-test('el ancho del camino se respeta en cualquier inclinación', () => {
-  for (const deg of [90, 30, -45]) {
-    const { a, p1, p2 } = at(deg, 300);
-    const [e1, e2] = make(TOOLS.GARDEN_PATH, 'pathStraight', { labels: false, pathWidth: 48 }, p1, p2)
-      .filter(el => el.type === 'line');
-    // Distancia entre los dos bordes, medida en perpendicular al recorrido.
-    const v = e => (e.x1 - p1.x) * -Math.sin(a) + (e.y1 - p1.y) * Math.cos(a);
-    assert.ok(Math.abs(Math.abs(v(e1) - v(e2)) - 48) < 1e-9,
-      `${deg}°: el ancho no se conserva al girar`);
+test('las cuatro variantes nacen verticales con el ancho del panel', () => {
+  const click = [{ x: 10, y: 10 }, { x: 11, y: 11 }];   // arrastre < MIN_SPAN
+  for (const id of PATH_IDS) {
+    const b = unionBounds(make(TOOLS.GARDEN_PATH, id, { labels: false, pathWidth: 40 }, ...click));
+    assert.ok(b.h > b.w * 2, `${id} debe nacer vertical: ${b.w}×${b.h}`);
+    assert.ok(b.w >= 40 && b.w <= 40 * 1.6,
+      `${id} debe nacer con el ancho del panel (más el vaivén), y mide ${b.w}`);
   }
 });
 
-test('el camino serpenteante también gira entero con el arrastre', () => {
-  for (const deg of [90, 30, -45]) {
-    const { a, p1, p2 } = at(deg);
-    const edges = make(TOOLS.GARDEN_PATH, 'path', { labels: false }, p1, p2)
-      .filter(el => el.type === 'curveArrow');
-    assert.equal(edges.length, 2);
-    // Los extremos de cada borde caen sobre las perpendiculares del arrastre en
-    // sus dos puntas: si la onda no girara, se saldrían por delante o por detrás.
-    const along = p => ((p.x - p1.x) * Math.cos(a) + (p.y - p1.y) * Math.sin(a));
-    for (const e of edges) {
-      assert.ok(Math.abs(along({ x: e.x1, y: e.y1 })) < 1e-9, `${deg}°: arranque descuadrado`);
-      assert.ok(Math.abs(along({ x: e.x2, y: e.y2 }) - 300) < 1e-6, `${deg}°: final descuadrado`);
+/* El empedrado se calcula aparte de los bordes, así que lo que hay que fijar es
+   que siga SU MISMA ondulación: si se despegara, los cantos de la cresta
+   asomarían fuera del camino. Se comprueba en los dos sentidos porque la onda
+   vive en coordenadas de camino y es el giro lo que podría descuadrarla: un
+   signo suelto en la normal sería invisible en horizontal. */
+test('los cantos caben entre los bordes, en los dos sentidos y a cualquier ancho', () => {
+  const casos = [
+    ['horizontal fino',  { x: 0, y: 0 }, { x: 360, y: 40 }],
+    ['horizontal ancho', { x: 0, y: 0 }, { x: 360, y: 150 }],
+    ['vertical fino',    { x: 0, y: 0 }, { x: 40, y: 360 }],
+    ['vertical ancho',   { x: 0, y: 0 }, { x: 150, y: 360 }],
+  ];
+  for (const [nombre, p1, p2] of casos) {
+    const els = make(TOOLS.GARDEN_PATH, 'pathPaved', { labels: false }, p1, p2);
+    const edges = els.filter(el => el.type === 'curveArrow' && !cobbles([el]).length);
+    assert.equal(edges.length, 2, `${nombre}: hacen falta los dos bordes para acotar`);
+    // Coordenadas de camino: u a lo largo del recorrido, v en perpendicular.
+    const vert = (p2.y - p1.y) > (p2.x - p1.x);
+    const uv = p => vert ? { u: p.y, v: p.x } : { u: p.x, v: p.y };
+    const vAt = (edge, u) => {
+      const pts = CurvePath.sample(edge, 120).map(uv);
+      let best = pts[0];
+      for (const p of pts) if (Math.abs(p.u - u) < Math.abs(best.u - u)) best = p;
+      return best.v;
+    };
+    const [lo, hi] = uv({ x: edges[0].x1, y: edges[0].y1 }).v <
+                     uv({ x: edges[1].x1, y: edges[1].y1 }).v ? edges : [edges[1], edges[0]];
+    const stones = cobbles(els);
+    assert.ok(stones.length >= 6, `${nombre}: no hay empedrado que comprobar`);
+    for (const c of stones) {
+      const cb = CurvePath.bounds(c);
+      const p = uv({ x: cb.x + cb.w / 2, y: cb.y + cb.h / 2 });
+      const r = Math.max(cb.w, cb.h) / 2;      // radio circunscrito: cota estricta
+      assert.ok(p.v - r > vAt(lo, p.u) - 1, `${nombre}: un canto asoma por un borde`);
+      assert.ok(p.v + r < vAt(hi, p.u) + 1, `${nombre}: un canto asoma por el otro`);
     }
   }
+});
+
+/* Con dos hileras fijas, ensanchar el camino solo engordaba los cantos: a 90 px
+   eran piedras de medio metro y aquello se leía como una hilera de globos. Un
+   empedrado de verdad mete más piezas, no piezas más grandes. */
+test('al ensanchar el camino salen más cantos, no cantos más gordos', () => {
+  const empedrado = ancho => {
+    const els = make(TOOLS.GARDEN_PATH, 'pathPaved', { labels: false },
+      { x: 0, y: 0 }, { x: 360, y: ancho });
+    const stones = cobbles(els);
+    const tam = stones.map(c => { const b = CurvePath.bounds(c); return Math.max(b.w, b.h); });
+    return { n: stones.length, tam: tam.reduce((s, v) => s + v, 0) / tam.length };
+  };
+  const fino = empedrado(56), ancho = empedrado(150);
+  assert.ok(ancho.n > fino.n * 1.5,
+    `el camino ancho necesita bastantes más cantos: ${fino.n} → ${ancho.n}`);
+  assert.ok(Math.abs(ancho.tam - fino.tam) < fino.tam * 0.35,
+    `y de tamaño parecido: ${fino.tam.toFixed(1)} → ${ancho.tam.toFixed(1)}`);
+  // Con tope, para que un camino de punta a punta no suelte cientos de piezas.
+  const enorme = empedrado(200);
+  assert.ok(enorme.n <= 96, `el total está acotado, y son ${enorme.n}`);
 });
 
 /* ---------------- el reloj de sol ---------------- */

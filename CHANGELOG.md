@@ -4,6 +4,32 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.21.0] — 2026-08-07
+
+### Cambiado
+- **El grosor del camino vuelve al ratón.** El arrastre se lee otra vez como
+  caja: el lado largo es el recorrido y el corto, el grosor, así que moviendo el
+  ratón arriba o abajo el camino engorda mientras se dibuja. Es la única forma
+  de sacar las dos cosas de un solo gesto —un arrastre da dos datos, y el
+  tercero tendría que venir de una tecla o de un segundo paso—, y por eso
+  **se revierte el trazado en diagonal** que estrenó la 1.19.0: entre las dos,
+  el grosor a mano pesa más.
+- El **ancho del camino** del panel pasa a ser lo que dice su nombre: el ancho
+  por defecto, el que se usa cuando el arrastre no lo da (un clic o una línea
+  recta). El que sale del arrastre no se acota: ahí se ve exactamente lo que se
+  dibuja.
+- **El empedrado gana hileras al ensanchar el camino, en vez de piedras más
+  gordas.** Con dos hileras fijas, un camino de 90 px salía con cantos de medio
+  metro y se leía como una hilera de globos; ahora entra una hilera por cada
+  17 px de ancho, con el total acotado para que un camino de punta a punta no
+  suelte cientos de piezas.
+
+### Tests
+- Las guardias de camino se reescriben para la caja: el recorrido por el lado
+  largo, el grosor creciendo al bajar el ratón, el ancho del panel como
+  reserva, los cantos entre los bordes en los dos sentidos y a cualquier ancho,
+  y la nueva —más cantos, no más gordos—. **365 unitarios + 25 e2e**.
+
 ## [1.20.0] — 2026-08-07
 
 ### Añadido

@@ -2388,15 +2388,11 @@
     { tool: TOOLS.GARDEN_SHRUB,  modal: 'modal-shrub',  root: 'shrub-catalog',  cls: 'modal__shrub',  data: 'shrub',  catalog: SHRUB_TYPES,   key: 'shrubType'  },
     { tool: TOOLS.GARDEN_FLOWER, modal: 'modal-flower', root: 'flower-catalog', cls: 'modal__flower', data: 'flower', catalog: FLOWER_TYPES,  key: 'flowerType' },
     { tool: TOOLS.GARDEN_DECOR,  modal: 'modal-decor',  root: 'decor-catalog',  cls: 'modal__decor',  data: 'decor',  catalog: DECOR_TYPES,   key: 'decorType'  },
-    // Caminos: aquí el "arrastre" del icono no es una caja sino el recorrido,
-    // así que va corto y en diagonal — corto para que los cantos se distingan
-    // a 56 px, y en diagonal porque es lo que hace esta herramienta: seguir el
-    // gesto en cualquier inclinación.
-    { tool: TOOLS.GARDEN_PATH,   modal: 'modal-path',   root: 'path-catalog',   cls: 'modal__path',   data: 'path',   catalog: PATH_TYPES,    key: 'pathType', box: { x: 40, y: 46 },
-      // El icono se salta el ancho del panel (`pathWidth: null` → la reserva
-      // proporcional de garden.js): su recorrido mide 60 px de mentira, así que
-      // un ancho de 120 lo dejaría hecho una mancha en vez de un camino.
-      opts: () => ({ ...gardenOpts(), pathWidth: null }) },
+    // Caminos: caja propia, vertical y corta. Vertical porque así nace un
+    // camino, y corta para que los cantos aún se distingan a 56 px. Al llevar
+    // lado corto propio, el icono no depende del ancho del panel: un ancho de
+    // 120 dejaría el icono hecho una mancha en vez de un camino.
+    { tool: TOOLS.GARDEN_PATH,   modal: 'modal-path',   root: 'path-catalog',   cls: 'modal__path',   data: 'path',   catalog: PATH_TYPES,    key: 'pathType', box: { x: 44, y: 84 } },
     { tool: TOOLS.GARDEN_HERB,   modal: 'modal-herb',   root: 'herb-catalog',   cls: 'modal__herb',   data: 'herb',   catalog: HERB_TYPES,    key: 'herbType'   },
   ].map(cfg => ({ gen: () => Garden, opts: () => gardenOpts(), box: { x: 100, y: 84 }, ...cfg }));
   const variantModalOf = tool => VARIANT_MODALS.find(m => m.tool === tool);

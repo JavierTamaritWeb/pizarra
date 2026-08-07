@@ -128,7 +128,7 @@ test('el modal de Fachada permite elegir el tipo de puerta y de ventana', () => 
     'con Puerta de arco la fachada debe traer el arco');
 });
 
-/* ── Jardín: el ancho del camino, que el arrastre ya no puede dar ── */
+/* ── Jardín: el ancho por defecto del camino, cuando el arrastre no lo da ── */
 
 test('el slider de ancho de camino cambia el camino y se recuerda', () => {
   const app = loadApp();
@@ -145,7 +145,8 @@ test('el slider de ancho de camino cambia el camino y se recuerda', () => {
     .find(b => b.dataset.path === 'pathStraight');
   app.$('modal-path').__fire('click', { target: btn });
   app.flush();
-  app.drag(100, 300, 400, 300);          // recorrido horizontal: el ancho va en y
+  // Arrastre en línea recta: sin lado corto que leer, el ancho lo pone el panel.
+  app.drag(100, 300, 400, 300);
 
   const [a, b] = app.elements().filter(e => e.type === 'line');
   assert.equal(Math.abs(a.y1 - b.y1), 72, 'el camino sale con el ancho elegido');
