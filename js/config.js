@@ -35,7 +35,8 @@ const TOOLS = Object.freeze({
   // rect/line/circle/curveArrow/text. Todo en vista de planta. Ver js/garden.js.
   GARDEN_PLOT:   'jardin',        GARDEN_TREE:   'arbol',
   GARDEN_SHRUB:  'arbusto',       GARDEN_FLOWER: 'flor',
-  GARDEN_DECOR:  'decoracion',    GARDEN_HERB:   'aromatica',
+  GARDEN_DECOR:  'decoracion',    GARDEN_PATH:   'camino',
+  GARDEN_HERB:   'aromatica',
 });
 
 /** Herramientas de la sección "Edificios": todas son SOLO de creación
@@ -107,7 +108,8 @@ const FACADE_TYPES = Object.freeze([
     `el.type`. Ver js/garden.js. */
 const GARDEN_TOOLS = Object.freeze([
   TOOLS.GARDEN_PLOT, TOOLS.GARDEN_TREE, TOOLS.GARDEN_SHRUB,
-  TOOLS.GARDEN_FLOWER, TOOLS.GARDEN_DECOR, TOOLS.GARDEN_HERB,
+  TOOLS.GARDEN_FLOWER, TOOLS.GARDEN_DECOR, TOOLS.GARDEN_PATH,
+  TOOLS.GARDEN_HERB,
 ]);
 
 /* Los cinco catálogos del jardín comparten formato con los de Edificios
@@ -119,6 +121,7 @@ const GARDEN_TOOLS = Object.freeze([
 /** Formas de la parcela del botón Jardín. */
 const PLOT_SHAPES = Object.freeze([
   { id: 'rect',    name: 'Rectangular' },
+  { id: 'square',  name: 'Cuadrada' },
   { id: 'round',   name: 'Redonda' },
   { id: 'l',       name: 'En L' },
   { id: 'organic', name: 'Orgánica' },
@@ -179,8 +182,28 @@ const DECOR_TYPES = Object.freeze([
   { id: 'stone',    name: 'Piedra' },
   { id: 'bench',    name: 'Banco' },
   { id: 'fountain', name: 'Fuente' },
+  { id: 'sundial',     name: 'Reloj de sol' },
+  { id: 'sundialWall', name: 'Reloj de sol de pared' },
   { id: 'pond',     name: 'Estanque' },
-  { id: 'path',     name: 'Camino' },
+]);
+
+/**
+ * Tipos del botón Caminos.
+ *
+ * Son las cuatro combinaciones de sus dos ejes independientes: trazado
+ * (serpenteante o recto) y acabado (liso o empedrado). Van como variantes de
+ * catálogo y no como dos casillas del panel porque en esta sección la variante
+ * manda: es la que elige la caja por defecto y la que da nombre a la etiqueta,
+ * y una casilla no tendría ni lo uno ni lo otro.
+ *
+ * El camino tuvo su propio botón desde que fueron cuatro: dentro de Decoración
+ * ocupaba la mitad del catálogo y tapaba el resto de piezas.
+ */
+const PATH_TYPES = Object.freeze([
+  { id: 'path',              name: 'Camino' },
+  { id: 'pathStraight',      name: 'Camino recto' },
+  { id: 'pathPaved',         name: 'Camino empedrado' },
+  { id: 'pathStraightPaved', name: 'Camino recto empedrado' },
 ]);
 
 const TOOL_GROUPS = [
@@ -254,6 +277,7 @@ const TOOL_GROUPS = [
       // Sin atajo: `8 9 h x z` agotaron las teclas sueltas libres y ninguna de
       // las que quedan está sin uso. `key` es opcional; mejor sin atajo que
       // pisando una acción existente.
+      { id: TOOLS.GARDEN_PATH,   icon: '〰️', name: 'Caminos' },
       { id: TOOLS.GARDEN_HERB,   icon: '🍃', name: 'Aromáticas' },
     ],
   },

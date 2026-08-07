@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Architects+Daughter&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=1.16.1" />
+  <link rel="stylesheet" href="css/styles.css?v=1.17.0" />
 </head>
 <body>
 
@@ -23,7 +23,7 @@
       <div class="topbar__brand">
         <span class="topbar__logo-icon" aria-hidden="true">✎</span>
         <span class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></span>
-        <span class="topbar__badge">v1.16.1</span>
+        <span class="topbar__badge">v1.17.0</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes">
@@ -521,7 +521,7 @@
   </dialog>
 
   <!-- ===== MODALES: JARDÍN =====
-       Los cinco comparten plantilla y los rellena app.js (buildGardenCatalog)
+       Los siete comparten plantilla y los rellena app.js (buildGardenCatalog)
        desde GARDEN_MODALS. Sus iconos no son SVG dibujados a mano: los pinta la
        geometría real de js/garden.js, así que enseñan lo que van a crear. -->
   <dialog class="modal" id="modal-plot" aria-labelledby="modal-plot-title">
@@ -556,6 +556,13 @@
       <h3 class="modal__heading" id="modal-decor-title">Elemento decorativo</h3>
       <p class="modal__sub">Vista desde arriba: elige el elemento y arrástralo</p>
       <div id="decor-catalog"></div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
+  <dialog class="modal" id="modal-path" aria-labelledby="modal-path-title">
+      <h3 class="modal__heading" id="modal-path-title">Tipo de camino</h3>
+      <p class="modal__sub">Vista desde arriba: elige el trazado y arrástralo</p>
+      <div id="path-catalog"></div>
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
   </dialog>
 
@@ -597,19 +604,19 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="js/config.js?v=1.16.1"></script>
-  <script src="js/sketchy.js?v=1.16.1"></script>
-  <script src="js/arc.js?v=1.16.1"></script>
-  <script src="js/curve-path.js?v=1.16.1"></script>
-  <script src="js/shape-rotation.js?v=1.16.1"></script>
-  <script src="js/regular-polygon.js?v=1.16.1"></script>
-  <script src="js/trapezoid.js?v=1.16.1"></script>
-  <script src="js/eraser.js?v=1.16.1"></script>
-  <script src="js/building.js?v=1.16.1"></script>
-  <script src="js/garden.js?v=1.16.1"></script>
-  <script src="js/renderer.js?v=1.16.1"></script>
-  <script src="js/exporter.js?v=1.16.1"></script>
-  <script src="js/templates.js?v=1.16.1"></script>
-  <script src="js/app.js?v=1.16.1"></script>
+  <script src="js/config.js?v=1.17.0"></script>
+  <script src="js/sketchy.js?v=1.17.0"></script>
+  <script src="js/arc.js?v=1.17.0"></script>
+  <script src="js/curve-path.js?v=1.17.0"></script>
+  <script src="js/shape-rotation.js?v=1.17.0"></script>
+  <script src="js/regular-polygon.js?v=1.17.0"></script>
+  <script src="js/trapezoid.js?v=1.17.0"></script>
+  <script src="js/eraser.js?v=1.17.0"></script>
+  <script src="js/building.js?v=1.17.0"></script>
+  <script src="js/garden.js?v=1.17.0"></script>
+  <script src="js/renderer.js?v=1.17.0"></script>
+  <script src="js/exporter.js?v=1.17.0"></script>
+  <script src="js/templates.js?v=1.17.0"></script>
+  <script src="js/app.js?v=1.17.0"></script>
 </body>
 </html>

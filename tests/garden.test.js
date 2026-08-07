@@ -12,7 +12,7 @@ const { loadAll, createCtxStub } = require('./helpers/load.js');
 const ctx = loadAll();
 const {
   Garden, TOOLS, GARDEN_TOOLS, PLOT_SHAPES, TREE_TYPES, SHRUB_TYPES,
-  FLOWER_TYPES, DECOR_TYPES, HERB_TYPES, Renderer, Exporter, CurvePath,
+  FLOWER_TYPES, DECOR_TYPES, PATH_TYPES, HERB_TYPES, Renderer, Exporter, CurvePath,
 } = ctx;
 
 const O = { color: '#123456', lineWidth: 3 };
@@ -25,6 +25,7 @@ const VARIANT_KEY = {
   [TOOLS.GARDEN_SHRUB]:  'shrubType',
   [TOOLS.GARDEN_FLOWER]: 'flowerType',
   [TOOLS.GARDEN_DECOR]:  'decorType',
+  [TOOLS.GARDEN_PATH]:   'pathType',
   [TOOLS.GARDEN_HERB]:   'herbType',
 };
 
@@ -34,6 +35,7 @@ const CATALOG = {
   [TOOLS.GARDEN_SHRUB]:  SHRUB_TYPES,
   [TOOLS.GARDEN_FLOWER]: FLOWER_TYPES,
   [TOOLS.GARDEN_DECOR]:  DECOR_TYPES,
+  [TOOLS.GARDEN_PATH]:   PATH_TYPES,
   [TOOLS.GARDEN_HERB]:   HERB_TYPES,
 };
 
@@ -43,6 +45,26 @@ const ALL_VARIANTS = GARDEN_TOOLS.flatMap(tool =>
 
 const make = (tool, id, opts = {}, p1 = P1, p2 = P2) =>
   Garden.elements(tool, p1, p2, { ...O, [VARIANT_KEY[tool]]: id, ...opts });
+
+/** Caja que envuelve a un grupo de piezas. app.js tiene getElementBounds, pero
+    vive fuera del arnés node:vm: aquí basta con los cuatro tipos del jardín. */
+function unionBounds(els) {
+  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+  for (const el of els) {
+    let b;
+    if (el.type === 'line') {
+      b = { x: Math.min(el.x1, el.x2), y: Math.min(el.y1, el.y2),
+            w: Math.abs(el.x2 - el.x1), h: Math.abs(el.y2 - el.y1) };
+    } else if (el.type === 'curveArrow') {
+      b = CurvePath.bounds(el);
+    } else {
+      b = el;   // rect y circle ya vienen en x/y/w/h
+    }
+    x1 = Math.min(x1, b.x); y1 = Math.min(y1, b.y);
+    x2 = Math.max(x2, b.x + b.w); y2 = Math.max(y2, b.y + b.h);
+  }
+  return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+}
 
 /* ---------------- contrato del módulo ---------------- */
 
@@ -125,13 +147,19 @@ test('es determinista: dos llamadas iguales dan el mismo resultado', () => {
 // icono resultaban indistinguibles y no había forma de elegir. Los tests
 // pasaban todos: ninguno comparaba una variante con sus hermanas.
 test('dentro de un catálogo, dos variantes nunca se dibujan igual', () => {
-  // Firma: qué tipos de elemento hay y cuántos. Para las curvas distingue
-  // además si son siluetas cerradas o trazos abiertos.
-  const signature = els => els.filter(el => el.type !== 'text')
-    .map(el => el.type === 'curveArrow'
+  // Firma: qué tipos de elemento hay y cuántos —para las curvas, distinguiendo
+  // siluetas cerradas de trazos abiertos— MÁS la proporción del conjunto. La
+  // proporción cuenta porque hay variantes que se eligen justo por ella: la
+  // parcela cuadrada lleva las mismas piezas que la rectangular y aun así son
+  // dos opciones distintas de un vistazo.
+  const signature = els => {
+    const parts = els.filter(el => el.type !== 'text');
+    const kinds = parts.map(el => el.type === 'curveArrow'
       ? `curveArrow:${CurvePath.isChain(el) && el.x1 === el.x2 && el.y1 === el.y2 ? 'closed' : 'open'}`
-      : el.type)
-    .sort().join(',');
+      : el.type).sort().join(',');
+    const b = unionBounds(parts);
+    return `${kinds}|${(b.w / Math.max(1, b.h)).toFixed(1)}`;
+  };
 
   for (const tool of GARDEN_TOOLS) {
     const seen = new Map();
@@ -239,6 +267,32 @@ test('la parcela lleva contorno y césped, y el césped va en trazo fino', () =>
   }
 });
 
+// La cuadrada es la única variante que impone su proporción: toma el lado
+// menor del arrastre y se centra en él, para no salirse de lo que se marcó.
+test('la parcela cuadrada sale cuadrada aunque el arrastre no lo sea', () => {
+  const p1 = { x: 100, y: 200 }, p2 = { x: 500, y: 400 };   // 400×200
+  const els = make(TOOLS.GARDEN_PLOT, 'square', { labels: false }, p1, p2);
+  const box = els.find(el => el.type === 'rect');
+  assert.ok(box, 'la parcela cuadrada es un rectángulo');
+  assert.equal(box.w, box.h, `no es cuadrada: ${box.w}×${box.h}`);
+  assert.equal(box.h, 200, 'el lado es el menor del arrastre');
+  assert.equal(box.x + box.w / 2, (p1.x + p2.x) / 2, 'va centrada en el arrastre');
+  assert.equal(box.y + box.h / 2, (p1.y + p2.y) / 2);
+  assert.ok(box.x >= p1.x && box.x + box.w <= p2.x, 'no puede desbordar el arrastre');
+});
+
+test('la etiqueta de la parcela cuadrada la sigue, no se queda en el arrastre', () => {
+  const p1 = { x: 100, y: 200 }, p2 = { x: 500, y: 400 };
+  const els = make(TOOLS.GARDEN_PLOT, 'square', {}, p1, p2);
+  const box = els.find(el => el.type === 'rect');
+  const label = els.find(el => el.type === 'text');
+  assert.ok(label, 'sin etiqueta');
+  assert.ok(label.y >= box.y + box.h, 'la etiqueta va debajo de la parcela');
+  // Centrada bajo el cuadrado (con la estimación de ancho, no al píxel)
+  assert.ok(Math.abs(label.x - (box.x + box.w / 2)) < box.w / 2,
+    'la etiqueta ha quedado descolgada del dibujo');
+});
+
 test('el césped no se sale de una parcela redonda', () => {
   const b = { x: 0, y: 0, w: 200, h: 160 };
   const els = make(TOOLS.GARDEN_PLOT, 'round', { labels: false },
@@ -296,12 +350,170 @@ test('el banco lleva sus lamas horizontales y finas', () => {
   assert.ok(slats.every(l => l.y1 === l.y2 && l.lineWidth < O.lineWidth));
 });
 
+/* ---------------- Caminos: herramienta propia y dos ejes ---------------- */
+
+const PATH_IDS = ['path', 'pathStraight', 'pathPaved', 'pathStraightPaved'];
+
+// Los caminos salieron de Decoración a su propio botón cuando pasaron a ser
+// cuatro: dentro del catálogo decorativo ocupaban la mitad de las fichas y
+// tapaban el resto. Que no vuelvan a colarse ahí por copiar-pegar.
+test('los caminos viven en su propia herramienta, no en Decoración', () => {
+  assert.deepEqual([...PATH_TYPES.map(v => v.id)], PATH_IDS);
+  const decor = DECOR_TYPES.map(v => v.id);
+  for (const id of PATH_IDS) {
+    assert.ok(!decor.includes(id), `"${id}" sigue duplicado en DECOR_TYPES`);
+  }
+  // Y la herramienta responde: pedirle un camino a Decoración no lo dibuja
+  const els = make(TOOLS.GARDEN_DECOR, 'pathPaved', { labels: false });
+  assert.equal(cobbles(els).length, 0, 'Decoración no debe saber empedrar');
+});
+
+/** Cantos del empedrado: siluetas cerradas y finas, nunca los bordes. */
+const cobbles = els => els.filter(el =>
+  el.type === 'curveArrow' && CurvePath.isChain(el) &&
+  el.x1 === el.x2 && el.y1 === el.y2);
+
 test('el camino son dos bordes que serpentean', () => {
-  const els = make(TOOLS.GARDEN_DECOR, 'path', { labels: false });
+  const els = make(TOOLS.GARDEN_PATH, 'path', { labels: false });
   const edges = els.filter(el => el.type === 'curveArrow');
   assert.equal(edges.length, 2);
   assert.ok(edges.every(e => CurvePath.isChain(e) && e.x1 !== e.x2),
     'los bordes del camino son curvas abiertas');
+});
+
+test('el camino recto va con dos líneas horizontales, sin ondular', () => {
+  for (const id of ['pathStraight', 'pathStraightPaved']) {
+    const els = make(TOOLS.GARDEN_PATH, id, { labels: false });
+    const edges = els.filter(el => el.type === 'line');
+    assert.equal(edges.length, 2, `${id} necesita sus dos bordes rectos`);
+    assert.ok(edges.every(e => e.y1 === e.y2 && e.x1 !== e.x2),
+      `los bordes de ${id} no pueden ondular`);
+    assert.ok(edges.every(e => e.lineWidth === O.lineWidth),
+      'los bordes son contorno, no detalle');
+    // Y no queda ni rastro de la versión serpenteante
+    assert.equal(els.filter(el => el.type === 'curveArrow' && !CurvePath.isChain(el)).length, 0);
+    assert.equal(cobbles(els).length, els.filter(el => el.type === 'curveArrow').length,
+      `en ${id} las únicas curvas son los cantos`);
+  }
+});
+
+test('solo el camino empedrado trae cantos, y van en trazo fino', () => {
+  const stones = id => cobbles(make(TOOLS.GARDEN_PATH, id, { labels: false }));
+  assert.equal(stones('path').length, 0, 'el camino liso no lleva cantos');
+  assert.equal(stones('pathStraight').length, 0, 'el camino recto liso tampoco');
+  for (const id of ['pathPaved', 'pathStraightPaved']) {
+    const s = stones(id);
+    assert.ok(s.length >= 6, `${id} necesita un empedrado visible, hay ${s.length}`);
+    assert.ok(s.every(c => c.lineWidth < O.lineWidth),
+      'los cantos son detalle: van más finos que los bordes');
+  }
+});
+
+// El empedrado se calcula aparte de los bordes, así que lo que hay que fijar
+// es que siga SU MISMA ondulación: si se despegara, los cantos de la cresta
+// asomarían fuera del camino.
+test('los cantos del empedrado caben entre los bordes, también en las curvas', () => {
+  const b = [{ x: 40, y: 60 }, { x: 400, y: 160 }];   // 360×100, onda amplia
+  const els = make(TOOLS.GARDEN_PATH, 'pathPaved', { labels: false }, ...b);
+  const edges = els.filter(el => el.type === 'curveArrow' && !CurvePath.isChain(el) ||
+    (CurvePath.isChain(el) && el.x1 !== el.x2));
+  assert.equal(edges.length, 2, 'hacen falta los dos bordes para acotar');
+  // Altura de cada borde en una x dada, muestreando la curva real.
+  const yAt = (edge, x) => {
+    const pts = CurvePath.sample(edge, 40);
+    let best = pts[0];
+    for (const p of pts) if (Math.abs(p.x - x) < Math.abs(best.x - x)) best = p;
+    return best.y;
+  };
+  const [top, bot] = edges[0].y1 < edges[1].y1 ? edges : [edges[1], edges[0]];
+  const stones = cobbles(els);
+  assert.ok(stones.length >= 6);
+  for (const c of stones) {
+    const cb = CurvePath.bounds(c);
+    const cx = cb.x + cb.w / 2;
+    assert.ok(cb.y > yAt(top, cx) - 1,
+      `un canto asoma por encima del borde en x=${cx.toFixed(1)}`);
+    assert.ok(cb.y + cb.h < yAt(bot, cx) + 1,
+      `un canto asoma por debajo del borde en x=${cx.toFixed(1)}`);
+  }
+});
+
+test('dos cantos consecutivos no salen calcados', () => {
+  const stones = cobbles(make(TOOLS.GARDEN_PATH, 'pathStraightPaved', { labels: false }));
+  // Firma relativa al centro: el tamaño es el mismo, lo que debe variar es la forma
+  const shape = c => {
+    const b = CurvePath.bounds(c);
+    const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+    return CurvePath.segments(c)
+      .map(s => `${(s.x1 - cx).toFixed(2)},${(s.y1 - cy).toFixed(2)}`).join(' ');
+  };
+  assert.ok(new Set(stones.map(shape)).size >= 3,
+    'un empedrado con todos los cantos idénticos se lee como una fila de puntos');
+});
+
+test('las cuatro variantes de camino nacen con la misma caja apaisada', () => {
+  const click = [{ x: 0, y: 0 }, { x: 1, y: 1 }];   // arrastre < MIN_SPAN
+  const boxes = PATH_IDS.map(id =>
+    unionBounds(make(TOOLS.GARDEN_PATH, id, { labels: false }, ...click)));
+  for (let i = 0; i < boxes.length; i++) {
+    assert.ok(boxes[i].w > boxes[i].h * 2,
+      `${PATH_IDS[i]} debe nacer alargado: ${boxes[i].w}×${boxes[i].h}`);
+    assert.equal(boxes[i].w, boxes[0].w,
+      'las cuatro variantes comparten caja: solo cambian trazado y acabado');
+  }
+});
+
+/* ---------------- el reloj de sol ---------------- */
+
+test('el reloj de suelo lleva corona horaria y gnomon, y las horas van finas', () => {
+  const els = make(TOOLS.GARDEN_DECOR, 'sundial', { labels: false });
+  const rings = els.filter(el => el.type === 'circle');
+  assert.equal(rings.length, 2, 'pedestal y corona');
+  const cen = rings.map(el => `${(el.x + el.w / 2).toFixed(3)},${(el.y + el.h / 2).toFixed(3)}`);
+  assert.equal(new Set(cen).size, 1, 'la corona va centrada en el pedestal');
+  const lines = els.filter(el => el.type === 'line');
+  const gnomon = lines.filter(l => l.lineWidth === O.lineWidth);
+  assert.equal(gnomon.length, 3, 'el gnomon es un triángulo estrecho de tres trazos');
+  assert.ok(lines.length - gnomon.length >= 8, 'faltan líneas horarias');
+});
+
+test('el gnomon apunta al norte y las horas se reparten al sur', () => {
+  const els = make(TOOLS.GARDEN_DECOR, 'sundial', { labels: false });
+  const cy = (P1.y + P2.y) / 2;
+  const lines = els.filter(el => el.type === 'line');
+  const gnomon = lines.filter(l => l.lineWidth === O.lineWidth);
+  assert.ok(gnomon.some(l => Math.min(l.y1, l.y2) < cy - 1),
+    'la varilla tiene que subir por encima del centro');
+  for (const h of lines.filter(l => l.lineWidth < O.lineWidth)) {
+    assert.ok(h.y1 >= cy - 0.001 && h.y2 >= cy - 0.001,
+      'una hora se ha metido en la mitad norte, donde va el gnomon');
+  }
+});
+
+test('el reloj de pared cuelga de la traza del muro', () => {
+  const els = make(TOOLS.GARDEN_DECOR, 'sundialWall', { labels: false });
+  const plate = els.find(el => el.type === 'rect');
+  assert.ok(plate, 'falta la huella del cuadrante');
+  const wall = els.filter(el => el.type === 'line' && el.lineWidth === O.lineWidth)
+    .find(l => l.y1 === l.y2 && l.y1 === P1.y);
+  assert.ok(wall, 'falta la traza del muro, arriba de la caja');
+  assert.equal(plate.y, wall.y1, 'la placa tiene que nacer pegada al muro');
+  assert.ok(wall.x2 - wall.x1 > plate.w, 'el muro se prolonga más que la placa');
+  // El abanico sale hacia el sur, nunca atraviesa el muro
+  for (const h of els.filter(el => el.type === 'line' && el.lineWidth < O.lineWidth)) {
+    assert.ok(h.y1 > wall.y1 && h.y2 > wall.y1, 'una hora atraviesa el muro');
+  }
+});
+
+test('los dos relojes de sol no se confunden entre sí', () => {
+  const kinds = id => make(TOOLS.GARDEN_DECOR, id, { labels: false })
+    .map(el => el.type).sort().join(',');
+  assert.notEqual(kinds('sundial'), kinds('sundialWall'));
+  // El de suelo es una pieza redonda; el de pared, una placa contra una recta
+  assert.equal(make(TOOLS.GARDEN_DECOR, 'sundial', { labels: false })
+    .filter(el => el.type === 'rect').length, 0);
+  assert.equal(make(TOOLS.GARDEN_DECOR, 'sundialWall', { labels: false })
+    .filter(el => el.type === 'circle').length, 0);
 });
 
 test('la fuente y la maceta son anillos concéntricos', () => {

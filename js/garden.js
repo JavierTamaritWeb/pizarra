@@ -11,7 +11,9 @@
      · Árbol      : copa vista desde arriba, 6 especies
      · Arbusto    : mata, seto, macizo, topiario
      · Flor       : margarita, rosa, tulipán, parterre, girasol
-     · Decoración : maceta, pozo, regadera, piedra, banco, fuente, estanque, camino
+     · Decoración : maceta, pozo, regadera, piedra, banco, fuente, reloj de
+                    sol (de suelo o de pared) y estanque
+     · Caminos    : serpenteante o recto, liso o empedrado
 
    DETERMINISTA: aquí no se llama a Math.random(). El temblor de mano lo pone
    Sketchy al pintar, a partir del `seed` del elemento; si la geometría también
@@ -29,6 +31,14 @@ const Garden = (function () {
   const LABEL_SIZE = 12;   // cuerpo de la etiqueta de texto
   const LABEL_GAP  = 6;    // hueco entre la pieza y su etiqueta
   const GRASS_MAX  = 14;   // tope de matas por parcela (cada una son 3 trazos)
+  /* Tope de cantos por hilera. El tamaño del canto lo manda el ancho del
+     camino, no su largo —como en un empedrado de verdad—, así que el número
+     crece con el recorrido; esto es solo un freno para que un camino de punta
+     a punta del lienzo no suelte cientos de piezas. Al llegar al tope el
+     empedrado se va aclarando, que es preferible a quedarse a medias. El tope
+     está en el mismo orden que las 42 briznas de una parcela: es lo máximo que
+     esta app da por razonable soltar de un solo arrastre. */
+  const PATH_COLS  = 18;
 
   /* Tamaño al hacer clic sin arrastrar. Ojo: aquí NO basta con una caja por
      herramienta como en Edificios —donde una Puerta mide igual sea del tipo
@@ -37,7 +47,8 @@ const Garden = (function () {
      caja base. Escala de referencia: una parcela de 320 px ≈ 16 m, o sea unos
      20 px por metro (un árbol de 96 px es una copa de ~5 m). */
   const DEFAULTS = {
-    [TOOLS.GARDEN_PLOT]:   { w: 320, h: 240 },
+    [TOOLS.GARDEN_PLOT]:   { w: 320, h: 240, byVariant: {
+      square: { w: 280, h: 280 } } },
     [TOOLS.GARDEN_TREE]:   { w: 96, h: 96, byVariant: {
       palm: { w: 72, h: 72 }, cypress: { w: 40, h: 40 },
       carob: { w: 124, h: 112 } } },   // el algarrobo hace copa ancha
@@ -52,7 +63,9 @@ const Garden = (function () {
     [TOOLS.GARDEN_DECOR]:  { w: 48, h: 48, byVariant: {
       pot: { w: 34, h: 40 },  well:  { w: 44, h: 44 },  can:  { w: 36, h: 30 },
       stone: { w: 40, h: 32 }, bench: { w: 62, h: 24 }, fountain: { w: 70, h: 70 },
-      pond: { w: 150, h: 95 }, path: { w: 220, h: 56 } } },
+      pond: { w: 150, h: 95 },
+      sundial: { w: 64, h: 64 }, sundialWall: { w: 60, h: 46 } } },
+    [TOOLS.GARDEN_PATH]:   { w: 220, h: 56 },
   };
 
   /* Catálogo de cada herramienta: de dónde sale la variante activa y el texto
@@ -64,6 +77,7 @@ const Garden = (function () {
     [TOOLS.GARDEN_SHRUB]:  { list: SHRUB_TYPES,   key: 'shrubType'   },
     [TOOLS.GARDEN_FLOWER]: { list: FLOWER_TYPES,  key: 'flowerType'  },
     [TOOLS.GARDEN_DECOR]:  { list: DECOR_TYPES,   key: 'decorType'   },
+    [TOOLS.GARDEN_PATH]:   { list: PATH_TYPES,    key: 'pathType'    },
     [TOOLS.GARDEN_HERB]:   { list: HERB_TYPES,    key: 'herbType'    },
   };
 
@@ -94,6 +108,15 @@ const Garden = (function () {
       w: rawW >= MIN_SPAN ? rawW : def.w,
       h: rawH >= MIN_SPAN ? rawH : def.h,
     };
+    // La parcela cuadrada es la única variante que impone su proporción, y se
+    // arregla aquí y no en `_plotTool` porque la etiqueta se coloca a partir de
+    // esta misma caja: si la encogiera el generador, el nombre quedaría
+    // descolgado del dibujo. Se toma el lado menor y se centra en el arrastre.
+    if (tool === TOOLS.GARDEN_PLOT && variant === 'square') {
+      const side = Math.min(b.w, b.h);
+      b.x += (b.w - side) / 2; b.y += (b.h - side) / 2;
+      b.w = side; b.h = side;
+    }
     let els;
     switch (tool) {
       case TOOLS.GARDEN_PLOT:   els = _plotTool(b, o, variant);   break;
@@ -101,6 +124,7 @@ const Garden = (function () {
       case TOOLS.GARDEN_SHRUB:  els = _shrubTool(b, o, variant);  break;
       case TOOLS.GARDEN_FLOWER: els = _flowerTool(b, o, variant); break;
       case TOOLS.GARDEN_DECOR:  els = _decorTool(b, o, variant);  break;
+      case TOOLS.GARDEN_PATH:   els = _pathTool(b, o, variant);   break;
       case TOOLS.GARDEN_HERB:   els = _herbTool(b, o, variant);   break;
       default: return [];
     }
@@ -180,6 +204,11 @@ const Garden = (function () {
       color: o.color, lineWidth: o.lineWidth,
     };
   }
+
+  /** La misma tabla de lóbulos girada `k` posiciones: así dos cantos seguidos
+      no salen calcados sin tener que recurrir a Math.random(). */
+  const _turn = (table, k) =>
+    table.map((_, i) => table[(i + k) % table.length]);
 
   /** Silueta orgánica cerrada: radios tomados de `table` (fija, determinista). */
   const _blob = (cx, cy, rx, ry, table, o) => _chain(table.map((k, i) => {
@@ -650,15 +679,127 @@ const Garden = (function () {
       case 'pond':      // lámina de agua con su orilla
         return [_blob(cx, cy, rx, ry, LOBES.pond, o),
                 _blob(cx, cy, rx * 0.74, ry * 0.74, LOBES.pond, f)];
-      case 'path':      // sendero: dos bordes que serpentean
-        return [_wave(b.x, b.y + b.h * 0.2, b.x + b.w, b.y + b.h * 0.2,
-                      Math.max(2, b.h * 0.16), 4, o),
-                _wave(b.x, b.y + b.h * 0.8, b.x + b.w, b.y + b.h * 0.8,
-                      Math.max(2, b.h * 0.16), 4, o)];
+      case 'sundial': case 'sundialWall':
+        return _sundialTool(b, o, type);
       default:          // maceta: borde y boca
         return [_circleEl(b.x, b.y, b.w, b.h, o),
                 _dot(cx, cy, r * 0.72, f)];
     }
+  }
+
+  /**
+   * Reloj de sol, en las dos formas en que aparece en un jardín: sobre su
+   * pedestal («de suelo») o colgado de un muro («de pared»).
+   *
+   * Sigue la regla de la sección: se ve DESDE ARRIBA. Un reloj de pared en
+   * planta no enseña su cuadrante —está de canto contra el muro—, así que se
+   * dibuja como se dibuja en un plano de paisajismo: la línea del muro, la
+   * huella de la placa y el abanico de horas proyectado sobre el suelo. Es lo
+   * que lo hace reconocible; sin el abanico sería una caja pegada a una raya.
+   * El gnomon va con el trazo del contorno (es la pieza) y las horas, finas.
+   */
+  function _sundialTool(b, o, type) {
+    const f = _fine(o);
+    const cx = b.x + b.w / 2;
+    const els = [];
+    // Todo va en radios rx/ry por separado: si el arrastre no es cuadrado, un
+    // radio único dejaría la corona flotando dentro de la elipse del pedestal.
+    if (type === 'sundial') {
+      const rx = b.w / 2, ry = b.h / 2, cy = b.y + ry;
+      els.push(_circleEl(b.x, b.y, b.w, b.h, o));          // canto del pedestal
+      els.push(_circleEl(cx - rx * 0.78, cy - ry * 0.78,   // corona horaria
+                         rx * 1.56, ry * 1.56, f));
+      // Las horas ocupan la mitad sur: al norte va el gnomon, que las taparía.
+      for (let i = 0; i <= 10; i++) {
+        const a = (i / 10) * Math.PI;                      // de este a oeste
+        els.push(_line(cx + Math.cos(a) * rx * 0.22, cy + Math.sin(a) * ry * 0.22,
+                       cx + Math.cos(a) * rx * 0.78, cy + Math.sin(a) * ry * 0.78, f));
+      }
+      // Gnomon: la varilla vista desde arriba es un triángulo estrecho que
+      // apunta al norte, con la base ancha en el centro.
+      const half = Math.max(1, rx * 0.11), tip = cy - ry * 0.72;
+      els.push(_line(cx - half, cy, cx + half, cy, o),
+               _line(cx - half, cy, cx, tip, o),
+               _line(cx + half, cy, cx, tip, o));
+      return els;
+    }
+    // De pared: el muro arriba, la placa colgando y el cuadrante abierto al sur.
+    const wallY = b.y, plateH = Math.max(2, b.h * 0.16);
+    const plateW = b.w * 0.6;
+    const gy = wallY + plateH;                                 // arranque del gnomon
+    const fanX = b.w * 0.44, fanY = (b.h - plateH) * 0.88;
+    const A0 = Math.PI * 0.1, A1 = Math.PI * 0.9;
+    const on = (a, k) => ({ x: cx + Math.cos(a) * fanX * k, y: gy + Math.sin(a) * fanY * k });
+    els.push(_line(b.x, wallY, b.x + b.w, wallY, o));          // traza del muro
+    els.push(_rectEl(cx - plateW / 2, wallY, plateW, plateH, o)); // el cuadrante
+    // Horas: ocho marcas a media cuenta, para que ninguna caiga justo encima
+    // del gnomon —si coincidieran, la varilla dejaría de leerse como tal— y
+    // arrancando lejos del centro, que si no se apelotonan en la base.
+    for (let i = 0; i < 8; i++) {
+      const a = A0 + ((i + 0.5) / 8) * (A1 - A0);
+      const p = on(a, 1), q = on(a, 0.34);
+      els.push(_line(q.x, q.y, p.x, p.y, f));
+    }
+    // El arco que cierra la escala: sin él el abanico se lee como un foco.
+    const rim = [];
+    for (let i = 0; i <= 10; i++) rim.push(on(A0 + (i / 10) * (A1 - A0), 1));
+    els.push(_chain(rim, f, false));
+    els.push(_line(cx, gy, cx, gy + fanY * 0.6, o));           // gnomon saliente
+    return els;
+  }
+
+  /* Los dos ejes del camino, explícitos: mirar el id por dentro (¿contiene
+     "Straight"?) ataría la geometría a cómo se escriben los ids. */
+  const PATH_VARIANTS = {
+    path:              { winding: true,  paved: false },
+    pathStraight:      { winding: false, paved: false },
+    pathPaved:         { winding: true,  paved: true  },
+    pathStraightPaved: { winding: false, paved: true  },
+  };
+
+  /**
+   * Camino: dos bordes paralelos —rectos o serpenteantes— y, si es empedrado,
+   * cantos escalonados entre ellos.
+   *
+   * Las cuatro variantes salen de aquí y no de cuatro `case` porque el
+   * empedrado tiene que seguir EXACTAMENTE la misma ondulación que los bordes;
+   * calcularla en dos sitios sería garantizar que antes o después se despegan.
+   * De ahí que la onda viva en `_at`, que es lo único que consultan ambos.
+   */
+  function _pathTool(b, o, variant) {
+    const cfg = PATH_VARIANTS[variant] || PATH_VARIANTS.path;
+    const amp = cfg.winding ? Math.max(2, b.h * 0.16) : 0;
+    const yTop = b.y + b.h * 0.2, yBot = b.y + b.h * 0.8;
+    const band = yBot - yTop;
+    // Desplazamiento vertical del camino en la fracción `t` de su recorrido.
+    // Es el mismo seno que `_wave` aplica a los bordes (una vuelta completa).
+    const _at = t => Math.sin(t * Math.PI * 2) * amp;
+
+    const els = cfg.winding
+      ? [_wave(b.x, yTop, b.x + b.w, yTop, amp, 4, o),
+         _wave(b.x, yBot, b.x + b.w, yBot, amp, 4, o)]
+      : [_line(b.x, yTop, b.x + b.w, yTop, o),
+         _line(b.x, yBot, b.x + b.w, yBot, o)];
+    if (!cfg.paved) return els;
+
+    // Cantos en dos hileras a matajunta: la de abajo va desplazada media
+    // columna y con un canto menos, para que ninguno caiga sobre el borde
+    // final. El radio lo manda el ancho del camino, pero acotado por su largo
+    // para que una caja alta y estrecha no los solape.
+    const f = _fine(o);
+    const rr = Math.max(1.2, Math.min(band * 0.22, b.w * 0.11));
+    const cols = Math.max(2, Math.min(PATH_COLS, Math.round(b.w / (rr * 2.3))));
+    const mid = (yTop + yBot) / 2, dy = band * 0.24;
+    let k = 0;
+    for (let row = 0; row < 2; row++) {
+      const n = row === 0 ? cols : cols - 1;
+      for (let i = 0; i < n; i++) {
+        const t = row === 0 ? (i + 0.5) / cols : (i + 1) / cols;
+        els.push(_blob(b.x + b.w * t, mid + _at(t) + (row === 0 ? -dy : dy),
+                       rr, rr * 0.82, _turn(LOBES.stone, k++), f));
+      }
+    }
+    return els;
   }
 
   return { elements, MIN_SPAN, LABEL_SIZE, LABEL_GAP };

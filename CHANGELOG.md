@@ -4,9 +4,35 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
-## [No publicado]
+## [1.17.0] — 2026-08-07
 
 ### Añadido
+- **Botón «Caminos» en el Jardín, con cuatro trazados.** El camino tiene ahora
+  dos ejes independientes: puede ser **serpenteante o recto** y **liso o
+  empedrado**, en sus cuatro combinaciones. El empedrado son cantos irregulares
+  a matajunta que siguen exactamente la ondulación de los bordes, con el tamaño
+  que manda el ancho del camino —como en un empedrado de verdad—, así que un
+  camino largo lleva más piedras, no piedras más grandes.
+- Los caminos **salen de «Decoración» a su propio botón**: siendo cuatro,
+  ocupaban la mitad de aquel catálogo y tapaban el resto de piezas. Sin atajo de
+  teclado, como Aromáticas: las teclas sueltas libres están agotadas y ninguna
+  de las que quedan puede usarse sin pisar una acción de flecha curva.
+- **Reloj de sol** en Decoración, en sus dos formas: **de suelo** (sobre su
+  pedestal, con la corona horaria y el gnomon apuntando al norte) y **de pared**
+  (colgado de un muro, con el cuadrante abierto hacia el sur). Como todo el
+  Jardín, en vista de planta.
+- **Parcela cuadrada** en «Forma del jardín». Es la única variante que impone su
+  proporción: toma el lado menor del arrastre y se centra en él, sin salirse
+  nunca de lo que se marcó.
+
+### Cambiado
+- La guardia *"dos variantes nunca se dibujan igual"* compara también la
+  **proporción**, no solo qué piezas hay: la parcela cuadrada lleva exactamente
+  las mismas que la rectangular y aun así son dos opciones distintas de un
+  vistazo. Sin eso, la primera variante que se eligiera por su forma habría
+  hecho saltar el test sin haber nada roto.
+
+### Herramientas
 - **Suite end-to-end en un navegador real** (`e2e/`, Playwright): 21 tests que
   cubren lo que el arnés `node:vm` no puede ver por definición —layout, CSS,
   foco y acciones por defecto del navegador—. Casi todos son entradas de

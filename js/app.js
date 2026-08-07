@@ -43,6 +43,7 @@
     shrubType: 'bush',
     flowerType: 'daisy',
     decorType: 'pot',
+    pathType: 'path',
     herbType: 'lavender',
     gardenLabels: true,  // rotular cada pieza con el nombre de su variante
     doubleHead:  false, // nuevas flechas con punta en ambos extremos
@@ -753,6 +754,7 @@
         shrubType: state.shrubType,
         flowerType: state.flowerType,
         decorType: state.decorType,
+        pathType: state.pathType,
         herbType: state.herbType,
         gardenLabels: state.gardenLabels,
       }));
@@ -803,6 +805,7 @@
       restoreVariant(prefs.shrubType,   SHRUB_TYPES,   'shrubType');
       restoreVariant(prefs.flowerType,  FLOWER_TYPES,  'flowerType');
       restoreVariant(prefs.decorType,   DECOR_TYPES,   'decorType');
+      restoreVariant(prefs.pathType,    PATH_TYPES,    'pathType');
       restoreVariant(prefs.herbType,    HERB_TYPES,    'herbType');
       if (typeof prefs.gardenLabels === 'boolean') state.gardenLabels = prefs.gardenLabels;
     } catch (_) { /* prefs corruptas: se ignoran */ }
@@ -1442,7 +1445,8 @@
       color: state.color, lineWidth: state.lineWidth,
       plotShape: state.plotShape, treeType: state.treeType,
       shrubType: state.shrubType, flowerType: state.flowerType,
-      decorType: state.decorType, herbType: state.herbType,
+      decorType: state.decorType, pathType: state.pathType,
+      herbType: state.herbType,
       labels: state.gardenLabels,
       measureText: (value, fontSize) => {
         ctx.save();
@@ -2338,7 +2342,7 @@
   // Herramientas de Edificios que abren un modal de variante al seleccionarse.
   const MODAL_BUILD_TOOLS = [TOOLS.BUILD_PLANTA, TOOLS.BUILD_FACADE, TOOLS.BUILD_DOOR, TOOLS.BUILD_WINDOW, TOOLS.BUILD_ROOF];
 
-  /* Los cinco modales del Jardín. A diferencia de Edificios —cinco parejas
+  /* Los siete modales del Jardín. A diferencia de Edificios —cinco parejas
      build*Catalog/update*Active casi calcadas— aquí basta una tabla: el catálogo
      se construye con un único constructor genérico y los iconos no se dibujan a
      mano, los pinta la propia geometría de js/garden.js (ver gardenIcon). */
@@ -2348,6 +2352,7 @@
     { tool: TOOLS.GARDEN_SHRUB,  modal: 'modal-shrub',  root: 'shrub-catalog',  cls: 'modal__shrub',  data: 'shrub',  catalog: SHRUB_TYPES,   key: 'shrubType'  },
     { tool: TOOLS.GARDEN_FLOWER, modal: 'modal-flower', root: 'flower-catalog', cls: 'modal__flower', data: 'flower', catalog: FLOWER_TYPES,  key: 'flowerType' },
     { tool: TOOLS.GARDEN_DECOR,  modal: 'modal-decor',  root: 'decor-catalog',  cls: 'modal__decor',  data: 'decor',  catalog: DECOR_TYPES,   key: 'decorType'  },
+    { tool: TOOLS.GARDEN_PATH,   modal: 'modal-path',   root: 'path-catalog',   cls: 'modal__path',   data: 'path',   catalog: PATH_TYPES,    key: 'pathType'   },
     { tool: TOOLS.GARDEN_HERB,   modal: 'modal-herb',   root: 'herb-catalog',   cls: 'modal__herb',   data: 'herb',   catalog: HERB_TYPES,    key: 'herbType'   },
   ];
   const MODAL_GARDEN_TOOLS = GARDEN_MODALS.map(m => m.tool);
@@ -3339,7 +3344,7 @@
     facadeModal.addEventListener('focusin', previewOnHover);
     facadeModal.addEventListener('close', () => { hoverShape = null; });
 
-    // Jardín: los cinco modales se cablean con la misma receta desde GARDEN_MODALS.
+    // Jardín: los siete modales se cablean con la misma receta desde GARDEN_MODALS.
     GARDEN_MODALS.forEach(cfg => {
       const modal = $(cfg.modal);
       buildGardenCatalog(cfg);
