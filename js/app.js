@@ -2994,6 +2994,7 @@
       state.canvasBg = DEFAULT_CANVAS_BG;
       state.gridColor = DEFAULT_GRID_COLOR;
       state.overlapMode = 'normal';
+      state.eraserSize = DEFAULT_ERASER_SIZE;
       $('canvas-bg-picker').value = DEFAULT_CANVAS_BG;
       $('grid-color-picker').value = DEFAULT_GRID_COLOR;
       $('overlap-mode').value = 'normal';

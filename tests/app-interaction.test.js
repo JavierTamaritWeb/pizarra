@@ -632,6 +632,31 @@ test('tras «Limpiar todo» el auto-ajuste vuelve a actuar al redimensionar', ()
     'limpiar también resetea zoomManual: el auto-ajuste queda vivo otra vez');
 });
 
+test('«Limpiar todo» reinicia el tamaño del borrador a 16px', () => {
+  const app = loadApp();
+  app.selectTool('eraser');
+  app.$('modal-eraser').close();
+  app.flush();
+
+  const modalSlider = app.$('eraser-size-modal-slider');
+  modalSlider.value = '60';
+  modalSlider.__fire('input', { target: modalSlider });
+  modalSlider.__fire('change', { target: modalSlider });
+  app.flush();
+  assert.equal(app.$('stroke-slider').value, '60', 'premisa: el tamaño cambió antes de limpiar');
+
+  app.$('btn-clear').__fire('click');
+  app.flush();
+
+  assert.equal(+app.$('stroke-slider').value, 16, 'el panel vuelve al tamaño por defecto');
+  assert.equal(app.$('stroke-val').textContent, '16');
+
+  app.$('btn-eraser-size').__fire('click', { target: app.$('btn-eraser-size') });
+  app.flush();
+  assert.equal(app.$('eraser-size-modal-slider').value, '16', 'y el modal también, al reabrirlo');
+  assert.equal(app.$('eraser-size-modal-val').textContent, '16');
+});
+
 test('todo lo que dibuja el jardín sobrevive al round-trip JSON', () => {
   const app = loadApp();
   for (const tool of ['jardin', 'arbol', 'arbusto', 'flor', 'decoracion', 'aromatica']) {

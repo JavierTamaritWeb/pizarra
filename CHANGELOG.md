@@ -4,6 +4,18 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.22.1] — 2026-08-07
+
+### Arreglado
+- **«Limpiar todo» reinicia el tamaño del borrador.** El botón ya devolvía el
+  fondo, la cuadrícula, el solapamiento y el zoom a sus valores por defecto,
+  pero olvidaba `state.eraserSize`: si se había cambiado el tamaño del
+  borrador, seguía con ese valor tras limpiar en vez de volver a 16px.
+
+### Tests
+- Guardia en `app-interaction.test.js` para el reinicio del tamaño del
+  borrador al pulsar «Limpiar todo». **384 unitarios + 25 e2e**.
+
 ## [1.22.0] — 2026-08-07
 
 ### Añadido

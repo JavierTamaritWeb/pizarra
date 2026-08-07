@@ -912,6 +912,21 @@ el código roto (revertir el fix hace fallar exactamente sus tests).
 - **Guardia:** las suites existentes de export con borradores heredados siguen
   en verde (el comportamiento no cambia).
 
+### «Limpiar todo» no reiniciaba el tamaño del borrador
+- **Síntoma:** tras cambiar el tamaño del borrador (panel o modal) a algo
+  distinto de 16px, pulsar «Limpiar todo» dejaba el lienzo en blanco pero el
+  borrador seguía con el tamaño que se le hubiera dado, en vez de volver al
+  de recién abierta.
+- **Causa:** el handler de `btn-clear` ya reiniciaba `canvasBg`, `gridColor`,
+  `overlapMode` y el zoom a sus valores por defecto, pero olvidaba
+  `state.eraserSize` — quedaba vivo en memoria aunque `sketchwire.prefs` se
+  borrase de `localStorage`.
+- **Fix:** `js/app.js` — `btn-clear` asigna también
+  `state.eraserSize = DEFAULT_ERASER_SIZE` (16px), junto al resto de valores
+  por defecto.
+- **Guardia:** `tests/app-interaction.test.js` › *"«Limpiar todo» reinicia el
+  tamaño del borrador a 16px"*.
+
 ### Limpieza: `distToSegment` estaba duplicado en app.js
 - **Síntoma (latente):** `js/app.js` mantenía su propia copia de la distancia
   punto-segmento que `js/eraser.js` ya exporta — la misma fórmula dos veces
