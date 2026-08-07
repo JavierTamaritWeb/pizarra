@@ -4,6 +4,17 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.16.1] — 2026-08-07
+
+### Corregido
+- **«Limpiar todo» dejaba el lienzo pequeño en vez de como al abrir la app.**
+  En pantallas anchas el lienzo se ajusta solo para aprovechar el espacio, pero
+  el botón forzaba el zoom al 100% y dejaba márgenes vacíos alrededor. Peor: lo
+  marcaba como elección manual del usuario, así que el ajuste automático se
+  quedaba desactivado el resto de la sesión y redimensionar la ventana ya no
+  volvía a encajarlo. Ahora limpiar rehace el mismo ajuste que hace arrancar la
+  app, que es lo que el botón promete.
+
 ## [1.16.0] — 2026-07-25
 
 ### Añadido

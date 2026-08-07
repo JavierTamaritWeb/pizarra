@@ -20,6 +20,26 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### «Limpiar todo» dejaba el lienzo pequeño, no como al abrir la app
+- **Síntoma:** al abrir Pizarra en una pantalla ancha, el lienzo se ajusta solo
+  para aprovechar el espacio disponible (auto-ajuste del zoom). Pulsar «Limpiar
+  todo» —que promete devolver la app a su estado inicial— lo dejaba al 100% con
+  márgenes vacíos alrededor, y además el auto-ajuste quedaba **desactivado para
+  el resto de la sesión**: redimensionar la ventana ya no volvía a encajarlo.
+- **Causa:** el handler de `#btn-clear` (`js/app.js`) hacía `zoomManual = true;
+  applyZoom(1)`. El 100% fijo se eligió como "valor por defecto" del zoom, pero
+  el valor por defecto real de la app no es 100%: es lo que decida
+  `fitZoomToViewport()`, que es justo lo que corre en `init()`. Y marcar
+  `zoomManual` —la bandera que existe para que el auto-ajuste **nunca** pise una
+  elección del usuario— convertía un reset en una elección manual permanente.
+- **Fix:** `js/app.js` — el handler pasa a `zoomManual = false;
+  fitZoomToViewport()`, la misma pareja de efectos que tiene arrancar la app.
+- **Guardia:** `tests/app-interaction.test.js` › *"«Limpiar todo» devuelve el
+  zoom al ajuste automático, no a un 100% fijo"* (agranda `.canvas-area`, fuerza
+  un zoom manual del 50% y comprueba que tras limpiar vuelve al zoom ajustado y
+  que el sizer lo acompaña) y *"tras «Limpiar todo» el auto-ajuste vuelve a
+  actuar al redimensionar"* (fija que `zoomManual` también se resetea).
+
 ### La previsualización del arrastre no dibujaba las curvas encadenadas ni el texto
 - **Síntoma:** al arrastrar una pieza de Jardín con silueta orgánica (copa de
   árbol, piedra, estanque, parcela orgánica) la previsualización mostraba solo

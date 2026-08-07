@@ -435,6 +435,52 @@ test('elegir variante NO devuelve la herramienta anterior: se queda para dibujar
   assert.equal(activeTool(app), 'arbol', 'tras elegir, la herramienta se conserva');
 });
 
+/* ── Regresión: «Limpiar todo» deja la app como recién abierta ── */
+
+/** Agranda el área visible del lienzo y deja que el auto-ajuste reaccione.
+    Devuelve el zoom resultante en % (leído del panel, sin hooks de test). */
+function widenViewport(app, w = 2000, h = 1400) {
+  const area = app.dom.document.querySelector('.canvas-area');
+  area.clientWidth = w;
+  area.clientHeight = h;
+  app.dom.window.__fire('resize');   // el handler encola un setTimeout…
+  app.flush();                       // …que flush() ejecuta
+  return +app.$('zoom-val').textContent;
+}
+
+test('«Limpiar todo» devuelve el zoom al ajuste automático, no a un 100% fijo', () => {
+  const app = loadApp();
+  const fitted = widenViewport(app);
+  assert.ok(fitted > 100, 'con área de sobra el auto-ajuste agranda el lienzo');
+
+  const slider = app.$('zoom-slider');
+  slider.value = '50';
+  slider.__fire('input', { target: slider });   // elección manual: 50%
+  app.flush();
+  assert.equal(+app.$('zoom-val').textContent, 50);
+
+  app.$('btn-clear').__fire('click');
+  app.flush();
+  assert.equal(+app.$('zoom-val').textContent, fitted,
+    'tras limpiar, el lienzo debe ocupar el espacio igual que al abrir la app');
+  assert.equal(app.$('canvas-sizer').style.width, `${1200 * (fitted / 100)}px`,
+    'y la caja de layout debe seguir al zoom recalculado');
+});
+
+test('tras «Limpiar todo» el auto-ajuste vuelve a actuar al redimensionar', () => {
+  const app = loadApp();
+  const slider = app.$('zoom-slider');
+  slider.value = '50';
+  slider.__fire('input', { target: slider });   // desactiva el auto-ajuste
+  app.flush();
+  assert.equal(widenViewport(app), 50, 'con zoom manual, redimensionar no toca nada');
+
+  app.$('btn-clear').__fire('click');
+  app.flush();
+  assert.ok(widenViewport(app, 2400, 1600) > 100,
+    'limpiar también resetea zoomManual: el auto-ajuste queda vivo otra vez');
+});
+
 test('todo lo que dibuja el jardín sobrevive al round-trip JSON', () => {
   const app = loadApp();
   for (const tool of ['jardin', 'arbol', 'arbusto', 'flor', 'decoracion', 'aromatica']) {

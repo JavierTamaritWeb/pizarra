@@ -2845,11 +2845,12 @@
       $('canvas-bg-picker').value = DEFAULT_CANVAS_BG;
       $('grid-color-picker').value = DEFAULT_GRID_COLOR;
       $('overlap-mode').value = 'normal';
-      // El zoom vuelve al 100%. Cuenta como elección explícita del usuario
-      // (zoomManual), para que el auto-ajuste no lo agrande al siguiente
-      // redimensionado de la ventana y el 100% se mantenga.
-      zoomManual = true;
-      applyZoom(1);
+      // El zoom vuelve al ajuste automático, no a un 100% fijo: «Limpiar todo»
+      // debe dejar la app igual que recién abierta, y ahí el lienzo aprovecha
+      // todo el ancho disponible. Olvidar `zoomManual` es parte del reset: si
+      // no, el auto-ajuste seguiría desactivado para el resto de la sesión.
+      zoomManual = false;
+      fitZoomToViewport();
       try {
         localStorage.removeItem(AUTOSAVE_KEY);
         localStorage.removeItem(PREFS_KEY);
