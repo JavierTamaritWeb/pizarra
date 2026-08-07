@@ -382,10 +382,11 @@ test('el camino son dos bordes que serpentean', () => {
 });
 
 test('el camino recto va con dos líneas paralelas, sin ondular', () => {
-  // Caja apaisada (la P2 por defecto), o sea recorrido horizontal: los bordes
-  // corren en y constante. El eje lo elige el arrastre, ver el test de más abajo.
+  // Arrastre horizontal, o sea recorrido horizontal: los bordes corren en y
+  // constante. La dirección la pone el gesto, ver el test de más abajo.
+  const recto = [{ x: 40, y: 120 }, { x: 400, y: 120 }];
   for (const id of ['pathStraight', 'pathStraightPaved']) {
-    const els = make(TOOLS.GARDEN_PATH, id, { labels: false });
+    const els = make(TOOLS.GARDEN_PATH, id, { labels: false }, ...recto);
     const edges = els.filter(el => el.type === 'line');
     assert.equal(edges.length, 2, `${id} necesita sus dos bordes rectos`);
     assert.ok(edges.every(e => e.y1 === e.y2 && e.x1 !== e.x2),
@@ -411,32 +412,39 @@ test('solo el camino empedrado trae cantos, y van en trazo fino', () => {
   }
 });
 
-// El empedrado se calcula aparte de los bordes, así que lo que hay que fijar
-// es que siga SU MISMA ondulación: si se despegara, los cantos de la cresta
-// asomarían fuera del camino.
-test('los cantos del empedrado caben entre los bordes, también en las curvas', () => {
-  const b = [{ x: 40, y: 60 }, { x: 400, y: 160 }];   // 360×100, onda amplia
-  const els = make(TOOLS.GARDEN_PATH, 'pathPaved', { labels: false }, ...b);
-  const edges = els.filter(el => el.type === 'curveArrow' && !CurvePath.isChain(el) ||
-    (CurvePath.isChain(el) && el.x1 !== el.x2));
-  assert.equal(edges.length, 2, 'hacen falta los dos bordes para acotar');
-  // Altura de cada borde en una x dada, muestreando la curva real.
-  const yAt = (edge, x) => {
-    const pts = CurvePath.sample(edge, 40);
-    let best = pts[0];
-    for (const p of pts) if (Math.abs(p.x - x) < Math.abs(best.x - x)) best = p;
-    return best.y;
-  };
-  const [top, bot] = edges[0].y1 < edges[1].y1 ? edges : [edges[1], edges[0]];
-  const stones = cobbles(els);
-  assert.ok(stones.length >= 6);
-  for (const c of stones) {
-    const cb = CurvePath.bounds(c);
-    const cx = cb.x + cb.w / 2;
-    assert.ok(cb.y > yAt(top, cx) - 1,
-      `un canto asoma por encima del borde en x=${cx.toFixed(1)}`);
-    assert.ok(cb.y + cb.h < yAt(bot, cx) + 1,
-      `un canto asoma por debajo del borde en x=${cx.toFixed(1)}`);
+// El empedrado se calcula aparte de los bordes, así que lo que hay que fijar es
+// que siga SU MISMA ondulación: si se despegara, los cantos de la cresta
+// asomarían fuera del camino. Se comprueba en varias inclinaciones porque la
+// onda vive en coordenadas de camino y es el giro lo que podría descuadrarla:
+// un signo suelto en la normal se vería solo fuera de la horizontal.
+test('los cantos caben entre los bordes, en cualquier inclinación', () => {
+  for (const deg of [0, 90, 30, -45, 135]) {
+    const { a, p1, p2 } = at(deg, 320);
+    const els = make(TOOLS.GARDEN_PATH, 'pathPaved', { labels: false }, p1, p2);
+    const edges = els.filter(el => el.type === 'curveArrow' && !cobbles([el]).length);
+    assert.equal(edges.length, 2, `${deg}°: hacen falta los dos bordes para acotar`);
+    // Coordenadas de camino: u a lo largo del eje, v perpendicular.
+    const sin = Math.sin(a), cos = Math.cos(a);
+    const uv = p => ({ u: (p.x - p1.x) * cos + (p.y - p1.y) * sin,
+                       v: (p.x - p1.x) * -sin + (p.y - p1.y) * cos });
+    // Desvío de un borde a una u dada, muestreando la curva real.
+    const vAt = (edge, u) => {
+      const pts = CurvePath.sample(edge, 120).map(uv);
+      let best = pts[0];
+      for (const p of pts) if (Math.abs(p.u - u) < Math.abs(best.u - u)) best = p;
+      return best.v;
+    };
+    const [lo, hi] = uv({ x: edges[0].x1, y: edges[0].y1 }).v <
+                     uv({ x: edges[1].x1, y: edges[1].y1 }).v ? edges : [edges[1], edges[0]];
+    const stones = cobbles(els);
+    assert.ok(stones.length >= 6, `${deg}°: no hay empedrado que comprobar`);
+    for (const c of stones) {
+      const cb = CurvePath.bounds(c);
+      const p = uv({ x: cb.x + cb.w / 2, y: cb.y + cb.h / 2 });
+      const r = Math.max(cb.w, cb.h) / 2;      // radio circunscrito: cota estricta
+      assert.ok(p.v - r > vAt(lo, p.u) - 1, `${deg}°: un canto asoma por un borde`);
+      assert.ok(p.v + r < vAt(hi, p.u) + 1, `${deg}°: un canto asoma por el otro`);
+    }
   }
 });
 
@@ -465,54 +473,65 @@ test('las cuatro variantes de camino nacen en vertical, con la misma caja', () =
   }
 });
 
-// Con el recorrido clavado en la horizontal, un arrastre alto daba un camino
-// aplastado dentro de una caja que no le correspondía. Ahora el camino corre
-// por el eje largo del gesto, como se traza un sendero en un plano.
-test('el camino corre por el eje largo del arrastre', () => {
-  const drag = (x2, y2) => make(TOOLS.GARDEN_PATH, 'pathStraight', { labels: false },
-    { x: 0, y: 0 }, { x: x2, y: y2 });
+/* El arrastre ES el recorrido: el camino sale en la dirección del gesto y con
+   su inclinación. Antes se normalizaba a una caja, y `Math.min`/`Math.abs`
+   tiraban justo el dato que aquí manda —hacia dónde va—, así que solo se podían
+   trazar caminos horizontales. Un sendero de jardín cruza en diagonal tan a
+   menudo como en horizontal. */
 
-  const alto = drag(80, 300).filter(el => el.type === 'line');
-  assert.equal(alto.length, 2);
-  assert.ok(alto.every(e => e.x1 === e.x2 && e.y1 !== e.y2),
-    'una caja alta da un camino vertical');
+const ORIGIN = { x: 200, y: 200 };
+/** Arrastre de largo `L` desde ORIGIN con `deg` grados de inclinación. */
+const at = (deg, L = 300) => {
+  const a = deg * Math.PI / 180;
+  return { a, p1: ORIGIN,
+           p2: { x: ORIGIN.x + Math.cos(a) * L, y: ORIGIN.y + Math.sin(a) * L } };
+};
 
-  const ancho = drag(300, 80).filter(el => el.type === 'line');
-  assert.ok(ancho.every(e => e.y1 === e.y2 && e.x1 !== e.x2),
-    'y una apaisada lo sigue dando horizontal');
+test('el camino va en la dirección del arrastre, con cualquier inclinación', () => {
+  // Los dos casos que se piden a ojo, en crudo:
+  const linesOf = (p1, p2) => make(TOOLS.GARDEN_PATH, 'pathStraight', { labels: false }, p1, p2)
+    .filter(el => el.type === 'line');
+  const horiz = linesOf({ x: 0, y: 0 }, { x: 300, y: 0 });
+  assert.ok(horiz.length === 2 && horiz.every(e => e.y1 === e.y2 && e.x1 !== e.x2),
+    'arrastrando en horizontal, el camino cruza');
+  const vert = linesOf({ x: 0, y: 0 }, { x: 0, y: 300 });
+  assert.ok(vert.length === 2 && vert.every(e => e.x1 === e.x2 && e.y1 !== e.y2),
+    'arrastrando en vertical, el camino baja');
 
-  // Serpenteante: mismo criterio, mirando la caja del trazado.
-  const curvo = unionBounds(make(TOOLS.GARDEN_PATH, 'path', { labels: false },
-    { x: 0, y: 0 }, { x: 80, y: 300 }));
-  assert.ok(curvo.h > curvo.w, 'el serpenteante también baja si la caja es alta');
+  // Y en cualquier ángulo: los bordes son paralelos al arrastre, van en su
+  // mismo sentido y quedan a lado y lado del eje, a la misma distancia.
+  for (const deg of [0, 90, 30, -45, 135, 180, -120]) {
+    const { a, p1, p2 } = at(deg);
+    const edges = linesOf(p1, p2);
+    assert.equal(edges.length, 2, `${deg}°: hacen falta los dos bordes`);
+    const sin = Math.sin(a), cos = Math.cos(a);
+    for (const e of edges) {
+      const ex = e.x2 - e.x1, ey = e.y2 - e.y1;
+      assert.ok(Math.abs(ex * sin - ey * cos) < 1e-9,
+        `${deg}°: el borde no es paralelo al arrastre`);
+      assert.ok(ex * cos + ey * sin > 0, `${deg}°: el borde va al revés`);
+    }
+    const offset = e => (e.x1 - p1.x) * -sin + (e.y1 - p1.y) * cos;
+    const [d1, d2] = edges.map(offset);
+    assert.ok(d1 * d2 < 0, `${deg}°: los bordes deben caer a lados opuestos del eje`);
+    assert.ok(Math.abs(Math.abs(d1) - Math.abs(d2)) < 1e-9,
+      `${deg}°: y a la misma distancia`);
+  }
 });
 
-// Gemelo del test de arriba en el otro eje: el empedrado se calcula aparte de
-// los bordes, y en vertical la onda va en x. Si `_at` y `_wave` se despegaran
-// solo en ese caso, los cantos asomarían por un lateral y nada lo vería.
-test('los cantos caben entre los bordes también en un camino vertical', () => {
-  const els = make(TOOLS.GARDEN_PATH, 'pathPaved', { labels: false },
-    { x: 60, y: 40 }, { x: 160, y: 400 });   // 100×360, onda amplia
-  const edges = els.filter(el => el.type === 'curveArrow' &&
-    !(CurvePath.isChain(el) && el.x1 === el.x2 && el.y1 === el.y2));
-  assert.equal(edges.length, 2, 'hacen falta los dos bordes para acotar');
-  // Posición de un borde a una altura dada, muestreando la curva real.
-  const xAt = (edge, y) => {
-    const pts = CurvePath.sample(edge, 40);
-    let best = pts[0];
-    for (const p of pts) if (Math.abs(p.y - y) < Math.abs(best.y - y)) best = p;
-    return best.x;
-  };
-  const [izq, der] = edges[0].x1 < edges[1].x1 ? edges : [edges[1], edges[0]];
-  const stones = cobbles(els);
-  assert.ok(stones.length >= 6);
-  for (const c of stones) {
-    const cb = CurvePath.bounds(c);
-    const cy = cb.y + cb.h / 2;
-    assert.ok(cb.x > xAt(izq, cy) - 1,
-      `un canto asoma por la izquierda en y=${cy.toFixed(1)}`);
-    assert.ok(cb.x + cb.w < xAt(der, cy) + 1,
-      `un canto asoma por la derecha en y=${cy.toFixed(1)}`);
+test('el camino serpenteante también gira entero con el arrastre', () => {
+  for (const deg of [90, 30, -45]) {
+    const { a, p1, p2 } = at(deg);
+    const edges = make(TOOLS.GARDEN_PATH, 'path', { labels: false }, p1, p2)
+      .filter(el => el.type === 'curveArrow');
+    assert.equal(edges.length, 2);
+    // Los extremos de cada borde caen sobre las perpendiculares del arrastre en
+    // sus dos puntas: si la onda no girara, se saldrían por delante o por detrás.
+    const along = p => ((p.x - p1.x) * Math.cos(a) + (p.y - p1.y) * Math.sin(a));
+    for (const e of edges) {
+      assert.ok(Math.abs(along({ x: e.x1, y: e.y1 })) < 1e-9, `${deg}°: arranque descuadrado`);
+      assert.ok(Math.abs(along({ x: e.x2, y: e.y2 }) - 300) < 1e-6, `${deg}°: final descuadrado`);
+    }
   }
 });
 

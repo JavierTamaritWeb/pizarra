@@ -4,6 +4,32 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.19.0] — 2026-08-07
+
+### Añadido
+- **Los caminos del Jardín se trazan en cualquier inclinación.** El arrastre ya
+  no es una caja: **es el recorrido**, así que el camino sale en la dirección
+  del gesto —vertical, horizontal o en cualquier diagonal— en vez de limitarse
+  a los dos ejes. Un sendero de jardín cruza en diagonal tan a menudo como en
+  horizontal. Un clic sin arrastrar sigue dando el camino vertical por defecto.
+
+### Cambiado
+- El ancho del camino pasa a ser una fracción acotada de su recorrido (antes lo
+  daba el lado corto de la caja, que ya no existe): un sendero largo no sale
+  como un hilo ni uno corto como una plaza.
+- Los iconos del catálogo de Caminos se dibujan en diagonal, que es justo lo que
+  la herramienta hace.
+- Sigue habiendo **una sola geometría**, no una por orientación: se calcula en
+  coordenadas de camino y se gira al lienzo, de modo que el empedrado comparte
+  con los bordes la misma y única onda a cualquier ángulo.
+
+### Tests
+- Las guardias de camino pasan a barrer varios ángulos (0°, 90°, 30°, −45°,
+  135°, 180°, −120°): la dirección y el sentido de los bordes, el giro completo
+  del serpenteante y —la más valiosa— que los cantos siguen cabiendo entre los
+  bordes sea cual sea la inclinación. Un signo suelto en la normal es invisible
+  en horizontal y las tumba en cuanto se gira. **362 unitarios + 25 e2e**.
+
 ## [1.18.1] — 2026-08-07
 
 ### Cambiado

@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v1.18.1 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v1.19.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v1\.18\.1</);
-  assert.match(html, /css\/styles\.css\?v=1\.18\.1/);
-  assert.match(html, /js\/app\.js\?v=1\.18\.1/);
-  assert.match(html, /js\/building\.js\?v=1\.18\.1/);
-  assert.match(html, /js\/garden\.js\?v=1\.18\.1/);
-  assert.match(html, /js\/config\.js\?v=1\.18\.1/);
+  assert.match(html, /class="topbar__badge">v1\.19\.0</);
+  assert.match(html, /css\/styles\.css\?v=1\.19\.0/);
+  assert.match(html, /js\/app\.js\?v=1\.19\.0/);
+  assert.match(html, /js\/building\.js\?v=1\.19\.0/);
+  assert.match(html, /js\/garden\.js\?v=1\.19\.0/);
+  assert.match(html, /js\/config\.js\?v=1\.19\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);

@@ -65,10 +65,8 @@ const Garden = (function () {
       stone: { w: 40, h: 32 }, bench: { w: 62, h: 24 }, fountain: { w: 70, h: 70 },
       pond: { w: 150, h: 95 },
       sundial: { w: 64, h: 64 }, sundialWall: { w: 60, h: 46 } } },
-    // El camino nace VERTICAL: es la orientación con la que se entra a un
-    // jardín desde la calle, y arrastrando apaisado se obtiene el otro sentido
-    // (el recorrido lo elige el eje largo del arrastre, ver `_pathTool`).
-    [TOOLS.GARDEN_PATH]:   { w: 56, h: 220 },
+    // El camino no está aquí: no se define por una caja sino por un eje, y su
+    // tamaño por defecto vive en PATH_LEN / PATH_W_* (ver `_pathAxis`).
   };
 
   /* Catálogo de cada herramienta: de dónde sale la variante activa y el texto
@@ -101,9 +99,18 @@ const Garden = (function () {
 
   function elements(tool, p1, p2, opts) {
     const o = { color: '#000000', lineWidth: 2, ...(opts || {}) };
+    const variant = _variant(tool, o);
+    if (variant === null) return [];     // no es una herramienta del jardín
+    // El camino es el único que NO se define por una caja: el arrastre ES su
+    // recorrido, y normalizarlo a x/y/w/h perdería el sentido del gesto y con
+    // él la inclinación. Se resuelve por eje, y su caja se deriva del trazado
+    // —es la que coloca la etiqueta, igual que en la parcela cuadrada—.
+    if (tool === TOOLS.GARDEN_PATH) {
+      const ax = _pathAxis(p1, p2, PATH_VARIANTS[variant] || PATH_VARIANTS.path);
+      return _labelled(_pathTool(ax, o, variant), _pathBox(ax), tool, variant, o);
+    }
     const base = DEFAULTS[tool];
     if (!base) return [];
-    const variant = _variant(tool, o);
     const def = (base.byVariant && base.byVariant[variant]) || base;
     const rawW = Math.abs(p2.x - p1.x), rawH = Math.abs(p2.y - p1.y);
     const b = {
@@ -127,16 +134,20 @@ const Garden = (function () {
       case TOOLS.GARDEN_SHRUB:  els = _shrubTool(b, o, variant);  break;
       case TOOLS.GARDEN_FLOWER: els = _flowerTool(b, o, variant); break;
       case TOOLS.GARDEN_DECOR:  els = _decorTool(b, o, variant);  break;
-      case TOOLS.GARDEN_PATH:   els = _pathTool(b, o, variant);   break;
       case TOOLS.GARDEN_HERB:   els = _herbTool(b, o, variant);   break;
       default: return [];
     }
-    els = els.filter(Boolean);
+    return _labelled(els, b, tool, variant, o);
+  }
+
+  /** Descarta piezas nulas y rotula bajo `b` el nombre de la variante. */
+  function _labelled(els, b, tool, variant, o) {
+    const out = els.filter(Boolean);
     if (o.labels !== false) {
       const label = _label(_variantName(tool, variant), b, o);
-      if (label) els.push(label);
+      if (label) out.push(label);
     }
-    return els;
+    return out;
   }
 
   /* ── primitivas ── */
@@ -760,6 +771,41 @@ const Garden = (function () {
     pathStraightPaved: { winding: false, paved: true  },
   };
 
+  /* Camino por defecto (clic sin arrastrar): baja desde el punto pulsado, que
+     es como se entra a un jardín desde la calle. Su ancho es una fracción del
+     recorrido, acotada, para que un sendero largo no salga como un hilo ni uno
+     corto como una plaza; PATH_LEN × PATH_W_FRAC ≈ el ancho de siempre. */
+  const PATH_LEN = 220;
+  const PATH_W_FRAC = 0.155, PATH_W_MIN = 16, PATH_W_MAX = 48;
+
+  /**
+   * Eje del camino: el arrastre ES el recorrido, en la dirección y con la
+   * inclinación del gesto. Por eso el camino no pasa por la caja normalizada
+   * que usan las demás herramientas —`Math.min`/`Math.abs` tiran justo el dato
+   * que aquí manda: hacia dónde va—.
+   */
+  function _pathAxis(p1, p2, cfg) {
+    let { x: x1, y: y1 } = p1, { x: x2, y: y2 } = p2;
+    if (Math.hypot(x2 - x1, y2 - y1) < MIN_SPAN) { x2 = x1; y2 = y1 + PATH_LEN; }
+    const len = Math.hypot(x2 - x1, y2 - y1);
+    const w = Math.max(PATH_W_MIN, Math.min(PATH_W_MAX, len * PATH_W_FRAC));
+    return {
+      x1, y1, x2, y2, len, w,
+      ux: (x2 - x1) / len, uy: (y2 - y1) / len,     // unitario del recorrido
+      amp: cfg.winding ? Math.max(2, w * 0.27) : 0,  // vaivén a cada lado del eje
+    };
+  }
+
+  /** Caja del camino ya trazado: la del rectángulo girado, más el vaivén. */
+  function _pathBox(ax) {
+    const r = ax.w / 2 + ax.amp;                 // lo más que se aparta del eje
+    const nx = -ax.uy * r, ny = ax.ux * r;
+    const xs = [ax.x1 + nx, ax.x1 - nx, ax.x2 + nx, ax.x2 - nx];
+    const ys = [ax.y1 + ny, ax.y1 - ny, ax.y2 + ny, ax.y2 - ny];
+    const x = Math.min(...xs), y = Math.min(...ys);
+    return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+  }
+
   /**
    * Camino: dos bordes paralelos —rectos o serpenteantes— y, si es empedrado,
    * cantos escalonados entre ellos.
@@ -769,37 +815,30 @@ const Garden = (function () {
    * calcularla en dos sitios sería garantizar que antes o después se despegan.
    * De ahí que la onda viva en `_at`, que es lo único que consultan ambos.
    *
-   * El camino corre por el eje LARGO del arrastre: vertical si la caja es más
-   * alta que ancha y apaisado si no. En un plano un sendero baja tan a menudo
-   * como cruza, y con el recorrido clavado en la horizontal un arrastre alto
-   * daba un camino aplastado dentro de una caja que no le correspondía.
-   *
-   * La geometría sigue siendo UNA: se calcula en coordenadas de camino
-   * —`u` = fracción del recorrido, `v` = desvío respecto al eje— y `_p` las
-   * lleva al lienzo. `v` va medido en la misma dirección que `_wave` toma como
-   * normal (+y en apaisado, −x en vertical), y por eso `_at` vale igual en los
-   * dos casos sin un solo signo suelto por en medio.
+   * El recorrido va en la dirección del arrastre, con **cualquier inclinación**:
+   * un sendero de jardín cruza en diagonal tan a menudo como en horizontal, y
+   * dos orientaciones sueltas no dan un plano. Para eso hay una sola geometría,
+   * escrita en coordenadas de camino —`u` = fracción del recorrido, `v` =
+   * desvío respecto al eje— que `_p` gira y lleva al lienzo. `v` va medido en
+   * la MISMA dirección que `_wave` toma como normal, así que `_at` vale tal
+   * cual sea cual sea el ángulo, sin un signo suelto por en medio.
    */
-  function _pathTool(b, o, variant) {
+  function _pathTool(ax, o, variant) {
     const cfg = PATH_VARIANTS[variant] || PATH_VARIANTS.path;
-    const vert = b.h > b.w;
-    const along = vert ? b.h : b.w, across = vert ? b.w : b.h;
-    const axis = vert ? b.x + b.w / 2 : b.y + b.h / 2;
-    const _p = vert
-      ? (u, v) => ({ x: axis - v, y: b.y + b.h * u })
-      : (u, v) => ({ x: b.x + b.w * u, y: axis + v });
-
-    const amp = cfg.winding ? Math.max(2, across * 0.16) : 0;
-    const half = across * 0.3;          // bordes al 20 % y al 80 % de la caja
-    const band = half * 2;
+    const nx = -ax.uy, ny = ax.ux;                  // normal unitaria (la de _wave)
+    const _p = (u, v) => ({
+      x: ax.x1 + (ax.x2 - ax.x1) * u + nx * v,
+      y: ax.y1 + (ax.y2 - ax.y1) * u + ny * v,
+    });
+    const half = ax.w / 2;
     // Desvío del camino en la fracción `t` de su recorrido. Es el mismo seno
     // que `_wave` aplica a los bordes (una vuelta completa).
-    const _at = t => Math.sin(t * Math.PI * 2) * amp;
+    const _at = t => Math.sin(t * Math.PI * 2) * ax.amp;
 
     const edge = v => {
       const a = _p(0, v), z = _p(1, v);
       return cfg.winding
-        ? _wave(a.x, a.y, z.x, z.y, amp, 4, o)
+        ? _wave(a.x, a.y, z.x, z.y, ax.amp, 4, o)
         : _line(a.x, a.y, z.x, z.y, o);
     };
     const els = [edge(-half), edge(half)];
@@ -807,22 +846,24 @@ const Garden = (function () {
 
     // Cantos en dos hileras a matajunta: la segunda va desplazada media columna
     // y con un canto menos, para que ninguno caiga sobre el borde final. El
-    // radio lo manda el ancho del camino, pero acotado por su largo para que
-    // una caja corta y ancha no los solape.
+    // radio lo manda el ancho del camino, pero acotado por su largo para que un
+    // camino corto y ancho no los solape.
     const f = _fine(o);
-    const rr = Math.max(1.2, Math.min(band * 0.22, along * 0.11));
-    const cols = Math.max(2, Math.min(PATH_COLS, Math.round(along / (rr * 2.3))));
-    const dv = band * 0.24;
+    const rr = Math.max(1.2, Math.min(ax.w * 0.22, ax.len * 0.11));
+    const cols = Math.max(2, Math.min(PATH_COLS, Math.round(ax.len / (rr * 2.3))));
+    const dv = ax.w * 0.24;
+    // El canto va algo alargado EN EL SENTIDO DEL CAMINO. `_blob` no sabe
+    // girar, así que el achatamiento se reparte entre los dos radios según
+    // cuánto tenga el recorrido de horizontal y de vertical: en diagonal sale
+    // redondo, que es exactamente lo que se ve al girar una piedra chata.
+    const rx = rr * (1 - 0.18 * Math.abs(ax.uy)), ry = rr * (1 - 0.18 * Math.abs(ax.ux));
     let k = 0;
     for (let row = 0; row < 2; row++) {
       const n = row === 0 ? cols : cols - 1;
       for (let i = 0; i < n; i++) {
         const t = row === 0 ? (i + 0.5) / cols : (i + 1) / cols;
         const c = _p(t, _at(t) + (row === 0 ? -dv : dv));
-        // El canto va un poco alargado EN EL SENTIDO DEL CAMINO, así que sus
-        // radios también giran con él.
-        els.push(_blob(c.x, c.y, vert ? rr * 0.82 : rr, vert ? rr : rr * 0.82,
-                       _turn(LOBES.stone, k++), f));
+        els.push(_blob(c.x, c.y, rx, ry, _turn(LOBES.stone, k++), f));
       }
     }
     return els;
