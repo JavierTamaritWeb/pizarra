@@ -128,6 +128,54 @@ test('el modal de Fachada permite elegir el tipo de puerta y de ventana', () => 
     'con Puerta de arco la fachada debe traer el arco');
 });
 
+/* ── Balcón: catálogo genérico, con la geometría real como icono ── */
+
+test('el catálogo de Balcón se llena desde BALCONY_TYPES y elegir un tipo lo aplica', () => {
+  const app = loadApp();
+  app.selectTool('balcon');
+  const btns = app.$('balcony-catalog').querySelectorAll('.modal__balcony');
+  assert.equal(btns.length, 8, 'un botón por entrada de BALCONY_TYPES');
+  // El icono es la geometría real (un <canvas> pintado), no un SVG a mano: así
+  // no puede desincronizarse de lo que sale al arrastrar.
+  assert.ok([...btns].every(b => b.querySelector('canvas')),
+    'cada botón lleva su icono dibujado con la geometría de la herramienta');
+
+  // El listener vive en el <dialog> (delegación), así que el click se dispara
+  // allí con el botón como target, igual que hace el navegador al burbujear.
+  const forja = [...btns].find(b => b.dataset.balcony === 'iron');
+  app.$('modal-balcony').__fire('click', { target: forja });
+  app.flush();
+  app.drag(100, 100, 260, 180);
+
+  const els = app.elements();
+  assert.ok(els.length > 4, 'el balcón se dibuja con varias piezas');
+  assert.ok(els.every(e => e.buildingGroupId === els[0].buildingGroupId),
+    'todas las piezas nacen en el mismo grupo');
+  assert.ok(els.some(e => e.type === 'curveArrow' && e.arc === true),
+    'la forja trae los barrotes abombados elegidos en el catálogo');
+});
+
+// El balcón es una herramienta de creación como el resto de Edificios: su tipo
+// tiene que sobrevivir a la recarga o media sección se recuerda y media no.
+test('el tipo de balcón elegido persiste en prefs y vuelve al arrancar', () => {
+  const app = loadApp();
+  app.selectTool('balcon');
+  const mirador = [...app.$('balcony-catalog').querySelectorAll('.modal__balcony')]
+    .find(b => b.dataset.balcony === 'mirador');
+  app.$('modal-balcony').__fire('click', { target: mirador });
+  app.flush();
+
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.balconyType, 'mirador');
+
+  const again = loadApp({ prefs });
+  again.selectTool('balcon');
+  const marcado = [...again.$('balcony-catalog').querySelectorAll('.modal__balcony')]
+    .filter(b => b.getAttribute('aria-pressed') === 'true');
+  assert.equal(marcado.length, 1, 'solo una variante activa');
+  assert.equal(marcado[0].dataset.balcony, 'mirador', 'vuelve marcada la elegida');
+});
+
 test('los tipos elegidos en el modal de Fachada persisten en prefs', () => {
   const app = loadApp();
   const win = app.$('facade-window-type');

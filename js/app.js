@@ -31,6 +31,7 @@
     windowType: 'window', // tipo elegido en el modal de Ventana: window|arch|frame|archFrame
     roofShape: 'gable',   // tipo elegido en el modal de Tejado: gable|mono|flat|hip|mansard
     facadeShape: 'flat',  // tipo elegido en el modal de Fachada: flat|gable|profile
+    balconyType: 'balcony', // tipo elegido en el modal de Balcón (ver BALCONY_TYPES)
     toolBeforeModal: null, // herramienta activa antes de abrir un modal de Edificios (restaurar al cancelar)
     variantChosen: false, // true si se eligió variante en el modal (no fue cancelación)
     buildFloors: 'auto', // nº de plantas de Fachada/Alzado/Perfil ('auto' = según la altura)
@@ -746,6 +747,7 @@
         roofShape: state.roofShape,
         doorType: state.doorType,
         windowType: state.windowType,
+        balconyType: state.balconyType,
         // Variantes de Jardín, por el mismo motivo.
         plotShape: state.plotShape,
         treeType: state.treeType,
@@ -798,6 +800,7 @@
       restoreVariant(prefs.roofShape,   ROOF_TYPES,    'roofShape');
       restoreVariant(prefs.doorType,    DOOR_TYPES,    'doorType');
       restoreVariant(prefs.windowType,  WINDOW_TYPES,  'windowType');
+      restoreVariant(prefs.balconyType, BALCONY_TYPES, 'balconyType');
       restoreVariant(prefs.plotShape,   PLOT_SHAPES,   'plotShape');
       restoreVariant(prefs.treeType,    TREE_TYPES,    'treeType');
       restoreVariant(prefs.shrubType,   SHRUB_TYPES,   'shrubType');
@@ -1428,7 +1431,7 @@
     return {
       color: state.color, lineWidth: state.lineWidth,
       plantaShape: state.plantaShape, doorType: state.doorType,
-      windowType: state.windowType,
+      windowType: state.windowType, balconyType: state.balconyType,
       floors: state.buildFloors, bays: state.buildBays, roofPitch: state.roofPitch,
       roofType: state.roofType, roofShape: state.roofShape, facadeShape: state.facadeShape,
     };
@@ -2349,14 +2352,28 @@
 
   /* ── Acciones sobre la selección ── */
 
-  // Herramientas de Edificios que abren un modal de variante al seleccionarse.
+  // Herramientas de Edificios con catálogo dibujado a mano (icono SVG propio).
   const MODAL_BUILD_TOOLS = [TOOLS.BUILD_PLANTA, TOOLS.BUILD_FACADE, TOOLS.BUILD_DOOR, TOOLS.BUILD_WINDOW, TOOLS.BUILD_ROOF];
 
-  /* Los siete modales del Jardín. A diferencia de Edificios —cinco parejas
-     build*Catalog/update*Active casi calcadas— aquí basta una tabla: el catálogo
-     se construye con un único constructor genérico y los iconos no se dibujan a
-     mano, los pinta la propia geometría de js/garden.js (ver gardenIcon). */
-  const GARDEN_MODALS = [
+  /* Modales de variante con catálogo GENÉRICO: una tabla en vez de una pareja
+     build*Catalog/update*Active por herramienta, y los iconos no se dibujan a
+     mano —los pinta la geometría real del módulo, así que no pueden mentir
+     sobre lo que hace la herramienta (ver variantIcon)—.
+     `gen` es el módulo que genera las piezas y `opts` su constructor de opts;
+     `box` es el arrastre con el que se pinta el icono, en la proporción propia
+     de la sección (el jardín se ve desde arriba y el balcón, de frente).
+
+     Los cinco de Edificios de arriba NO se plegaron aquí: no son uniformes
+     (Fachada pasa un segundo argumento al icono y fija autofocus, Planta
+     consulta el `.modal__shape` sin acotar) y su comportamiento no está fijado
+     por tests, así que unificarlos sería arriesgar una regresión muda a cambio
+     de nada visible. El Balcón nace ya en la tabla. */
+  const VARIANT_MODALS = [
+    // Balcón: la caja del icono es un arrastre nulo A PROPÓSITO, para que la
+    // ponga el `byVariant` de cada tipo. Así el icono enseña también su
+    // proporción —el corrido nace largo y el mirador alto—, que es justo lo
+    // que distingue a la mitad del catálogo.
+    { tool: TOOLS.BUILD_BALCONY, modal: 'modal-balcony', root: 'balcony-catalog', cls: 'modal__balcony', data: 'balcony', catalog: BALCONY_TYPES, key: 'balconyType', gen: () => Building, opts: () => buildOpts(),  box: { x: 0, y: 0 } },
     { tool: TOOLS.GARDEN_PLOT,   modal: 'modal-plot',   root: 'plot-catalog',   cls: 'modal__plot',   data: 'plot',   catalog: PLOT_SHAPES,   key: 'plotShape'  },
     { tool: TOOLS.GARDEN_TREE,   modal: 'modal-tree',   root: 'tree-catalog',   cls: 'modal__tree',   data: 'tree',   catalog: TREE_TYPES,    key: 'treeType'   },
     { tool: TOOLS.GARDEN_SHRUB,  modal: 'modal-shrub',  root: 'shrub-catalog',  cls: 'modal__shrub',  data: 'shrub',  catalog: SHRUB_TYPES,   key: 'shrubType'  },
@@ -2364,16 +2381,18 @@
     { tool: TOOLS.GARDEN_DECOR,  modal: 'modal-decor',  root: 'decor-catalog',  cls: 'modal__decor',  data: 'decor',  catalog: DECOR_TYPES,   key: 'decorType'  },
     { tool: TOOLS.GARDEN_PATH,   modal: 'modal-path',   root: 'path-catalog',   cls: 'modal__path',   data: 'path',   catalog: PATH_TYPES,    key: 'pathType'   },
     { tool: TOOLS.GARDEN_HERB,   modal: 'modal-herb',   root: 'herb-catalog',   cls: 'modal__herb',   data: 'herb',   catalog: HERB_TYPES,    key: 'herbType'   },
-  ];
-  const MODAL_GARDEN_TOOLS = GARDEN_MODALS.map(m => m.tool);
-  const gardenModalOf = tool => GARDEN_MODALS.find(m => m.tool === tool);
+  ].map(cfg => ({ gen: () => Garden, opts: () => gardenOpts(), box: { x: 100, y: 84 }, ...cfg }));
+  const variantModalOf = tool => VARIANT_MODALS.find(m => m.tool === tool);
+  /** true si elegir esta herramienta abre un catálogo de variante. */
+  const opensVariantModal = tool =>
+    MODAL_BUILD_TOOLS.includes(tool) || VARIANT_MODALS.some(m => m.tool === tool);
 
   function selectTool(id) {
     if (id !== state.tool && state.curveChain) cancelCurveChain();
     // Al abrir un modal de Edificios, recuerda a dónde volver si se cancela: la
     // herramienta previa (si venimos de otra) o esta misma (reentrada para cambiar
     // variante). El flag variantChosen distingue elegir-variante de cancelar.
-    if (MODAL_BUILD_TOOLS.includes(id) || MODAL_GARDEN_TOOLS.includes(id)) {
+    if (opensVariantModal(id)) {
       state.toolBeforeModal = id === state.tool ? id : state.tool;
       state.variantChosen = false;
     }
@@ -2402,12 +2421,13 @@
       syncBuildControls();
       $('modal-facade').showModal();
     }
-    // Jardín: el catálogo se reconstruye al abrir porque sus iconos se pintan con
-    // la geometría real, y esa depende del color y el trazo activos.
-    const garden = gardenModalOf(id);
-    if (garden) {
-      buildGardenCatalog(garden);
-      $(garden.modal).showModal();
+    // Catálogos genéricos (Balcón y los siete del Jardín): se reconstruyen al
+    // abrir porque sus iconos se pintan con la geometría real, y esa depende
+    // del color y el trazo activos.
+    const variant = variantModalOf(id);
+    if (variant) {
+      buildVariantCatalog(variant);
+      $(variant.modal).showModal();
     }
   }
 
@@ -3234,8 +3254,7 @@
       state.toolBeforeModal = null;
       if (!prev || prev === state.tool) return; // reentrada: mantener la herramienta actual
       // Evita reabrir otro modal en cascada: si la previa también abre modal, ir a Seleccionar.
-      const abreModal = MODAL_BUILD_TOOLS.includes(prev) || MODAL_GARDEN_TOOLS.includes(prev);
-      selectTool(abreModal ? TOOLS.SELECT : prev);
+      selectTool(opensVariantModal(prev) ? TOOLS.SELECT : prev);
     });
   }
 
@@ -3393,10 +3412,10 @@
     facadeModal.addEventListener('focusin', previewOnHover);
     facadeModal.addEventListener('close', () => { hoverShape = null; });
 
-    // Jardín: los siete modales se cablean con la misma receta desde GARDEN_MODALS.
-    GARDEN_MODALS.forEach(cfg => {
+    // Balcón y Jardín: todos se cablean con la misma receta desde VARIANT_MODALS.
+    VARIANT_MODALS.forEach(cfg => {
       const modal = $(cfg.modal);
-      buildGardenCatalog(cfg);
+      buildVariantCatalog(cfg);
       modal.querySelector('.modal__cancel').addEventListener('click', () => modal.close());
       closeOnBackdrop(modal);
       wireBuildModalCancel(modal);
@@ -3405,28 +3424,29 @@
         if (!btn) return;
         state[cfg.key] = btn.dataset[cfg.data];
         state.variantChosen = true;
-        updateGardenActive(cfg);
+        updateVariantActive(cfg);
         savePrefs();
         modal.close();
       });
     });
   }
 
-  /* ── Catálogos del Jardín ── */
+  /* ── Catálogos genéricos (Balcón y Jardín) ── */
 
   const GARDEN_ICON_W = 56, GARDEN_ICON_H = 48;   // deben coincidir con .modal__shape canvas
 
   /**
    * Icono de una variante: NO es un dibujo aparte, es la propia geometría que
-   * saldrá al arrastrar, pintada por el mismo par (Garden.elements +
+   * saldrá al arrastrar, pintada por el mismo par (`cfg.gen().elements` +
    * drawPiecesPreview) que usa la previsualización. Así el icono no puede
    * desincronizarse de lo que hace la herramienta —que es justo el riesgo de
-   * los iconos SVG a mano de Edificios— y evita dibujar 27 siluetas.
+   * los iconos SVG a mano de Edificios— y evita dibujar decenas de siluetas.
    *
    * Se pinta sin etiqueta: a este tamaño el texto no se leería, y el botón ya
-   * muestra el nombre debajo.
+   * muestra el nombre debajo (`labels` solo lo entiende el jardín; Building lo
+   * ignora sin más).
    */
-  function gardenIcon(cfg, variantId) {
+  function variantIcon(cfg, variantId) {
     const canvas = document.createElement('canvas');
     canvas.className = 'modal__shape-icon';
     canvas.setAttribute('aria-hidden', 'true');
@@ -3442,8 +3462,8 @@
     ictx.fillStyle = state.canvasBg;
     ictx.fillRect(0, 0, GARDEN_ICON_W, GARDEN_ICON_H);
 
-    const opts = { ...gardenOpts(), [cfg.key]: variantId, labels: false };
-    const els = Garden.elements(cfg.tool, { x: 0, y: 0 }, { x: 100, y: 84 }, opts);
+    const opts = { ...cfg.opts(), [cfg.key]: variantId, labels: false };
+    const els = cfg.gen().elements(cfg.tool, { x: 0, y: 0 }, cfg.box, opts);
     if (!els.length) return canvas;
     // Ajuste por los bounds REALES: las frondas y las ondas se salen de la caja
     // del arrastre, y recortadas el icono engañaría.
@@ -3464,8 +3484,8 @@
     return canvas;
   }
 
-  /** Rellena un catálogo del jardín. Sin innerHTML: createElement y textContent. */
-  function buildGardenCatalog(cfg) {
+  /** Rellena un catálogo de variantes. Sin innerHTML: createElement y textContent. */
+  function buildVariantCatalog(cfg) {
     const root = $(cfg.root);
     root.innerHTML = '';
     const grid = document.createElement('div');
@@ -3476,7 +3496,7 @@
       btn.type = 'button';
       btn.dataset[cfg.data] = item.id;
       btn.title = item.name;
-      btn.appendChild(gardenIcon(cfg, item.id));
+      btn.appendChild(variantIcon(cfg, item.id));
       const name = document.createElement('span');
       name.className = 'modal__shape-name';
       name.textContent = item.name;
@@ -3487,11 +3507,11 @@
       grid.appendChild(btn);
     });
     root.appendChild(grid);
-    updateGardenActive(cfg);
+    updateVariantActive(cfg);
   }
 
   /** Resalta la variante activa. La consulta va acotada a su propio catálogo. */
-  function updateGardenActive(cfg) {
+  function updateVariantActive(cfg) {
     $(cfg.root).querySelectorAll('.' + cfg.cls).forEach(btn => {
       const active = btn.dataset[cfg.data] === state[cfg.key];
       btn.classList.toggle('modal__shape--active', active);

@@ -4,6 +4,43 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.18.0] — 2026-08-07
+
+Nueva herramienta **Balcón** en la sección Edificios, con 8 tipos.
+
+### Añadido
+- **Balcón** (sección Edificios): barandilla arriba y losa volada abajo, en
+  alzado como la puerta y la ventana. Ocho tipos en su catálogo — **de
+  barrotes, francés, de forja, balaustrada, corrido, acristalado, terraza y
+  mirador**—, cada uno con su propia proporción al hacer clic sin arrastrar (un
+  mirador nace alto; un balcón corrido, largo). Como el resto de la sección es
+  **solo de creación**: cada arrastre produce rect/line/circle/curveArrow
+  corrientes, así que exportación, undo, JSON y selección de grupo funcionan sin
+  código específico.
+- Su catálogo estrena en Edificios el patrón del Jardín: **el icono es el dibujo
+  real** que sale al arrastrar, pintado por la misma geometría, así que no puede
+  desincronizarse de la herramienta.
+- El tipo elegido **persiste en las preferencias**, como los otros cinco de la
+  sección.
+
+### Cambiado
+- La tabla de modales de variante (`VARIANT_MODALS` en `app.js`) deja de ser
+  exclusiva del Jardín: ahora describe también el catálogo del Balcón, con el
+  módulo generador y el constructor de opts como campos. Los cinco catálogos
+  antiguos de Edificios siguen con su icono SVG a mano, a propósito: no son
+  uniformes entre sí y su comportamiento no está fijado por tests.
+- **Balcón no tiene atajo de teclado**, como Caminos y Aromáticas: las 26 letras
+  y los 10 dígitos ya estaban asignados, y `F Q D S` las usan las acciones de
+  flecha curva. Queda fijado por un test para que el hueco no crezca por
+  descuido.
+
+### Tests
+- 13 guardias nuevas: geometría de los ocho tipos, la panza de la forja, las
+  ménsulas del corrido, cajas por variante, ningún rect degenerado en balcones
+  diminutos, «dos tipos nunca se dibujan igual» (la misma guardia que el
+  jardín), el catálogo del modal y la persistencia del tipo elegido.
+  **360 unitarios + 25 e2e**.
+
 ## [1.17.1] — 2026-08-07
 
 Auditoría severa del código completo: **19 defectos corregidos**, cada uno con

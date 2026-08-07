@@ -38,6 +38,7 @@ const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
     (los `const` top-level de un script vm no cuelgan de globalThis solos). */
 const KNOWN_GLOBALS = [
   'TOOLS', 'TOOL_GROUPS', 'BUILDING_TOOLS', 'PLANTA_SHAPES', 'DOOR_TYPES', 'WINDOW_TYPES', 'ROOF_TYPES', 'FACADE_TYPES',
+  'BALCONY_TYPES',
   'GARDEN_TOOLS', 'PLOT_SHAPES', 'TREE_TYPES', 'SHRUB_TYPES', 'FLOWER_TYPES', 'DECOR_TYPES',
   'PATH_TYPES', 'HERB_TYPES',
   'COLORS', 'CANVAS_W', 'CANVAS_H',

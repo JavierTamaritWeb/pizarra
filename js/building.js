@@ -10,6 +10,8 @@
      · Perfil   : vista lateral con cubierta trapezoidal (cumbrera horizontal),
                   sin puerta y con las plantas acompasadas (el acceso va delante)
      · Tejados  : dos aguas / un agua / plano
+     · Balcones : barandilla + losa volada en alzado, 8 tipos (francés, forja,
+                  balaustrada, corrido, acristalado, terraza, mirador)
    Diseño basado en el estudio de alzado (plano de arquitecto): el detalle
    (montantes, alféizares, tejas, impostas) usa TRAZO FINO; los contornos usan
    el trazo del usuario.
@@ -23,18 +25,31 @@ const Building = (function () {
   const FLOOR_MAX = 20;
   const BAY_W     = 74;     // ancho objetivo por vano (columna de huecos en fachada)
 
+  /* Tamaño al hacer clic sin arrastrar. Una puerta o una ventana miden lo mismo
+     sea cual sea su tipo, así que les basta una caja por herramienta; el balcón
+     no —un mirador es alto y un balcón corrido es una franja—, y por eso es el
+     único con `byVariant`, resuelto por `variantKey` (mismo recurso que
+     js/garden.js, donde la variante manda en todas). */
   const DEFAULTS = {
     [TOOLS.BUILD_PLANTA]: { w: 180, h: 140 },
     [TOOLS.BUILD_FACADE]: { w: 170, h: 280 },
     [TOOLS.BUILD_ROOF]:   { w: 170, h: 90  },
     [TOOLS.BUILD_DOOR]:   { w: 64,  h: 140 },
     [TOOLS.BUILD_WINDOW]: { w: 80,  h: 110 },
+    [TOOLS.BUILD_BALCONY]: { w: 120, h: 64, variantKey: 'balconyType', byVariant: {
+      french:     { w: 88,  h: 78 },   // sin vuelo: es puro antepecho del hueco
+      balustrade: { w: 140, h: 68 },
+      long:       { w: 260, h: 62 },   // recorre varios vanos
+      terrace:    { w: 180, h: 58 },
+      mirador:    { w: 130, h: 100 },  // cuerpo cerrado y acristalado
+    } },
   };
 
   function elements(tool, p1, p2, opts) {
     const o = { color: '#000000', lineWidth: 2, ...(opts || {}) };
-    const def = DEFAULTS[tool];
-    if (!def) return [];
+    const base = DEFAULTS[tool];
+    if (!base) return [];
+    const def = (base.byVariant && base.byVariant[o[base.variantKey]]) || base;
     const rawW = Math.abs(p2.x - p1.x), rawH = Math.abs(p2.y - p1.y);
     const b = {
       x: Math.min(p1.x, p2.x), y: Math.min(p1.y, p2.y),
@@ -47,6 +62,7 @@ const Building = (function () {
       case TOOLS.BUILD_ROOF:   return _roofTool(b, o);
       case TOOLS.BUILD_DOOR:   return _doorTool(b, o);
       case TOOLS.BUILD_WINDOW: return _windowTool(b, o);
+      case TOOLS.BUILD_BALCONY: return _balconyTool(b, o);
       default: return [];
     }
   }
@@ -55,18 +71,19 @@ const Building = (function () {
   const _line = (x1, y1, x2, y2, o) =>
     ({ type: 'line', x1, y1, x2, y2, color: o.color, lineWidth: o.lineWidth });
 
+  // Grosor del detalle: 0.55× el trazo del usuario, nunca menos de 1 px.
+  const _thinW = o => Math.max(1, Math.round((o.lineWidth || 2) * 0.55));
+
   // Trazo fino para el detalle (montantes, alféizares, tejas, impostas).
   const _lineT = (x1, y1, x2, y2, o) =>
-    ({ type: 'line', x1, y1, x2, y2, color: o.color,
-       lineWidth: Math.max(1, Math.round((o.lineWidth || 2) * 0.55)) });
+    ({ type: 'line', x1, y1, x2, y2, color: o.color, lineWidth: _thinW(o) });
 
   const _rectEl = (x, y, w, h, o) =>
     ({ type: 'rect', x, y, w, h, color: o.color, lineWidth: o.lineWidth, fill: false });
 
   // Rect de detalle (paneles rehundidos): mismo trazo fino que _lineT.
   const _rectT = (x, y, w, h, o) =>
-    ({ type: 'rect', x, y, w, h, color: o.color,
-       lineWidth: Math.max(1, Math.round((o.lineWidth || 2) * 0.55)), fill: false });
+    ({ type: 'rect', x, y, w, h, color: o.color, lineWidth: _thinW(o), fill: false });
 
   // Círculo/óculo (tipo 'circle' ya existente → elipse inscrita en la caja).
   const _circleEl = (x, y, w, h, o) =>
@@ -481,6 +498,210 @@ const Building = (function () {
       _lineT(klx, kneeY, krx, kneeY, o),       // línea de quiebre
       ..._tiles(baseY, kneeY, s => [x + s * (klx - x), R - s * (R - krx)], o),
     ];
+  }
+
+  /* ── balcones (alzado) ──────────────────────────────────────────────
+     La caja del arrastre es el balcón ENTERO: la barandilla ocupa la parte
+     alta y la losa es la banda del fondo. El vuelo —lo que sobresale del hueco
+     al que sirve— se sale de la caja por los lados, como el alero de un tejado
+     o la cornisa de una fachada. */
+
+  const BAR_GAP = 13;                                           // separación objetivo entre barrotes
+  const _flight  = w => Math.min(10, Math.max(3, w * 0.06));    // vuelo lateral de la losa
+  const _slabH   = h => Math.min(16, Math.max(5, h * 0.15));    // canto de la losa
+  const _railTop = h => Math.min(8,  Math.max(3, h * 0.09));    // canto del pasamanos
+  const _barCount = (w, gap) => Math.max(2, Math.min(20, Math.round(w / gap)));
+
+  // Losa volada: banda inferior de la caja, sobresaliendo `ov` por cada lado.
+  const _slab = (b, o, ov) =>
+    _rectEl(b.x - ov, b.y + b.h - _slabH(b.h), b.w + 2 * ov, _slabH(b.h), o);
+
+  /**
+   * Barandilla: pasamanos (contorno) + barrotes y travesaño inferior (finos).
+   * `bar(t, x, y1, y2)` sustituye el barrote recto —la forja los quiere
+   * abombados— y `gap` aprieta el ritmo. Con muy poca altura se queda en el
+   * pasamanos: unos barrotes de 2 px no se leen y solo ensucian.
+   */
+  function _railing(x, y, w, h, o, bar, gap) {
+    const hr = _railTop(h);
+    const els = [_rectEl(x, y, w, hr, o)];
+    const top = y + hr, bot = y + h;
+    if (bot - top > 3) {
+      const n = _barCount(w, gap || BAR_GAP);
+      for (let i = 1; i < n; i++) {
+        const bx = x + w * i / n;
+        els.push(bar ? bar(i / n, bx, top, bot) : _lineT(bx, top, bx, bot, o));
+      }
+      els.push(_lineT(x, bot - (bot - top) * 0.16, x + w, bot - (bot - top) * 0.16, o));
+    }
+    return els;
+  }
+
+  // Despacho del botón Balcón según o.balconyType (elegido en el modal).
+  function _balconyTool(b, o) {
+    switch (o.balconyType) {
+      case 'french':     return _balconyFrench(b, o);
+      case 'iron':       return _balconyIron(b, o);
+      case 'balustrade': return _balconyBalustrade(b, o);
+      case 'long':       return _balconyLong(b, o);
+      case 'glass':      return _balconyGlass(b, o);
+      case 'terrace':    return _balconyTerrace(b, o);
+      case 'mirador':    return _balconyMirador(b, o);
+      default:           return _balconyPlain(b, o);   // 'balcony'
+    }
+  }
+
+  // Balcón de barrotes: barandilla recta sobre losa volada.
+  function _balconyPlain(b, o) {
+    const railH = Math.max(4, b.h - _slabH(b.h));
+    return [..._railing(b.x, b.y, b.w, railH, o), _slab(b, o, _flight(b.w))];
+  }
+
+  // Balcón francés (balconera): no vuela, así que no lleva losa —es lo que lo
+  // distingue de un balcón a secas—. Va sujeto al hueco por dos anclajes
+  // laterales y su base es el propio antepecho.
+  function _balconyFrench(b, o) {
+    const els = _railing(b.x, b.y, b.w, b.h, o);
+    els.push(_line(b.x, b.y + b.h, b.x + b.w, b.y + b.h, o));   // base
+    // Anclajes al muro, a la altura del pasamanos y del pie: dos por lado, o se
+    // leerían como suciedad en vez de como los tornillos que sujetan la reja.
+    const a = Math.min(11, Math.max(4, b.w * 0.11));
+    const L = b.x, R = b.x + b.w;
+    for (const ay of [b.y + _railTop(b.h) / 2, b.y + b.h]) {
+      els.push(_line(L - a, ay, L, ay, o), _line(R, ay, R + a, ay, o));
+    }
+    return els;
+  }
+
+  // Balcón de forja: barrotes abombados (la "panza") y más apretados, con
+  // travesaño a media altura. La panza se reparte desde el centro —el barrote
+  // central sale recto y los de los extremos son los que más comban—, que es
+  // como se lee de frente una barandilla curva.
+  function _balconyIron(b, o) {
+    const railH = Math.max(4, b.h - _slabH(b.h));
+    const amp = Math.min(8, Math.max(2, b.w * 0.05));
+    const bar = (t, x, y1, y2) => {
+      const arc = ArcMath.arcCtrls(x, y1, x, y2, -(t - 0.5) * 2 * amp);  // t<0.5 → comba a la izquierda
+      return arc
+        ? { type: 'curveArrow', x1: x, y1, x2: x, y2,
+            cx: arc.cx, cy: arc.cy, cx2: arc.cx2, cy2: arc.cy2,
+            arc: true, heads: 'none', color: o.color, lineWidth: _thinW(o) }
+        : _lineT(x, y1, x, y2, o);                                       // barrote central: recto
+    };
+    const els = _railing(b.x, b.y, b.w, railH, o, bar, 9);
+    if (railH > 12) els.push(_lineT(b.x, b.y + railH * 0.46, b.x + b.w, b.y + railH * 0.46, o));
+    els.push(_slab(b, o, _flight(b.w)));
+    return els;
+  }
+
+  // Balaustrada: pasamanos y zócalo macizos con balaustres torneados (la panza
+  // es un círculo, el cuello y el pie son trazo fino).
+  function _balconyBalustrade(b, o) {
+    const railH = Math.max(6, b.h - _slabH(b.h));
+    const hr = _railTop(railH), base = Math.max(2, railH * 0.14);
+    const top = b.y + hr, bot = b.y + railH - base;
+    const els = [
+      _rectEl(b.x, b.y, b.w, hr, o),                       // pasamanos
+      _rectEl(b.x, b.y + railH - base, b.w, base, o),      // zócalo
+    ];
+    const n = Math.max(2, Math.min(12, Math.round(b.w / 18)));
+    const bw = Math.min((b.w / n) * 0.62, (bot - top) * 0.55), bh = (bot - top) * 0.5;
+    if (bw > 1.5 && bh > 1.5) {
+      for (let i = 0; i < n; i++) {
+        const cx = b.x + b.w * (i + 0.5) / n, by = top + (bot - top) * 0.32;
+        els.push(_circleEl(cx - bw / 2, by, bw, bh, o));    // panza torneada
+        els.push(_lineT(cx, top, cx, by, o));               // cuello
+        els.push(_lineT(cx, by + bh, cx, bot, o));          // pie
+      }
+    }
+    els.push(_slab(b, o, _flight(b.w)));
+    return els;
+  }
+
+  // Balcón corrido: la losa recorre varios vanos y se apoya en ménsulas
+  // (canecillos) repartidas por debajo. Los barrotes van más espaciados que en
+  // un balcón suelto: al triple de largo, el ritmo corto se emborrona.
+  function _balconyLong(b, o) {
+    const railH = Math.max(4, b.h - _slabH(b.h));
+    const els = [..._railing(b.x, b.y, b.w, railH, o, null, 19), _slab(b, o, _flight(b.w))];
+    const slabBot = b.y + b.h;
+    // Ménsula ancha y poco profunda: en punta parecería una punta de flecha.
+    const mh = Math.min(13, Math.max(4, b.h * 0.16)), mw = mh * 1.8;
+    const n = Math.max(2, Math.min(6, Math.round(b.w / 70)));
+    for (let i = 0; i < n; i++) {
+      const cx = b.x + b.w * (i + 0.5) / n;
+      els.push(_line(cx - mw / 2, slabBot, cx, slabBot + mh, o),
+               _line(cx, slabBot + mh, cx + mw / 2, slabBot, o));
+    }
+    return els;
+  }
+
+  // Balcón acristalado: paño de vidrio bajo el pasamanos, con montantes en los
+  // extremos y el par de diagonales con que se indica el vidrio en un alzado.
+  function _balconyGlass(b, o) {
+    const railH = Math.max(4, b.h - _slabH(b.h));
+    const hr = _railTop(railH);
+    const els = [_rectEl(b.x, b.y, b.w, hr, o)];             // pasamanos
+    const gy = b.y + hr, gh = railH - hr;
+    const inset = Math.min(3, b.w * 0.04);
+    const gx = b.x + inset, gw = b.w - 2 * inset;
+    if (gh > 3 && gw > 2) {
+      els.push(_rectEl(gx, gy, gw, gh, o));                  // paño
+      const cols = Math.max(1, Math.min(4, Math.round(gw / 55)));
+      for (let c = 1; c < cols; c++) {
+        const mx = gx + gw * c / cols;
+        els.push(_line(mx, gy, mx, gy + gh, o));             // montante entre paños
+      }
+      const d = Math.min(gh * 0.7, gw * 0.28);
+      if (d > 2) {
+        const bx = gx + gw * 0.12, by = gy + gh * 0.9;
+        els.push(_lineT(bx, by, bx + d, by - d, o));         // brillo del vidrio
+        els.push(_lineT(bx + d * 0.55, by, bx + d * 1.55, by - d, o));
+      }
+    }
+    els.push(_slab(b, o, _flight(b.w)));
+    return els;
+  }
+
+  // Terraza: antepecho macizo con albardilla (la tapa que lo corona) y un
+  // recuadro rehundido. Sin barrotes: eso es lo que la separa de un balcón.
+  function _balconyTerrace(b, o) {
+    const ov = _flight(b.w);
+    const railH = Math.max(4, b.h - _slabH(b.h));
+    const cap = Math.min(7, Math.max(2, railH * 0.18)), co = Math.max(2, ov * 0.5);
+    const els = [_rectEl(b.x - co, b.y, b.w + 2 * co, cap, o)];   // albardilla
+    const bodyH = railH - cap;
+    if (bodyH > 1) {
+      els.push(_rectEl(b.x, b.y + cap, b.w, bodyH, o));           // antepecho
+      const mx = Math.min(b.w * 0.1, 14), my = Math.min(bodyH * 0.22, 8);
+      if (b.w - 2 * mx > 2 && bodyH - 2 * my > 2) {
+        els.push(_rectT(b.x + mx, b.y + cap + my, b.w - 2 * mx, bodyH - 2 * my, o));
+      }
+    }
+    els.push(_slab(b, o, ov));
+    return els;
+  }
+
+  // Mirador: el balcón cerrado y acristalado, con su tejadillo. El tejadillo
+  // vuela por encima de la caja, igual que el alero de un tejado.
+  function _balconyMirador(b, o) {
+    const ov = _flight(b.w);
+    const bodyH = Math.max(6, b.h - _slabH(b.h));
+    const els = [_rectEl(b.x, b.y, b.w, bodyH, o)];              // cuerpo acristalado
+    const n = Math.max(2, Math.min(6, Math.round(b.w / 34)));
+    for (let i = 1; i < n; i++) {
+      const mx = b.x + b.w * i / n;
+      els.push(_lineT(mx, b.y, mx, b.y + bodyH, o));             // montantes
+    }
+    els.push(_lineT(b.x, b.y + bodyH * 0.62, b.x + b.w, b.y + bodyH * 0.62, o));  // antepecho
+    const rh = Math.min(18, Math.max(5, b.h * 0.16)), eave = ov + 3, apex = b.x + b.w / 2;
+    els.push(
+      _line(b.x - eave, b.y, apex, b.y - rh, o),                 // tejadillo
+      _line(apex, b.y - rh, b.x + b.w + eave, b.y, o),
+      _line(b.x - eave, b.y, b.x + b.w + eave, b.y, o),          // alero
+    );
+    els.push(_slab(b, o, ov));
+    return els;
   }
 
   return { elements, MIN_SPAN, ROOF_FRAC, FLOOR_H };

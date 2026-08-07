@@ -30,7 +30,7 @@ const TOOLS = Object.freeze({
   // produce elementos de tipos ya existentes (rect/line). Ver js/building.js.
   BUILD_PLANTA: 'planta',         BUILD_FACADE: 'fachada',
   BUILD_ROOF:   'tejado',         BUILD_DOOR:   'puerta',
-  BUILD_WINDOW: 'ventana',
+  BUILD_WINDOW: 'ventana',        BUILD_BALCONY:'balcon',
   // Jardín — herramientas de creación (NO tipos de elemento): producen
   // rect/line/circle/curveArrow/text. Todo en vista de planta. Ver js/garden.js.
   GARDEN_PLOT:   'jardin',        GARDEN_TREE:   'arbol',
@@ -43,7 +43,7 @@ const TOOLS = Object.freeze({
     (producen rect/line), nunca valores de `el.type`. */
 const BUILDING_TOOLS = Object.freeze([
   TOOLS.BUILD_PLANTA, TOOLS.BUILD_FACADE, TOOLS.BUILD_ROOF,
-  TOOLS.BUILD_DOOR, TOOLS.BUILD_WINDOW,
+  TOOLS.BUILD_DOOR, TOOLS.BUILD_WINDOW, TOOLS.BUILD_BALCONY,
 ]);
 
 /** Formas de huella del botón Planta (catálogo del modal). Ampliable.
@@ -79,6 +79,32 @@ const WINDOW_TYPES = Object.freeze([
   { id: 'frame',       name: 'Marco' },
   { id: 'archFrame',   name: 'Marco de arco' },
   { id: 'roundFrame',  name: 'Marco redondo' },
+]);
+
+/**
+ * Tipos del botón Balcón (catálogo del modal), en ALZADO como la puerta y la
+ * ventana: la caja del arrastre es el balcón entero —barandilla arriba, losa
+ * abajo— y el vuelo sobresale a los lados, como el alero de un tejado.
+ *
+ * A diferencia de Puerta y Ventana, aquí el tipo manda en la proporción (un
+ * mirador es alto, un balcón corrido es una franja), así que su caja por
+ * defecto va por variante en `byVariant` (js/building.js).
+ *
+ * Su icono NO se dibuja a mano: lo pinta la geometría real de js/building.js,
+ * como los del jardín. Añadir una variante = una entrada aquí y su `case` en
+ * `_balconyTool`; el modal se rellena solo.
+ *
+ * Orden: primero las barandillas abiertas, después las cerradas o macizas.
+ */
+const BALCONY_TYPES = Object.freeze([
+  { id: 'balcony',    name: 'Balcón' },
+  { id: 'french',     name: 'Balcón francés' },
+  { id: 'iron',       name: 'Balcón de forja' },
+  { id: 'balustrade', name: 'Balaustrada' },
+  { id: 'long',       name: 'Balcón corrido' },
+  { id: 'glass',      name: 'Balcón acristalado' },
+  { id: 'terrace',    name: 'Terraza' },
+  { id: 'mirador',    name: 'Mirador' },
 ]);
 
 /** Tipos del botón Tejado (catálogo del modal). El icono lo dibuja app.js
@@ -257,6 +283,11 @@ const TOOL_GROUPS = [
       { id: TOOLS.BUILD_ROOF,   icon: '△',  name: 'Tejado',         key: '2' },
       { id: TOOLS.BUILD_DOOR,   icon: '🚪', name: 'Puerta',         key: '0' },
       { id: TOOLS.BUILD_WINDOW, icon: '🪟', name: 'Ventana',        key: 'y' },
+      // Sin atajo: no queda ninguna tecla suelta libre —las 26 letras y los 10
+      // dígitos están asignados, y `f q d s` las usan las acciones de flecha
+      // curva—, así que entra igual que Caminos y Aromáticas. `key` es
+      // opcional; mejor sin atajo que pisando una acción existente.
+      { id: TOOLS.BUILD_BALCONY, icon: '▥', name: 'Balcón' },
     ],
   },
   {

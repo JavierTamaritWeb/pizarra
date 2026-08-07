@@ -18,23 +18,23 @@ test('config.js — TOOLS', async t => {
     assert.equal(Object.isFrozen(ctx.TOOLS), true);
   });
 
-  await t.test('TOOLS tiene exactamente los 35 ids esperados', () => {
+  await t.test('TOOLS tiene exactamente los 36 ids esperados', () => {
     const expected = [
       'pencil', 'line', 'rect', 'roundedRect', 'circle', 'arrow',
       'curveArrow', 'arc', 'text', 'eraser', 'select', 'imagePlaceholder',
       'button', 'input', 'nav', 'card', 'image', 'emoji',
       'square', 'trapezoid', 'triangle', 'pentagon', 'hexagon',
       // Edificios (creación): Fachada y Tejado unifican sus tipos en sendos modales
-      'planta', 'fachada', 'tejado', 'puerta', 'ventana',
+      'planta', 'fachada', 'tejado', 'puerta', 'ventana', 'balcon',
       // Jardín (creación): cada una elige su variante en su propio modal
       'jardin', 'arbol', 'arbusto', 'flor', 'decoracion', 'camino', 'aromatica',
     ];
     const values = Object.values(ctx.TOOLS);
-    assert.equal(values.length, 35);
+    assert.equal(values.length, 36);
     assert.deepEqual([...values].sort(), [...expected].sort());
-    // Las claves también son 35 y únicas
-    assert.equal(Object.keys(ctx.TOOLS).length, 35);
-    assert.equal(new Set(values).size, 35);
+    // Las claves también son 36 y únicas
+    assert.equal(Object.keys(ctx.TOOLS).length, 36);
+    assert.equal(new Set(values).size, 36);
   });
 });
 
@@ -247,6 +247,21 @@ test('config.js — ningún atajo de herramienta pisa una acción ya reservada',
   }
 });
 
+test('config.js — el sidebar de Edificios y BUILDING_TOOLS son la misma lista', () => {
+  const ctx = load('js/config.js');
+  const build = ctx.TOOL_GROUPS.find(g => g.label === 'Edificios');
+  assert.ok(build, 'falta el grupo Edificios en el sidebar');
+  assert.deepEqual(
+    [...build.tools.map(t => t.id)].sort(),
+    [...ctx.BUILDING_TOOLS].sort(),
+    'los botones del sidebar y BUILDING_TOOLS deben coincidir');
+  // Balcón entró sin atajo porque ya no queda ninguna tecla suelta libre: las
+  // 26 letras y los 10 dígitos están asignados y `f q d s` las usan las
+  // acciones de flecha curva. Se fija igual que en Jardín, para que el hueco no
+  // crezca por descuido ni un botón pierda su tecla en una refactorización.
+  assert.deepEqual([...build.tools.filter(t => !t.key).map(t => t.id)], ['balcon']);
+});
+
 test('config.js — el sidebar de Jardín y GARDEN_TOOLS son la misma lista', () => {
   const ctx = load('js/config.js');
   const garden = ctx.TOOL_GROUPS.find(g => g.label === 'Jardín');
@@ -264,13 +279,13 @@ test('config.js — el sidebar de Jardín y GARDEN_TOOLS son la misma lista', ()
   assert.deepEqual([...sinAtajo], ['camino', 'aromatica']);
 });
 
-test('config.js — los siete catálogos del jardín están congelados y bien formados', () => {
+test('config.js — los catálogos de variante están congelados y bien formados', () => {
   const ctx = load('js/config.js');
   const catalogs = {
     PLOT_SHAPES: ctx.PLOT_SHAPES, TREE_TYPES: ctx.TREE_TYPES,
     SHRUB_TYPES: ctx.SHRUB_TYPES, FLOWER_TYPES: ctx.FLOWER_TYPES,
     DECOR_TYPES: ctx.DECOR_TYPES, PATH_TYPES: ctx.PATH_TYPES,
-    HERB_TYPES: ctx.HERB_TYPES,
+    HERB_TYPES: ctx.HERB_TYPES, BALCONY_TYPES: ctx.BALCONY_TYPES,
   };
   for (const [name, list] of Object.entries(catalogs)) {
     assert.ok(Array.isArray(list) && list.length > 0, `${name} vacío`);

@@ -9,7 +9,8 @@ const assert = require('node:assert/strict');
 const { loadAll, createCtxStub } = require('./helpers/load.js');
 
 const ctx = loadAll();
-const { Building, TOOLS, BUILDING_TOOLS, DOOR_TYPES, WINDOW_TYPES, ROOF_TYPES, FACADE_TYPES, Renderer } = ctx;
+const { Building, TOOLS, BUILDING_TOOLS, DOOR_TYPES, WINDOW_TYPES, ROOF_TYPES,
+        FACADE_TYPES, BALCONY_TYPES, Renderer } = ctx;
 const O = { color: '#123456', lineWidth: 3 };
 const P1 = { x: 100, y: 100 }, P2 = { x: 300, y: 260 };
 const planta = (shape, p1 = { x: 0, y: 0 }, p2 = P2) =>
@@ -296,6 +297,151 @@ test('óculo "round" / "roundFrame": círculo (elipse) inscrito; con cruz o sin 
   assert.equal(frame[0].type, 'circle');
 });
 
+/* ---------------- balcones ---------------- */
+
+const balcon = (id, p1 = { x: 0, y: 0 }, p2 = { x: 120, y: 64 }) =>
+  Building.elements(TOOLS.BUILD_BALCONY, p1, p2, { ...O, balconyType: id });
+
+/** Caja que envuelve un grupo de piezas (el vuelo se sale de la del arrastre). */
+function unionBounds(els) {
+  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+  for (const el of els) {
+    const b = el.type === 'line' || el.type === 'curveArrow'
+      ? { x: Math.min(el.x1, el.x2), y: Math.min(el.y1, el.y2),
+          w: Math.abs(el.x2 - el.x1), h: Math.abs(el.y2 - el.y1) }
+      : el;
+    x1 = Math.min(x1, b.x); y1 = Math.min(y1, b.y);
+    x2 = Math.max(x2, b.x + b.w); y2 = Math.max(y2, b.y + b.h);
+  }
+  return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+}
+
+test('balcón: barandilla arriba, losa volada abajo y sin tipos nuevos', () => {
+  const els = balcon('balcony');
+  assert.ok(els.every(e => ['rect', 'line', 'circle', 'curveArrow'].includes(e.type)),
+    'solo tipos de elemento ya existentes');
+  assert.ok(els.every(e => e.seed === undefined), 'el seed lo pone app.js');
+  const rects = els.filter(e => e.type === 'rect');
+  const slab = rects.find(r => r.y + r.h === 64);
+  assert.ok(slab, 'la losa cierra la caja por abajo');
+  assert.ok(slab.x < 0 && slab.x + slab.w > 120, 'la losa vuela por los dos lados');
+  const bars = els.filter(e => e.type === 'line' && e.x1 === e.x2);
+  assert.ok(bars.length >= 3, 'la barandilla lleva barrotes');
+  assert.ok(bars.every(b => b.y2 <= slab.y + 0.01), 'los barrotes no invaden la losa');
+});
+
+// El balcón francés no vuela: es lo único que lo separa de un balcón a secas, y
+// sin losa la caja del arrastre es toda barandilla.
+test('balcón francés: sin losa, y su caja no sobresale por abajo', () => {
+  const els = balcon('french', { x: 0, y: 0 }, { x: 88, y: 78 });
+  const b = unionBounds(els);
+  assert.equal(b.y + b.h, 78, 'no hay losa colgando bajo la caja');
+  const wide = els.filter(e => e.type === 'rect' && e.w > 60);
+  assert.equal(wide.length, 1, 'solo el pasamanos: sin losa');
+});
+
+// La panza se reparte desde el centro, que es como se lee de frente una
+// barandilla curva: los extremos comban hacia fuera y el central sale recto.
+test('balcón de forja: barrotes abombados hacia fuera desde el centro', () => {
+  const els = balcon('iron');
+  const bows = els.filter(e => e.type === 'curveArrow');
+  assert.ok(bows.length >= 6, 'los barrotes de forja son curvas');
+  assert.ok(bows.every(e => e.arc === true && e.heads === 'none'),
+    'son arcos sin punta, como los de las ventanas');
+  const mid = 60;
+  const bulge = e => (e.cx + e.cx2) / 2 - e.x1;    // desplazamiento del control
+  const izq = bows.filter(e => e.x1 < mid - 10), der = bows.filter(e => e.x1 > mid + 10);
+  assert.ok(izq.length && der.length, 'hay barrotes a ambos lados');
+  assert.ok(izq.every(e => bulge(e) < 0), 'los de la izquierda comban a la izquierda');
+  assert.ok(der.every(e => bulge(e) > 0), 'los de la derecha comban a la derecha');
+});
+
+test('balaustrada: balaustres torneados (panza redonda) entre pasamanos y zócalo', () => {
+  const els = balcon('balustrade', { x: 0, y: 0 }, { x: 140, y: 68 });
+  const bellies = els.filter(e => e.type === 'circle');
+  assert.ok(bellies.length >= 4, 'un balaustre por hueco');
+  const rects = els.filter(e => e.type === 'rect');
+  assert.ok(rects.length >= 3, 'pasamanos + zócalo + losa');
+  const top = Math.min(...rects.map(r => r.y + r.h));
+  assert.ok(bellies.every(c => c.y >= top), 'las panzas quedan bajo el pasamanos');
+});
+
+test('balcón corrido: ménsulas bajo la losa y barrotes más espaciados', () => {
+  const long = balcon('long', { x: 0, y: 0 }, { x: 260, y: 62 });
+  const plain = balcon('balcony', { x: 0, y: 0 }, { x: 260, y: 62 });
+  const b = unionBounds(long);
+  assert.ok(b.y + b.h > 62, 'las ménsulas cuelgan por debajo de la caja');
+  const barsOf = els => els.filter(e => e.type === 'line' && e.x1 === e.x2).length;
+  assert.ok(barsOf(long) < barsOf(plain),
+    'al triple de largo el ritmo corto se emborrona: van más sueltos');
+});
+
+test('terraza: antepecho macizo, sin un solo barrote', () => {
+  const els = balcon('terrace', { x: 0, y: 0 }, { x: 180, y: 58 });
+  assert.equal(els.filter(e => e.type === 'line').length, 0, 'macizo: sin barrotes');
+  assert.ok(els.filter(e => e.type === 'rect').length >= 3, 'albardilla + antepecho + losa');
+});
+
+test('mirador: cuerpo cerrado con tejadillo volando sobre la caja', () => {
+  const els = balcon('mirador', { x: 0, y: 0 }, { x: 130, y: 100 });
+  const b = unionBounds(els);
+  assert.ok(b.y < 0, 'el tejadillo vuela por encima, como un alero');
+  assert.ok(b.x < 0 && b.x + b.w > 130, 'y también por los lados');
+});
+
+// Como en el jardín: dos variantes que se dibujan igual son dos botones que
+// nadie puede elegir. La firma es el multiconjunto de tipos MÁS la proporción,
+// porque hay variantes que se eligen justo por su proporción.
+test('dentro del catálogo de Balcón, dos tipos nunca se dibujan igual', () => {
+  const seen = new Map();
+  for (const v of BALCONY_TYPES) {
+    // Cada tipo con SU caja por defecto (clic sin arrastrar), que es la que
+    // decide la proporción con la que nace.
+    const els = balcon(v.id, { x: 0, y: 0 }, { x: 0, y: 0 });
+    const kinds = els.map(e => e.type).sort().join(',');
+    const b = unionBounds(els);
+    const sig = `${kinds}|${(b.w / Math.max(1, b.h)).toFixed(1)}`;
+    const twin = seen.get(sig);
+    assert.equal(twin, undefined,
+      `"${v.name}" se dibuja igual que "${twin}" — nadie podría elegir`);
+    seen.set(sig, v.name);
+  }
+});
+
+// El tipo manda en la proporción (un mirador es alto, un corrido es una
+// franja), así que el clic sin arrastrar tiene que dar una caja por variante:
+// con una sola caja por herramienta la mitad del catálogo nacería deformada.
+test('el clic sin arrastrar da la caja propia de cada tipo de balcón', () => {
+  const boxOf = id => {
+    const els = balcon(id, { x: 0, y: 0 }, { x: 0, y: 0 });
+    const rects = els.filter(e => e.type === 'rect');
+    return { w: Math.max(...rects.map(r => r.w)), h: unionBounds(els).h };
+  };
+  const corrido = boxOf('long'), mirador = boxOf('mirador');
+  assert.ok(corrido.w > boxOf('balcony').w, 'el corrido nace más largo');
+  assert.ok(mirador.h > boxOf('terrace').h, 'el mirador nace más alto que la terraza');
+  // Y un arrastre de verdad manda sobre el default (MIN_SPAN hacia arriba).
+  const dragged = balcon('long', { x: 0, y: 0 }, { x: 90, y: 50 });
+  assert.ok(Math.max(...dragged.filter(e => e.type === 'rect').map(r => r.w)) < 130,
+    'arrastrando, la caja la pone el gesto');
+});
+
+// Guarda de regresión: la validación de importación rechaza rect/circle con
+// w o h ≤ 0 (auditoría v1.17.1), así que un balcón minúsculo no puede colar
+// ninguno — y un arrastre de 6 px es un clic tembloroso, no algo raro.
+test('balcones diminutos: ningún rect ni círculo degenerado', () => {
+  for (const v of BALCONY_TYPES) {
+    for (const p2 of [{ x: 8, y: 7 }, { x: 40, y: 9 }, { x: 9, y: 40 }, { x: 6, y: 6 }]) {
+      for (const el of balcon(v.id, { x: 0, y: 0 }, p2)) {
+        if (el.type === 'rect' || el.type === 'circle') {
+          assert.ok(el.w > 0 && el.h > 0,
+            `${v.id} en ${p2.x}x${p2.y}: ${el.type} degenerado ${el.w}x${el.h}`);
+        }
+      }
+    }
+  }
+});
+
 test('tejados 2 aguas / 1 agua → contorno + tejas; plano → 1 rect', () => {
   const g = Building.elements(TOOLS.BUILD_ROOF, P1, P2, { ...O, roofShape: 'gable' }).filter(e => e.type === 'line');
   const m = Building.elements(TOOLS.BUILD_ROOF, P1, P2, { ...O, roofShape: 'mono' }).filter(e => e.type === 'line');
@@ -393,6 +539,11 @@ test('todos los elementos generados se renderizan sin lanzar', () => {
   }
   for (const ft of FACADE_TYPES.map(f => f.id)) {
     for (const el of Building.elements(TOOLS.BUILD_FACADE, { x: 0, y: 0 }, { x: 160, y: 300 }, { ...O, facadeShape: ft })) {
+      assert.doesNotThrow(() => Renderer.renderElement(stub, { ...el, seed: 1 }));
+    }
+  }
+  for (const bt of BALCONY_TYPES.map(v => v.id)) {
+    for (const el of balcon(bt)) {
       assert.doesNotThrow(() => Renderer.renderElement(stub, { ...el, seed: 1 }));
     }
   }
