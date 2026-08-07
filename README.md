@@ -5,7 +5,7 @@
 ![Versión](https://img.shields.io/badge/versi%C3%B3n-1.16.1-blueviolet)
 ![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?logo=javascript&logoColor=000)
 ![Sin dependencias](https://img.shields.io/badge/dependencias-0-brightgreen)
-![Tests](https://img.shields.io/badge/tests-319%20%E2%9C%93-brightgreen)
+![Tests](https://img.shields.io/badge/tests-321%20%2B%2021%20e2e%20%E2%9C%93-brightgreen)
 ![Licencia](https://img.shields.io/badge/licencia-MIT-blue)
 
 Pizarra es una aplicación de wireframing sobre canvas escrita en JavaScript puro: **sin build, sin bundler y sin `node_modules`**. Permite crear bocetos, diagramas y prototipos rápidos directamente en el navegador.
@@ -143,14 +143,26 @@ Principios de diseño:
 
 ## Tests
 
-225 tests con el runner nativo de Node — sin ninguna dependencia:
+**321 tests con el runner nativo de Node**, sin ninguna dependencia:
 
 ```bash
 node --test tests/*.test.js           # suite completa
 node --test tests/exporter.test.js    # un archivo
 ```
 
-Los módulos se cargan en un contexto `node:vm` con stubs de canvas/DOM (ver `tests/helpers/`). La hoja de ruta de mejoras vive en [`PLAN.md`](PLAN.md) y el historial de versiones en [`CHANGELOG.md`](CHANGELOG.md).
+Los módulos se cargan en un contexto `node:vm` con stubs de canvas/DOM (ver `tests/helpers/`), incluido `js/app.js` completo: los tests lanzan gestos reales (puntero, teclado, modales) y leen el resultado del autoguardado, sin necesidad de hooks de test en el código de producción.
+
+**Y 21 tests end-to-end en un navegador real** (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco y acciones por defecto del navegador.
+
+```bash
+npm install && npm run e2e:install    # una vez (descarga Chromium)
+npm run test:e2e                      # suite e2e
+npm run test:all                      # las dos
+```
+
+> La aplicación sigue **sin dependencias**: `package.json` y `node_modules` existen solo para esta suite. `index.html` carga sus `<script>` directamente, y se abre en el navegador tal cual.
+
+La hoja de ruta de mejoras vive en [`PLAN.md`](PLAN.md), los errores corregidos y su guardia de regresión en [`BUGS.md`](BUGS.md), y el historial de versiones en [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Licencia
 

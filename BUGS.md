@@ -12,6 +12,14 @@ repetir antes de tocar esa zona.
 > verdad (pointer, teclado, modales) leyendo el resultado del autosave. Las
 > entradas de la sección "solo verificables manualmente" son anteriores: al
 > tocar una de esas zonas, conviértela en test en vez de repetir los pasos.
+>
+> **Y ahora hay además una suite end-to-end en un navegador real**
+> (`e2e/`, Playwright — `npm run test:e2e`). Cubre lo que el arnés `node:vm` no
+> puede ver por definición: layout, CSS, foco y acciones por defecto del
+> navegador. Varias entradas de más abajo ya tienen ahí su guardia; se indica
+> en cada una. Regla para elegir dónde va un test nuevo: **coordenadas, undo,
+> exportación y geometría → `tests/`; se ve, cabe, recibe el foco o hace scroll
+> → `e2e/`**.
 
 Al corregir un bug nuevo, añade aquí una entrada con el mismo formato y, si
 el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
@@ -392,6 +400,8 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 - **Fix:** `js/app.js`, `wireControls` — un listener delegado en `.panel`
   suelta el foco (`blur()`) del control al terminar de ajustarlo (`change` =
   release del slider / toggle / cierre del picker).
+- **Guardia (e2e):** `e2e/keyboard-focus.spec.js` › *"tras usar un control del
+  panel, Ctrl+Z sigue deshaciendo"* (el foco real solo existe en un navegador).
 - **Verificación manual:** dibujar algo, mover el slider "Trazo", y sin tocar
   el lienzo pulsar `Ctrl+Z` → debe deshacer.
 
@@ -404,6 +414,8 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 - **Fix:** `js/app.js` — `if (document.querySelector('dialog[open]')) return;`
   tras el handler de `?` (que sí sigue cerrando la ayuda; `Escape` cierra el
   modal de forma nativa).
+- **Guardia (e2e):** `e2e/keyboard-focus.spec.js` › *"con un modal abierto, los
+  atajos no actúan sobre el lienzo de detrás"*.
 - **Verificación manual:** dibujar un elemento, abrir la Ayuda, pulsar `Supr`
   y una tecla de herramienta → el elemento y la herramienta activa no cambian.
 
@@ -452,6 +464,8 @@ que quedaba a medias.
   un **cajón deslizable**: botón `⚙ Panel` en la barra (solo visible ≤1100px)
   que lo muestra/oculta, con un fondo para cerrarlo. En pantallas anchas el
   botón está oculto y el panel sigue fijo como antes.
+- **Guardia (e2e):** `e2e/responsive.spec.js` › *"por debajo de 1100px el panel
+  es un cajón que se abre con «⚙ Panel»"* (y su pareja en escritorio ancho).
 - **Verificación manual:** estrechar la ventana por debajo de 1100px → aparece
   "⚙ Panel"; al pulsarlo se abre el panel y sus controles son usables.
 
@@ -518,6 +532,9 @@ que quedaba a medias.
   escalado (`CANVAS_W/H * zoom`), y el wrapper pasa a
   `transform-origin: top left` con `width: fit-content` (sin esto se
   estiraría al ancho del sizer y el transform lo escalaría por segunda vez).
+- **Guardia (e2e):** `e2e/zoom.spec.js` › *"con zoom al 300% se alcanza la
+  esquina superior izquierda del lienzo"* y *"dibujar con zoom da coordenadas
+  sin escalar"*.
 - **Verificación manual:** subir el zoom al 300 %, llevar el scroll a 0 → la
   esquina superior izquierda del lienzo debe quedar visible, y el área
   scrollable (`scrollWidth`) debe ser ≈ `1200 × zoom`. Dibujar en esa zona
@@ -531,6 +548,8 @@ que quedaba a medias.
   wrapper que lo contiene ya está escalado por `transform: scale()`.
 - **Fix:** `js/app.js` — el textarea usa `left/top = pos.x/pos.y` sin
   multiplicar por zoom.
+- **Guardia (e2e):** `e2e/zoom.spec.js` › *"el editor de texto aparece donde se
+  ha pulsado, con zoom ≠ 100%"*.
 - **Verificación manual:** subir el zoom al 150-200%, doble click sobre el
   lienzo → el textarea debe abrirse justo en el punto pulsado.
 
@@ -578,6 +597,8 @@ que quedaba a medias.
   `state.variantChosen`; los handlers de variante ponen `variantChosen=true`; un
   listener `close` (cubre botón, Escape y backdrop) restaura la herramienta
   previa si no se eligió variante.
+- **Guardia (e2e):** `e2e/keyboard-focus.spec.js` › *"Escape cancela el catálogo
+  y devuelve la herramienta anterior"* (con la tecla real, no `dialog.close()`).
 - **Verificación manual:** estar en Rectángulo, pulsar Puerta, pulsar `Esc` →
   debe volver a Rectángulo; repetir y elegir una variante → debe quedar en
   Puerta.
@@ -593,6 +614,8 @@ que quedaba a medias.
   `max-height: calc(100vh-24px)` y `overflow-y:auto`; `.modal--help` se ajusta a
   `min(620px, calc(100vw-24px))`; media query `≤360px` pasa `.modal__shape-grid`
   a una sola columna.
+- **Guardia (e2e):** `e2e/responsive.spec.js` › *"a 320px de ancho los modales
+  caben sin desborde horizontal"* y *"…las variantes se apilan en una columna"*.
 - **Verificación manual:** a 320px de ancho, abrir Puerta → el cuadro cabe sin
   desborde horizontal y las variantes se apilan en una columna.
 

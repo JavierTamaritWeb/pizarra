@@ -4,6 +4,21 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [No publicado]
+
+### Añadido
+- **Suite end-to-end en un navegador real** (`e2e/`, Playwright): 21 tests que
+  cubren lo que el arnés `node:vm` no puede ver por definición —layout, CSS,
+  foco y acciones por defecto del navegador—. Casi todos son entradas de
+  `BUGS.md` que hasta ahora decían *"verificación manual"*: el alcance del
+  scroll con zoom, el editor de texto con zoom ≠ 100 %, el cajón del panel por
+  debajo de 1100 px, los modales a 320 px, `Ctrl+Z` después de tocar el panel,
+  los atajos con un modal abierto y el auto-ajuste del lienzo. Se ejecuta con
+  `npm run test:e2e` (`npm run e2e:install` la primera vez).
+- La aplicación **sigue sin dependencias**: `package.json` y `node_modules`
+  existen solo para esa suite. `index.html` no ha cambiado y se sigue abriendo
+  en el navegador tal cual.
+
 ## [1.16.1] — 2026-08-07
 
 ### Corregido

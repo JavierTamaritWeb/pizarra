@@ -23,6 +23,8 @@ node --test tests/*.test.js          # full suite
 node --test tests/exporter.test.js   # single file
 ```
 
+**The app itself still has zero dependencies** — `index.html` loads plain `<script>` tags and nothing else. `package.json`/`node_modules` exist only for the end-to-end suite (see below); never make the app require them.
+
 Use the glob (`tests/*.test.js`), not the bare directory: `node --test tests/`
 silently skips a file under Node 22.x's directory globbing, so a regression guard
 could pass unnoticed by not running at all.
@@ -30,6 +32,24 @@ could pass unnoticed by not running at all.
 Tests load the global-scope scripts via `node:vm` with canvas/DOM stubs (see `tests/helpers/`). Two vm-realm gotchas: arrays/errors created inside the vm don't share host prototypes, so compare structurally (`[...arr]`, `err.name`) instead of `deepStrictEqual` against host literals or `instanceof`.
 
 **`js/app.js` is testable too** (since v1.13.1) via `tests/helpers/load-app.js`, which runs the whole app under `node:vm`: `dom-stub.js` builds the element tree by parsing the real `index.html` (so ids, classes and nesting match the page), and the test drives real gestures — `selectTool`, `drag`, `click`, `key` — then reads the result with `elements()`. There is **no test hook in production code**: observability comes from the autosave, which serializes `state.elements` to localStorage. `flush()` drains the queued `requestAnimationFrame`/`setTimeout` callbacks so each gesture settles deterministically. Two things to know when writing these tests: pointer-move events must carry `buttons: 1` (app.js requires it to treat a move as a drag), and prefer asserting on element coordinates/counts rather than on canvas draw calls. **The harness does not simulate browser default actions** — it caught none of the two bugs found by opening the app in a real browser (a tool shortcut leaking into the modal it opened, and the eraser's reach feeling far too aggressive). It proves logic, not feel: still open the app for anything about focus, defaults or how a gesture reads. See `tests/app-interaction.test.js`. Prefer converting a "manual repro" BUGS.md entry into one of these tests over repeating the steps by hand.
+
+### End-to-end suite (`e2e/`, Playwright)
+
+```bash
+npm run e2e:install     # una vez: descarga Chromium (~95 MB)
+npm run test:e2e        # suite e2e
+npm run test:all        # node:vm + e2e
+```
+
+It **complements** the `node:vm` harness, it does not replace it. The split is the point: `tests/` proves logic (coordinates, undo, export, geometry) in milliseconds; `e2e/` proves the things the vm harness cannot see *by construction* — layout, CSS, real focus and browser default actions. That's exactly the gap CLAUDE.md already warned about ("still open the app for anything about focus, defaults or how a gesture reads"), so most `e2e/` specs are BUGS.md entries that used to say *"verificación manual"*. **Decide where a new test goes by that rule**, not by convenience.
+
+`playwright.config.js` serves the app with `python3 -m http.server` on port 8123 (no build, same as production) and runs Chromium only. Three things bite in this app specifically, all absorbed by `e2e/helpers.js` — use the helpers rather than driving the page directly:
+
+- **Nothing is observable synchronously.** `redraw()` is coalesced through `requestAnimationFrame` and the autosave is debounced 500 ms, so a read right after a gesture returns the *previous* state. `settle()` (two rAFs) runs at the end of every gesture helper, and `elements()` then waits for the autosave to agree with the panel's «Elementos» counter. Without `settle()` that agreement is satisfied by the stale pair (0 === 0) and the wait returns instantly with the old scene — a silent false pass, not a failure.
+- **The canvas is scaled and the scaling is animated.** `canvasPoint()` maps canvas coords to viewport coords through the canvas's own rendered box, so it absorbs zoom and scroll. But `.canvas-area__sizer` transitions `width`/`height` over 0.2 s: measuring mid-transition sends clicks to the wrong canvas coordinate and reports a half-sized scroll area. Always change zoom with `setZoom()`, which waits for the box to reach its final size.
+- **Window size decides the initial zoom**, because of the auto-fit. Use the measured `WIDE` (1920×1200 → 120 %) and `NARROW` (1160×700 → 100 %) constants. `NARROW` is deliberately above 1100 px: below that the panel becomes a hidden drawer and its buttons can't be clicked without opening it first.
+
+Observability follows the same rule as the vm harness: **no test hooks in production code** — the scene is read from the autosave, and everything else from the DOM the user sees.
 
 `PLAN.md` holds the prioritized improvement roadmap (fases 1-3 completed, except §3.2 element-type registry, deliberately skipped as optional). `BUGS.md` is the regression registry: every bug fix gets a symptom/cause/fix entry there plus a **regression guard** — a test in `tests/` for code in one of the `node:vm`-loadable modules (config/sketchy/arc/renderer/exporter/templates), or documented manual repro steps if the fix lives in `app.js` (DOM-only, outside the test harness — see below). Add the entry as part of the fix, not as a follow-up.
 

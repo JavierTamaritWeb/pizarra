@@ -9,3 +9,14 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Dependencias (solo las usa la suite e2e de Playwright; la app sigue sin
+# ninguna: index.html carga sus <script> directamente)
+node_modules/
+
+# Playwright: navegadores, informes y artefactos de ejecución
+/test-results/
+/e2e-report/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
