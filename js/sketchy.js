@@ -59,6 +59,10 @@ const Sketchy = (() => {
    * Draw a sketchy rounded rectangle.
    */
   function roundedRect(ctx, x, y, w, h, r = 12, roughness = 1) {
+    // Sin acotar, un radio mayor que el lado hace retroceder el borde
+    // ((w-2r)·t negativo) y la forma sale autointersecada; canvas.roundRect
+    // y el rx del SVG exportado sí autoacotan, así que además divergían.
+    r = Math.max(0, Math.min(r, w / 2, h / 2));
     const segs = 8;
     ctx.beginPath();
     ctx.moveTo(x + r, y);

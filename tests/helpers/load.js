@@ -120,9 +120,14 @@ function createContext() {
 
   /** FileReader síncrono: readAsText dispara onload inmediatamente.
       El "file" puede ser cualquier objeto con propiedad string `text`
-      (p.ej. { text: '{"elements":[]}' }) o algo convertible a String. */
+      (p.ej. { text: '{"elements":[]}' }) o algo convertible a String.
+      Con { error: true } dispara onerror, para cubrir el fallo de lectura. */
   class FileReaderStub {
     readAsText(file) {
+      if (file && typeof file === 'object' && file.error === true) {
+        if (typeof this.onerror === 'function') this.onerror(new Error('read'));
+        return;
+      }
       const result =
         file && typeof file === 'object' && typeof file.text === 'string'
           ? file.text

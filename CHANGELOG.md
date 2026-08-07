@@ -4,6 +4,53 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.17.1] — 2026-08-07
+
+Auditoría severa del código completo: **19 defectos corregidos**, cada uno con
+su entrada en `BUGS.md` y su guardia de regresión probada contra el código
+roto (14 tests nuevos en `tests/`, 4 en `e2e/`).
+
+### Corregido
+- **Atajos y foco.** Cambiar un `<select>` del panel («Solapamiento»,
+  «Plantas»…) dejaba muertos todos los atajos hasta clicar en otro sitio;
+  `Shift+R` sobre una selección sin formas rotables activaba Rectángulo y
+  perdía la selección; `?` abría la Ayuda apilada sobre otro modal; y `Ctrl+V`
+  pegaba clones detrás de un modal abierto cambiando además la herramienta.
+- **Historial de undo.** Elegir color de relleno arrastrando por el diálogo
+  nativo apilaba un paso por cada tono pisado (podía vaciar el historial de un
+  gesto), y mantener pulsado `+`/`−`/`F`/`Q`/`D`/`S` sobre una curva apilaba
+  ~30 pasos por segundo. Ahora todo gesto es un único paso, como el grosor y
+  la opacidad.
+- **Selección de flechas.** Las esquinas del bbox de una flecha seleccionada
+  eran handles de resize invisibles: clicar en espacio vacío junto a una
+  esquina escalaba la flecha en vez de deseleccionar.
+- **Borrador.** El interior de una forma rellena contaba como tinta por su
+  caja, no por su silueta: la esquina del bbox de un círculo relleno lo
+  borraba desde ~15 px de distancia de cualquier tinta. Y un polígono
+  degenerado (tamaño cero, llegado de datos externos) era imborrable.
+- **Dibujo.** Un rectángulo redondeado menor de 24 px salía autointersecado
+  (el radio no se acotaba al lado); el círculo del borrador quedaba fantasma
+  en el overlay al cambiar de herramienta por teclado; y la previsualización
+  del modo cadena ignoraba «Ajustar a cuadrícula» aunque el commit sí snapeaba.
+- **Exportación.** El HTML exportado perdía el orden de capas entre vectores y
+  componentes (toda flecha quedaba debajo de todo card); un color `#rrggbbaa`
+  importado rompía los tintes de botones/inputs/cards en canvas y en los
+  exports (fondos negros en SVG); la validación del import aceptaba `w/h ≤ 0`
+  y `fontSize ≤ 0` (elementos que se veían en canvas y desaparecían del
+  SVG/HTML); y un fallo de lectura del archivo dejaba el import colgado sin
+  avisar. La validación endurecida se verificó contra 4.740 elementos de todas
+  las variantes de Edificios y Jardín: cero rechazos, ningún proyecto guardado
+  pierde piezas.
+- README: Caminos también es herramienta sin atajo, no solo Aromáticas.
+
+### Herramientas
+- Eliminado el código muerto del export (`'eraser'` inalcanzable en
+  `VECTOR_TYPES`/`_svgElement`) y la copia duplicada de `distToSegment` en
+  `app.js` (ahora delega en `Eraser.distToSegment`).
+- El stub de `FileReader` del arnés sabe simular un fallo de lectura
+  (`{ error: true }`).
+- Suites: **347 tests unitarios** y **25 e2e**.
+
 ## [1.17.0] — 2026-08-07
 
 ### Añadido

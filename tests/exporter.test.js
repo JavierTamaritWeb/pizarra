@@ -1023,3 +1023,83 @@ test('Exporter.json/importJSON conserva overlapMode y los proyectos antiguos usa
   legacyInput.onchange({ target: { files: [{ text: JSON.stringify({ elements: [elRectFill] }) }] } });
   assert.equal((await legacyImport).overlapMode, 'normal');
 });
+
+/* ============================================================
+   Auditoría v1.17.0 — regresiones de export/validación
+   ============================================================ */
+
+// Con un único <svg> inicial, todo vector quedaba DEBAJO de todos los
+// componentes HTML (los absolutos posteriores pintan encima): una flecha
+// dibujada sobre un rect relleno desaparecía tras él en el HTML exportado.
+test('Exporter.html: los vectores conservan el z-order con los componentes', () => {
+  const ctx = freshCtx();
+  const flecha = { ...base, type: 'arrow', x1: 10, y1: 30, x2: 90, y2: 30 };
+
+  ctx.Exporter.html([elRectFill, flecha]);
+  let out = lastBlob(ctx).content;
+  assert.ok(out.indexOf('<div style=') < out.indexOf('<svg width='),
+    'la flecha dibujada ENCIMA del rect debe emitirse después de él');
+
+  ctx.Exporter.html([flecha, elRectFill]);
+  out = lastBlob(ctx).content;
+  assert.ok(out.indexOf('<svg width=') < out.indexOf('<div style='),
+    'y dibujada DEBAJO, antes');
+
+  ctx.Exporter.html([flecha, elRectFill, elLine]);
+  out = lastBlob(ctx).content;
+  assert.equal((out.match(/<svg width=/g) || []).length, 2,
+    'un <svg> por tramo contiguo de vectores, intercalado en su sitio');
+});
+
+// HEX_COLOR acepta #rrggbbaa, pero los tintes por concatenación (color+'15')
+// daban 10 dígitos: fill inválido → negro en SVG, borde desaparecido en HTML.
+test('Exporter: un color #rrggbbaa no rompe los tintes concatenados', () => {
+  const ctx = freshCtx();
+  const boton8 = { type: 'button', x: 10, y: 10, w: 120, h: 40, color: '#e9456080', lineWidth: 2 };
+
+  ctx.Exporter.svg([boton8]);
+  const svgOut = lastBlob(ctx).content;
+  assert.ok(svgOut.includes('fill="#e9456015"'), 'el tinte parte del color base de 6 dígitos');
+  assert.ok(!svgOut.includes('#e945608015'), 'nunca un hex de 10 dígitos');
+
+  ctx.Exporter.html([boton8]);
+  const htmlOut = lastBlob(ctx).content;
+  assert.ok(htmlOut.includes('background:#e9456015'), 'el fondo del botón exportado es válido');
+  assert.ok(!htmlOut.includes('#e945608015'));
+});
+
+// Con w/h negativos o cero el canvas aún dibuja algo, pero <rect width="-100">
+// es un error SVG y CSS descarta los width negativos: el elemento pasaba la
+// validación y luego "desaparecía" solo en los exports.
+test('Exporter.isValidElement: rechaza w/h no positivos también en las cajas', () => {
+  const ctx = freshCtx();
+  assert.equal(ctx.Exporter.isValidElement({ ...elRectFill, w: -100 }), false);
+  assert.equal(ctx.Exporter.isValidElement({ ...elRectFill, w: 0 }), false);
+  assert.equal(ctx.Exporter.isValidElement({ ...elButton, h: -1 }), false);
+  const img = {
+    type: 'image', x: 0, y: 0, w: -5, h: 5, color: '#333344', lineWidth: 2,
+    src: 'data:image/png;base64,aGk=',
+  };
+  assert.equal(ctx.Exporter.isValidElement(img), false);
+  assert.ok(ctx.Exporter.isValidElement({ ...img, w: 5 }), 'en positivo sigue pasando');
+});
+
+// font-size negativo: el canvas ignora la asignación (el texto sale con la
+// fuente que quedara en el contexto) y el SVG no lo renderiza.
+test('Exporter.isValidElement: el fontSize del texto debe ser positivo', () => {
+  const ctx = freshCtx();
+  assert.equal(ctx.Exporter.isValidElement({ ...elText, fontSize: -20 }), false);
+  assert.equal(ctx.Exporter.isValidElement({ ...elText, fontSize: 0 }), false);
+  assert.ok(ctx.Exporter.isValidElement({ ...elText, fontSize: 1 }));
+});
+
+// Sin onerror, un fallo de lectura dejaba la promesa sin resolver y el
+// `await` del llamador colgado en silencio.
+test('Exporter.importJSON: un fallo de lectura alerta y resuelve null', async () => {
+  const ctx = freshCtx();
+  const p = ctx.Exporter.importJSON();
+  const input = ctx.document.created[ctx.document.created.length - 1];
+  input.onchange({ target: { files: [{ error: true }] } });
+  assert.equal(await p, null);
+  assert.deepEqual([...ctx.alerts], ['No se pudo leer el archivo']);
+});

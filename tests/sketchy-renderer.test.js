@@ -869,3 +869,43 @@ test('renderElements permite alternar normal/hidden-dashed y es determinista', (
     hiddenB.calls.filter(c => c.name === 'moveTo' || c.name === 'lineTo').map(c => [c.name, ...c.args]),
   );
 });
+
+/* ============================================================
+   Auditoría v1.17.0 — regresiones de dibujo
+   ============================================================ */
+
+// Sin acotar el radio, en una forma menor de 24px el término (w-2r)·t es
+// negativo y el borde retrocede: garabato autointersecado en canvas mientras
+// canvas.roundRect y el rx del SVG exportado sí autoacotan (divergencia).
+test('Sketchy.roundedRect: el radio se acota y el borde de una forma 16×16 no retrocede', () => {
+  const ctx = createCtxStub();
+  Sketchy.roundedRect(ctx, 100, 100, 16, 16);   // r por defecto 12 > 16/2
+  // El borde superior son los 9 primeros lineTo (segs = 8): su x debe avanzar
+  // de x+r a x+w−r. Sin el clamp, (w−2r) era −8 y el borde RETROCEDÍA — la
+  // autointersección, no salirse de la caja, es el síntoma del bug.
+  const top = ctx.callsTo('lineTo').slice(0, 9).map(c => c.args[0]);
+  const tol = 1.01;   // jitter ±roughness/2 en cada extremo
+  assert.ok(top[top.length - 1] - top[0] >= -tol,
+    `el borde superior debe avanzar o quedarse (fue de ${top[0]} a ${top[top.length - 1]})`);
+});
+
+// HEX_COLOR acepta #rrggbbaa; concatenar el alfa del tinte sobre él daba 10
+// dígitos, el fillStyle inválido se ignoraba y el componente se pintaba con
+// el estilo que quedara del elemento anterior.
+test('Renderer: los tintes de los componentes UI parten del color base aunque traiga alfa', () => {
+  const ctx = createCtxStub();
+  const base8 = { color: '#e9456080', lineWidth: 2 };
+  for (const el of [
+    { ...base8, type: 'button', x: 0, y: 0, w: 120, h: 40 },
+    { ...base8, type: 'input', x: 0, y: 60, w: 200, h: 36 },
+    { ...base8, type: 'nav', x: 0, y: 120, w: 600, h: 60 },
+    { ...base8, type: 'card', x: 0, y: 200, w: 260, h: 200 },
+  ]) Renderer.renderElement(ctx, el);
+
+  const estilos = ctx.calls
+    .filter(c => c.name === 'set fillStyle' || c.name === 'set strokeStyle')
+    .map(c => String(c.args[0]));
+  assert.ok(estilos.includes('#e9456015'), 'el tinte del botón parte del color base');
+  const rotos = estilos.filter(v => v.startsWith('#') && ![4, 5, 7, 9].includes(v.length));
+  assert.deepEqual(rotos, [], 'ningún estilo hex puede salir con 10 dígitos');
+});

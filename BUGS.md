@@ -676,3 +676,248 @@ que quedaba a medias.
   atenúan Cubierta y Pendiente; elegir «De lado» → se atenúa solo Cubierta;
   pasar el puntero por otra vista → la miniatura la muestra y al salir vuelve
   la elegida.
+
+---
+
+## Auditoría severa (2026-08-07, tras v1.17.0): 19 defectos corregidos
+
+Barrido completo de app.js, exportadores, renderer y los módulos de geometría,
+con verificación adversarial de cada hallazgo antes de corregirlo. Todos los
+fixes de esta tanda llevan guardia automática, y cada guardia se probó contra
+el código roto (revertir el fix hace fallar exactamente sus tests).
+
+### Los `<select>` del panel dejaban muertos todos los atajos
+- **Síntoma:** cambiar «Solapamiento», «Plantas» o cualquier `<select>` del
+  panel con el ratón mataba TODOS los atajos (Ctrl+Z/C/V, teclas de
+  herramienta) hasta hacer clic en otro sitio.
+- **Causa:** el blur que "revive" los atajos tras usar un control
+  (`js/app.js`, listener de `change` en `.panel`) solo cubría
+  `e.target.matches('input')`; el guard del keydown global ignora también
+  `SELECT`, así que el select retenía el foco y ningún atajo llegaba. Era el
+  mismo bug que ese handler decía haber arreglado, a medias.
+- **Fix:** `js/app.js` — el matcher pasa a `'input, select'`.
+- **Guardia:** `e2e/keyboard-focus.spec.js` › *"tras cambiar un `<select>` del
+  panel, los atajos siguen vivos"* (foco real: el arnés vm no lo simula). El
+  test enfoca el select antes de elegir, porque `selectOption` a secas no
+  mueve el foco y pasaría incluso sin el arreglo.
+
+### Elegir color de relleno podía expulsar el historial de undo entero
+- **Síntoma:** con una forma seleccionada, arrastrar por el diálogo nativo de
+  «Color de relleno» apilaba decenas de pasos de undo (uno por tono pisado);
+  el límite del stack es 50, así que un solo gesto podía vaciar el historial, y
+  Ctrl+Z recorría cada tono intermedio.
+- **Causa:** el handler de `input` del picker hacía `saveUndo()` por evento,
+  sin el snapshot de gesto que ya usaban el slider de grosor y el de opacidad.
+- **Fix:** `js/app.js` — `fillColorGestureSnap` + `commitFillColorGesture` en
+  `change`, el mismo patrón exacto de sus dos hermanos (incluida la detección
+  de gesto no-op, que restaura las referencias sin apilar).
+- **Guardia:** `tests/app-interaction.test.js` › *"elegir color de relleno
+  arrastrando por el picker es UN paso de undo"*.
+
+### Mantener pulsado un atajo de curva inundaba el historial
+- **Síntoma:** mantener `+`/`−` sobre una flecha curva (~30 repeticiones/s)
+  apilaba un undo por auto-repeat y en ~2 s expulsaba los 50 pasos; F/Q/D/S
+  tenían el mismo agujero.
+- **Causa:** ninguno de esos handlers filtraba `e.repeat`; el handler de las
+  flechas de mover (NUDGE) sí lo hacía, con un comentario explicando justo
+  este problema.
+- **Fix:** `js/app.js` — `+`/`−` usan `if (!e.repeat) saveUndo()` (mantener la
+  tecla extiende el mismo paso, como NUDGE); los toggles F/Q/D/S ignoran la
+  repetición del todo (`if (e.repeat) return`): alternar en ráfaga solo mete
+  ruido.
+- **Guardia:** `tests/app-interaction.test.js` › *"mantener pulsado + sobre
+  una curva es UN paso de undo"*.
+
+### Las flechas tenían handles de esquina invisibles pero activos
+- **Síntoma:** con una flecha o curva seleccionada, clicar a ≤8 px de una
+  esquina de su bbox —espacio vacío a la vista, el bbox incluye los puntos de
+  control— no deseleccionaba ni iniciaba marquee: arrancaba un **resize
+  invisible** que escalaba la flecha.
+- **Causa:** `drawSelection` omite los handles de esquina en las flechas
+  (usan extremos/curvatura), pero `hitHandle` en `onMouseDown` los activaba
+  igualmente: lo que se dibuja y lo que responde habían divergido.
+- **Fix:** `js/app.js` — `hitHandle` solo se consulta si el elemento no es
+  `arrow`/`curveArrow`, alineando el hit con lo que se pinta.
+- **Guardia:** `tests/app-interaction.test.js` › *"la esquina del bbox de una
+  curva seleccionada no es un handle invisible"* (con premisa verificada de
+  que la esquina no pisa ningún handle real).
+
+### Ctrl+V pegaba detrás de un modal abierto
+- **Síntoma:** con Exportar (o cualquier modal) abierto, Ctrl+V con un payload
+  propio en el portapapeles pegaba clones en el lienzo detrás del modal y
+  además cambiaba la herramienta activa a Mover.
+- **Causa:** el listener global de `paste` no comprobaba `dialog[open]`; el de
+  `keydown` sí, así que el invariante "con un modal abierto ningún atajo toca
+  el lienzo" tenía una puerta trasera.
+- **Fix:** `js/app.js` — el mismo guard `document.querySelector('dialog[open]')`
+  al principio del listener de paste.
+- **Guardia:** `e2e/keyboard-focus.spec.js` › *"pegar funciona en el lienzo
+  pero no detrás de un modal abierto"*, con control positivo (el mismo payload
+  sí se pega sin modal) para que el test no pase en vacío.
+
+### El borrador trataba el interior de una forma rellena como su CAJA
+- **Síntoma:** un círculo o triángulo rellenos se borraban barriendo la
+  esquina de su bounding box, a ~15 px de la tinta más cercana — contradice la
+  regla documentada «se borra lo que se ve», que la caja solo cumple para
+  rectángulos.
+- **Causa:** `js/eraser.js` usaba `_touchesBox` para el caso `el.fill`, sobre
+  cualquier `OUTLINE_TYPE`.
+- **Fix:** `js/eraser.js` — el interior que cuenta es la **silueta real**:
+  punto-en-polígono (ray casting) sobre los mismos vértices que ya usa el test
+  de contorno (polígono/trapecio reales, elipse muestreada, caja solo para
+  rect/roundedRect, donde sí es la silueta). Un trazo que atraviesa sin puntos
+  dentro cruza el contorno y lo detecta el test de contorno, así que la
+  cobertura es completa.
+- **Guardia:** `tests/eraser.test.js` › *"rellenas: el interior que cuenta es
+  la silueta real, no la caja"*.
+
+### Un radio mayor que el lado dibujaba `roundedRect` autointersecado
+- **Síntoma:** un rectángulo redondeado menor de 24 px (creable: el umbral de
+  creación es >3 px) salía como un garabato cruzado en el canvas, mientras el
+  SVG/HTML exportado se veía bien — misma forma, dibujo distinto por formato.
+- **Causa:** `Sketchy.roundedRect` no acotaba `r` a `min(w,h)/2`: con
+  `w−2r < 0` el borde retrocede. `canvas.roundRect` y el `rx` del SVG
+  autoacotan por especificación; el trazado manual no.
+- **Fix:** `js/sketchy.js` — `r = Math.max(0, Math.min(r, w/2, h/2))`.
+- **Guardia:** `tests/sketchy-renderer.test.js` › *"el radio se acota y el
+  borde de una forma 16×16 no retrocede"* (el assert vigila el retroceso del
+  borde, no la caja: el bug nunca sale de la caja).
+
+### El export HTML perdía el z-order entre vectores y componentes
+- **Síntoma:** en el HTML exportado, toda línea/flecha/forma vectorial quedaba
+  DEBAJO de todos los componentes HTML: una flecha dibujada encima de un card
+  desaparecía tras él.
+- **Causa:** `js/exporter.js` emitía un único `<svg>` con todos los vectores
+  al principio y los `<div>` después; entre absolutos, los posteriores pintan
+  encima. (El propio archivo ya resolvía esto para el borrador vía `_svgScene`,
+  pero no para el solape vector/HTML.)
+- **Fix:** `js/exporter.js` — un `<svg>` por **tramo contiguo** de vectores,
+  intercalado en el orden del lienzo (`flushVectors` al cambiar de tipo y al
+  final).
+- **Guardia:** `tests/exporter.test.js` › *"los vectores conservan el z-order
+  con los componentes"* (ambos órdenes + conteo de `<svg>` por tramos).
+
+### Un color `#rrggbbaa` importado rompía todos los tintes concatenados
+- **Síntoma:** con un color de 8 dígitos (que `HEX_COLOR` acepta
+  expresamente), botones/inputs/cards se pintaban con el estilo que quedara
+  del elemento anterior en canvas, y en el SVG/HTML exportado el fondo salía
+  negro (fill por defecto) o el borde desaparecía.
+- **Causa:** los tintes se construían concatenando (`color + '15'`): sobre un
+  color con alfa propio dan 10 dígitos hex, inválido en todas partes.
+  `fillStyle`/`_fillColor` ya hacían `slice(0, 7)`; los componentes UI no.
+- **Fix:** `js/renderer.js` — helper `_tint(color, alpha)` en los 6 tintes de
+  componentes; `js/exporter.js` — helper `tint(a)` en `_svgElement` y en el
+  switch HTML (7 usos).
+- **Guardia:** `tests/sketchy-renderer.test.js` › *"los tintes de los
+  componentes UI parten del color base aunque traiga alfa"* y
+  `tests/exporter.test.js` › *"un color #rrggbbaa no rompe los tintes
+  concatenados"*.
+
+### `isValidElement` aceptaba cajas con `w/h ≤ 0` y `fontSize` sin signo
+- **Síntoma:** un JSON manipulado con `w:-100` (rect, imagen, componente UI) o
+  `fontSize:-20` pasaba la validación: el canvas aún dibujaba algo, pero
+  `<rect width="-100">` es un error SVG y CSS descarta los width negativos —
+  el elemento "desaparecía" solo en los exports. Divergencia PNG↔SVG con
+  entrada aceptada.
+- **Causa:** solo los polígonos regulares y el trapecio exigían `w>0 && h>0`;
+  el resto de cajas y el `fontSize` solo pedían "número finito".
+- **Fix:** `js/exporter.js` — `w > 0 && h > 0` también en el retorno general y
+  en `image`; `fontSize > 0` en `text`. Compatibilidad verificada con un
+  barrido de 4.740 elementos generados por todas las variantes de Edificios y
+  Jardín (arrastres degenerados incluidos): cero rechazos.
+- **Guardia:** `tests/exporter.test.js` › *"rechaza w/h no positivos también
+  en las cajas"* y *"el fontSize del texto debe ser positivo"*.
+
+### Un polígono degenerado (w=h=0) era invisible e imborrable
+- **Síntoma:** un polígono de tamaño cero llegado de datos externos no se
+  veía, no respondía al hit-test y el borrador tampoco lo eliminaba: solo lo
+  quitaba «Limpiar todo».
+- **Causa:** `js/eraser.js` — `RegularPolygon.vertices` devuelve `[]` para esa
+  caja, y `[]` es truthy: cortaba el encadenado de fallbacks
+  (`polygonVertices || trapezoidVertices || caja`) y `_touchesPolyline([])` da
+  false.
+- **Fix:** `js/eraser.js` — los vértices vacíos ya no cortan la cadena
+  (`poly && poly.length && poly`); el degenerado cae a la caja y se borra.
+  (La validación endurecida del punto anterior además le cierra la puerta del
+  import.)
+- **Guardia:** `tests/eraser.test.js` › *"un polígono degenerado (w=h=0) sigue
+  siendo borrable"*.
+
+### Un fallo de lectura en el import JSON colgaba la promesa para siempre
+- **Síntoma:** si `FileReader` fallaba al leer el archivo elegido, el import
+  moría en silencio: ni alerta ni error, y el `await` del llamador quedaba
+  colgado.
+- **Causa:** `importJSON` (`js/exporter.js`) manejaba `onload`, el cancel del
+  picker y el JSON malformado, pero no `reader.onerror`.
+- **Fix:** `js/exporter.js` — `onerror` alerta («No se pudo leer el archivo»)
+  y resuelve `null`, como los demás caminos de error.
+- **Guardia:** `tests/exporter.test.js` › *"un fallo de lectura alerta y
+  resuelve null"* (el stub de FileReader del arnés ahora sabe simular el
+  fallo con `{ error: true }`).
+
+### Shift+R sin formas rotables activaba la herramienta Rectángulo
+- **Síntoma:** seleccionar una flecha y pulsar Shift+R (atajo documentado de
+  rotar) cambiaba la herramienta a Rectángulo y perdía la selección.
+- **Causa:** la condición del handler de rotar exigía "hay algo rotable en la
+  selección"; si no, la tecla caía al selector de herramientas, que no filtra
+  `shiftKey`, y `k === 'r'` es Rectángulo.
+- **Fix:** `js/app.js` — Shift+R se consume SIEMPRE (rota lo rotable si lo
+  hay; si no, no hace nada).
+- **Guardia:** `tests/app-interaction.test.js` › *"Shift+R sobre una selección
+  sin rotables no cae en Rectángulo"*.
+
+### «?» apilaba la Ayuda encima de cualquier otro modal
+- **Síntoma:** con Exportar (u otro modal) abierto, pulsar `?` abría la Ayuda
+  encima, apilando dos diálogos.
+- **Causa:** el handler de `?` corre antes del guard de `dialog[open]` a
+  propósito —para poder CERRAR la Ayuda—, pero ese orden también le permitía
+  abrirla.
+- **Fix:** `js/app.js` — `?` solo abre si no hay otro `dialog[open]`; cerrarse
+  a sí misma sigue funcionando.
+- **Guardia:** `e2e/keyboard-focus.spec.js` › *"«?» no apila la Ayuda sobre
+  otro modal, y su toggle sigue vivo"*.
+
+### El círculo del borrador quedaba fantasma al cambiar de herramienta
+- **Síntoma:** pasar el cursor por el lienzo con Borrador y pulsar `v` (sin
+  mover el ratón) dejaba el círculo indicador pintado en el overlay hasta el
+  siguiente gesto.
+- **Causa:** `selectTool` no repintaba el overlay; `pointerleave` solo limpia
+  si la herramienta sigue siendo el borrador, y `onMouseMove` en reposo con
+  otra herramienta no reprograma nada.
+- **Fix:** `js/app.js` — `selectTool` termina con `scheduleOverlay()`
+  (`paintOverlay` limpia el lienzo de overlay al empezar).
+- **Guardia:** `e2e/keyboard-focus.spec.js` › *"el círculo del borrador no
+  queda fantasma al cambiar de herramienta"* (cuenta píxeles con alfa en el
+  overlay real).
+
+### La preview del modo cadena ignoraba «Ajustar a cuadrícula»
+- **Síntoma:** arrastrando durante un clic de cadena con snap activo, el tramo
+  en la previsualización seguía al puntero sin snap, y al soltar el commit sí
+  snapeaba: preview ≠ resultado.
+- **Causa:** `onMouseMove` fijaba `lastPos` snapeado en la rama de cadena y,
+  si el botón estaba pulsado, la misma pasada lo sobreescribía más abajo con
+  la posición cruda.
+- **Fix:** `js/app.js` — en modo cadena el `lastPos` snapeado ya no se pisa.
+- **Guardia:** `tests/app-interaction.test.js` › *"la previsualización de la
+  cadena respeta «Ajustar a cuadrícula»"* (inspecciona el extremo del
+  `quadraticCurveTo` real del overlay a mitad de gesto).
+
+### Limpieza: rama muerta de `eraser` en el export HTML
+- **Síntoma (latente):** `'eraser'` en `VECTOR_TYPES` y el `case 'eraser'`
+  vacío de `_svgElement` eran inalcanzables — `html()` desvía a `_svgScene`
+  toda escena con borradores y `_svgScene` los convierte en máscaras antes de
+  llamar a `_svgElement`— y sugerían una cobertura que no existía.
+- **Fix:** `js/exporter.js` — eliminados ambos; un comentario en su lugar
+  documenta por qué los `eraser` nunca llegan ahí.
+- **Guardia:** las suites existentes de export con borradores heredados siguen
+  en verde (el comportamiento no cambia).
+
+### Limpieza: `distToSegment` estaba duplicado en app.js
+- **Síntoma (latente):** `js/app.js` mantenía su propia copia de la distancia
+  punto-segmento que `js/eraser.js` ya exporta — la misma fórmula dos veces
+  esperando a divergir.
+- **Fix:** `js/app.js` — la copia local es ahora un adaptador de una línea
+  sobre `Eraser.distToSegment` (solo cambia la firma a escalares, cómoda para
+  `hitTest`).
+- **Guardia:** los tests existentes de hit-test/selección siguen en verde (el
+  comportamiento no cambia).

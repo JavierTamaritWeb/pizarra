@@ -183,13 +183,11 @@
            pos.y >= minY - 6 && pos.y <= maxY + 6;
   }
 
-  function distToSegment(p, x1, y1, x2, y2) {
-    const dx = x2 - x1, dy = y2 - y1;
-    const len2 = dx * dx + dy * dy;
-    let t = len2 ? ((p.x - x1) * dx + (p.y - y1) * dy) / len2 : 0;
-    t = Math.max(0, Math.min(1, t));
-    return Math.hypot(p.x - (x1 + dx * t), p.y - (y1 + dy * t));
-  }
+  // La geometría real vive en Eraser.distToSegment (js/eraser.js) — aquí solo
+  // se adapta la firma a escalares, más cómoda para hitTest. Mantener una
+  // copia propia era tener la misma fórmula dos veces esperando a divergir.
+  const distToSegment = (p, x1, y1, x2, y2) =>
+    Eraser.distToSegment(p, { x: x1, y: y1 }, { x: x2, y: y2 });
 
   function hitTest(pos) {
     for (let i = state.elements.length - 1; i >= 0; i--) {
@@ -1314,8 +1312,13 @@
             return;
           }
         }
+        // Las flechas no dibujan handles de esquina (drawSelection los omite:
+        // usan extremos/curvatura); sin este guard, hitHandle los activaba
+        // igualmente y clicar cerca de una esquina del bbox — espacio vacío
+        // a la vista — arrancaba un resize invisible en vez de deseleccionar.
+        const cornersActive = selEl.type !== 'arrow' && selEl.type !== 'curveArrow';
         const b = getElementBounds(selEl);
-        const corner = hitHandle(pos, b);
+        const corner = cornersActive ? hitHandle(pos, b) : null;
         if (corner) {
           state.resizing = {
             corner,
@@ -1720,7 +1723,10 @@
     }
 
     if (!state.isDrawing) return;
-    lastPos = pos;
+    // En modo cadena lastPos ya se fijó SNAPEADO arriba: pisarlo con la
+    // posición cruda hacía que la preview del tramo ignorase la cuadrícula
+    // mientras el commit del mouseup sí snapea (preview ≠ resultado).
+    if (!(state.tool === TOOLS.CURVE_ARROW && state.curveChain)) lastPos = pos;
     // Shift mientras se traza la flecha curva: curva hacia el otro lado
     if (state.tool === TOOLS.CURVE_ARROW || state.tool === TOOLS.ARC) state.curveFlip = e.shiftKey;
     // Los puntos se acumulan en cada evento (no se pierde trazo) descartando
@@ -2261,6 +2267,10 @@
     // No interceptar el pegado dentro de campos de texto
     const tag = e.target.tagName;
     if (e.target === textInput || tag === 'INPUT' || tag === 'TEXTAREA') return;
+    // Con un modal abierto ningún atajo debe tocar el lienzo (mismo invariante
+    // que el keydown): sin este guard, Ctrl+V pegaba clones DETRÁS del modal
+    // y encima cambiaba la herramienta activa a Mover.
+    if (document.querySelector('dialog[open]')) return;
     if (!e.clipboardData) return;
     // 1º: elementos copiados con Ctrl/Cmd+C (payload JSON propio); pasan por
     // el mismo validador que el import para descartar contenido manipulado
@@ -2372,6 +2382,10 @@
     updateToolbarActive();
     updateCursor();
     redraw();
+    // Repintar el overlay: al cambiar de herramienta por teclado sin mover el
+    // ratón, el círculo indicador del borrador quedaba fantasma (pointerleave
+    // solo limpia si la herramienta sigue siendo el borrador).
+    scheduleOverlay();
     // Elegir la herramienta Emoji abre el catálogo; tras escoger uno, cada
     // click en el lienzo lo estampa (volver a pulsarla permite cambiarlo)
     if (id === TOOLS.EMOJI) $('modal-emoji').showModal();
@@ -2533,15 +2547,17 @@
   /* ── Panel controls wiring ── */
 
   function wireControls() {
-    // Los controles del panel (slider/checkbox/color) retienen el foco tras
-    // usarlos, y el handler global de teclado ignora los eventos cuyo target
-    // es un <input>: eso dejaba muertos TODOS los atajos (Ctrl+Z/C/V, teclas
-    // de herramienta) hasta hacer click en el lienzo. Al terminar de ajustar
-    // un control (change = release del slider / toggle / cierre del picker) se
-    // suelta el foco y los atajos vuelven a funcionar. Se registra en la fase
-    // de burbujeo (el handler propio del control ya corrió antes).
+    // Los controles del panel (slider/checkbox/color/select) retienen el foco
+    // tras usarlos, y el handler global de teclado ignora los eventos cuyo
+    // target es un control: eso dejaba muertos TODOS los atajos (Ctrl+Z/C/V,
+    // teclas de herramienta) hasta hacer click en el lienzo. Al terminar de
+    // ajustar un control (change = release del slider / toggle / cierre del
+    // picker / elección en el select) se suelta el foco y los atajos vuelven a
+    // funcionar. Los <select> también: solo cubrir input dejaba «Solapamiento»
+    // o «Plantas» enfocados y reproducía el bug que este handler arregla.
+    // Se registra en la fase de burbujeo (el handler propio ya corrió antes).
     document.querySelector('.panel').addEventListener('change', e => {
-      if (e.target.matches('input')) e.target.blur();
+      if (e.target.matches('input, select')) e.target.blur();
     });
 
     // Color picker
@@ -2703,12 +2719,16 @@
 
     // Color de relleno — misma semántica dual. Elegir un color implica querer
     // relleno, así que además lo activa (el checkbox sigue siendo el "off").
+    // Como el grosor y la opacidad, todo el gesto es UN paso de undo: el
+    // diálogo nativo dispara 'input' por cada tono que se pisa al arrastrar,
+    // y un saveUndo() por evento expulsaba el historial entero (límite 50).
+    let fillColorGestureSnap = null;
     $('fill-color-picker').addEventListener('input', e => {
       const col = e.target.value;
       if (state.selection.length) {
         const shapes = state.selection.filter(i => FILLABLE_TYPES.includes(state.elements[i].type));
         if (!shapes.length) return;
-        saveUndo();
+        if (!fillColorGestureSnap) fillColorGestureSnap = snapshot();
         shapes.forEach(i => {
           state.elements[i] = { ...state.elements[i], fill: true, fillColor: col };
         });
@@ -2720,6 +2740,18 @@
         $('check-fill').checked = true;
       }
     });
+    function commitFillColorGesture() {
+      if (!fillColorGestureSnap) return;
+      const snap = fillColorGestureSnap;
+      fillColorGestureSnap = null;
+      const unchanged = snap.length === state.elements.length &&
+        snap.every((el, i) => el === state.elements[i] ||
+          (el.fill === state.elements[i].fill &&
+           el.fillColor === state.elements[i].fillColor));
+      if (unchanged) state.elements = snap;
+      else pushUndo(snap);
+    }
+    $('fill-color-picker').addEventListener('change', commitFillColorGesture);
     $('overlap-mode').value = state.overlapMode;
     $('overlap-mode').addEventListener('change', e => {
       state.overlapMode = e.target.value === 'hidden-dashed' ? 'hidden-dashed' : 'normal';
@@ -2964,11 +2996,14 @@
 
     const k = e.key.toLowerCase();
 
-    // Ayuda: '?' abre el modal de atajos (y vuelve a cerrarlo)
+    // Ayuda: '?' abre el modal de atajos (y vuelve a cerrarlo). Solo lo ABRE
+    // si no hay otro modal delante: corre antes del guard de dialog[open]
+    // para poder cerrarse a sí mismo, pero no debe apilarse sobre Exportar.
     if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
       e.preventDefault();
       const help = $('modal-help');
-      if (help.open) help.close(); else help.showModal();
+      if (help.open) help.close();
+      else if (!document.querySelector('dialog[open]')) help.showModal();
       return;
     }
 
@@ -2987,11 +3022,15 @@
     if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); return; }
     if ((e.ctrlKey || e.metaKey) && k === 'd') { e.preventDefault(); duplicateSelection(); return; }
 
-    // Shift+R: girar cada forma compatible por su paso discreto.
-    if (k === 'r' && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey &&
-        state.selection.some(i => ShapeRotation.isType(state.elements[i].type))) {
+    // Shift+R: girar cada forma compatible por su paso discreto. Se consume
+    // SIEMPRE (haya o no formas rotables): si cayera al selector de
+    // herramientas, rotar una selección sin rotables activaba Rectángulo
+    // (k === 'r') y perdía la selección.
+    if (k === 'r' && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
       e.preventDefault();
-      rotateSelection();
+      if (state.selection.some(i => ShapeRotation.isType(state.elements[i].type))) {
+        rotateSelection();
+      }
       return;
     }
 
@@ -3031,9 +3070,14 @@
       return;
     }
 
-    // F: invertir el lado del giro de las flechas curvas seleccionadas
+    // F: invertir el lado del giro de las flechas curvas seleccionadas.
+    // Sin filtrar el auto-repeat, mantener la tecla apilaba ~30 undos/s y
+    // expulsaba el historial entero (límite 50) — mismo motivo que en NUDGE.
+    // En los toggles (F/Q/D/S) la repetición se ignora del todo: alternar en
+    // ráfaga no tiene sentido y solo mete ruido.
     if (k === 'f' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey &&
         state.selection.some(i => state.elements[i].type === 'curveArrow')) {
+      if (e.repeat) return;
       saveUndo();
       state.selection.forEach(i => {
         if (state.elements[i].type === 'curveArrow') {
@@ -3050,6 +3094,7 @@
     if (k === 'q' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey &&
         state.selection.some(i => state.elements[i].type === 'curveArrow' &&
                                   !CurvePath.isChain(state.elements[i]))) {
+      if (e.repeat) return;
       saveUndo();
       state.selection.forEach(i => {
         const el = state.elements[i];
@@ -3071,6 +3116,7 @@
     // al otro extremo; en curvas la forma no cambia)
     if (k === 'd' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey &&
         state.selection.some(i => ['arrow', 'curveArrow'].includes(state.elements[i].type))) {
+      if (e.repeat) return;
       saveUndo();
       state.selection.forEach(i => {
         if (['arrow', 'curveArrow'].includes(state.elements[i].type)) {
@@ -3087,6 +3133,7 @@
         state.selection.length === 1 &&
         state.elements[state.selection[0]].type === 'curveArrow' &&
         !CurvePath.isChain(state.elements[state.selection[0]])) {
+      if (e.repeat) return;
       const el = state.elements[state.selection[0]];
       saveUndo();
       if (el.cx2 !== undefined) {
@@ -3132,7 +3179,9 @@
           const copy = resizeArc(el, R);
           if (copy !== el) {
             e.preventDefault();
-            saveUndo();
+            // Como en NUDGE: solo la primera pulsación apila undo; mantener
+            // la tecla extiende el mismo paso en vez de inundar el historial.
+            if (!e.repeat) saveUndo();
             state.elements[state.selection[0]] = copy;
             redraw();
           }
@@ -3147,7 +3196,7 @@
             const d = mag * (Math.sign(sVal) || 1);
             return { x: cx + d * fr.ux, y: cy + d * fr.uy };
           };
-          saveUndo();
+          if (!e.repeat) saveUndo();
           const c1 = shifted(el.cx, el.cy);
           const copy = { ...el, cx: c1.x, cy: c1.y };
           if (el.cx2 !== undefined) {

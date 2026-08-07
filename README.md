@@ -4,10 +4,10 @@
 
 **Wireframes, diagramas y bocetos con estética dibujada a mano — en el navegador y sin instalar nada.**
 
-[![Versión](https://img.shields.io/badge/versión-1.17.0-blueviolet?style=flat-square)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-1.17.1-blueviolet?style=flat-square)](CHANGELOG.md)
 [![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?style=flat-square&logo=javascript&logoColor=000)](js/)
 [![Dependencias](https://img.shields.io/badge/dependencias-0-brightgreen?style=flat-square)](#arquitectura)
-[![Tests](https://img.shields.io/badge/tests-333%20unitarios%20%2B%2021%20e2e-brightgreen?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-347%20unitarios%20%2B%2025%20e2e-brightgreen?style=flat-square)](#tests)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue?style=flat-square)](LICENSE)
 
 <img src="docs/pizarra.png" alt="La interfaz de Pizarra: barra de herramientas a la izquierda, lienzo con un wireframe de landing page dibujado a mano en el centro y panel de ajustes a la derecha" width="900">
@@ -165,7 +165,7 @@ Cada pieza de jardín nace con una **etiqueta** que la nombra, dentro del mismo 
 | `+` · `−` (+`Shift`) | Ajustar curvatura — en semicírculos, el radio (fino) |
 | `?` | Abrir la ayuda con todos los atajos |
 
-Las herramientas que abren catálogo (Edificios y Jardín) muestran su modal de tipos al pulsar el atajo. **Aromáticas** es la única sin atajo: `8 9 H X Z` agotaron las teclas sueltas libres.
+Las herramientas que abren catálogo (Edificios y Jardín) muestran su modal de tipos al pulsar el atajo. **Caminos** y **Aromáticas** son las únicas sin atajo: `8 9 H X Z` agotaron las teclas sueltas libres.
 
 ## Arquitectura
 
@@ -202,7 +202,7 @@ Cada módulo se expone como un global mediante una IIFE y `index.html` los carga
 
 ## Tests
 
-**333 tests unitarios** con el runner nativo de Node, sin ninguna dependencia:
+**347 tests unitarios** con el runner nativo de Node, sin ninguna dependencia:
 
 ```bash
 node --test tests/*.test.js           # suite completa
@@ -211,7 +211,7 @@ node --test tests/exporter.test.js    # un archivo
 
 Los módulos se cargan en un contexto `node:vm` con stubs de canvas y DOM, incluido `js/app.js` completo: los tests lanzan gestos reales —puntero, teclado, modales— y leen el resultado del autoguardado, sin ningún hook de test en el código de producción.
 
-**21 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco y acciones por defecto del navegador.
+**25 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco y acciones por defecto del navegador.
 
 ```bash
 npm install && npm run e2e:install    # una vez (descarga Chromium)

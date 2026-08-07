@@ -494,3 +494,136 @@ test('todo lo que dibuja el jardín sobrevive al round-trip JSON', () => {
       `elemento que no sobreviviría a la importación: ${JSON.stringify(el)}`);
   }
 });
+
+/* ============================================================
+   Auditoría v1.17.0 — atajos, undo por gesto y handles
+   ============================================================ */
+
+// El diálogo nativo de color dispara 'input' por cada tono pisado al
+// arrastrar; con un saveUndo() por evento, elegir un color podía expulsar el
+// historial entero (límite 50) y Ctrl+Z recorría cada tono intermedio.
+test('elegir color de relleno arrastrando por el picker es UN paso de undo', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 200, 200);
+  app.selectTool('select');
+  app.click(150, 150);
+
+  const picker = app.$('fill-color-picker');
+  for (const v of ['#ff0000', '#00ff00', '#0000ff']) {
+    picker.value = v;
+    picker.__fire('input', { target: picker });
+  }
+  picker.__fire('change', { target: picker });
+  app.flush();
+
+  let el = app.elements()[0];
+  assert.equal(el.fillColor, '#0000ff', 'el último tono del gesto queda aplicado');
+  assert.equal(el.fill, true);
+
+  app.key('z', { ctrlKey: true });
+  el = app.elements()[0];
+  assert.equal(el.fillColor, undefined, 'un único Ctrl+Z deshace el gesto entero');
+  assert.ok(!el.fill, 'incluido el relleno que activó');
+});
+
+// Mantener pulsado +/− repite ~30 veces/s; sin filtrar e.repeat cada
+// repetición apilaba un undo y en ~2s expulsaba los 50 pasos de historial.
+test('mantener pulsado + sobre una curva es UN paso de undo', () => {
+  const app = loadApp();
+  app.selectTool('curveArrow');
+  app.drag(100, 100, 200, 100);
+  app.selectTool('select');
+  const antes = app.elements()[0];
+  // Punto medio real de la cuadrática: B(0.5) = P0/4 + C/2 + P2/4
+  app.click(
+    0.25 * antes.x1 + 0.5 * antes.cx + 0.25 * antes.x2,
+    0.25 * antes.y1 + 0.5 * antes.cy + 0.25 * antes.y2,
+  );
+
+  app.key('+');
+  app.key('+', { repeat: true });
+  app.key('+', { repeat: true });
+  app.key('+', { repeat: true });
+  assert.notEqual(app.elements()[0].cy, antes.cy, 'la curvatura ha cambiado');
+
+  app.key('z', { ctrlKey: true });
+  assert.equal(app.elements()[0].cy, antes.cy,
+    'un único Ctrl+Z devuelve la curvatura previa a TODA la pulsación');
+});
+
+// drawSelection omite los handles de esquina en las flechas (usan
+// extremos/curvatura), pero hitHandle los activaba igual: clicar cerca de una
+// esquina del bbox —espacio vacío a la vista— arrancaba un resize invisible.
+test('la esquina del bbox de una curva seleccionada no es un handle invisible', () => {
+  const app = loadApp();
+  app.selectTool('curveArrow');
+  app.drag(100, 100, 200, 100);
+  app.selectTool('select');
+  const antes = app.elements()[0];
+  app.click(
+    0.25 * antes.x1 + 0.5 * antes.cx + 0.25 * antes.x2,
+    0.25 * antes.y1 + 0.5 * antes.cy + 0.25 * antes.y2,
+  );
+
+  // Esquina INFERIOR izquierda del bbox (el control comba hacia abajo, así
+  // que es espacio vacío): lejos de los handles reales de la flecha
+  const corner = {
+    x: Math.min(antes.x1, antes.cx, antes.x2),
+    y: Math.max(antes.y1, antes.cy, antes.y2),
+  };
+  for (const p of [[antes.x1, antes.y1], [antes.x2, antes.y2], [antes.cx, antes.cy]]) {
+    assert.ok(Math.hypot(corner.x - p[0], corner.y - p[1]) > 10,
+      'premisa: la esquina no pisa ningún handle real');
+  }
+  app.drag(corner.x, corner.y, corner.x - 40, corner.y + 40);
+
+  const tras = app.elements()[0];
+  assert.deepEqual(
+    [tras.x1, tras.y1, tras.cx, tras.cy, tras.x2, tras.y2],
+    [antes.x1, antes.y1, antes.cx, antes.cy, antes.x2, antes.y2],
+    'arrastrar desde esa esquina no debe escalar la curva');
+});
+
+// Shift+R (rotar) con una selección sin formas rotables caía al selector de
+// herramientas: k === 'r' activaba Rectángulo y se perdía la selección.
+test('Shift+R sobre una selección sin rotables no cae en Rectángulo', () => {
+  const app = loadApp();
+  app.selectTool('arrow');
+  app.drag(100, 100, 200, 100);
+  app.selectTool('select');
+  app.click(150, 100);
+
+  const ev = app.key('R', { shiftKey: true });
+  assert.equal(ev.defaultPrevented, true, 'el atajo se consume siempre');
+  assert.equal(activeTool(app), 'select', 'la herramienta no cambia');
+  app.key('Delete');
+  assert.equal(app.elements().length, 0, 'y la selección sigue viva');
+});
+
+// En modo cadena, lastPos se fijaba snapeado y una línea más abajo se pisaba
+// con la posición cruda si el botón estaba pulsado: la preview ignoraba la
+// cuadrícula mientras el commit del mouseup sí snapeaba (preview ≠ resultado).
+test('la previsualización de la cadena respeta «Ajustar a cuadrícula»', () => {
+  const app = loadApp();
+  const snap = app.$('check-snap');
+  snap.checked = true;
+  snap.__fire('change', { target: snap });
+  app.flush();
+
+  app.selectTool('curveArrow');
+  app.click(140, 140);                    // un clic sin arrastre inicia la cadena
+  const canvas = app.$('main-canvas');
+  const overlay = app.$('overlay-canvas');
+  canvas.__fire('pointerdown', { clientX: 140, clientY: 140, pointerId: 1, button: 0 });
+  overlay._ctx.reset();
+  canvas.__fire('pointermove', { clientX: 147, clientY: 153, pointerId: 1, buttons: 1 });
+  app.flush();
+
+  const quads = overlay._ctx.callsTo('quadraticCurveTo');
+  assert.ok(quads.length > 0, 'hay preview del tramo en curso');
+  const [, , x, y] = quads[quads.length - 1].args;
+  assert.deepEqual([x, y], [140, 160],
+    'el extremo de la preview va snapeado, como el commit');
+  canvas.__fire('pointerup', { clientX: 147, clientY: 153, pointerId: 1 });
+});

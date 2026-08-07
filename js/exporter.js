@@ -64,9 +64,10 @@ const Exporter = (() => {
   const FONT_FALLBACK = 'Architects Daughter, Segoe Print, Comic Neue, cursive';
   const DEFAULT_FILL_OPACITY = 0.4;
 
-  /** Tipos sin representación HTML propia: van en un <svg> incrustado */
+  /** Tipos sin representación HTML propia: van en un <svg> incrustado.
+      (Sin 'eraser': html() desvía a _svgScene toda escena que los tenga.) */
   const VECTOR_TYPES = [
-    'pencil', 'eraser', 'line', 'arrow', 'curveArrow', 'circle',
+    'pencil', 'line', 'arrow', 'curveArrow', 'circle',
     'square', 'trapezoid', 'triangle', 'pentagon', 'hexagon',
   ];
 
@@ -130,6 +131,10 @@ const Exporter = (() => {
    */
   function _svgElement(el) {
     const color = _escapeXml(String(el.color));
+    // Tinte por sufijo alfa: el color base puede ser #rrggbbaa (la validación
+    // de import lo acepta) y concatenar sobre él da 10 dígitos — inválido en
+    // SVG, donde fill por defecto es negro y stroke desaparece.
+    const tint = a => _escapeXml(String(el.color).slice(0, 7)) + a;
     const lw = _escapeXml(String(el.lineWidth));
     const fillCol = _escapeXml(_fillColor(el));
     const s = `stroke="${color}" stroke-width="${lw}" fill="none" stroke-linecap="round"`;
@@ -146,10 +151,9 @@ const Exporter = (() => {
           }
           break;
 
-        case 'eraser':
-          // Los borradores se aplican como máscaras secuenciales en
-          // _svgScene para afectar solo a los elementos anteriores.
-          break;
+        // (Los `eraser` heredados nunca llegan aquí: _svgScene los convierte
+        // en máscaras antes de llamar a _svgElement, y html() desvía a
+        // _svgScene cualquier escena que los contenga.)
 
         case 'line':
           out += `<line x1="${el.x1}" y1="${el.y1}" x2="${el.x2}" y2="${el.y2}" ${sBody}/>\n`;
@@ -239,13 +243,13 @@ const Exporter = (() => {
 
         // UI components → simple rects with labels in SVG
         case 'button':
-          out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="8" stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="${color}15"/>\n`;
+          out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="8" stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="${tint('15')}"/>\n`;
           out += `<text x="${el.x + el.w / 2}" y="${el.y + el.h / 2 + 5}" fill="${color}" font-family="${FONT_FALLBACK}" font-size="14" text-anchor="middle">${_escapeXml(el.label || 'Button')}</text>\n`;
           break;
 
         case 'input':
-          out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="4" stroke="${color}80" stroke-width="${lw}" fill="none"/>\n`;
-          out += `<text x="${el.x + 10}" y="${el.y + el.h / 2 + 4}" fill="${color}60" font-family="${FONT_FALLBACK}" font-size="13">${_escapeXml(el.label || 'Type here...')}</text>\n`;
+          out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="4" stroke="${tint('80')}" stroke-width="${lw}" fill="none"/>\n`;
+          out += `<text x="${el.x + 10}" y="${el.y + el.h / 2 + 4}" fill="${tint('60')}" font-family="${FONT_FALLBACK}" font-size="13">${_escapeXml(el.label || 'Type here...')}</text>\n`;
           break;
 
         case 'imagePlaceholder':
@@ -255,7 +259,7 @@ const Exporter = (() => {
           break;
 
         case 'nav':
-          out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="${color}0a"/>\n`;
+          out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="${tint('0a')}"/>\n`;
           out += `<text x="${el.x + 20}" y="${el.y + el.h / 2 + 4}" fill="${color}" font-family="${FONT_FALLBACK}" font-size="12">${_escapeXml(el.label || 'Logo')}</text>\n`;
           break;
 
@@ -368,17 +372,30 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
       out += _svgScene(elements, options.overlapMode).split('\n').filter(Boolean).map(line => `    ${line}\n`).join('');
       out += `  </svg>\n`;
     } else {
-      // Tipos sin representación HTML (lápiz, líneas, flechas, círculos,
-      // borrador): se incrustan como un <svg> superpuesto del mismo tamaño
-      const vectors = elements.filter(el => VECTOR_TYPES.includes(el.type));
-      if (vectors.length) {
+      // Tipos sin representación HTML (lápiz, líneas, flechas, círculos): se
+      // incrustan como <svg> superpuestos — uno por TRAMO contiguo, en el
+      // orden del lienzo. Con un único <svg> inicial, todo vector quedaba
+      // debajo de todos los componentes (los absolutos posteriores pintan
+      // encima) y una flecha dibujada sobre un card desaparecía tras él.
+      let svgRun = '';
+      const flushVectors = () => {
+        if (!svgRun) return;
         out += `  <svg width="${CANVAS_W}" height="${CANVAS_H}" viewBox="0 0 ${CANVAS_W} ${CANVAS_H}" style="left:0;top:0;pointer-events:none;">\n`;
-        vectors.forEach(el => { out += '    ' + _svgElement(el); });
+        out += svgRun;
         out += `  </svg>\n`;
-      }
+        svgRun = '';
+      };
 
       elements.forEach(el => {
+      if (VECTOR_TYPES.includes(el.type)) {
+        svgRun += '    ' + _svgElement(el);
+        return;
+      }
+      flushVectors();
       const color = _escapeHtml(String(el.color));
+      // Mismo motivo que en _svgElement: nunca concatenar alfa sobre un
+      // color que puede traer alfa propio (#rrggbbaa)
+      const tint = a => _escapeHtml(String(el.color).slice(0, 7)) + a;
       const lw = _escapeHtml(String(el.lineWidth));
       switch (el.type) {
         case 'rect':
@@ -391,13 +408,13 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
           out += `  <p style="left:${el.x}px;top:${el.y}px;color:${color};font-size:${el.fontSize}px;white-space:pre-wrap;line-height:${el.fontSize + 4}px;">${_escapeHtml(el.value)}</p>\n`;
           break;
         case 'button':
-          out += `  <button style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};border-radius:8px;background:${color}15;color:${color};font-family:inherit;cursor:pointer;">${_escapeHtml(el.label || 'Button')}</button>\n`;
+          out += `  <button style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};border-radius:8px;background:${tint('15')};color:${color};font-family:inherit;cursor:pointer;">${_escapeHtml(el.label || 'Button')}</button>\n`;
           break;
         case 'input':
-          out += `  <input placeholder="${_escapeHtml(el.label || 'Type here...')}" style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color}80;border-radius:4px;padding:0 10px;font-family:inherit;"/>\n`;
+          out += `  <input placeholder="${_escapeHtml(el.label || 'Type here...')}" style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${tint('80')};border-radius:4px;padding:0 10px;font-family:inherit;"/>\n`;
           break;
         case 'imagePlaceholder':
-          out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};display:flex;align-items:center;justify-content:center;color:${color}80;font-size:14px;">Image Placeholder</div>\n`;
+          out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};display:flex;align-items:center;justify-content:center;color:${tint('80')};font-size:14px;">Image Placeholder</div>\n`;
           break;
         case 'image':
           out += `  <img src="${_escapeHtml(el.src)}" alt="" style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;object-fit:fill;"/>\n`;
@@ -406,10 +423,11 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
           out += `  <nav style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};display:flex;align-items:center;justify-content:space-between;padding:0 20px;"><span>${_escapeHtml(el.label || 'Logo')}</span><div style="display:flex;gap:20px;"><a href="#">Home</a><a href="#">About</a><a href="#">Contact</a></div></nav>\n`;
           break;
         case 'card':
-          out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};border-radius:10px;overflow:hidden;"><div style="height:45%;background:${color}10;border-bottom:1px solid ${color}30;"></div><div style="padding:12px;"><h3 style="color:${color};">${_escapeHtml(el.label || 'Card Title')}</h3><p style="color:${color}60;margin-top:6px;">Description text</p></div></div>\n`;
+          out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};border-radius:10px;overflow:hidden;"><div style="height:45%;background:${tint('10')};border-bottom:1px solid ${tint('30')};"></div><div style="padding:12px;"><h3 style="color:${color};">${_escapeHtml(el.label || 'Card Title')}</h3><p style="color:${tint('60')};margin-top:6px;">Description text</p></div></div>\n`;
           break;
       }
       });
+      flushVectors();
     }
 
     out += `</div>\n</body>\n</html>`;
@@ -535,10 +553,14 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
     }
     if (el.type === 'image') {
       return _isNum(el.x) && _isNum(el.y) && _isNum(el.w) && _isNum(el.h) &&
+             el.w > 0 && el.h > 0 &&
              typeof el.src === 'string' && IMAGE_SRC.test(el.src);
     }
     if (el.type === 'text') {
-      return _isNum(el.x) && _isNum(el.y) && typeof el.value === 'string' && _isNum(el.fontSize);
+      // fontSize > 0: con uno negativo el canvas ignora la asignación de font
+      // (el texto sale con la fuente que quedara) y el SVG no lo renderiza
+      return _isNum(el.x) && _isNum(el.y) && typeof el.value === 'string' &&
+             _isNum(el.fontSize) && el.fontSize > 0;
     }
     if (RegularPolygon.isType(el.type)) {
       return _isNum(el.x) && _isNum(el.y) && _isNum(el.w) && _isNum(el.h) &&
@@ -548,7 +570,13 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
       return _isNum(el.x) && _isNum(el.y) && _isNum(el.w) && _isNum(el.h) &&
              el.w > 0 && el.h > 0;
     }
-    return _isNum(el.x) && _isNum(el.y) && _isNum(el.w) && _isNum(el.h);
+    // w/h > 0 también aquí (rect, circle, componentes UI…): con dimensiones
+    // negativas el canvas aún dibuja algo pero <rect width="-100"> es un
+    // error SVG y CSS descarta width negativos — el elemento "desaparece"
+    // solo en los exports. La app nunca los crea (creación y resize
+    // normalizan), así que solo puede venir de un JSON manipulado.
+    return _isNum(el.x) && _isNum(el.y) && _isNum(el.w) && _isNum(el.h) &&
+           el.w > 0 && el.h > 0;
   }
 
   /**
@@ -587,6 +615,12 @@ body { font-family: ${SKETCHY_FONT}; background: #fff; }
             alert('Archivo JSON inválido');
             resolve(null);
           }
+        };
+        // Sin onerror la promesa no se resolvía nunca: un fallo de lectura
+        // dejaba el `await` del llamador colgado en silencio.
+        reader.onerror = () => {
+          alert('No se pudo leer el archivo');
+          resolve(null);
         };
         reader.readAsText(file);
       };

@@ -98,6 +98,17 @@ const Eraser = (function () {
     return pts;
   }
 
+  /** ¿`p` está dentro del polígono (ray casting)? */
+  function _pointInPolygon(p, poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const a = poly[i], b = poly[j];
+      if ((a.y > p.y) !== (b.y > p.y) &&
+          p.x < a.x + (b.x - a.x) * (p.y - a.y) / (b.y - a.y)) inside = !inside;
+    }
+    return inside;
+  }
+
   /** Formas cuyo "dibujo" es solo su contorno mientras no estén rellenas. */
   const OUTLINE_TYPES = ['rect', 'roundedRect', 'circle', 'square',
     'triangle', 'pentagon', 'hexagon', 'trapezoid'];
@@ -132,11 +143,20 @@ const Eraser = (function () {
     // el muro completo). Rellenas, el interior también es tinta.
     if (OUTLINE_TYPES.includes(el.type)) {
       const box = boundsOf(el);
-      if (el.fill && _touchesBox(box, segs, r)) return true;
       const w = r + (el.lineWidth || 1) / 2;
-      const verts = (deps.polygonVertices && deps.polygonVertices(el))
-        || (deps.trapezoidVertices && deps.trapezoidVertices(el))
+      // Vértices degenerados ([] en un polígono de tamaño cero) NO cortan el
+      // encadenado: `[]` es truthy y dejaba el elemento imborrable.
+      const poly = deps.polygonVertices && deps.polygonVertices(el);
+      const trap = deps.trapezoidVertices && deps.trapezoidVertices(el);
+      const verts = (poly && poly.length && poly)
+        || (trap && trap.length && trap)
         || (el.type === 'circle' ? _ellipseOutline(box) : _boxOutline(box));
+      // Relleno: el interior es tinta, pero el interior REAL (la silueta),
+      // no la caja — la esquina del bbox de un círculo o un triángulo
+      // rellenos está a ~15 px de la tinta más cercana y no debe borrarlos.
+      // Un punto del trazo dentro de la silueta, o un cruce del contorno
+      // (lo detecta el test de contorno de abajo), cubren todos los casos.
+      if (el.fill && pts.some(p => _pointInPolygon(p, verts))) return true;
       return _touchesPolyline(verts, segs, w, true);
     }
     // Texto, imágenes y componentes de UI: su caja SÍ es su dibujo.

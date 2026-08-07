@@ -65,6 +65,35 @@ test('una forma RELLENA sí se borra por su interior', () => {
     'el relleno es tinta: el interior cuenta');
 });
 
+// El interior de una forma rellena es su SILUETA, no su caja: la esquina del
+// bbox de un círculo relleno está a ~15px de la tinta más cercana y borrarla
+// desde ahí contradecía la regla «se borra lo que se ve». (Auditoría v1.17.0)
+test('rellenas: el interior que cuenta es la silueta real, no la caja', () => {
+  const circulo = { type: 'circle', x: 0, y: 0, w: 100, h: 100, color: '#000000', lineWidth: 2, fill: true };
+  assert.equal(Eraser.touches(circulo, stroke([3, 3]), 6, DEPS), false,
+    'esquina del bbox, fuera de la silueta → no borra');
+  assert.equal(Eraser.touches(circulo, stroke([50, 50]), 6, DEPS), true,
+    'el centro sí es tinta');
+  assert.equal(Eraser.touches(circulo, stroke([-20, 50], [120, 50]), 6, DEPS), true,
+    'un trazo que atraviesa el interior sin puntos dentro cruza el contorno → borra');
+
+  const tri = { type: 'triangle', x: 0, y: 0, w: 100, h: 100, color: '#000000', lineWidth: 2, fill: true, rotation: 0 };
+  assert.equal(Eraser.touches(tri, stroke([3, 3]), 6, DEPS), false,
+    'esquina del bbox del triángulo relleno, fuera de la silueta → no borra');
+  assert.equal(Eraser.touches(tri, stroke([50, 60]), 6, DEPS), true,
+    'su interior real sí');
+});
+
+// `[]` es truthy: los vértices vacíos de un polígono degenerado (w=h=0, solo
+// alcanzable desde datos externos) cortaban el encadenado de fallbacks y el
+// elemento quedaba imborrable — invisible y sin hit-test, solo lo quitaba
+// «Limpiar todo». (Auditoría v1.17.0)
+test('un polígono degenerado (w=h=0) sigue siendo borrable', () => {
+  const punto = { type: 'triangle', x: 40, y: 40, w: 0, h: 0, color: '#000000', lineWidth: 2, rotation: 0 };
+  assert.equal(Eraser.touches(punto, stroke([40, 40]), 6, DEPS), true,
+    'clic encima con vértices degenerados → cae a la caja y borra');
+});
+
 test('círculos vacíos: se usa la elipse, no su caja', () => {
   const c = { type: 'circle', x: 0, y: 0, w: 200, h: 200, color: '#000000', lineWidth: 2 };
   assert.equal(Eraser.touches(c, stroke([100, 100]), 6, DEPS), false, 'centro hueco');

@@ -360,10 +360,15 @@ const Renderer = (() => {
 
   /* ── UI component helpers ── */
 
+  // Tinte por sufijo alfa: el color base puede traer alfa propio (#rrggbbaa,
+  // que la validación de import acepta) y concatenar sobre él daría 10
+  // dígitos — inválido, y el fillStyle anterior del contexto se quedaría.
+  const _tint = (color, alpha) => String(color).slice(0, 7) + alpha;
+
   function _button(ctx, x, y, w, h, color, lw, label) {
     ctx.strokeStyle = color;
     ctx.lineWidth = lw;
-    ctx.fillStyle = color + '15';
+    ctx.fillStyle = _tint(color, '15');
     Sketchy.roundedRect(ctx, x, y, w, h, 8);
     ctx.fill();
     ctx.font = `${Math.min(16, h * 0.5)}px ${SKETCHY_FONT}`;
@@ -374,11 +379,11 @@ const Renderer = (() => {
   }
 
   function _input(ctx, x, y, w, h, color, lw, label) {
-    ctx.strokeStyle = color + '80';
+    ctx.strokeStyle = _tint(color, '80');
     ctx.lineWidth = lw;
     Sketchy.roundedRect(ctx, x, y, w, h, 4);
     ctx.font = `${Math.min(13, h * 0.45)}px ${SKETCHY_FONT}`;
-    ctx.fillStyle = color + '60';
+    ctx.fillStyle = _tint(color, '60');
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText(label || 'Type here...', x + 10, y + h / 2);
@@ -410,7 +415,7 @@ const Renderer = (() => {
   function _nav(ctx, x, y, w, h, color, lw, label) {
     ctx.strokeStyle = color;
     ctx.lineWidth = lw;
-    ctx.fillStyle = color + '0a';
+    ctx.fillStyle = _tint(color, '0a');
     Sketchy.rect(ctx, x, y, w, h);
     ctx.fill();
     // Logo
@@ -443,7 +448,7 @@ const Renderer = (() => {
     ctx.fill();
     // Image area
     const imgH = h * 0.45;
-    ctx.fillStyle = color + '10';
+    ctx.fillStyle = _tint(color, '10');
     ctx.fillRect(x + 4, y + 4, w - 8, imgH);
     Sketchy.line(ctx, x + 4, y + imgH + 4, x + w - 4, y + imgH + 4);
     // Title
@@ -453,7 +458,7 @@ const Renderer = (() => {
     ctx.textBaseline = 'top';
     ctx.fillText(label || 'Card Title', x + 12, y + imgH + 14);
     // Description lines
-    ctx.strokeStyle = color + '40';
+    ctx.strokeStyle = _tint(color, '40');
     ctx.lineWidth = 1;
     const descY = y + imgH + 38;
     Sketchy.line(ctx, x + 12, descY, x + w - 20, descY, 0.5);
