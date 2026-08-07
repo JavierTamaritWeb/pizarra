@@ -12,6 +12,9 @@
   const ERASER_SIZE_MIN = 4;
   const ERASER_SIZE_MAX = 100;
   const DEFAULT_ERASER_SIZE = 16;
+  // Ancho inicial de los caminos del jardín; los topes los pone js/garden.js
+  // (Garden.PATH_W_MIN/MAX), que es también de donde sale el rango del slider.
+  const DEFAULT_PATH_WIDTH = 34;
 
   const state = {
     tool:        TOOLS.PENCIL,
@@ -47,6 +50,7 @@
     pathType: 'path',
     herbType: 'lavender',
     gardenLabels: true,  // rotular cada pieza con el nombre de su variante
+    pathWidth: DEFAULT_PATH_WIDTH, // ancho de los caminos (el arrastre solo da el recorrido)
     doubleHead:  false, // nuevas flechas con punta en ambos extremos
     dashed:      false, // nuevas líneas/flechas con trazo discontinuo
     curveFlip:   false, // Shift durante el trazado: curva hacia el otro lado
@@ -757,6 +761,7 @@
         pathType: state.pathType,
         herbType: state.herbType,
         gardenLabels: state.gardenLabels,
+        pathWidth: state.pathWidth,
       }));
     } catch (_) { /* almacenamiento lleno o bloqueado: se ignora */ }
   }
@@ -809,6 +814,9 @@
       restoreVariant(prefs.pathType,    PATH_TYPES,    'pathType');
       restoreVariant(prefs.herbType,    HERB_TYPES,    'herbType');
       if (typeof prefs.gardenLabels === 'boolean') state.gardenLabels = prefs.gardenLabels;
+      if (Number.isFinite(prefs.pathWidth)) {
+        state.pathWidth = Math.min(Garden.PATH_W_MAX, Math.max(Garden.PATH_W_MIN, prefs.pathWidth));
+      }
     } catch (_) { /* prefs corruptas: se ignoran */ }
   }
 
@@ -1454,6 +1462,7 @@
       decorType: state.decorType, pathType: state.pathType,
       herbType: state.herbType,
       labels: state.gardenLabels,
+      pathWidth: state.pathWidth,
       measureText: (value, fontSize) => {
         ctx.save();
         ctx.font = `${fontSize}px ${SKETCHY_FONT}`;
@@ -2383,7 +2392,11 @@
     // así que va corto y en diagonal — corto para que los cantos se distingan
     // a 56 px, y en diagonal porque es lo que hace esta herramienta: seguir el
     // gesto en cualquier inclinación.
-    { tool: TOOLS.GARDEN_PATH,   modal: 'modal-path',   root: 'path-catalog',   cls: 'modal__path',   data: 'path',   catalog: PATH_TYPES,    key: 'pathType', box: { x: 40, y: 46 } },
+    { tool: TOOLS.GARDEN_PATH,   modal: 'modal-path',   root: 'path-catalog',   cls: 'modal__path',   data: 'path',   catalog: PATH_TYPES,    key: 'pathType', box: { x: 40, y: 46 },
+      // El icono se salta el ancho del panel (`pathWidth: null` → la reserva
+      // proporcional de garden.js): su recorrido mide 60 px de mentira, así que
+      // un ancho de 120 lo dejaría hecho una mancha en vez de un camino.
+      opts: () => ({ ...gardenOpts(), pathWidth: null }) },
     { tool: TOOLS.GARDEN_HERB,   modal: 'modal-herb',   root: 'herb-catalog',   cls: 'modal__herb',   data: 'herb',   catalog: HERB_TYPES,    key: 'herbType'   },
   ].map(cfg => ({ gen: () => Garden, opts: () => gardenOpts(), box: { x: 100, y: 84 }, ...cfg }));
   const variantModalOf = tool => VARIANT_MODALS.find(m => m.tool === tool);
@@ -2840,6 +2853,21 @@
       state.gardenLabels = e.target.checked;
       savePrefs();
     });
+    // Ancho del camino: mismo caso. El arrastre de la herramienta ya solo dice
+    // por dónde va el recorrido y con qué inclinación, así que el ancho —lo que
+    // antes daba el lado corto de la caja— se elige aquí. `input` para que el
+    // número siga al dedo; `change` guarda una vez al soltar, no en cada píxel.
+    const pathWidth = $('garden-path-width');
+    pathWidth.value = String(state.pathWidth);
+    $('path-width-val').textContent = String(state.pathWidth);
+    pathWidth.addEventListener('input', e => {
+      const v = Number(e.target.value);
+      if (!Number.isFinite(v)) return;
+      state.pathWidth = Math.min(Garden.PATH_W_MAX, Math.max(Garden.PATH_W_MIN, v));
+      $('path-width-val').textContent = String(state.pathWidth);
+      scheduleOverlay();     // si se está arrastrando un camino, que se vea ya
+    });
+    pathWidth.addEventListener('change', savePrefs);
     // Doble punta — semántica dual: con selección aplica/quita heads:'both'
     // a las flechas seleccionadas (los no-flecha se ignoran); sin selección
     // fija el default para las nuevas flechas.

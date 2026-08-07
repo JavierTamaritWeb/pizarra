@@ -519,6 +519,46 @@ test('el camino va en la dirección del arrastre, con cualquier inclinación', (
   }
 });
 
+/* El ancho salía del lado corto de la caja; desde que el arrastre es el
+   recorrido ya no hay tal lado, así que lo manda `pathWidth` (el ajuste del
+   panel). Sin él quedaría un camino de ancho fijo, que es justo lo que se
+   perdió al ganar la inclinación libre. */
+test('el ancho del camino lo manda pathWidth, medido entre sus dos bordes', () => {
+  const { p1, p2 } = at(0, 300);        // horizontal: el ancho se lee en y
+  const anchoDe = w => {
+    const [a, b] = make(TOOLS.GARDEN_PATH, 'pathStraight', { labels: false, pathWidth: w }, p1, p2)
+      .filter(el => el.type === 'line');
+    return Math.abs(a.y1 - b.y1);
+  };
+  assert.equal(anchoDe(20), 20, 'el ancho pedido es el que separa los bordes');
+  assert.equal(anchoDe(64), 64);
+  assert.ok(anchoDe(20) < anchoDe(64), 'y el ajuste manda de verdad');
+
+  // Se acota a los topes del slider, vengan de donde vengan (prefs de otra
+  // versión, JSON manipulado): un camino de 4000 px no es un camino.
+  assert.equal(anchoDe(-50), Garden.PATH_W_MIN);
+  assert.equal(anchoDe(4000), Garden.PATH_W_MAX);
+
+  // Sin el dato, la reserva proporcional al recorrido (la que usan los iconos).
+  const sinDato = make(TOOLS.GARDEN_PATH, 'pathStraight', { labels: false }, p1, p2)
+    .filter(el => el.type === 'line');
+  const auto = Math.abs(sinDato[0].y1 - sinDato[1].y1);
+  assert.ok(auto > Garden.PATH_W_MIN && auto < Garden.PATH_W_MAX,
+    `la reserva debe caer dentro de los topes, y vale ${auto}`);
+});
+
+test('el ancho del camino se respeta en cualquier inclinación', () => {
+  for (const deg of [90, 30, -45]) {
+    const { a, p1, p2 } = at(deg, 300);
+    const [e1, e2] = make(TOOLS.GARDEN_PATH, 'pathStraight', { labels: false, pathWidth: 48 }, p1, p2)
+      .filter(el => el.type === 'line');
+    // Distancia entre los dos bordes, medida en perpendicular al recorrido.
+    const v = e => (e.x1 - p1.x) * -Math.sin(a) + (e.y1 - p1.y) * Math.cos(a);
+    assert.ok(Math.abs(Math.abs(v(e1) - v(e2)) - 48) < 1e-9,
+      `${deg}°: el ancho no se conserva al girar`);
+  }
+});
+
 test('el camino serpenteante también gira entero con el arrastre', () => {
   for (const deg of [90, 30, -45]) {
     const { a, p1, p2 } = at(deg);

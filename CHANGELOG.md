@@ -4,6 +4,24 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.20.0] — 2026-08-07
+
+### Añadido
+- **Ancho del camino**, en el panel «Jardín» (8–120 px). Al pasar el arrastre a
+  ser el recorrido (1.19.0) desapareció el lado corto de la caja, que era de
+  donde salía el ancho: el camino quedó sin forma de ensancharse o estrecharse.
+  Es un default de creación, como el resto de la sección, y **se recuerda entre
+  sesiones**. El número sigue al dedo mientras se mueve el slider, y si hay un
+  camino en curso la previsualización se actualiza en el momento.
+
+### Tests
+- 4 guardias nuevas: el ancho pedido es el que separa los bordes, se acota a
+  los topes, se conserva a cualquier inclinación, y el rango del slider coincide
+  con el que aplica `js/garden.js` (que ahora lo exporta justo para poder
+  compararlo). Más la del panel: mueve el control, dibuja y comprueba que el
+  camino sale con ese ancho y que vuelve puesto al recargar. **366 unitarios +
+  25 e2e**.
+
 ## [1.19.0] — 2026-08-07
 
 ### Añadido

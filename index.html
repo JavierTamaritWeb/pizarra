@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Architects+Daughter&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=1.19.0" />
+  <link rel="stylesheet" href="css/styles.css?v=1.20.0" />
 </head>
 <body>
 
@@ -23,7 +23,7 @@
       <div class="topbar__brand">
         <span class="topbar__logo-icon" aria-hidden="true">✎</span>
         <span class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></span>
-        <span class="topbar__badge">v1.19.0</span>
+        <span class="topbar__badge">v1.20.0</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes">
@@ -168,6 +168,13 @@
           <label class="panel__check">
             <input type="checkbox" id="check-garden-labels" checked /> Etiquetas
           </label>
+          <!-- El arrastre del camino es su recorrido (dirección e inclinación),
+               así que el ancho se elige aquí. min/max deben coincidir con
+               PATH_W_MIN/PATH_W_MAX de js/garden.js -->
+          <h3 class="panel__title">Ancho del camino: <span id="path-width-val">34</span>px</h3>
+          <input class="panel__slider" type="range" id="garden-path-width"
+                 min="8" max="120" step="2" value="34"
+                 aria-label="Ancho de los caminos del jardín" />
         </section>
 
         <!-- Font Size -->
@@ -408,6 +415,7 @@
           <li>Cada pieza se crea como una <strong>unidad</strong> (dibujo + etiqueta): un clic la selecciona entera; <kbd>Alt</kbd>+clic aísla una parte</li>
           <li>El tamaño por defecto depende del tipo: un <strong>seto</strong> nace apaisado, un <strong>camino</strong> vertical y una <strong>flor</strong> suelta, menuda</li>
           <li>En el <strong>camino</strong>, el arrastre es el recorrido: sale en la dirección del gesto y con <strong>cualquier inclinación</strong>, no solo en horizontal o vertical</li>
+          <li>Como el arrastre solo marca el recorrido, el <strong>ancho del camino</strong> se elige en el panel <strong>Jardín</strong> y se recuerda</li>
         </ul>
       </section>
 
@@ -615,19 +623,19 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="js/config.js?v=1.19.0"></script>
-  <script src="js/sketchy.js?v=1.19.0"></script>
-  <script src="js/arc.js?v=1.19.0"></script>
-  <script src="js/curve-path.js?v=1.19.0"></script>
-  <script src="js/shape-rotation.js?v=1.19.0"></script>
-  <script src="js/regular-polygon.js?v=1.19.0"></script>
-  <script src="js/trapezoid.js?v=1.19.0"></script>
-  <script src="js/eraser.js?v=1.19.0"></script>
-  <script src="js/building.js?v=1.19.0"></script>
-  <script src="js/garden.js?v=1.19.0"></script>
-  <script src="js/renderer.js?v=1.19.0"></script>
-  <script src="js/exporter.js?v=1.19.0"></script>
-  <script src="js/templates.js?v=1.19.0"></script>
-  <script src="js/app.js?v=1.19.0"></script>
+  <script src="js/config.js?v=1.20.0"></script>
+  <script src="js/sketchy.js?v=1.20.0"></script>
+  <script src="js/arc.js?v=1.20.0"></script>
+  <script src="js/curve-path.js?v=1.20.0"></script>
+  <script src="js/shape-rotation.js?v=1.20.0"></script>
+  <script src="js/regular-polygon.js?v=1.20.0"></script>
+  <script src="js/trapezoid.js?v=1.20.0"></script>
+  <script src="js/eraser.js?v=1.20.0"></script>
+  <script src="js/building.js?v=1.20.0"></script>
+  <script src="js/garden.js?v=1.20.0"></script>
+  <script src="js/renderer.js?v=1.20.0"></script>
+  <script src="js/exporter.js?v=1.20.0"></script>
+  <script src="js/templates.js?v=1.20.0"></script>
+  <script src="js/app.js?v=1.20.0"></script>
 </body>
 </html>

@@ -106,7 +106,7 @@ const Garden = (function () {
     // él la inclinación. Se resuelve por eje, y su caja se deriva del trazado
     // —es la que coloca la etiqueta, igual que en la parcela cuadrada—.
     if (tool === TOOLS.GARDEN_PATH) {
-      const ax = _pathAxis(p1, p2, PATH_VARIANTS[variant] || PATH_VARIANTS.path);
+      const ax = _pathAxis(p1, p2, PATH_VARIANTS[variant] || PATH_VARIANTS.path, o);
       return _labelled(_pathTool(ax, o, variant), _pathBox(ax), tool, variant, o);
     }
     const base = DEFAULTS[tool];
@@ -772,11 +772,17 @@ const Garden = (function () {
   };
 
   /* Camino por defecto (clic sin arrastrar): baja desde el punto pulsado, que
-     es como se entra a un jardín desde la calle. Su ancho es una fracción del
-     recorrido, acotada, para que un sendero largo no salga como un hilo ni uno
-     corto como una plaza; PATH_LEN × PATH_W_FRAC ≈ el ancho de siempre. */
+     es como se entra a un jardín desde la calle.
+
+     El ancho lo pone `o.pathWidth` (el ajuste del panel). Desde que el arrastre
+     pasó a ser el RECORRIDO —y no una caja— ya no hay un lado corto de donde
+     sacarlo, así que sin ese dato se cae a una fracción acotada del recorrido:
+     un sendero largo no sale como un hilo ni uno corto como una plaza, y
+     PATH_LEN × PATH_W_FRAC da el ancho de siempre. Esa reserva es la que usan
+     los iconos del catálogo y quien llame al módulo por su cuenta. */
   const PATH_LEN = 220;
-  const PATH_W_FRAC = 0.155, PATH_W_MIN = 16, PATH_W_MAX = 48;
+  const PATH_W_FRAC = 0.155;
+  const PATH_W_MIN = 8, PATH_W_MAX = 120;   // deben coincidir con #garden-path-width
 
   /**
    * Eje del camino: el arrastre ES el recorrido, en la dirección y con la
@@ -784,11 +790,12 @@ const Garden = (function () {
    * que usan las demás herramientas —`Math.min`/`Math.abs` tiran justo el dato
    * que aquí manda: hacia dónde va—.
    */
-  function _pathAxis(p1, p2, cfg) {
+  function _pathAxis(p1, p2, cfg, o) {
     let { x: x1, y: y1 } = p1, { x: x2, y: y2 } = p2;
     if (Math.hypot(x2 - x1, y2 - y1) < MIN_SPAN) { x2 = x1; y2 = y1 + PATH_LEN; }
     const len = Math.hypot(x2 - x1, y2 - y1);
-    const w = Math.max(PATH_W_MIN, Math.min(PATH_W_MAX, len * PATH_W_FRAC));
+    const want = Number.isFinite(o && o.pathWidth) ? o.pathWidth : len * PATH_W_FRAC;
+    const w = Math.max(PATH_W_MIN, Math.min(PATH_W_MAX, want));
     return {
       x1, y1, x2, y2, len, w,
       ux: (x2 - x1) / len, uy: (y2 - y1) / len,     // unitario del recorrido
@@ -869,5 +876,7 @@ const Garden = (function () {
     return els;
   }
 
-  return { elements, MIN_SPAN, LABEL_SIZE, LABEL_GAP };
+  // PATH_W_MIN/MAX salen fuera para que el rango del slider no se pueda
+  // desincronizar en silencio: lo comprueba un test contra index.html.
+  return { elements, MIN_SPAN, LABEL_SIZE, LABEL_GAP, PATH_W_MIN, PATH_W_MAX };
 })();

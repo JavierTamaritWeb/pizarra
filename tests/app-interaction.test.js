@@ -128,6 +128,34 @@ test('el modal de Fachada permite elegir el tipo de puerta y de ventana', () => 
     'con Puerta de arco la fachada debe traer el arco');
 });
 
+/* ── Jardín: el ancho del camino, que el arrastre ya no puede dar ── */
+
+test('el slider de ancho de camino cambia el camino y se recuerda', () => {
+  const app = loadApp();
+  const slider = app.$('garden-path-width');
+  slider.value = '72';
+  slider.__fire('input', { target: slider });
+  slider.__fire('change', { target: slider });
+  app.flush();
+  assert.equal(app.$('path-width-val').textContent, '72', 'el número sigue al dedo');
+
+  app.selectTool('camino');
+  // El selector de atributo no lo entiende el stub del DOM: se filtra a mano.
+  const btn = [...app.$('path-catalog').querySelectorAll('.modal__path')]
+    .find(b => b.dataset.path === 'pathStraight');
+  app.$('modal-path').__fire('click', { target: btn });
+  app.flush();
+  app.drag(100, 300, 400, 300);          // recorrido horizontal: el ancho va en y
+
+  const [a, b] = app.elements().filter(e => e.type === 'line');
+  assert.equal(Math.abs(a.y1 - b.y1), 72, 'el camino sale con el ancho elegido');
+
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.pathWidth, 72);
+  assert.equal(loadApp({ prefs }).$('garden-path-width').value, '72',
+    'y vuelve puesto al arrancar de nuevo');
+});
+
 /* ── Balcón: catálogo genérico, con la geometría real como icono ── */
 
 test('el catálogo de Balcón se llena desde BALCONY_TYPES y elegir un tipo lo aplica', () => {

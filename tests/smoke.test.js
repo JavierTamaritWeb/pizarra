@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v1.19.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v1.20.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v1\.19\.0</);
-  assert.match(html, /css\/styles\.css\?v=1\.19\.0/);
-  assert.match(html, /js\/app\.js\?v=1\.19\.0/);
-  assert.match(html, /js\/building\.js\?v=1\.19\.0/);
-  assert.match(html, /js\/garden\.js\?v=1\.19\.0/);
-  assert.match(html, /js\/config\.js\?v=1\.19\.0/);
+  assert.match(html, /class="topbar__badge">v1\.20\.0</);
+  assert.match(html, /css\/styles\.css\?v=1\.20\.0/);
+  assert.match(html, /js\/app\.js\?v=1\.20\.0/);
+  assert.match(html, /js\/building\.js\?v=1\.20\.0/);
+  assert.match(html, /js\/garden\.js\?v=1\.20\.0/);
+  assert.match(html, /js\/config\.js\?v=1\.20\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -55,6 +55,23 @@ test('index publica v1.19.0 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="stroke-label">Trazo</);
   assert.match(html, /Tamaño del borrador/);
   assert.match(html, /entre 4 y 100 px \(16 px por defecto\)/);
+});
+
+// El rango del slider de ancho de camino y los topes con los que garden.js
+// acota `pathWidth` son el mismo dato en dos sitios. Si se separan no falla
+// nada: el slider deja pedir un ancho que el módulo recorta en silencio, o se
+// queda corto respecto a lo que el módulo admite.
+test('el slider de ancho de camino cubre justo el rango que acota garden.js', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const tag = html.match(/<input[^>]*id="garden-path-width"[\s\S]*?\/>/);
+  assert.ok(tag, 'no existe el slider #garden-path-width');
+  const attrs = tag[0].replace(/\s+/g, ' ');
+  const attr = a => Number(attrs.match(new RegExp(`${a}="([^"]+)"`))[1]);
+  const { Garden } = loadAll();
+  assert.equal(attr('min'), Garden.PATH_W_MIN);
+  assert.equal(attr('max'), Garden.PATH_W_MAX);
+  // Y su valor inicial cae dentro, o el panel arrancaría mintiendo.
+  assert.ok(attr('value') >= Garden.PATH_W_MIN && attr('value') <= Garden.PATH_W_MAX);
 });
 
 // Los ajustes de Edificios existen DOS veces (panel + modal de Fachada) y
