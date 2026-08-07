@@ -177,6 +177,11 @@ test('«?» no apila la Ayuda sobre otro modal, y su toggle sigue vivo', async (
 test('el círculo del borrador no queda fantasma al cambiar de herramienta', async ({ page }) => {
   await openApp(page);
   await selectTool(page, 'eraser');
+  // Elegir Borrador abre su modal de tamaño (como Planta abre su catálogo);
+  // hay que cerrarlo para poder interactuar con el lienzo, que queda inerte
+  // mientras el <dialog> está abierto.
+  await page.locator('#modal-eraser .modal__cancel').click();
+  await settle(page);
   const p = await canvasPoint(page, 400, 300);
   await page.mouse.move(p.x, p.y);
   await settle(page);

@@ -180,3 +180,122 @@ test('sin deps se degrada sin lanzar (contorno derivado de la caja)', () => {
   assert.equal(Eraser.touches(r, stroke([150, 150]), 4), false, 'hueco interior');
   assert.equal(Eraser.touches({ type: 'curveArrow', x1: 0, y1: 0, x2: 10, y2: 0 }, stroke([5, 0]), 4), true);
 });
+
+/* ---- erase(): borrado parcial de recta/flecha/trazo ---- */
+
+const line = (x1, y1, x2, y2, extra = {}) =>
+  ({ type: 'line', x1, y1, x2, y2, color: '#000000', lineWidth: 2, ...extra });
+const arrow = (x1, y1, x2, y2, extra = {}) =>
+  ({ type: 'arrow', x1, y1, x2, y2, color: '#000000', lineWidth: 2, ...extra });
+const pencil = (pts, extra = {}) =>
+  ({ type: 'pencil', points: stroke(...pts), color: '#000000', lineWidth: 2, seed: 7, ...extra });
+
+test('erase() expone su API', () => {
+  assert.equal(typeof Eraser.erase, 'function');
+});
+
+test('erase() sin tocar nada devuelve la misma referencia', () => {
+  const els = [rect(0, 0, 50, 50), line(0, 0, 100, 0)];
+  assert.equal(Eraser.erase(els, stroke([500, 500], [600, 600]), 4, DEPS), els);
+});
+
+test('erase() no muta la entrada', () => {
+  const els = [line(0, 100, 200, 100)];
+  Eraser.erase(els, stroke([90, 100], [110, 100]), 8, DEPS);
+  assert.equal(els.length, 1, 'la entrada original sigue intacta');
+  assert.equal(els[0].x1, 0);
+});
+
+test('recta: un mordisco en el medio la parte en dos, no la borra entera', () => {
+  const els = [line(0, 100, 200, 100)];
+  const out = Eraser.erase(els, stroke([90, 100], [110, 100]), 8, DEPS);
+  assert.equal(out.length, 2, 'sobreviven dos trozos');
+  assert.ok(out.every(e => e.type === 'line'));
+  const [a, b] = out.sort((p, q) => p.x1 - q.x1);
+  assert.ok(a.x1 <= 1 && a.x2 < 90, 'el trozo izquierdo no llega al mordisco');
+  assert.ok(b.x1 > 110 && b.x2 >= 199, 'el trozo derecho empieza después del mordisco');
+  assert.equal(a.color, '#000000');
+  assert.equal(a.lineWidth, 2);
+});
+
+test('recta: si el borrador la cubre entera, desaparece (no sobrevive ningún trozo)', () => {
+  const els = [line(0, 100, 50, 100)];
+  const out = Eraser.erase(els, stroke([-10, 100], [60, 100]), 8, DEPS);
+  assert.equal(out.length, 0);
+});
+
+test('recta: un mordisco cerca de un extremo solo recorta ese lado', () => {
+  const els = [line(0, 100, 200, 100)];
+  const out = Eraser.erase(els, stroke([-10, 100], [10, 100]), 8, DEPS);
+  assert.equal(out.length, 1, 'solo sobrevive el resto de la recta');
+  assert.ok(out[0].x1 > 10, 'el extremo mordido no vuelve');
+  assert.ok(out[0].x2 >= 199, 'el otro extremo se conserva');
+});
+
+test('recta sin tocar sobrevive idéntica (sin trozos de más)', () => {
+  const els = [line(0, 0, 100, 0)];
+  const out = Eraser.erase(els, stroke([500, 500]), 8, DEPS);
+  assert.equal(out, els, 'ni se toca ni se reconstruye');
+});
+
+test('flecha: el trozo con la punta original sigue siendo flecha; el otro pasa a línea suelta', () => {
+  const els = [arrow(0, 100, 200, 100)];
+  const out = Eraser.erase(els, stroke([90, 100], [110, 100]), 8, DEPS);
+  assert.equal(out.length, 2);
+  const withHead = out.find(e => Math.round(e.x2) >= 199);
+  const withoutHead = out.find(e => e !== withHead);
+  assert.equal(withHead.type, 'arrow', 'el trozo que llega a la punta original sigue siendo flecha');
+  assert.equal(withoutHead.type, 'line', 'el trozo cortado de la punta pasa a línea, no inventa una punta nueva');
+  assert.equal(withoutHead.heads, undefined);
+  assert.equal(withoutHead.label, undefined);
+});
+
+test('flecha con doble punta que el borrador no llega a tocar: pasa intacta, con sus dos puntas', () => {
+  const original = arrow(0, 100, 200, 100, { heads: 'both' });
+  const out = Eraser.erase([original], stroke([500, 500]), 8, DEPS);
+  assert.equal(out[0], original, 'ni se reconstruye ni pierde su marca de doble punta');
+});
+
+test('flecha con doble punta partida por el medio: cada mitad se queda solo con su punta', () => {
+  const els = [arrow(0, 100, 200, 100, { heads: 'both' })];
+  const out = Eraser.erase(els, stroke([90, 100], [110, 100]), 8, DEPS);
+  assert.equal(out.length, 2);
+  out.forEach(e => assert.notEqual(e.heads, 'both', 'ningún trozo conserva las dos puntas: cada uno solo tiene un extremo original'));
+});
+
+test('lápiz: un hueco en medio del trazo lo parte en dos trazos independientes', () => {
+  const els = [pencil([[0, 0], [50, 0], [100, 0], [150, 0], [200, 0]])];
+  const out = Eraser.erase(els, stroke([90, 0], [110, 0]), 8, DEPS);
+  assert.equal(out.length, 2, 'dos trazos, no uno con hueco ni el trazo borrado entero');
+  assert.ok(out.every(e => e.type === 'pencil'));
+  assert.ok(out.every(e => e.points.length >= 2));
+  assert.equal(out[0].seed, 7, 'conserva la semilla del trazo original');
+  const maxXLeft = Math.max(...out[0].points.map(p => p.x));
+  const minXRight = Math.min(...out[1].points.map(p => p.x));
+  assert.ok(maxXLeft < 90 && minXRight > 110, 'el hueco separa los dos trazos');
+});
+
+test('lápiz: borrar en la intersección de dos trazos parte los dos, no los borra enteros', () => {
+  // Dos trazos en cruz, se tocan en (100,100).
+  const horiz = pencil([[0, 100], [50, 100], [100, 100], [150, 100], [200, 100]]);
+  const vert = pencil([[100, 0], [100, 50], [100, 100], [100, 150], [100, 200]]);
+  const out = Eraser.erase([horiz, vert], stroke([90, 100], [110, 100], [100, 90], [100, 110]), 8, DEPS);
+  // Cada trazo pierde solo el trocito del cruce: sobreviven cuatro trozos, dos por trazo.
+  assert.equal(out.length, 4, 'ninguno de los dos trazos desaparece entero');
+  assert.ok(out.every(e => e.type === 'pencil'));
+});
+
+test('erase() sigue borrando entero lo que no es recta/flecha/lápiz', () => {
+  const els = [rect(0, 0, 50, 50), line(100, 25, 300, 25)];
+  const out = Eraser.erase(els, stroke([-10, 25], [130, 25]), 8, DEPS);
+  assert.ok(out.every(e => e.type !== 'rect'), 'el rectángulo tocado se elimina entero, no se recorta');
+});
+
+test('erase() no borra las máscaras heredadas', () => {
+  const els = [
+    line(0, 100, 200, 100),
+    { type: 'eraser', points: stroke([90, 100], [110, 100]), color: '#000000', lineWidth: 2, size: 16 },
+  ];
+  const out = Eraser.erase(els, stroke([90, 100], [110, 100]), 8, DEPS);
+  assert.equal(out.filter(e => e.type === 'eraser').length, 1, 'la máscara sobrevive intacta');
+});

@@ -260,6 +260,80 @@ test('el borrador elimina los elementos y no deja ninguna máscara en la escena'
   assert.equal(els[0].x, 400, 'el rect lejano sobrevive');
 });
 
+/* ── Regresión: recta/flecha/trazo se recortan, no se borran enteros ── */
+
+test('un mordisco en el medio de una recta deja dos trozos, no la borra entera', () => {
+  const app = loadApp();
+  app.selectTool('line');
+  app.drag(100, 300, 300, 300);
+  app.selectTool('eraser');
+  app.drag(190, 300, 210, 300);           // mordisco en el centro de la recta
+  const els = app.elements();
+  assert.equal(els.length, 2, 'sobreviven los dos trozos de la recta');
+  assert.ok(els.every(e => e.type === 'line'), 'ninguno se convierte en otra cosa');
+  assert.ok(els.every(e => Math.abs(e.x1 - e.x2) < 90),
+    'ambos trozos son más cortos que la recta original: algo se recortó');
+});
+
+test('borrar la intersección de dos trazos los parte a los dos, no los borra enteros', () => {
+  const app = loadApp();
+  app.selectTool('pencil');
+  app.drag(100, 300, 300, 300);           // trazo horizontal
+  app.drag(200, 200, 200, 400);           // trazo vertical: cruza al horizontal en (200,300)
+  app.selectTool('eraser');
+  app.drag(190, 300, 210, 300);           // mordisco justo en el cruce
+  const els = app.elements();
+  assert.equal(els.length, 4, 'cada trazo sobrevive partido en dos, ninguno desaparece entero');
+  assert.ok(els.every(e => e.type === 'pencil'));
+});
+
+test('elegir el borrador abre su modal de tamaño, como Planta o Balcón abren el suyo', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  assert.equal(app.$('modal-eraser').open, false);
+  app.selectTool('eraser');
+  assert.equal(app.$('modal-eraser').open, true,
+    'se abre solo al elegir la herramienta, sin tener que encontrar el botón ⚙ del panel');
+  // Cerrarlo no debe devolver a la herramienta anterior: a diferencia de
+  // Planta/Balcón, el borrador ya es usable sin elegir nada en el modal.
+  app.$('modal-eraser').close();
+  app.flush();
+  assert.equal(app.$('sidebar').querySelector('.sidebar__tool--active').dataset.tool, 'eraser',
+    'cerrar el modal se queda en el borrador, no cae a la herramienta previa');
+});
+
+test('el modal de tamaño del borrador se sincroniza con el panel y su ajuste se recuerda', () => {
+  const app = loadApp();
+  app.selectTool('pencil');
+  assert.equal(app.$('btn-eraser-size').hidden, true, 'sin el borrador activo, el botón está oculto');
+  app.selectTool('eraser');
+  assert.equal(app.$('btn-eraser-size').hidden, false, 'con el borrador activo, aparece el botón');
+  app.$('modal-eraser').close();   // se abrió solo al elegir la herramienta; lo cerramos para reabrirlo a mano
+  app.flush();
+
+  app.$('btn-eraser-size').__fire('click', { target: app.$('btn-eraser-size') });
+  app.flush();
+  assert.equal(app.$('modal-eraser').open, true, 'el botón también lo reabre, sin soltar la herramienta');
+
+  const modalSlider = app.$('eraser-size-modal-slider');
+  modalSlider.value = '50';
+  modalSlider.__fire('input', { target: modalSlider });
+  modalSlider.__fire('change', { target: modalSlider });
+  app.flush();
+
+  assert.equal(app.$('stroke-slider').value, '50', 'el slider del panel refleja el mismo tamaño');
+  assert.equal(app.$('stroke-val').textContent, '50');
+
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.eraserSize, 50);
+
+  const app2 = loadApp({ prefs });
+  app2.selectTool('eraser');
+  app2.$('btn-eraser-size').__fire('click', { target: app2.$('btn-eraser-size') });
+  app2.flush();
+  assert.equal(app2.$('eraser-size-modal-slider').value, '50', 'y vuelve puesto al arrancar de nuevo');
+});
+
 test('lo borrado no reaparece al mover el dibujo (el fallo de la máscara)', () => {
   const { app, count } = withFacade();
   app.selectTool('eraser');

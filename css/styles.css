@@ -459,6 +459,29 @@ input[type="range"]::-moz-range-thumb {
   font-weight: 600;
 }
 
+.panel__title--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.panel__gear {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 6px;
+}
+
+.panel__gear:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
 .panel__slider {
   cursor: pointer;
 }

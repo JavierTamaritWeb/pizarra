@@ -895,19 +895,14 @@
 
   function redrawNow() {
     resolveAnchors();
-    // Previsualización del borrador: los elementos que la pasada va a eliminar
-    // desaparecen ya mientras se arrastra, así que lo que se ve durante el
-    // gesto es exactamente el resultado. El estado no se toca hasta soltar
-    // (undo sigue siendo un único paso por pasada).
-    const doomed = state.isDrawing &&
+    // Previsualización del borrador: lo que la pasada va a eliminar o recortar
+    // ya cambia mientras se arrastra, así que lo que se ve durante el gesto es
+    // exactamente el resultado. El estado no se toca hasta soltar (undo sigue
+    // siendo un único paso por pasada).
+    const sceneElements = state.isDrawing &&
       state.tool === TOOLS.ERASER &&
       state.currentPath.length
-      ? new Set(Eraser.doomedIndices(
-          state.elements, state.currentPath, state.eraserSize / 2, eraserDeps(),
-        ))
-      : null;
-    const sceneElements = doomed && doomed.size
-      ? state.elements.filter((_, i) => !doomed.has(i))
+      ? Eraser.erase(state.elements, state.currentPath, state.eraserSize / 2, eraserDeps())
       : state.elements;
     try {
       Renderer.renderScene(ctx, sceneElements, {
@@ -1034,6 +1029,7 @@
     } else if (!hasSel) {
       const erasing = state.tool === TOOLS.ERASER;
       $('stroke-label').textContent = erasing ? 'Tamaño del borrador' : 'Trazo';
+      $('btn-eraser-size').hidden = !erasing;
       $('stroke-slider').min = erasing ? String(ERASER_SIZE_MIN) : '1';
       $('stroke-slider').max = erasing ? String(ERASER_SIZE_MAX) : '8';
       $('stroke-slider').setAttribute(
@@ -1864,18 +1860,18 @@
     lastPos = null;
 
     // Freehand commit
-    // Borrador: ELIMINA los elementos que toca (un solo undo por pasada). No
-    // deja ningún elemento en la escena — la máscara antigua era posicional y
-    // lo "borrado" reaparecía al mover el dibujo.
+    // Borrador (un solo undo por pasada): recta/flecha/trazo sobreviven
+    // recortados a lo que queda fuera del círculo; el resto de tipos se
+    // elimina entero. No deja máscaras — la antigua era posicional y lo
+    // "borrado" reaparecía al mover el dibujo.
     if (state.tool === TOOLS.ERASER) {
       state.currentPath.push(pos);
-      const doomed = Eraser.doomedIndices(
+      const result = Eraser.erase(
         state.elements, state.currentPath, state.eraserSize / 2, eraserDeps(),
       );
-      if (doomed.length) {
+      if (result !== state.elements) {
         saveUndo();
-        const kill = new Set(doomed);
-        state.elements = state.elements.filter((_, i) => !kill.has(i));
+        state.elements = result;
         setSelection([]);   // los índices anteriores ya no son válidos
       }
       state.currentPath = [];
@@ -2421,6 +2417,12 @@
     // Elegir la herramienta Emoji abre el catálogo; tras escoger uno, cada
     // click en el lienzo lo estampa (volver a pulsarla permite cambiarlo)
     if (id === TOOLS.EMOJI) $('modal-emoji').showModal();
+    // Borrador abre su modal de tamaño, igual que Emoji o Planta abren el
+    // suyo: si no, el único acceso es el botón ⚙ del panel, lejos del
+    // sidebar y fácil de no ver. A diferencia de esos, cerrarlo NO debe
+    // devolver a la herramienta anterior (el borrador es usable sin elegir
+    // nada en el modal), así que no pasa por opensVariantModal.
+    if (id === TOOLS.ERASER) openEraserSizeModal();
     // Planta abre su catálogo de huellas; reaplica el resaltado activo antes de
     // abrir (updateEmojiActive no está acotado y comparte la clase .modal__emoji)
     if (id === TOOLS.BUILD_PLANTA) { updatePlantaActive(); $('modal-planta').showModal(); }
@@ -2577,6 +2579,63 @@
     });
   }
 
+  const ERASER_PREVIEW_W = 176, ERASER_PREVIEW_H = 168;
+
+  /** Círculo al tamaño real del borrador, con el mismo trazo doble que el
+      indicador que sigue al ratón sobre el lienzo (ver paintOverlay). */
+  function renderEraserSizePreview() {
+    const cv = $('eraser-size-preview');
+    if (!cv) return;
+    const pctx = cv.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    if (cv.width !== Math.round(ERASER_PREVIEW_W * dpr)) {
+      cv.width = Math.round(ERASER_PREVIEW_W * dpr);
+      cv.height = Math.round(ERASER_PREVIEW_H * dpr);
+    }
+    pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Papel del color real del lienzo: sobre el modal oscuro, el aro blanco
+    // del indicador no se distinguiría.
+    pctx.fillStyle = state.canvasBg;
+    pctx.fillRect(0, 0, ERASER_PREVIEW_W, ERASER_PREVIEW_H);
+    const pad = 14;
+    const maxR = Math.min(ERASER_PREVIEW_W, ERASER_PREVIEW_H) / 2 - pad;
+    const r = Math.min(state.eraserSize / 2, maxR);
+    pctx.save();
+    pctx.translate(ERASER_PREVIEW_W / 2, ERASER_PREVIEW_H / 2);
+    pctx.beginPath();
+    pctx.arc(0, 0, r, 0, Math.PI * 2);
+    pctx.strokeStyle = 'rgba(255,255,255,0.95)';
+    pctx.lineWidth = 3;
+    pctx.stroke();
+    pctx.strokeStyle = 'rgba(26,26,46,0.95)';
+    pctx.lineWidth = 1;
+    pctx.stroke();
+    pctx.restore();
+  }
+
+  /** Un solo tamaño, dos mandos: el slider del panel (reutiliza "Trazo") y el
+      del modal se mantienen sincronizados, como los gemelos de Edificios. */
+  function applyEraserSize(v) {
+    state.eraserSize = v;
+    $('stroke-slider').value = String(v);
+    $('stroke-val').textContent = String(v);
+    $('eraser-size-modal-slider').value = String(v);
+    $('eraser-size-modal-val').textContent = String(v);
+    renderEraserSizePreview();
+    scheduleOverlay();
+  }
+
+  /** Abre el modal de tamaño del borrador con el valor y la previsualización
+      al día. Se llama al elegir la herramienta (como Planta o Balcón abren su
+      catálogo) y también desde el botón ⚙ del panel, para poder reabrirlo sin
+      soltar la herramienta. */
+  function openEraserSizeModal() {
+    $('eraser-size-modal-slider').value = String(state.eraserSize);
+    $('eraser-size-modal-val').textContent = String(state.eraserSize);
+    renderEraserSizePreview();
+    $('modal-eraser').showModal();
+  }
+
   /* ── Panel controls wiring ── */
 
   function wireControls() {
@@ -2605,8 +2664,7 @@
       const v = +e.target.value;
       $('stroke-val').textContent = e.target.value;
       if (state.tool === TOOLS.ERASER && !state.selection.length) {
-        state.eraserSize = v;
-        scheduleOverlay();
+        applyEraserSize(v);
       } else if (state.selection.length) {
         if (!strokeGestureSnap) strokeGestureSnap = snapshot();
         state.selection.forEach(i => {
@@ -2644,6 +2702,15 @@
     });
     $('stroke-slider').addEventListener('pointerup', commitStrokeGesture);
     $('stroke-slider').addEventListener('pointercancel', commitStrokeGesture);
+
+    // Modal del tamaño del borrador: mismo dato que el slider "Trazo" de
+    // arriba (ver applyEraserSize), solo que con una previsualización más
+    // grande. El botón que lo abre solo es visible con el borrador activo.
+    $('btn-eraser-size').addEventListener('click', openEraserSizeModal);
+    $('eraser-size-modal-slider').addEventListener('input', e => {
+      applyEraserSize(+e.target.value);
+    });
+    $('eraser-size-modal-slider').addEventListener('change', savePrefs);
 
     // Font slider
     $('font-slider').addEventListener('input', e => {
@@ -3336,6 +3403,10 @@
     $('btn-help').addEventListener('click', () => helpModal.showModal());
     helpModal.querySelector('.modal__cancel').addEventListener('click', () => helpModal.close());
     closeOnBackdrop(helpModal);
+
+    const eraserModal = $('modal-eraser');
+    eraserModal.querySelector('.modal__cancel').addEventListener('click', () => eraserModal.close());
+    closeOnBackdrop(eraserModal);
 
     const emojiModal = $('modal-emoji');
     buildEmojiCatalog();

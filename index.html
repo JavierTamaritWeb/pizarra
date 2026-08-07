@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Architects+Daughter&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=1.21.0" />
+  <link rel="stylesheet" href="css/styles.css?v=1.22.0" />
 </head>
 <body>
 
@@ -23,7 +23,7 @@
       <div class="topbar__brand">
         <span class="topbar__logo-icon" aria-hidden="true">✎</span>
         <span class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></span>
-        <span class="topbar__badge">v1.21.0</span>
+        <span class="topbar__badge">v1.22.0</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes">
@@ -112,7 +112,11 @@
 
         <!-- Stroke -->
         <section class="panel__section">
-          <h3 class="panel__title"><span id="stroke-label">Trazo</span>: <span id="stroke-val">2</span>px</h3>
+          <h3 class="panel__title panel__title--row">
+            <span><span id="stroke-label">Trazo</span>: <span id="stroke-val">2</span>px</span>
+            <button type="button" class="panel__gear" id="btn-eraser-size"
+                    title="Ajustar el tamaño del borrador" hidden>⚙️</button>
+          </h3>
           <input class="panel__slider" type="range" id="stroke-slider"
                  min="1" max="8" step="1" value="2"
                  aria-label="Grosor del trazo" />
@@ -324,8 +328,10 @@
         <h4 class="modal__help-title">Borrador</h4>
         <ul class="modal__help-list">
           <li><kbd>E</kbd>: activa el <strong>Borrador</strong>; arrastra sobre trazos, rellenos o formas para <strong>eliminarlos</strong> — no los tapa, así que lo borrado no reaparece al mover el dibujo</li>
-          <li>Borra lo mismo que un clic seleccionaría, ampliado por el radio; los elementos desaparecen ya mientras barres</li>
-          <li>Al seleccionarlo, el regulador <strong>"Trazo"</strong> cambia a <strong>"Tamaño del borrador"</strong></li>
+          <li>Recta, flecha y trazo a mano se <strong>recortan</strong> por donde pasa el círculo, en vez de desaparecer enteros: pasar por el cruce de dos trazos solo borra ese tramo, no las dos líneas completas</li>
+          <li>El resto de elementos (formas, texto, imágenes, componentes) se elimina entero, como siempre</li>
+          <li>Al elegirlo se abre un modal para ajustar el tamaño, con previsualización; el botón ⚙ del panel lo reabre sin soltar la herramienta</li>
+          <li>Además, el regulador <strong>"Trazo"</strong> del panel cambia a <strong>"Tamaño del borrador"</strong> mientras está activo</li>
           <li>El tamaño se ajusta entre 4 y 100 px (16 px por defecto) y es independiente del lápiz y de las formas</li>
           <li>El círculo del cursor muestra el alcance; cada pasada se deshace y rehace como una sola acción</li>
         </ul>
@@ -428,6 +434,25 @@
       <p class="modal__sub">Elige uno y haz click en el lienzo para colocarlo</p>
       <div id="emoji-catalog"></div>
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
+  <!-- ===== MODAL: TAMAÑO DEL BORRADOR ===== -->
+  <dialog class="modal" id="modal-eraser" aria-labelledby="modal-eraser-title">
+      <h3 class="modal__heading" id="modal-eraser-title">Tamaño del borrador</h3>
+      <p class="modal__sub">El círculo muestra el alcance real a este tamaño</p>
+      <div class="modal__build">
+        <canvas class="modal__preview" id="eraser-size-preview" width="176" height="168"
+                role="img" aria-label="Vista previa del tamaño del borrador"></canvas>
+        <div class="modal__build-fields">
+          <label class="panel__field" for="eraser-size-modal-slider">
+            <span class="panel__title">Diámetro: <span id="eraser-size-modal-val">16</span>px</span>
+            <input class="panel__slider" type="range" id="eraser-size-modal-slider"
+                   min="4" max="100" step="1" value="16"
+                   aria-label="Tamaño del borrador" />
+          </label>
+        </div>
+      </div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cerrar</button>
   </dialog>
 
   <!-- ===== MODAL: FORMA DE PLANTA ===== -->
@@ -623,19 +648,19 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="js/config.js?v=1.21.0"></script>
-  <script src="js/sketchy.js?v=1.21.0"></script>
-  <script src="js/arc.js?v=1.21.0"></script>
-  <script src="js/curve-path.js?v=1.21.0"></script>
-  <script src="js/shape-rotation.js?v=1.21.0"></script>
-  <script src="js/regular-polygon.js?v=1.21.0"></script>
-  <script src="js/trapezoid.js?v=1.21.0"></script>
-  <script src="js/eraser.js?v=1.21.0"></script>
-  <script src="js/building.js?v=1.21.0"></script>
-  <script src="js/garden.js?v=1.21.0"></script>
-  <script src="js/renderer.js?v=1.21.0"></script>
-  <script src="js/exporter.js?v=1.21.0"></script>
-  <script src="js/templates.js?v=1.21.0"></script>
-  <script src="js/app.js?v=1.21.0"></script>
+  <script src="js/config.js?v=1.22.0"></script>
+  <script src="js/sketchy.js?v=1.22.0"></script>
+  <script src="js/arc.js?v=1.22.0"></script>
+  <script src="js/curve-path.js?v=1.22.0"></script>
+  <script src="js/shape-rotation.js?v=1.22.0"></script>
+  <script src="js/regular-polygon.js?v=1.22.0"></script>
+  <script src="js/trapezoid.js?v=1.22.0"></script>
+  <script src="js/eraser.js?v=1.22.0"></script>
+  <script src="js/building.js?v=1.22.0"></script>
+  <script src="js/garden.js?v=1.22.0"></script>
+  <script src="js/renderer.js?v=1.22.0"></script>
+  <script src="js/exporter.js?v=1.22.0"></script>
+  <script src="js/templates.js?v=1.22.0"></script>
+  <script src="js/app.js?v=1.22.0"></script>
 </body>
 </html>

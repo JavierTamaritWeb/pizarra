@@ -4,6 +4,35 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.22.0] — 2026-08-07
+
+### Añadido
+- **Modal de tamaño del borrador.** Elegir la herramienta Borrador abre un
+  modal con una previsualización más grande del círculo real y su propio
+  deslizador, igual que Planta o Balcón abren su catálogo al elegirlos; un
+  botón ⚙ junto al slider "Tamaño del borrador" del panel lo reabre sin
+  soltar la herramienta. Ambos controles quedan sincronizados, como los
+  gemelos de Edificios. A diferencia de los catálogos, cerrarlo no devuelve a
+  la herramienta anterior: el borrador ya es usable con el tamaño que tenga.
+
+### Cambiado
+- **El borrador recorta recta, flecha y trazo a mano en vez de borrarlos
+  enteros.** Pasar el borrador por el centro de una línea, o justo por donde
+  se cruzan dos trazos, ya solo se lleva el tramo bajo el círculo: lo demás
+  sobrevive partido en tantos trozos como haga falta. Una flecha solo sigue
+  siendo flecha en el trozo que conserva su punta original; cualquier otro
+  trozo pasa a línea suelta, sin inventar una punta en el corte. El resto de
+  tipos (formas, texto, imágenes, componentes, curvas) sigue el borrado
+  entero de siempre — recortar el contorno de una forma o una curva Bézier
+  de forma exacta queda fuera de alcance.
+
+### Tests
+- Cobertura de `Eraser.erase()`: recorte de recta y flecha (con y sin doble
+  punta), trazo con hueco en medio, la intersección de dos trazos que ya no
+  se borra entera, y que el resto de tipos sigue eliminándose entero.
+  Gestos reales en `app-interaction.test.js` para el recorte y para el modal
+  de tamaño. **383 unitarios + 25 e2e**.
+
 ## [1.21.0] — 2026-08-07
 
 ### Cambiado

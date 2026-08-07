@@ -4,10 +4,10 @@
 
 **Wireframes, diagramas y bocetos con estética dibujada a mano — en el navegador y sin instalar nada.**
 
-[![Versión](https://img.shields.io/badge/versión-1.21.0-blueviolet?style=flat-square)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-1.22.0-blueviolet?style=flat-square)](CHANGELOG.md)
 [![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?style=flat-square&logo=javascript&logoColor=000)](js/)
 [![Dependencias](https://img.shields.io/badge/dependencias-0-brightgreen?style=flat-square)](#arquitectura)
-[![Tests](https://img.shields.io/badge/tests-365%20unitarios%20%2B%2025%20e2e-brightgreen?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-383%20unitarios%20%2B%2025%20e2e-brightgreen?style=flat-square)](#tests)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue?style=flat-square)](LICENSE)
 
 <img src="docs/pizarra.png" alt="La interfaz de Pizarra: barra de herramientas a la izquierda, lienzo con un wireframe de landing page dibujado a mano en el centro y panel de ajustes a la derecha" width="900">
@@ -69,7 +69,7 @@ No hay dependencias que instalar ni nada que compilar.
 | **Solapamiento** | El modo **Bordes ocultos** vuelve discontinuos solo los tramos del contorno inferior que otra forma tapa, respetando el orden de capas. |
 | **Componentes UI** | Botón, input, imagen, navbar y tarjeta, con etiquetas editables (doble clic). |
 | **Emoji e imágenes** | Catálogo de 60 emoji en cinco categorías; imágenes pegadas con `Ctrl/Cmd+V` o arrastradas desde el escritorio. |
-| **Borrador real** | Borra **lo que se ve**, no la caja: una forma sin relleno se borra por su contorno, así que barrer entre las ventanas de una fachada no se lleva el muro. Elimina de verdad los elementos —lo borrado no reaparece al mover el dibujo ni viaja oculto dentro del archivo exportado— y cada pasada se deshace como una sola acción. Tamaño ajustable de 4 a 100 px. |
+| **Borrador real** | Borra **lo que se ve**, no la caja: una forma sin relleno se borra por su contorno, así que barrer entre las ventanas de una fachada no se lleva el muro. Recta, flecha y trazo a mano se **recortan** en vez de desaparecer enteros —pasar por la mitad de una línea, o por donde se cruzan dos trazos, solo borra ese tramo—; el resto de elementos se elimina de verdad —lo borrado no reaparece al mover el dibujo ni viaja oculto dentro del archivo exportado— y cada pasada se deshace como una sola acción. Tamaño ajustable de 4 a 100 px: al elegir la herramienta se abre un modal con previsualización, reabrible luego con el botón ⚙ del panel. |
 | **Plantillas** | Landing page, dashboard y formulario, para empezar con estructura. |
 
 ### Flechas de nivel diagrama
@@ -203,7 +203,7 @@ Cada módulo se expone como un global mediante una IIFE y `index.html` los carga
 
 ## Tests
 
-**365 tests unitarios** con el runner nativo de Node, sin ninguna dependencia:
+**383 tests unitarios** con el runner nativo de Node, sin ninguna dependencia:
 
 ```bash
 node --test tests/*.test.js           # suite completa
