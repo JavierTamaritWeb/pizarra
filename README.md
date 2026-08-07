@@ -4,10 +4,10 @@
 
 **Wireframes, diagramas y bocetos con estética dibujada a mano — en el navegador y sin instalar nada.**
 
-[![Versión](https://img.shields.io/badge/versión-1.18.0-blueviolet?style=flat-square)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-1.18.1-blueviolet?style=flat-square)](CHANGELOG.md)
 [![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?style=flat-square&logo=javascript&logoColor=000)](js/)
 [![Dependencias](https://img.shields.io/badge/dependencias-0-brightgreen?style=flat-square)](#arquitectura)
-[![Tests](https://img.shields.io/badge/tests-360%20unitarios%20%2B%2025%20e2e-brightgreen?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-362%20unitarios%20%2B%2025%20e2e-brightgreen?style=flat-square)](#tests)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue?style=flat-square)](LICENSE)
 
 <img src="docs/pizarra.png" alt="La interfaz de Pizarra: barra de herramientas a la izquierda, lienzo con un wireframe de landing page dibujado a mano en el centro y panel de ajustes a la derecha" width="900">
@@ -107,7 +107,7 @@ Cada edificio y cada pieza de jardín se crea como una **unidad** — un clic la
 | **Arbusto** (`H`) | Mata redonda · seto · macizo · topiario · adelfa · boj recortado · lentisco |
 | **Flor** (`X`) | Margarita · rosa · tulipán · parterre · girasol |
 | **Decoración** (`Z`) | Maceta · pozo · regadera · piedra · banco · fuente · reloj de sol (de suelo o de pared) · estanque |
-| **Caminos** | Serpenteante o recto, liso o empedrado — las cuatro combinaciones |
+| **Caminos** | Serpenteante o recto, liso o empedrado — las cuatro combinaciones. Corre por el eje largo del arrastre: vertical por defecto, apaisado si arrastras a lo ancho |
 | **Aromáticas** | Lavanda · romero · tomillo · salvia · santolina · agave · aloe · chumbera |
 
 Cada pieza de jardín nace con una **etiqueta** que la nombra, dentro del mismo grupo (se mueve y se borra con ella); se apaga con la casilla «Etiquetas» del panel. El tamaño por defecto depende del tipo: un seto o un camino nacen alargados, una flor suelta menuda.
@@ -203,7 +203,7 @@ Cada módulo se expone como un global mediante una IIFE y `index.html` los carga
 
 ## Tests
 
-**360 tests unitarios** con el runner nativo de Node, sin ninguna dependencia:
+**362 tests unitarios** con el runner nativo de Node, sin ninguna dependencia:
 
 ```bash
 node --test tests/*.test.js           # suite completa

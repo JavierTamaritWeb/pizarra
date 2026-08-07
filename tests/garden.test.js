@@ -241,7 +241,7 @@ test('cada variante tiene un tamaño por defecto positivo al hacer clic', () => 
   }
 });
 
-test('el seto y el camino nacen apaisados; la flor suelta, menuda', () => {
+test('el seto nace apaisado y la mata redonda; la flor suelta, menuda', () => {
   const click = [{ x: 0, y: 0 }, { x: 1, y: 1 }];
   const boxOf = (tool, id) => {
     const rect = make(tool, id, { labels: false }, ...click)
@@ -381,7 +381,9 @@ test('el camino son dos bordes que serpentean', () => {
     'los bordes del camino son curvas abiertas');
 });
 
-test('el camino recto va con dos líneas horizontales, sin ondular', () => {
+test('el camino recto va con dos líneas paralelas, sin ondular', () => {
+  // Caja apaisada (la P2 por defecto), o sea recorrido horizontal: los bordes
+  // corren en y constante. El eje lo elige el arrastre, ver el test de más abajo.
   for (const id of ['pathStraight', 'pathStraightPaved']) {
     const els = make(TOOLS.GARDEN_PATH, id, { labels: false });
     const edges = els.filter(el => el.type === 'line');
@@ -451,15 +453,66 @@ test('dos cantos consecutivos no salen calcados', () => {
     'un empedrado con todos los cantos idénticos se lee como una fila de puntos');
 });
 
-test('las cuatro variantes de camino nacen con la misma caja apaisada', () => {
+test('las cuatro variantes de camino nacen en vertical, con la misma caja', () => {
   const click = [{ x: 0, y: 0 }, { x: 1, y: 1 }];   // arrastre < MIN_SPAN
   const boxes = PATH_IDS.map(id =>
     unionBounds(make(TOOLS.GARDEN_PATH, id, { labels: false }, ...click)));
   for (let i = 0; i < boxes.length; i++) {
-    assert.ok(boxes[i].w > boxes[i].h * 2,
-      `${PATH_IDS[i]} debe nacer alargado: ${boxes[i].w}×${boxes[i].h}`);
-    assert.equal(boxes[i].w, boxes[0].w,
+    assert.ok(boxes[i].h > boxes[i].w * 2,
+      `${PATH_IDS[i]} debe nacer vertical: ${boxes[i].w}×${boxes[i].h}`);
+    assert.equal(boxes[i].h, boxes[0].h,
       'las cuatro variantes comparten caja: solo cambian trazado y acabado');
+  }
+});
+
+// Con el recorrido clavado en la horizontal, un arrastre alto daba un camino
+// aplastado dentro de una caja que no le correspondía. Ahora el camino corre
+// por el eje largo del gesto, como se traza un sendero en un plano.
+test('el camino corre por el eje largo del arrastre', () => {
+  const drag = (x2, y2) => make(TOOLS.GARDEN_PATH, 'pathStraight', { labels: false },
+    { x: 0, y: 0 }, { x: x2, y: y2 });
+
+  const alto = drag(80, 300).filter(el => el.type === 'line');
+  assert.equal(alto.length, 2);
+  assert.ok(alto.every(e => e.x1 === e.x2 && e.y1 !== e.y2),
+    'una caja alta da un camino vertical');
+
+  const ancho = drag(300, 80).filter(el => el.type === 'line');
+  assert.ok(ancho.every(e => e.y1 === e.y2 && e.x1 !== e.x2),
+    'y una apaisada lo sigue dando horizontal');
+
+  // Serpenteante: mismo criterio, mirando la caja del trazado.
+  const curvo = unionBounds(make(TOOLS.GARDEN_PATH, 'path', { labels: false },
+    { x: 0, y: 0 }, { x: 80, y: 300 }));
+  assert.ok(curvo.h > curvo.w, 'el serpenteante también baja si la caja es alta');
+});
+
+// Gemelo del test de arriba en el otro eje: el empedrado se calcula aparte de
+// los bordes, y en vertical la onda va en x. Si `_at` y `_wave` se despegaran
+// solo en ese caso, los cantos asomarían por un lateral y nada lo vería.
+test('los cantos caben entre los bordes también en un camino vertical', () => {
+  const els = make(TOOLS.GARDEN_PATH, 'pathPaved', { labels: false },
+    { x: 60, y: 40 }, { x: 160, y: 400 });   // 100×360, onda amplia
+  const edges = els.filter(el => el.type === 'curveArrow' &&
+    !(CurvePath.isChain(el) && el.x1 === el.x2 && el.y1 === el.y2));
+  assert.equal(edges.length, 2, 'hacen falta los dos bordes para acotar');
+  // Posición de un borde a una altura dada, muestreando la curva real.
+  const xAt = (edge, y) => {
+    const pts = CurvePath.sample(edge, 40);
+    let best = pts[0];
+    for (const p of pts) if (Math.abs(p.y - y) < Math.abs(best.y - y)) best = p;
+    return best.x;
+  };
+  const [izq, der] = edges[0].x1 < edges[1].x1 ? edges : [edges[1], edges[0]];
+  const stones = cobbles(els);
+  assert.ok(stones.length >= 6);
+  for (const c of stones) {
+    const cb = CurvePath.bounds(c);
+    const cy = cb.y + cb.h / 2;
+    assert.ok(cb.x > xAt(izq, cy) - 1,
+      `un canto asoma por la izquierda en y=${cy.toFixed(1)}`);
+    assert.ok(cb.x + cb.w < xAt(der, cy) + 1,
+      `un canto asoma por la derecha en y=${cy.toFixed(1)}`);
   }
 });
 

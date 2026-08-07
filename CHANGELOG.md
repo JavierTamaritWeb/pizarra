@@ -4,6 +4,26 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.18.1] — 2026-08-07
+
+### Cambiado
+- **Los caminos del Jardín nacen en vertical** y, sobre todo, **corren por el
+  eje largo del arrastre**: arrástralo a lo alto y el sendero baja; a lo ancho,
+  cruza. Antes el recorrido estaba clavado en la horizontal, así que un
+  arrastre alto daba un camino aplastado dentro de una caja que no le
+  correspondía. En un plano de jardín un sendero baja tan a menudo como cruza.
+  El icono del catálogo, que es la geometría real, lo refleja.
+- La geometría sigue siendo **una sola**: se calcula en coordenadas de camino
+  (fracción del recorrido × desvío del eje) y se lleva al lienzo con un
+  mapeador, de modo que el empedrado sigue compartiendo con los bordes la misma
+  y única onda.
+
+### Tests
+- 2 guardias nuevas: el camino sigue el eje largo del arrastre (recto y
+  serpenteante) y los cantos caben entre los bordes también en vertical —el
+  gemelo en el otro eje de la guardia que ya existía—. **362 unitarios + 25
+  e2e**.
+
 ## [1.18.0] — 2026-08-07
 
 Nueva herramienta **Balcón** en la sección Edificios, con 8 tipos.

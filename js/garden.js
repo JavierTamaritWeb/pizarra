@@ -65,7 +65,10 @@ const Garden = (function () {
       stone: { w: 40, h: 32 }, bench: { w: 62, h: 24 }, fountain: { w: 70, h: 70 },
       pond: { w: 150, h: 95 },
       sundial: { w: 64, h: 64 }, sundialWall: { w: 60, h: 46 } } },
-    [TOOLS.GARDEN_PATH]:   { w: 220, h: 56 },
+    // El camino nace VERTICAL: es la orientación con la que se entra a un
+    // jardín desde la calle, y arrastrando apaisado se obtiene el otro sentido
+    // (el recorrido lo elige el eje largo del arrastre, ver `_pathTool`).
+    [TOOLS.GARDEN_PATH]:   { w: 56, h: 220 },
   };
 
   /* Catálogo de cada herramienta: de dónde sale la variante activa y el texto
@@ -765,38 +768,61 @@ const Garden = (function () {
    * empedrado tiene que seguir EXACTAMENTE la misma ondulación que los bordes;
    * calcularla en dos sitios sería garantizar que antes o después se despegan.
    * De ahí que la onda viva en `_at`, que es lo único que consultan ambos.
+   *
+   * El camino corre por el eje LARGO del arrastre: vertical si la caja es más
+   * alta que ancha y apaisado si no. En un plano un sendero baja tan a menudo
+   * como cruza, y con el recorrido clavado en la horizontal un arrastre alto
+   * daba un camino aplastado dentro de una caja que no le correspondía.
+   *
+   * La geometría sigue siendo UNA: se calcula en coordenadas de camino
+   * —`u` = fracción del recorrido, `v` = desvío respecto al eje— y `_p` las
+   * lleva al lienzo. `v` va medido en la misma dirección que `_wave` toma como
+   * normal (+y en apaisado, −x en vertical), y por eso `_at` vale igual en los
+   * dos casos sin un solo signo suelto por en medio.
    */
   function _pathTool(b, o, variant) {
     const cfg = PATH_VARIANTS[variant] || PATH_VARIANTS.path;
-    const amp = cfg.winding ? Math.max(2, b.h * 0.16) : 0;
-    const yTop = b.y + b.h * 0.2, yBot = b.y + b.h * 0.8;
-    const band = yBot - yTop;
-    // Desplazamiento vertical del camino en la fracción `t` de su recorrido.
-    // Es el mismo seno que `_wave` aplica a los bordes (una vuelta completa).
+    const vert = b.h > b.w;
+    const along = vert ? b.h : b.w, across = vert ? b.w : b.h;
+    const axis = vert ? b.x + b.w / 2 : b.y + b.h / 2;
+    const _p = vert
+      ? (u, v) => ({ x: axis - v, y: b.y + b.h * u })
+      : (u, v) => ({ x: b.x + b.w * u, y: axis + v });
+
+    const amp = cfg.winding ? Math.max(2, across * 0.16) : 0;
+    const half = across * 0.3;          // bordes al 20 % y al 80 % de la caja
+    const band = half * 2;
+    // Desvío del camino en la fracción `t` de su recorrido. Es el mismo seno
+    // que `_wave` aplica a los bordes (una vuelta completa).
     const _at = t => Math.sin(t * Math.PI * 2) * amp;
 
-    const els = cfg.winding
-      ? [_wave(b.x, yTop, b.x + b.w, yTop, amp, 4, o),
-         _wave(b.x, yBot, b.x + b.w, yBot, amp, 4, o)]
-      : [_line(b.x, yTop, b.x + b.w, yTop, o),
-         _line(b.x, yBot, b.x + b.w, yBot, o)];
+    const edge = v => {
+      const a = _p(0, v), z = _p(1, v);
+      return cfg.winding
+        ? _wave(a.x, a.y, z.x, z.y, amp, 4, o)
+        : _line(a.x, a.y, z.x, z.y, o);
+    };
+    const els = [edge(-half), edge(half)];
     if (!cfg.paved) return els;
 
-    // Cantos en dos hileras a matajunta: la de abajo va desplazada media
-    // columna y con un canto menos, para que ninguno caiga sobre el borde
-    // final. El radio lo manda el ancho del camino, pero acotado por su largo
-    // para que una caja alta y estrecha no los solape.
+    // Cantos en dos hileras a matajunta: la segunda va desplazada media columna
+    // y con un canto menos, para que ninguno caiga sobre el borde final. El
+    // radio lo manda el ancho del camino, pero acotado por su largo para que
+    // una caja corta y ancha no los solape.
     const f = _fine(o);
-    const rr = Math.max(1.2, Math.min(band * 0.22, b.w * 0.11));
-    const cols = Math.max(2, Math.min(PATH_COLS, Math.round(b.w / (rr * 2.3))));
-    const mid = (yTop + yBot) / 2, dy = band * 0.24;
+    const rr = Math.max(1.2, Math.min(band * 0.22, along * 0.11));
+    const cols = Math.max(2, Math.min(PATH_COLS, Math.round(along / (rr * 2.3))));
+    const dv = band * 0.24;
     let k = 0;
     for (let row = 0; row < 2; row++) {
       const n = row === 0 ? cols : cols - 1;
       for (let i = 0; i < n; i++) {
         const t = row === 0 ? (i + 0.5) / cols : (i + 1) / cols;
-        els.push(_blob(b.x + b.w * t, mid + _at(t) + (row === 0 ? -dy : dy),
-                       rr, rr * 0.82, _turn(LOBES.stone, k++), f));
+        const c = _p(t, _at(t) + (row === 0 ? -dv : dv));
+        // El canto va un poco alargado EN EL SENTIDO DEL CAMINO, así que sus
+        // radios también giran con él.
+        els.push(_blob(c.x, c.y, vert ? rr * 0.82 : rr, vert ? rr : rr * 0.82,
+                       _turn(LOBES.stone, k++), f));
       }
     }
     return els;
