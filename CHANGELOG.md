@@ -4,6 +4,72 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.24.0] — 2026-08-08
+
+### Cambiado
+- **La inclinación del camino se marca de un clic, no manteniendo Shift.** El
+  ángulo libre llegó en la v1.23.0 atado a Shift+arrastrar, que es un gesto de
+  **dos manos**: quien solo puede usar una se quedaba fuera de la función
+  entera. Ahora es un ajuste pegajoso, **«Cualquier inclinación»**, con casilla
+  en el propio catálogo de Camino y gemela en el panel «Jardín», que se
+  recuerda entre sesiones. Shift sigue valiendo, pero como atajo opcional para
+  inclinar un camino suelto sin tocar la casilla.
+
+### Añadido
+- **El ancho del camino se cambia desde el propio catálogo.** Con el camino
+  inclinado el arrastre ya no deja lado corto que leer, así que el ancho solo
+  puede venir del deslizador — y estaba únicamente en el panel, que por debajo
+  de 1100px ni siquiera se ve (es un cajón). Ahora hay un gemelo dentro del
+  modal de Camino, junto a una **miniatura en vivo** que enseña el ancho y la
+  inclinación activos antes de dibujar nada, siguiendo el patrón de Fachada.
+  Los iconos del catálogo siguen pintándose en modo caja a propósito: distinguen
+  el trazado (serpenteante/recto, liso/empedrado), no el ángulo.
+- **El ángulo se ve mientras dibujas.** Con la inclinación libre, el ángulo es
+  lo único que decide el gesto y nada lo decía: acertar una diagonal concreta
+  era a ojo. Ahora sale rotulado junto al puntero durante el arrastre (0° a la
+  derecha, positivo hacia arriba), y desaparece al soltar — vive en la capa de
+  previsualización, así que no es un elemento ni entra en el dibujo. En modo
+  caja no aparece: ahí el camino solo puede salir a 0° o 90°.
+
+### Tests
+- Cuatro guardias nuevas en `app-interaction.test.js`: el trazado en diagonal
+  sin tocar el teclado (y su persistencia en prefs), el ancho cambiado desde el
+  modal llegando al camino inclinado, el reparto correcto entre iconos (modo
+  caja) y miniatura (inclinada), y el rótulo del ángulo —presente a 45°, ausente
+  en modo caja—. Verificadas contra el código roto: ignorar el ajuste pegajoso
+  tumba tres, quitar el `opts` propio del catálogo tumba la del catálogo, y
+  tanto no pintar el rótulo como pintarlo siempre tumban la del ángulo.
+  **396 unitarios + 25 e2e.**
+
+## [1.23.0] — 2026-08-07
+
+### Añadido
+- **El camino puede trazarse en cualquier ángulo.** Por defecto, el arrastre
+  de Camino sigue leyéndose como caja —el lado largo es el recorrido y el
+  corto, el grosor, tal cual desde v1.21.0—. Manteniendo pulsado **Shift**
+  durante el arrastre, el recorrido pasa a ser el vector exacto del gesto, a
+  cualquier inclinación; como ya no queda lado corto que leer, el grosor sale
+  en ese modo del ajuste **«Ancho del camino»** del panel, igual que ya
+  ocurría con un clic o una línea recta. El mecanismo reutiliza el mismo
+  patrón que `curveFlip` (Shift durante el trazado de una flecha curva):
+  `state.pathFreeAngle` se fija en los mismos tres puntos del gesto y se
+  reinicia al soltar, para que el catálogo de Camino no herede el ángulo del
+  último arrastre en sus iconos. De propina, el aplastamiento de los cantos
+  del empedrado (`rx`/`ry`) pasa de un `if` horizontal/vertical a una fórmula
+  continua: en ángulo libre no hay un salto visible justo a 45°, y ahí los
+  cantos salen casi redondos.
+
+### Tests
+- Seis guardias nuevas en `garden.test.js` (dirección exacta a varios
+  ángulos, el ancho lo manda `pathWidth` y no un lado corto inexistente, el
+  clic sin arrastrar no cambia con el flag, los cantos siguen cabiendo entre
+  los bordes en diagonal, y el redondeo del empedrado en diagonal) y dos en
+  `app-interaction.test.js` (el gesto real con Shift frente a sin Shift, y que
+  el modo libre no se filtra a los iconos del catálogo al reabrirlo). El
+  helper `tests/helpers/load-app.js` ahora expone `context.Garden` y el resto
+  de `KNOWN_GLOBALS` (vía `loadScript`, igual que `loadAll()`), necesario para
+  la segunda guardia. **392 unitarios + 25 e2e.**
+
 ## [1.22.1] — 2026-08-07
 
 ### Arreglado

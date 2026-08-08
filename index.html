@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Architects+Daughter&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=1.22.1" />
+  <link rel="stylesheet" href="css/styles.css?v=1.24.0" />
 </head>
 <body>
 
@@ -23,7 +23,7 @@
       <div class="topbar__brand">
         <span class="topbar__logo-icon" aria-hidden="true">✎</span>
         <span class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></span>
-        <span class="topbar__badge">v1.22.1</span>
+        <span class="topbar__badge">v1.24.0</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes">
@@ -172,9 +172,13 @@
           <label class="panel__check">
             <input type="checkbox" id="check-garden-labels" checked /> Etiquetas
           </label>
-          <!-- El arrastre del camino es su recorrido (dirección e inclinación),
-               así que el ancho se elige aquí. min/max deben coincidir con
-               PATH_W_MIN/PATH_W_MAX de js/garden.js -->
+          <!-- Gemelos de los dos ajustes del modal de Camino (ver #modal-path).
+               Con «Cualquier inclinación» el arrastre solo dice por dónde va el
+               recorrido, así que el ancho sale de aquí. min/max deben coincidir
+               con PATH_W_MIN/PATH_W_MAX de js/garden.js -->
+          <label class="panel__check">
+            <input type="checkbox" id="check-path-any-angle" /> Caminos en cualquier inclinación
+          </label>
           <h3 class="panel__title">Ancho del camino: <span id="path-width-val">34</span>px</h3>
           <input class="panel__slider" type="range" id="garden-path-width"
                  min="8" max="120" step="2" value="34"
@@ -421,7 +425,11 @@
           <li>Cada pieza se crea como una <strong>unidad</strong> (dibujo + etiqueta): un clic la selecciona entera; <kbd>Alt</kbd>+clic aísla una parte</li>
           <li>El tamaño por defecto depende del tipo: un <strong>seto</strong> nace apaisado, un <strong>camino</strong> vertical y una <strong>flor</strong> suelta, menuda</li>
           <li>En el <strong>camino</strong>, del arrastre salen las dos cosas: el <strong>recorrido</strong> va por el lado largo y el <strong>grosor</strong> por el corto, así que moviendo el ratón en perpendicular lo engordas mientras lo dibujas</li>
-          <li>Si arrastras en línea recta o solo haces clic, el grosor lo pone el <strong>ancho del camino</strong> del panel <strong>Jardín</strong>, que se recuerda</li>
+          <li>Si arrastras en línea recta o solo haces clic, el grosor lo pone el <strong>ancho del camino</strong>, que se recuerda</li>
+          <li>Marcando <strong>«Cualquier inclinación»</strong> —en el propio catálogo de Camino o en el panel <strong>Jardín</strong>— el camino sale en la dirección exacta del arrastre, en diagonal incluida. Queda marcado hasta que lo desmarques: no hay que mantener ninguna tecla</li>
+          <li>En ese modo el arrastre ya no deja lado corto que leer, así que el <strong>ancho</strong> lo pone su deslizador, con la <strong>miniatura</strong> del catálogo enseñando el resultado antes de dibujar</li>
+          <li>Y mientras arrastras aparece el <strong>ángulo</strong> junto al puntero (0° a la derecha, positivo hacia arriba), para clavar la diagonal que quieras sin ir a ojo</li>
+          <li>Como atajo opcional, <kbd>Shift</kbd> mientras arrastras inclina ese camino suelto sin tocar la casilla</li>
         </ul>
       </section>
 
@@ -605,7 +613,28 @@
 
   <dialog class="modal" id="modal-path" aria-labelledby="modal-path-title">
       <h3 class="modal__heading" id="modal-path-title">Tipo de camino</h3>
-      <p class="modal__sub">Vista desde arriba: elige el trazado y arrástralo</p>
+      <p class="modal__sub">Vista desde arriba: ajusta el camino y pulsa el trazado que quieras dibujar.
+        Los mismos ajustes siguen estando en el panel «Jardín».</p>
+
+      <!-- Miniatura en vivo + los ajustes que el arrastre no puede dar. Van aquí
+           y no solo en el panel porque este es el sitio donde está el usuario al
+           elegir el trazado, y porque se manejan con un solo clic: nada de
+           teclas mantenidas, que exigen dos manos. -->
+      <div class="modal__build">
+        <canvas class="modal__preview" id="path-preview" width="176" height="168"
+                role="img" aria-label="Vista previa del camino con los ajustes actuales"></canvas>
+        <div class="modal__build-fields">
+          <label class="panel__check">
+            <input type="checkbox" id="path-any-angle" /> Cualquier inclinación
+          </label>
+          <label class="panel__field" for="path-width-modal">
+            <span class="modal__field-label">Ancho: <span id="path-width-modal-val">34</span>px</span>
+            <input class="panel__slider" type="range" id="path-width-modal"
+                   min="8" max="120" step="2" value="34"
+                   aria-label="Ancho del camino" />
+          </label>
+        </div>
+      </div>
       <div id="path-catalog"></div>
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
   </dialog>
@@ -648,19 +677,19 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="js/config.js?v=1.22.1"></script>
-  <script src="js/sketchy.js?v=1.22.1"></script>
-  <script src="js/arc.js?v=1.22.1"></script>
-  <script src="js/curve-path.js?v=1.22.1"></script>
-  <script src="js/shape-rotation.js?v=1.22.1"></script>
-  <script src="js/regular-polygon.js?v=1.22.1"></script>
-  <script src="js/trapezoid.js?v=1.22.1"></script>
-  <script src="js/eraser.js?v=1.22.1"></script>
-  <script src="js/building.js?v=1.22.1"></script>
-  <script src="js/garden.js?v=1.22.1"></script>
-  <script src="js/renderer.js?v=1.22.1"></script>
-  <script src="js/exporter.js?v=1.22.1"></script>
-  <script src="js/templates.js?v=1.22.1"></script>
-  <script src="js/app.js?v=1.22.1"></script>
+  <script src="js/config.js?v=1.24.0"></script>
+  <script src="js/sketchy.js?v=1.24.0"></script>
+  <script src="js/arc.js?v=1.24.0"></script>
+  <script src="js/curve-path.js?v=1.24.0"></script>
+  <script src="js/shape-rotation.js?v=1.24.0"></script>
+  <script src="js/regular-polygon.js?v=1.24.0"></script>
+  <script src="js/trapezoid.js?v=1.24.0"></script>
+  <script src="js/eraser.js?v=1.24.0"></script>
+  <script src="js/building.js?v=1.24.0"></script>
+  <script src="js/garden.js?v=1.24.0"></script>
+  <script src="js/renderer.js?v=1.24.0"></script>
+  <script src="js/exporter.js?v=1.24.0"></script>
+  <script src="js/templates.js?v=1.24.0"></script>
+  <script src="js/app.js?v=1.24.0"></script>
 </body>
 </html>

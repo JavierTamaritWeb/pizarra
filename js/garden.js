@@ -112,7 +112,8 @@ const Garden = (function () {
     // por defecto no es un tamaño sino un largo. La etiqueta va bajo la caja
     // del trazado, no bajo la del arrastre: el camino no la llena entera.
     if (tool === TOOLS.GARDEN_PATH) {
-      const ax = _pathAxis(p1, p2, PATH_VARIANTS[variant] || PATH_VARIANTS.path, o);
+      const cfg = PATH_VARIANTS[variant] || PATH_VARIANTS.path;
+      const ax = o.freeAngle ? _pathAxisFree(p1, p2, cfg, o) : _pathAxis(p1, p2, cfg, o);
       return _labelled(_pathTool(ax, o, variant), _pathBox(ax), tool, variant, o);
     }
     const base = DEFAULTS[tool];
@@ -784,12 +785,14 @@ const Garden = (function () {
   const PATH_AMP = 0.27;           // vaivén, en fracción del ancho del camino
 
   /**
-   * Eje del camino a partir del arrastre, leído como CAJA: el recorrido va por
-   * el lado largo y el grosor lo da el corto, de modo que mover el ratón en
-   * perpendicular engorda o adelgaza el camino mientras se dibuja. Es la única
-   * forma de sacar recorrido y grosor de un solo gesto —un arrastre da dos
-   * datos, y el tercero tendría que venir de una tecla o de un segundo paso—,
-   * y por eso el camino sale horizontal o vertical, no en diagonal.
+   * Eje del camino a partir del arrastre, leído POR DEFECTO como CAJA: el
+   * recorrido va por el lado largo y el grosor lo da el corto, de modo que
+   * mover el ratón en perpendicular engorda o adelgaza el camino mientras se
+   * dibuja. Es la única forma de sacar recorrido y grosor de un solo gesto sin
+   * tecla ni segundo paso, y por eso este modo sale horizontal o vertical, no
+   * en diagonal. Con `o.freeAngle` (Shift durante el arrastre, ver app.js) se
+   * usa `_pathAxisFree` en su lugar: el ángulo queda libre y a cambio el
+   * grosor deja de salir del arrastre.
    *
    * Si el lado corto no da ni para MIN_SPAN (un clic, o una línea recta sin
    * apenas grosor) el ancho lo pone `o.pathWidth`, el ajuste del panel: es su
@@ -816,6 +819,28 @@ const Garden = (function () {
       y1 = y2 = y + rawH / 2; x1 = x; x2 = x + rawW;
     }
     const len = Math.hypot(x2 - x1, y2 - y1);
+    return {
+      x1, y1, x2, y2, len, w,
+      ux: (x2 - x1) / len, uy: (y2 - y1) / len,     // unitario del recorrido
+      amp: cfg.winding ? Math.max(2, w * PATH_AMP) : 0,  // vaivén a cada lado del eje
+    };
+  }
+
+  /**
+   * Eje del camino en ÁNGULO LIBRE: el arrastre ES el recorrido, con la
+   * inclinación exacta del gesto, en vez de snapear al lado largo de una caja.
+   * Al no quedar ya un "lado corto" del que sacar el grosor, este sale SIEMPRE
+   * de `o.pathWidth` (el ajuste del panel) — el mismo resguardo que `_pathAxis`
+   * ya usa para un clic o una línea recta, aquí generalizado a cualquier
+   * arrastre. Un arrastre solo da dos números (aquí, ángulo y longitud); el
+   * grosor necesita un tercero, y por eso deja de venir del ratón en este modo.
+   */
+  function _pathAxisFree(p1, p2, cfg, o) {
+    let { x: x1, y: y1 } = p1, { x: x2, y: y2 } = p2;
+    if (Math.hypot(x2 - x1, y2 - y1) < MIN_SPAN) { x2 = x1; y2 = y1 + PATH_LEN; }
+    const len = Math.hypot(x2 - x1, y2 - y1);
+    const fallback = Number.isFinite(o && o.pathWidth) ? o.pathWidth : PATH_W_DEF;
+    const w = Math.max(PATH_W_MIN, Math.min(PATH_W_MAX, fallback));
     return {
       x1, y1, x2, y2, len, w,
       ux: (x2 - x1) / len, uy: (y2 - y1) / len,     // unitario del recorrido
@@ -885,9 +910,13 @@ const Garden = (function () {
     const cols = Math.max(2, Math.min(PATH_COLS,
       Math.floor(PATH_STONES / rows), Math.round(ax.len / (rr * 2.3))));
     // El canto va algo alargado EN EL SENTIDO DEL CAMINO, y `_blob` no sabe
-    // girar: el achatamiento va a un radio o al otro según por dónde corra.
-    const vert = Math.abs(ax.uy) > Math.abs(ax.ux);
-    const rx = vert ? rr * 0.82 : rr, ry = vert ? rr : rr * 0.82;
+    // girar: el achatamiento se reparte entre los dos radios según la
+    // inclinación del recorrido (continuo, no un `if` horizontal/vertical),
+    // para que un camino en ángulo libre no dé un salto visible justo a 45° —
+    // en horizontal o vertical da exactamente el mismo 0.82 de siempre, y en
+    // diagonal el canto sale casi redondo, que es lo que se ve al girar una
+    // piedra chata.
+    const rx = rr * (1 - 0.18 * Math.abs(ax.uy)), ry = rr * (1 - 0.18 * Math.abs(ax.ux));
     let k = 0;
     for (let row = 0; row < rows; row++) {
       const even = row % 2 === 0;

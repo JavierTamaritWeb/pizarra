@@ -51,9 +51,11 @@
     herbType: 'lavender',
     gardenLabels: true,  // rotular cada pieza con el nombre de su variante
     pathWidth: DEFAULT_PATH_WIDTH, // ancho de los caminos (el arrastre solo da el recorrido)
+    pathAnyAngle: false, // caminos en cualquier inclinación: ajuste pegajoso, no tecla mantenida
     doubleHead:  false, // nuevas flechas con punta en ambos extremos
     dashed:      false, // nuevas líneas/flechas con trazo discontinuo
     curveFlip:   false, // Shift durante el trazado: curva hacia el otro lado
+    pathFreeAngle: false, // Shift durante el arrastre del camino: cualquier inclinación
     curveChain:  null,  // borrador por clics: { start, segments, style... }
     showGrid:    true,
     snapGrid:    false,
@@ -762,6 +764,7 @@
         herbType: state.herbType,
         gardenLabels: state.gardenLabels,
         pathWidth: state.pathWidth,
+        pathAnyAngle: state.pathAnyAngle,
       }));
     } catch (_) { /* almacenamiento lleno o bloqueado: se ignora */ }
   }
@@ -817,6 +820,7 @@
       if (Number.isFinite(prefs.pathWidth)) {
         state.pathWidth = Math.min(Garden.PATH_W_MAX, Math.max(Garden.PATH_W_MIN, prefs.pathWidth));
       }
+      if (typeof prefs.pathAnyAngle === 'boolean') state.pathAnyAngle = prefs.pathAnyAngle;
     } catch (_) { /* prefs corruptas: se ignoran */ }
   }
 
@@ -1415,6 +1419,7 @@
     state.curveFlip = (state.tool === TOOLS.CURVE_ARROW || state.tool === TOOLS.ARC)
       ? e.shiftKey
       : false;
+    state.pathFreeAngle = (state.tool === TOOLS.GARDEN_PATH) ? e.shiftKey : false;
 
     if (state.tool === TOOLS.PENCIL || state.tool === TOOLS.ERASER) {
       state.currentPath = [pos];
@@ -1459,6 +1464,11 @@
       herbType: state.herbType,
       labels: state.gardenLabels,
       pathWidth: state.pathWidth,
+      // Dos vías a lo mismo, y la casilla manda: `pathAnyAngle` es un ajuste
+      // pegajoso que se marca de un clic, y `pathFreeAngle` el Shift mantenido
+      // del arrastre en curso. Mantener una tecla mientras se arrastra exige
+      // DOS manos, así que no puede ser la única forma de llegar aquí.
+      freeAngle: state.pathAnyAngle || state.pathFreeAngle,
       measureText: (value, fontSize) => {
         ctx.save();
         ctx.font = `${fontSize}px ${SKETCHY_FONT}`;
@@ -1666,11 +1676,51 @@
           drawPiecesPreview(octx, Building.elements(state.tool, state.startPos, pos, buildOpts()));
         } else if (GARDEN_TOOLS.includes(state.tool)) {
           drawPiecesPreview(octx, Garden.elements(state.tool, state.startPos, pos, gardenOpts()));
+          drawPathAngle(octx, state.startPos, pos);
         } else {
           octx.strokeRect(x, y, w, h);
         }
     }
     octx.setLineDash([]);
+  }
+
+  /* Rótulo con el ángulo del camino mientras se arrastra.
+     Con la inclinación libre el ángulo es lo ÚNICO que decide el gesto y nada
+     más lo dice: sin verlo, clavar una diagonal concreta es a ojo, y a ojo con
+     una sola mano es peor todavía. Solo aparece en ese modo — en modo caja el
+     camino siempre sale a 0° o 90° y el número sería ruido —, así que de paso
+     confirma que el modo está activo.
+
+     Vive en el OVERLAY, que se limpia entero en cada frame: no es un elemento,
+     no entra en el undo, no se guarda ni se exporta. */
+  const ANGLE_BADGE = { pad: 5, dy: -18, font: 13 };
+
+  function drawPathAngle(octx, from, to) {
+    if (state.tool !== TOOLS.GARDEN_PATH) return;
+    if (!(state.pathAnyAngle || state.pathFreeAngle)) return;
+    const dx = to.x - from.x, dy = to.y - from.y;
+    if (Math.hypot(dx, dy) < Garden.MIN_SPAN) return;   // sin recorrido no hay ángulo
+    // Convención de transportador: 0° a la derecha y positivo hacia arriba. El
+    // eje y del lienzo crece hacia abajo, de ahí el signo cambiado.
+    const label = `${Math.round(-Math.atan2(dy, dx) * 180 / Math.PI)}°`;
+
+    octx.save();
+    octx.setLineDash([]);
+    octx.font = `bold ${ANGLE_BADGE.font}px ${SKETCHY_FONT}`;
+    octx.textAlign = 'left';
+    octx.textBaseline = 'middle';
+    const tw = octx.measureText(label).width;
+    const bw = tw + ANGLE_BADGE.pad * 2, bh = ANGLE_BADGE.font + ANGLE_BADGE.pad * 2;
+    // Junto al puntero, arriba a la derecha: ahí no lo tapa ni la mano ni el
+    // propio trazo, que queda por detrás.
+    let bx = to.x + 12, by = to.y + ANGLE_BADGE.dy - bh / 2;
+    bx = Math.max(2, Math.min(CANVAS_W - bw - 2, bx));   // sin salirse del lienzo
+    by = Math.max(2, Math.min(CANVAS_H - bh - 2, by));
+    octx.fillStyle = '#4ecdc4';
+    octx.fillRect(bx, by, bw, bh);
+    octx.fillStyle = '#12121c';
+    octx.fillText(label, bx + ANGLE_BADGE.pad, by + bh / 2);
+    octx.restore();
   }
 
   function scheduleOverlay() {
@@ -1737,6 +1787,8 @@
     if (!(state.tool === TOOLS.CURVE_ARROW && state.curveChain)) lastPos = pos;
     // Shift mientras se traza la flecha curva: curva hacia el otro lado
     if (state.tool === TOOLS.CURVE_ARROW || state.tool === TOOLS.ARC) state.curveFlip = e.shiftKey;
+    // Shift mientras se traza el camino: recorrido en cualquier inclinación
+    if (state.tool === TOOLS.GARDEN_PATH) state.pathFreeAngle = e.shiftKey;
     // Los puntos se acumulan en cada evento (no se pierde trazo) descartando
     // los que están a <2px del anterior (decimación: reduce el path 3-5x);
     // el pintado se coalesce a un frame por refresco
@@ -2025,6 +2077,12 @@
     }
 
     state.startPos = null;
+    // A diferencia de curveFlip, pathFreeAngle viaja dentro de gardenOpts() y
+    // lo leen también los iconos del catálogo (variantIcon): sin este reinicio
+    // explícito, reabrir el modal de Camino tras un arrastre en diagonal con
+    // Shift pintaría los iconos en diagonal, porque no medió ningún mousedown
+    // que lo pusiera a false por su cuenta.
+    state.pathFreeAngle = false;
     redraw();
   }
 
@@ -2387,8 +2445,12 @@
     // Caminos: caja propia, vertical y corta. Vertical porque así nace un
     // camino, y corta para que los cantos aún se distingan a 56 px. Al llevar
     // lado corto propio, el icono no depende del ancho del panel: un ancho de
-    // 120 dejaría el icono hecho una mancha en vez de un camino.
-    { tool: TOOLS.GARDEN_PATH,   modal: 'modal-path',   root: 'path-catalog',   cls: 'modal__path',   data: 'path',   catalog: PATH_TYPES,    key: 'pathType', box: { x: 44, y: 84 } },
+    // 120 dejaría el icono hecho una mancha en vez de un camino — y por eso
+    // mismo el icono se pinta SIEMPRE en modo caja (`freeAngle: false`) aunque
+    // la casilla esté marcada: aquí el icono distingue el TRAZADO (serpenteante
+    // o recto, liso o empedrado), no la inclinación. Quien enseña el ancho y la
+    // inclinación activos es la miniatura de al lado (`renderPathPreview`).
+    { tool: TOOLS.GARDEN_PATH,   modal: 'modal-path',   root: 'path-catalog',   cls: 'modal__path',   data: 'path',   catalog: PATH_TYPES,    key: 'pathType', opts: () => ({ ...gardenOpts(), freeAngle: false }), box: { x: 44, y: 84 } },
     { tool: TOOLS.GARDEN_HERB,   modal: 'modal-herb',   root: 'herb-catalog',   cls: 'modal__herb',   data: 'herb',   catalog: HERB_TYPES,    key: 'herbType'   },
   ].map(cfg => ({ gen: () => Garden, opts: () => gardenOpts(), box: { x: 100, y: 84 }, ...cfg }));
   const variantModalOf = tool => VARIANT_MODALS.find(m => m.tool === tool);
@@ -2442,6 +2504,10 @@
     const variant = variantModalOf(id);
     if (variant) {
       buildVariantCatalog(variant);
+      // Camino lleva ajustes propios además del catálogo: hay que repartirlos a
+      // los dos juegos de controles y repintar la miniatura antes de enseñarlo,
+      // igual que hace Fachada con syncBuildControls().
+      if (id === TOOLS.GARDEN_PATH) syncPathControls();
       $(variant.modal).showModal();
     }
   }
@@ -2916,21 +2982,38 @@
       state.gardenLabels = e.target.checked;
       savePrefs();
     });
-    // Ancho del camino: mismo caso. El arrastre de la herramienta ya solo dice
-    // por dónde va el recorrido y con qué inclinación, así que el ancho —lo que
-    // antes daba el lado corto de la caja— se elige aquí. `input` para que el
-    // número siga al dedo; `change` guarda una vez al soltar, no en cada píxel.
-    const pathWidth = $('garden-path-width');
-    pathWidth.value = String(state.pathWidth);
-    $('path-width-val').textContent = String(state.pathWidth);
-    pathWidth.addEventListener('input', e => {
-      const v = Number(e.target.value);
-      if (!Number.isFinite(v)) return;
-      state.pathWidth = Math.min(Garden.PATH_W_MAX, Math.max(Garden.PATH_W_MIN, v));
-      $('path-width-val').textContent = String(state.pathWidth);
-      scheduleOverlay();     // si se está arrastrando un camino, que se vea ya
+    // Camino: sus dos ajustes existen DOS veces —panel y modal de Camino— y se
+    // cablean por pares contra el mismo `state`, igual que los de Edificios.
+    // El del modal es el que de verdad importa: es donde está el usuario al
+    // elegir el trazado, y llegar al panel puede ser un viaje (por debajo de
+    // 1100px ni siquiera está a la vista, es un cajón).
+    //
+    // «Cualquier inclinación» es un ajuste PEGAJOSO, de un clic, y no una tecla
+    // mantenida: Shift+arrastrar exige dos manos y deja fuera a quien solo
+    // puede usar una. Shift sigue valiendo, pero solo como atajo opcional.
+    ['check-path-any-angle', 'path-any-angle'].forEach(id => {
+      $(id).addEventListener('change', e => {
+        state.pathAnyAngle = e.target.checked;
+        syncPathControls();
+        scheduleOverlay();   // si se está arrastrando un camino, que se vea ya
+        savePrefs();
+      });
     });
-    pathWidth.addEventListener('change', savePrefs);
+    // Ancho: con la inclinación libre el arrastre ya no deja lado corto que
+    // leer, así que este deslizador pasa a ser la ÚNICA fuente del grosor.
+    // `input` para que el número y la miniatura sigan al dedo; `change` guarda
+    // una vez al soltar, no en cada píxel.
+    ['garden-path-width', 'path-width-modal'].forEach(id => {
+      $(id).addEventListener('input', e => {
+        const v = Number(e.target.value);
+        if (!Number.isFinite(v)) return;
+        state.pathWidth = Math.min(Garden.PATH_W_MAX, Math.max(Garden.PATH_W_MIN, v));
+        syncPathControls();
+        scheduleOverlay();
+      });
+      $(id).addEventListener('change', savePrefs);
+    });
+    syncPathControls();   // valores iniciales (tras restorePrefs) en ambos sitios
     // Doble punta — semántica dual: con selección aplica/quita heads:'both'
     // a las flechas seleccionadas (los no-flecha se ignoran); sin selección
     // fija el default para las nuevas flechas.
@@ -3974,6 +4057,84 @@
     $('facade-window-type').value = state.windowType;
     updateFacadeFieldsEnabled();
     renderFacadePreview();
+  }
+
+  /**
+   * Gemelo de `syncBuildControls` para el Camino: reparte `state.pathWidth` y
+   * `state.pathAnyAngle` a los dos juegos de controles (panel y modal) y
+   * repinta la miniatura. Asignar `.value`/`.checked` no dispara eventos, así
+   * que los gemelos no se realimentan.
+   */
+  function syncPathControls() {
+    const w = String(state.pathWidth);
+    $('garden-path-width').value = w;
+    $('path-width-modal').value = w;
+    $('path-width-val').textContent = w;
+    $('path-width-modal-val').textContent = w;
+    $('check-path-any-angle').checked = state.pathAnyAngle;
+    $('path-any-angle').checked = state.pathAnyAngle;
+    renderPathPreview();
+  }
+
+  /* Miniatura del camino: mismo papel que la de Fachada, y por eso reutiliza
+     su clase CSS (y su tamaño). Enseña el ANCHO y la INCLINACIÓN activos, que
+     es justo lo que el arrastre deja de decir en cuanto el camino va
+     inclinado; sin ella, mover el deslizador no tiene ningún efecto visible
+     hasta después de dibujar.
+
+     El trazo de muestra va deliberadamente sin lado corto —recto, o en
+     diagonal limpia si la casilla está marcada—: ese es exactamente el caso en
+     el que el ancho sale del ajuste, en los dos modos, así que la miniatura no
+     puede prometer un grosor que luego el arrastre pise. */
+  const PATH_PREVIEW_W = 176, PATH_PREVIEW_H = 168;   // los de .modal__preview
+  const PATH_SAMPLE_LEN = 200;
+  const PATH_SAMPLE_ANGLE = -Math.PI / 7;   // inclinación de muestra, ~-26°
+
+  function renderPathPreview() {
+    const cv = $('path-preview');
+    if (!cv) return;
+    const pctx = cv.getContext('2d');
+    if (!pctx) return;
+    const dpr = window.devicePixelRatio || 1;
+    if (cv.width !== Math.round(PATH_PREVIEW_W * dpr)) {
+      cv.width = Math.round(PATH_PREVIEW_W * dpr);
+      cv.height = Math.round(PATH_PREVIEW_H * dpr);
+    }
+    pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Papel del color real del lienzo: sobre el modal oscuro, el trazo que se
+    // va a dibujar (oscuro) no se vería.
+    pctx.fillStyle = state.canvasBg;
+    pctx.fillRect(0, 0, PATH_PREVIEW_W, PATH_PREVIEW_H);
+
+    const a = state.pathAnyAngle ? PATH_SAMPLE_ANGLE : 0;
+    const els = Garden.elements(
+      TOOLS.GARDEN_PATH, { x: 0, y: 0 },
+      { x: Math.cos(a) * PATH_SAMPLE_LEN, y: Math.sin(a) * PATH_SAMPLE_LEN },
+      { ...gardenOpts(), labels: false },
+    );
+    if (!els.length) return;
+    // Encajar por los bounds REALES: el vaivén del serpenteante se sale del
+    // recorrido, y recortado la miniatura engañaría.
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    els.forEach(el => {
+      const b = getElementBounds(el);
+      minX = Math.min(minX, b.x); minY = Math.min(minY, b.y);
+      maxX = Math.max(maxX, b.x + b.w); maxY = Math.max(maxY, b.y + b.h);
+    });
+    const pad = 12;
+    const bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY);
+    const s = Math.min((PATH_PREVIEW_W - 2 * pad) / bw, (PATH_PREVIEW_H - 2 * pad) / bh);
+    pctx.save();
+    pctx.translate(
+      (PATH_PREVIEW_W - bw * s) / 2 - minX * s,
+      (PATH_PREVIEW_H - bh * s) / 2 - minY * s,
+    );
+    pctx.scale(s, s);
+    // Suelo de grosor: a esta escala el trazo fino del empedrado se desvanecería.
+    drawPiecesPreview(pctx, els.map(el => ({
+      ...el, lineWidth: Math.max(el.lineWidth, 0.9 / s),
+    })));
+    pctx.restore();
   }
 
   /** Rellena un <select> con un catálogo de config.js (textContent, nunca HTML). */

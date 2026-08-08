@@ -16,7 +16,7 @@ const { loadAll } = require('./helpers/load.js');
 
 // isValidElement es pura: se toma del cargador normal en vez de hurgar en el
 // contexto vm de la app (sus `const` top-level no cuelgan de globalThis).
-const { Exporter } = loadAll();
+const { Exporter, TOOLS } = loadAll();
 
 /** Desplazamiento en x de un elemento entre dos escenas (rect/line). */
 const dx = (before, after) =>
@@ -155,6 +155,193 @@ test('el slider de ancho de camino cambia el camino y se recuerda', () => {
   assert.equal(prefs.pathWidth, 72);
   assert.equal(loadApp({ prefs }).$('garden-path-width').value, '72',
     'y vuelve puesto al arrancar de nuevo');
+});
+
+/** Elige la variante recta en el catálogo de Camino ya abierto. */
+function pickPathVariant(app, id = 'pathStraight') {
+  const btn = [...app.$('path-catalog').querySelectorAll('.modal__path')]
+    .find(b => b.dataset.path === id);
+  app.$('modal-path').__fire('click', { target: btn });
+  app.flush();
+}
+
+/** Elige Camino y su variante recta, sobre una app ya cargada. */
+function pickPathStraight(app) {
+  app.selectTool('camino');
+  pickPathVariant(app);
+}
+
+/** Marca/desmarca una casilla y dispara su `change`, como haría un clic. */
+function toggle(app, id, on = true) {
+  const el = app.$(id);
+  el.checked = on;
+  el.__fire('change', { target: el });
+  app.flush();
+  return el;
+}
+
+/* ── Camino: la inclinación es un ajuste de un clic, no una tecla mantenida ──
+   Shift+arrastrar exige DOS manos y deja fuera a quien solo puede usar una, así
+   que no puede ser la única forma de trazar un camino inclinado. */
+
+test('«Cualquier inclinación» traza en diagonal sin tocar el teclado', () => {
+  const app = loadApp();
+  app.selectTool('camino');
+  toggle(app, 'path-any-angle');            // un clic dentro del propio catálogo
+  assert.equal(app.$('check-path-any-angle').checked, true,
+    'la gemela del panel debe quedar al día sin haberla tocado');
+  pickPathVariant(app);
+
+  app.drag(100, 100, 400, 300);             // SIN shiftKey: una sola mano
+  const lines = app.elements().filter(e => e.type === 'line');
+  assert.equal(lines.length, 2);
+  for (const e of lines) {
+    assert.ok(e.x1 !== e.x2 && e.y1 !== e.y2, 'el camino debe salir inclinado');
+    assert.ok(Math.abs((e.x2 - e.x1) / (e.y2 - e.y1) - 300 / 200) < 0.01,
+      'y paralelo al vector exacto del arrastre (300×200)');
+  }
+
+  // Es un ajuste, no un modo de un solo uso: sigue puesto al volver a arrancar.
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.pathAnyAngle, true);
+  assert.equal(loadApp({ prefs }).$('path-any-angle').checked, true);
+});
+
+// Lo que el usuario no podía hacer: con el camino inclinado, el arrastre ya no
+// deja lado corto que leer, así que el ancho SOLO puede venir del deslizador —
+// y tenía que estar donde se elige el trazado, no únicamente en el panel.
+test('el ancho del camino inclinado se cambia desde el propio catálogo', () => {
+  const app = loadApp();
+  app.selectTool('camino');
+  toggle(app, 'path-any-angle');
+  const slider = app.$('path-width-modal');
+  slider.value = '80';
+  slider.__fire('input', { target: slider });
+  slider.__fire('change', { target: slider });
+  app.flush();
+
+  assert.equal(app.$('garden-path-width').value, '80', 'el gemelo del panel sigue al del modal');
+  assert.equal(app.$('path-width-val').textContent, '80');
+  assert.equal(app.$('path-width-modal-val').textContent, '80');
+
+  pickPathVariant(app);
+  app.drag(100, 100, 400, 300);
+  const [a, b] = app.elements().filter(e => e.type === 'line');
+  assert.ok(Math.abs(Math.hypot(a.x1 - b.x1, a.y1 - b.y1) - 80) < 1e-6,
+    'el camino inclinado sale con el ancho elegido en el catálogo');
+});
+
+/* El ángulo es lo único que decide el gesto cuando el camino va inclinado, y
+   nada más lo dice: sin el rótulo hay que acertarlo a ojo. Va en el overlay, así
+   que se comprueba sobre las llamadas de pintado, no sobre la escena. */
+test('al trazar un camino inclinado se ve el ángulo junto al puntero', () => {
+  const app = loadApp();
+  app.selectTool('camino');
+  toggle(app, 'path-any-angle');
+  pickPathVariant(app);
+
+  // El rótulo vive mientras se arrastra: al soltar, el overlay se limpia. Hay
+  // que mirar a media pulsación, sin llegar al pointerup.
+  const anguloEnCurso = (a, p1, p2) => {
+    const canvas = a.$('main-canvas'), overlay = a.$('overlay-canvas');
+    canvas.__fire('pointerdown', { ...p1, pointerId: 1, button: 0 });
+    overlay._ctx.reset();               // solo interesa lo que pinta el arrastre
+    canvas.__fire('pointermove', { ...p2, pointerId: 1, buttons: 1 });
+    a.flush();
+    return overlay._ctx.callsTo('fillText').map(c => c.args[0]).filter(t => /°$/.test(t));
+  };
+
+  // 45° exactos hacia arriba: en pantalla la y crece hacia abajo, y el rótulo
+  // usa convención de transportador (0° a la derecha, positivo hacia arriba).
+  assert.deepEqual(
+    [...anguloEnCurso(app, { clientX: 200, clientY: 400 }, { clientX: 400, clientY: 200 })],
+    ['45°'], 'debe rotularse el ángulo del arrastre');
+
+  // En modo caja el camino solo puede salir a 0° o 90°: el número sería ruido.
+  const caja = loadApp();
+  caja.selectTool('camino');
+  pickPathVariant(caja);
+  assert.deepEqual(
+    [...anguloEnCurso(caja, { clientX: 200, clientY: 400 }, { clientX: 400, clientY: 200 })],
+    [], 'sin inclinación libre no debe aparecer ningún ángulo');
+});
+
+// Los iconos distinguen el TRAZADO (serpenteante/recto, liso/empedrado), no la
+// inclinación: con la casilla marcada se pintarían en diagonal y con el ancho
+// del panel, que a 120px deja el icono hecho una mancha.
+test('con «Cualquier inclinación» los iconos del catálogo siguen en modo caja', () => {
+  const app = loadApp();
+  app.selectTool('camino');
+  toggle(app, 'path-any-angle');
+
+  const seen = [];
+  const orig = app.context.Garden.elements;
+  app.context.Garden.elements = (tool, p1, p2, opts) => {
+    if (tool === TOOLS.GARDEN_PATH) seen.push({ p2, freeAngle: opts.freeAngle });
+    return orig(tool, p1, p2, opts);
+  };
+  app.selectTool('camino');   // reabre el catálogo → 4 iconos + la miniatura
+  app.context.Garden.elements = orig;
+
+  // Los iconos se piden con la caja fija del catálogo (44×84); la miniatura,
+  // con un recorrido largo. Es lo que los distingue entre sí.
+  const icons = seen.filter(c => c.p2.x === 44 && c.p2.y === 84);
+  const preview = seen.filter(c => !(c.p2.x === 44 && c.p2.y === 84));
+  assert.equal(icons.length, 4, 'reabrir el catálogo debe repintar los cuatro iconos');
+  assert.ok(icons.every(c => c.freeAngle === false),
+    'ningún icono debe heredar la inclinación del ajuste');
+  // Y la miniatura, al revés: es justo la que tiene que enseñarla.
+  assert.equal(preview.length, 1, 'debe repintarse la miniatura, una sola vez');
+  assert.equal(preview[0].freeAngle, true,
+    'la miniatura sí debe salir inclinada, que es lo que enseña');
+});
+
+test('Shift durante el arrastre traza el camino en cualquier inclinación', () => {
+  // Sin Shift, el mismo arrastre en diagonal se sigue leyendo como caja: el
+  // lado largo (dx=300) manda, y el camino sale horizontal.
+  const sinShift = loadApp();
+  pickPathStraight(sinShift);
+  sinShift.drag(100, 100, 400, 300);
+  const [a1, b1] = sinShift.elements().filter(e => e.type === 'line');
+  assert.ok(a1.y1 === a1.y2 && b1.y1 === b1.y2,
+    'sin Shift, un arrastre en diagonal debe seguir dando un camino horizontal');
+
+  // Con Shift, el mismo arrastre sale en su inclinación exacta: ya no hay
+  // eje al que snapear, así que ningún borde queda horizontal ni vertical.
+  const conShift = loadApp();
+  pickPathStraight(conShift);
+  conShift.drag(100, 100, 400, 300, { shiftKey: true });
+  const [a2, b2] = conShift.elements().filter(e => e.type === 'line');
+  for (const e of [a2, b2]) {
+    assert.ok(e.x1 !== e.x2 && e.y1 !== e.y2,
+      'con Shift, el borde no debe quedar ni horizontal ni vertical');
+    const dx = e.x2 - e.x1, dy = e.y2 - e.y1;
+    assert.ok(Math.abs(dx / dy - 300 / 200) < 0.01,
+      'y debe ir paralelo al vector exacto del arrastre (300×200)');
+  }
+});
+
+// state.pathFreeAngle viaja dentro de gardenOpts(), así que los iconos del
+// catálogo (que también llaman a Garden.elements) lo heredarían si no se
+// reiniciara al soltar: un arrastre en diagonal con Shift dejaría el
+// catálogo pintando sus cuatro iconos en diagonal la próxima vez que se abra.
+test('el modo libre del camino no se filtra a los iconos del catálogo', () => {
+  const app = loadApp();
+  pickPathStraight(app);
+  app.drag(100, 100, 400, 300, { shiftKey: true });   // commit en diagonal
+
+  const seen = [];
+  const orig = app.context.Garden.elements;
+  app.context.Garden.elements = (tool, p1, p2, opts) => {
+    if (tool === TOOLS.GARDEN_PATH) seen.push(opts.freeAngle);
+    return orig(tool, p1, p2, opts);
+  };
+  app.selectTool('camino');   // reabre el catálogo → repinta los 4 iconos
+  app.context.Garden.elements = orig;
+
+  assert.ok(seen.length > 0, 'reabrir el catálogo debe repintar los iconos');
+  assert.ok(seen.every(f => !f),
+    'los iconos deben pintarse en modo caja, no en el diagonal del arrastre anterior');
 });
 
 /* ── Balcón: catálogo genérico, con la geometría real como icono ── */

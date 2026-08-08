@@ -28,6 +28,41 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### La inclinación del camino exigía dos manos, y su ancho quedaba fuera de alcance
+- **Síntoma:** el usuario, que **solo puede utilizar la mano izquierda**, no
+  podía trazar ningún camino inclinado: la función entera (v1.23.0) estaba
+  atada a `Shift`+arrastrar, y mantener una tecla mientras se arrastra el ratón
+  necesita las dos manos. Además, una vez inclinado el camino, «no se puede
+  cambiar la anchura»: el arrastre ya no la daba y su único control estaba en
+  el panel lateral, que por debajo de 1100px ni siquiera se ve (es un cajón).
+  Y no había forma de saber a qué ángulo estaba saliendo el camino.
+- **Causa:** se eligió `Shift` por seguir el patrón de `state.curveFlip`
+  (Shift al trazar una flecha curva comba al otro lado), que es un precedente
+  real del propio código — pero un precedente sobre *qué* tecla usar no dice
+  nada sobre *si* una tecla mantenida puede ser la única vía. Lo era, y eso
+  convierte una función opcional en una función inexistente para quien no
+  puede hacer ese gesto. El ancho arrastraba el mismo error de forma más
+  suave: existir solo en el panel es, en la práctica, casi no existir (ver
+  también la entrada del tamaño del borrador, mismo patrón).
+- **Fix:** `js/app.js` + `index.html` — la vía principal pasa a ser un ajuste
+  pegajoso de un clic, `state.pathAnyAngle` («Cualquier inclinación»), con
+  casilla en el propio catálogo de Camino y gemela en el panel, persistida en
+  prefs; `gardenOpts()` hace OR de ese ajuste con el `Shift` transitorio, que
+  sobrevive solo como acelerador opcional. El ancho gana un gemelo dentro del
+  modal (`#path-width-modal`) junto a una miniatura en vivo
+  (`renderPathPreview`) que enseña ancho e inclinación antes de dibujar, y
+  `syncPathControls()` reparte ambos valores a los dos juegos de controles.
+  El ángulo se rotula junto al puntero durante el arrastre (`drawPathAngle`,
+  solo en la capa de previsualización).
+- **Guardia:** `tests/app-interaction.test.js` › *"«Cualquier inclinación»
+  traza en diagonal sin tocar el teclado"*, *"el ancho del camino inclinado se
+  cambia desde el propio catálogo"*, *"al trazar un camino inclinado se ve el
+  ángulo junto al puntero"* y *"con «Cualquier inclinación» los iconos del
+  catálogo siguen en modo caja"*.
+- **Regla que deja:** ninguna función puede tener como única vía de acceso un
+  gesto de tecla-mantenida-mientras-se-arrastra. Un modificador vale como
+  atajo, nunca como puerta. Anotado también en `CLAUDE.md`.
+
 ### «Limpiar todo» dejaba el lienzo pequeño, no como al abrir la app
 - **Síntoma:** al abrir Pizarra en una pantalla ancha, el lienzo se ajusta solo
   para aprovechar el espacio disponible (auto-ajuste del zoom). Pulsar «Limpiar

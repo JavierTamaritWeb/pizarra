@@ -546,6 +546,131 @@ test('al ensanchar el camino salen más cantos, no cantos más gordos', () => {
   assert.ok(enorme.n <= 96, `el total está acotado, y son ${enorme.n}`);
 });
 
+/* ================= Ángulo libre (Shift durante el arrastre) =================
+   Por defecto el arrastre se lee como caja (arriba). Con `freeAngle: true` en
+   las opts —lo que pone app.js mientras se mantiene Shift— el arrastre pasa a
+   SER el recorrido, a cualquier inclinación, y el grosor deja de salir del
+   ratón: no queda ya lado corto del que leerlo, así que sale siempre de
+   `pathWidth`, igual que ya hace un clic o una línea recta en modo caja. */
+
+const PATH_FREE_ORIGIN = { x: 400, y: 400 };
+/** p1/p2 de un arrastre de `len` px a `deg` grados exactos, para el modo libre. */
+function pathAt(deg, len = 300) {
+  const a = deg * Math.PI / 180;
+  return {
+    a, p1: PATH_FREE_ORIGIN,
+    p2: { x: PATH_FREE_ORIGIN.x + Math.cos(a) * len, y: PATH_FREE_ORIGIN.y + Math.sin(a) * len },
+  };
+}
+
+test('sin freeAngle, un arrastre diagonal sigue leyéndose como caja', () => {
+  const { p1, p2 } = pathAt(30, 300);
+  const edges = make(TOOLS.GARDEN_PATH, 'pathStraight', { labels: false }, p1, p2)
+    .filter(el => el.type === 'line');
+  assert.equal(edges.length, 2);
+  assert.ok(edges.every(e => e.x1 === e.x2 || e.y1 === e.y2),
+    'sin el flag, un arrastre en diagonal debe seguir snapeando a un eje');
+});
+
+test('con freeAngle, el camino va en la dirección exacta del arrastre, a cualquier inclinación', () => {
+  for (const deg of [0, 90, 30, -45, 135, 180, -120]) {
+    const { a, p1, p2 } = pathAt(deg, 300);
+    const cos = Math.cos(a), sin = Math.sin(a);
+    const edges = make(TOOLS.GARDEN_PATH, 'pathStraight', { labels: false, freeAngle: true }, p1, p2)
+      .filter(el => el.type === 'line');
+    assert.equal(edges.length, 2, `${deg}°: hacen falta los dos bordes`);
+    for (const e of edges) {
+      const dx = e.x2 - e.x1, dy = e.y2 - e.y1;
+      const len = Math.hypot(dx, dy);
+      assert.ok(Math.abs(len - 300) < 0.01, `${deg}°: el borde debe medir lo que el arrastre`);
+      // El borde es paralelo al vector de arrastre y va en su mismo sentido.
+      const cross = (dx / len) * sin - (dy / len) * cos;
+      assert.ok(Math.abs(cross) < 1e-6, `${deg}°: el borde no es paralelo al arrastre (cross=${cross})`);
+      const dot = (dx / len) * cos + (dy / len) * sin;
+      assert.ok(dot > 0.99, `${deg}°: el borde debe ir en el mismo sentido que el arrastre`);
+    }
+  }
+});
+
+test('con freeAngle, el ancho lo manda pathWidth, no un lado corto que ya no existe', () => {
+  const anchoDe = (deg, len, pathWidth) => {
+    const { p1, p2 } = pathAt(deg, len);
+    const [a, b] = make(TOOLS.GARDEN_PATH, 'pathStraight',
+      { labels: false, freeAngle: true, pathWidth }, p1, p2)
+      .filter(el => el.type === 'line');
+    return Math.hypot(a.x1 - b.x1, a.y1 - b.y1);
+  };
+  // Dos arrastres muy distintos (ángulo y largo) con el mismo pathWidth deben
+  // dar el mismo grosor: ya no hay "lado corto" que lo cambie (el hypot de
+  // ángulos no cerrados deja un resto de coma flotante, de ahí el epsilon).
+  assert.ok(Math.abs(anchoDe(17, 120, 44) - 44) < 1e-6);
+  assert.ok(Math.abs(anchoDe(-63, 500, 44) - 44) < 1e-6);
+  // Se sigue acotando a los topes del slider, venga de donde venga.
+  assert.ok(Math.abs(anchoDe(30, 300, -50) - Garden.PATH_W_MIN) < 1e-6);
+  assert.ok(Math.abs(anchoDe(30, 300, 4000) - Garden.PATH_W_MAX) < 1e-6);
+  // Y sin pathWidth, cae dentro del rango en vez de romperse.
+  const sinAncho = anchoDe(30, 300, undefined);
+  assert.ok(sinAncho >= Garden.PATH_W_MIN && sinAncho <= Garden.PATH_W_MAX);
+});
+
+test('con freeAngle, un clic sin arrastrar da el mismo camino vertical por defecto', () => {
+  const p1 = { x: 250, y: 250 }, p2 = { x: 251, y: 251 };   // arrastre < MIN_SPAN
+  for (const id of PATH_IDS) {
+    const caja = unionBounds(make(TOOLS.GARDEN_PATH, id, { labels: false, pathWidth: 40 }, p1, p2));
+    const libre = unionBounds(make(TOOLS.GARDEN_PATH, id,
+      { labels: false, pathWidth: 40, freeAngle: true }, p1, p2));
+    assert.deepEqual(libre, caja, `${id}: un clic debe dar igual con o sin freeAngle`);
+  }
+});
+
+test('con freeAngle, los cantos caben entre los bordes en cualquier inclinación', () => {
+  for (const deg of [0, 90, 30, -45, 135]) {
+    const { a, p1, p2 } = pathAt(deg, 320);
+    const els = make(TOOLS.GARDEN_PATH, 'pathPaved', { labels: false, freeAngle: true }, p1, p2);
+    const edges = els.filter(el => el.type === 'curveArrow' && !cobbles([el]).length);
+    assert.equal(edges.length, 2, `${deg}°: hacen falta los dos bordes para acotar`);
+    // Coordenadas de camino a este ángulo exacto: u a lo largo, v en perpendicular.
+    const sin = Math.sin(a), cos = Math.cos(a);
+    const uv = p => ({ u: (p.x - p1.x) * cos + (p.y - p1.y) * sin,
+                       v: (p.x - p1.x) * -sin + (p.y - p1.y) * cos });
+    const vAt = (edge, u) => {
+      const pts = CurvePath.sample(edge, 120).map(uv);
+      let best = pts[0];
+      for (const p of pts) if (Math.abs(p.u - u) < Math.abs(best.u - u)) best = p;
+      return best.v;
+    };
+    const [lo, hi] = uv({ x: edges[0].x1, y: edges[0].y1 }).v <
+                     uv({ x: edges[1].x1, y: edges[1].y1 }).v ? edges : [edges[1], edges[0]];
+    const stones = cobbles(els);
+    assert.ok(stones.length >= 6, `${deg}°: no hay empedrado que comprobar`);
+    for (const c of stones) {
+      const cb = CurvePath.bounds(c);
+      const p = uv({ x: cb.x + cb.w / 2, y: cb.y + cb.h / 2 });
+      const r = Math.max(cb.w, cb.h) / 2;      // radio circunscrito: cota estricta
+      assert.ok(p.v - r > vAt(lo, p.u) - 1, `${deg}°: un canto asoma por un borde`);
+      assert.ok(p.v + r < vAt(hi, p.u) + 1, `${deg}°: un canto asoma por el otro`);
+    }
+  }
+});
+
+// El aplastamiento de los cantos se reparte de forma continua entre rx/ry
+// según la inclinación (ver js/garden.js), precisamente para que un camino en
+// ángulo libre no dé un salto justo a 45°: ahí rx===ry y el canto sale casi
+// redondo, más que en horizontal (donde sigue con la misma proporción 0.82 de
+// siempre — esto no cambia el modo caja, solo generaliza la fórmula).
+test('en diagonal, los cantos del empedrado salen más redondos que en horizontal', () => {
+  const aspect = deg => {
+    const { p1, p2 } = pathAt(deg, 320);
+    const els = make(TOOLS.GARDEN_PATH, 'pathPaved', { labels: false, freeAngle: true }, p1, p2);
+    const b = CurvePath.bounds(cobbles(els)[0]);
+    return Math.max(b.w, b.h) / Math.min(b.w, b.h);
+  };
+  const horizontal = aspect(0);
+  const diagonal = aspect(45);
+  assert.ok(diagonal < horizontal - 0.05,
+    `a 45° los cantos deben ser más redondos: ${horizontal.toFixed(3)} (0°) vs ${diagonal.toFixed(3)} (45°)`);
+});
+
 /* ---------------- el reloj de sol ---------------- */
 
 test('el reloj de suelo lleva corona horaria y gnomon, y las horas van finas', () => {

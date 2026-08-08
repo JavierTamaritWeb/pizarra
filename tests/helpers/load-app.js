@@ -18,7 +18,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { createDom } = require('./dom-stub.js');
 const { createCtxStub } = require('./ctx-stub.js');
-const { ALL_FILES, PROJECT_ROOT } = require('./load.js');
+const { ALL_FILES, PROJECT_ROOT, loadScript } = require('./load.js');
 
 function loadApp({ prefs, autosave } = {}) {
   const html = fs.readFileSync(path.join(PROJECT_ROOT, 'index.html'), 'utf8');
@@ -52,10 +52,10 @@ function loadApp({ prefs, autosave } = {}) {
   sandbox.globalThis = sandbox;
   const context = vm.createContext(sandbox);
 
-  for (const file of [...ALL_FILES, 'js/app.js']) {
-    const abs = path.join(PROJECT_ROOT, file);
-    vm.runInContext(fs.readFileSync(abs, 'utf8'), context, { filename: abs });
-  }
+  // loadScript (de load.js) recarga cada fichero y además copia sus `const`
+  // top-level conocidos (KNOWN_GLOBALS) a globalThis, igual que loadAll():
+  // así context.Garden/TOOLS/etc. quedan legibles desde fuera del sandbox.
+  for (const file of [...ALL_FILES, 'js/app.js']) loadScript(context, file);
   dom.flush();
 
   const $ = id => dom.document.getElementById(id);
