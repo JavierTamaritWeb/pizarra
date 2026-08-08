@@ -2,6 +2,12 @@
 
 > Síntesis de 6 revisiones por dimensión (bugs, arquitectura, UX, exportación, accesibilidad, rendimiento), deduplicada y priorizada. Fecha: 2026-07-20.
 
+> **Documento histórico** (fases 1–3 completadas). Refleja el estado de
+> 2026-07-20: la app se llamaba entonces SketchWire (hoy Pizarra), los scripts
+> vivían en `js/` (hoy `src/js/`, desde v1.25.0) y la tabla de catálogos se
+> llamaba `GARDEN_MODALS` (hoy `VARIANT_MODALS`). Se conserva tal cual como
+> registro de decisiones; los nombres y rutas vigentes los da CLAUDE.md.
+
 ## 1. Resumen ejecutivo
 
 SketchWire es una app de wireframing en canvas, vanilla JS sin build ni dependencias, con una arquitectura sana en su núcleo (estado serializable único en `state.elements` + redraw completo) pero con varios bugs funcionales serios: el undo de un arrastre no revierte nada, el borrador corrompe los exports, el import JSON puede dejar la app inutilizable y el jitter aleatorio hace "temblar" todo el lienzo en cada redraw. Además carece de las capacidades básicas que un usuario de wireframing espera (autoguardado, redimensionar, duplicar, editar texto existente). El plan se organiza en tres fases: primero corregir lo roto (mayoría de fixes de bajo esfuerzo y muy localizados), después las mejoras de mayor valor por esfuerzo (persistencia, seed determinista, duplicar, atajos), y por último mejoras deseables (resize, selección múltiple, accesibilidad ampliada). Varios hallazgos de las revisiones se han rebajado o descartado por desproporcionados para una app de este tamaño (ver sección 5).

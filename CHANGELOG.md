@@ -4,6 +4,71 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.2.0] — 2026-08-08
+
+Correcciones de la segunda auditoría severa (cuatro frentes: lógica JS,
+accesibilidad WCAG, build/publicable y coherencia de documentación). Cada fix
+lleva su entrada en `BUGS.md` con guardia de regresión verificada por sabotaje.
+
+### Añadido
+
+- **Doble clic sobre una pieza de un edificio o del jardín la aísla** — la vía
+  de una sola mano para lo que antes solo hacía `Alt`+clic (que queda como
+  atajo). Regla del proyecto: ningún gesto puede exigir un acorde
+  tecla+puntero como única forma.
+- **Casilla «Los clics acumulan selección»** en el panel (mismo patrón que
+  «Ajustar a cuadrícula»): cada clic añade a la selección y un clic sin
+  arrastre sobre lo ya seleccionado lo quita — la multi-selección disjunta sin
+  `Shift`. Arrastrar sigue moviendo el grupo.
+- **Navegación por flechas en la barra de herramientas** (roving tabindex):
+  la barra entera es una sola parada de Tab y flechas/Inicio/Fin recorren las
+  herramientas, como promete su `role="toolbar"`.
+- **Licencia MIT traducida al español** (`LICENSE.es.txt`, también en el
+  publicable); la versión vinculante sigue siendo `LICENSE` en inglés.
+- Tests de `dist/` (`tests/dist.test.js`): rutas aplanadas y contenido íntegro
+  del publicable, con skip explícito si no existe.
+
+### Corregido
+
+- **El borrador ya no desancla flechas en silencio**: el recorte usa el mismo
+  margen de tinta que la detección de contacto (`r + grosor/2`), un roce sin
+  mordisco deja el elemento intacto (sin paso de undo fantasma) y el trozo que
+  conserva su extremo original de flecha conserva también su ancla.
+- **Doble clic en el segundo control de una curva encadenada** reseteaba el
+  control equivocado; ahora resetea el tramo cúbico entero a su S canónica.
+- **El cajón del panel cerrado (≤1100 px) ya no es tabulable** (`visibility`
+  con la transición respetada), el botón «⚙ Panel» anuncia su estado
+  (`aria-expanded`) y `Esc` lo cierra.
+- **Contrastes WCAG AA**: los botones destructivos pasan de 4.13:1 a 5.92:1
+  (`--color-danger: #f4778c`), el texto secundario pequeño a ≥4.6:1
+  (`--text-dim`/`--text-muted` aclarados), la pista de los sliders a 3.21:1
+  (token nuevo `--slider-track`) y el ⚙ del borrador crece a 24×24 px.
+- **Nombres accesibles**: `label` real en los sliders de Texto y Zoom,
+  `aria-label` en el picker de color del trazo, `<h1>` en el nombre de la app
+  y los emoji decorativos de los botones con `aria-hidden`.
+- **La caché de imágenes del Renderer se poda** contra la escena y el
+  historial (antes cada data-URL pegado quedaba retenido para siempre) y
+  registra `onerror`.
+- «Limpiar todo» resetea también los defaults de Edificios/Jardín (antes el
+  siguiente guardado de preferencias resucitaba la configuración recién
+  borrada). Los seeds corruptos de un JSON manipulado se re-siembran; el
+  autosave hace flush en `pagehide`; `HEX_RE` solo acepta longitudes hex
+  válidas en CSS; feedback si falla la lectura de un archivo de imagen.
+- **Build del publicable**: el aplanado de rutas se verifica (error ruidoso si
+  no casa), `dist/` se construye en `dist.tmp` y se sustituye solo al acabar,
+  y ningún `.DS_Store` viaja al publicable.
+- Documentación: el README ya no se contradice en el número de tests, las
+  rutas `js/` → `src/js/` rancias de comentarios y docs vivas están al día,
+  `GARDEN_MODALS` → `VARIANT_MODALS` en los comentarios que lo citaban, y
+  PLAN.md declara su condición de documento histórico.
+
+### Cambiado
+
+- `buildSidebar` construye los botones con `createElement`/`textContent` —
+  desaparece el único `innerHTML` interpolado del proyecto.
+- `.app` usa `100dvh` con fallback a `100vh` (la barra de URL móvil recortaba
+  el pie del panel); token muerto `--color-accent` eliminado.
+
 ## [2.1.1] — 2026-08-08
 
 ### Cambiado

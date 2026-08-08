@@ -654,7 +654,7 @@ test('con freeAngle, los cantos caben entre los bordes en cualquier inclinación
 });
 
 // El aplastamiento de los cantos se reparte de forma continua entre rx/ry
-// según la inclinación (ver js/garden.js), precisamente para que un camino en
+// según la inclinación (ver src/js/garden.js), precisamente para que un camino en
 // ángulo libre no dé un salto justo a 45°: ahí rx===ry y el canto sale casi
 // redondo, más que en horizontal (donde sigue con la misma proporción 0.82 de
 // siempre — esto no cambia el modo caja, solo generaliza la fórmula).

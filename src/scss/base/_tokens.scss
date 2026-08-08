@@ -9,7 +9,6 @@
 :root {
   /* Brand */
   --color-primary: #{v.$color-primary};
-  --color-accent: #{v.$color-accent};
   --color-danger: #{v.$color-danger};
 
   /* Surfaces */
@@ -23,13 +22,14 @@
   --text-secondary: #{v.$text-secondary};
   --text-muted: #{v.$text-muted};
   --text-dim: #{v.$text-dim};
+  --slider-track: #{v.$slider-track};
 
   /* Borders */
   --border-main: #{v.$border-main};
 
   /* Fonts */
   // meta.inspect y no #{} a secas: la interpolación directa de una lista
-  // Sass despoja las comillas de cada familia, y js/config.js relee esta
+  // Sass despoja las comillas de cada familia, y src/js/config.js relee esta
   // custom property en runtime — debe llegar entrecomillada tal cual.
   --font-ui: #{meta.inspect(fonts.$font-ui)};
   --font-sketch: #{meta.inspect(fonts.$font-sketch)};

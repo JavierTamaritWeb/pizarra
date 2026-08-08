@@ -1,6 +1,6 @@
 'use strict';
 /* ============================================================
-   app-interaction.test.js — Gestos reales sobre js/app.js.
+   app-interaction.test.js — Gestos reales sobre src/js/app.js.
 
    Estos tests ejecutan la app entera (sidebar, modales, canvas) sobre el
    DOM de tests/helpers/dom-stub.js y comprueban el resultado leyendo el
@@ -102,6 +102,86 @@ test('Alt+clic sigue aislando una pieza del edificio', () => {
   app.click(100, 100, { altKey: true });
   app.key('Delete');
   assert.equal(app.elements().length, count - 1, 'Alt+clic borra solo la pieza');
+});
+
+/* ── Regresión (auditoría 2026-08-08): Alt+clic era la ÚNICA vía de aislar
+   una pieza — un acorde tecla+puntero, imposible con una sola mano. El doble
+   clic sobre una pieza de la selección múltiple desciende a ella. ── */
+
+test('doble clic desciende a la pieza del edificio: aislar sin teclado (una mano)', () => {
+  const { app, count } = withFacade();
+  app.selectTool('select');
+  app.click(100, 100);          // primer clic: el edificio entero
+  app.dblclick(100, 100);       // doble clic: desciende a la pieza bajo el cursor
+  app.key('Delete');
+  assert.equal(app.elements().length, count - 1,
+    'se borra solo la pieza aislada por doble clic, sin ninguna tecla');
+});
+
+/* ── Regresión (auditoría 2026-08-08): Shift+clic era la única vía de
+   multi-selección disjunta y de quitar un elemento de la selección — otro
+   acorde tecla+puntero. La casilla «Los clics acumulan selección» es la vía
+   de una mano; Shift queda como atajo. ── */
+
+test('«Los clics acumulan selección»: multi-selección disjunta sin teclado', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(50, 50, 90, 90);
+  app.drag(300, 300, 340, 340);
+  app.selectTool('select');
+  toggle(app, 'check-multi-select');
+  app.click(70, 70);
+  app.click(320, 320);          // añade: no sustituye
+  app.key('Delete');
+  assert.equal(app.elements().length, 0, 'los dos rects estaban seleccionados a la vez');
+});
+
+test('en modo acumular, arrastrar sigue moviendo y el clic sin arrastre quita', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(50, 50, 90, 90);
+  app.drag(300, 300, 340, 340);
+  app.selectTool('select');
+  toggle(app, 'check-multi-select');
+  app.click(70, 70);
+  app.click(320, 320);
+  // Arrastrar desde un elemento ya seleccionado mueve toda la selección
+  // (la retirada solo se consuma si el gesto acaba sin arrastre)
+  app.drag(70, 70, 120, 70);
+  let els = app.elements();
+  assert.deepEqual(els.map(e => e.x).sort((a, b) => a - b), [100, 350],
+    'los dos rects se movieron 50px como grupo');
+  // Un clic sin arrastre sobre uno seleccionado lo quita de la selección
+  app.click(370, 320);
+  app.key('Delete');
+  els = app.elements();
+  assert.equal(els.length, 1, 'solo se borró lo que seguía seleccionado');
+  assert.equal(els[0].x, 350, 'sobrevive el rect retirado de la selección');
+});
+
+/* ── Regresión (auditoría 2026-08-08): doble clic sobre el SEGUNDO control
+   de un tramo cúbico encadenado reseteaba el primero (cx/cy) y dejaba
+   cx2/cy2 intacto: tramo medio reseteado y deformado. ── */
+
+test('doble clic en el handle segCtrl2 resetea el tramo entero, no el control equivocado', () => {
+  const chain = {
+    type: 'curveArrow', color: '#1a1a2e', lineWidth: 2,
+    x1: 0, y1: 100, x2: 200, y2: 100,
+    segments: [
+      { x1: 0, y1: 100, cx: 30, cy: 40, cx2: 70, cy2: 160, x2: 100, y2: 100 },
+      { x1: 100, y1: 100, cx: 130, cy: 40, cx2: 170, cy2: 160, x2: 200, y2: 100 },
+    ],
+  };
+  const app = loadApp({ autosave: [chain] });
+  app.selectTool('select');
+  app.click(100, 100);          // selecciona la cadena (clic sobre la junta)
+  app.dblclick(70, 160);        // doble clic sobre el handle segCtrl2 del tramo 0
+  const seg = app.elements()[0].segments[0];
+  // S canónica del tramo (cuerda (0,100)→(100,100), sVal = 25):
+  assert.ok(Math.abs(seg.cx - 25) < 1 && Math.abs(seg.cy - 125) < 1,
+    `el primer control va a la S canónica (cx=${seg.cx}, cy=${seg.cy})`);
+  assert.ok(Math.abs(seg.cx2 - 75) < 1 && Math.abs(seg.cy2 - 75) < 1,
+    `el segundo control también se resetea (cx2=${seg.cx2}, cy2=${seg.cy2})`);
 });
 
 /* ── Regresión: elegir tipo de puerta/ventana sin salir del flujo de Fachada ── */
@@ -989,4 +1069,33 @@ test('la previsualización de la cadena respeta «Ajustar a cuadrícula»', () =
   assert.deepEqual([x, y], [140, 160],
     'el extremo de la preview va snapeado, como el commit');
   canvas.__fire('pointerup', { clientX: 147, clientY: 153, pointerId: 1 });
+});
+
+/* ── Regresión (auditoría 2026-08-08): «Limpiar todo» no reseteaba los
+   defaults de Edificios/Jardín en state, y el siguiente savePrefs() los
+   re-persistía — deshaciendo el removeItem que el botón acababa de hacer. ── */
+
+test('«Limpiar todo» también devuelve los defaults de Edificios y Jardín', () => {
+  const app = loadApp({ prefs: { treeType: 'olive', pathWidth: 72, buildFloors: 3 } });
+  assert.equal(app.$('garden-path-width').value, '72', 'premisa: los prefs entraron');
+  const clear = app.$('btn-clear');
+  clear.__fire('click', { target: clear });
+  app.flush();
+  assert.equal(app.$('garden-path-width').value, '34', 'el slider gemelo vuelve al default');
+  // Cualquier savePrefs posterior ya no debe resucitar la configuración vieja
+  toggle(app, 'check-garden-labels', true);
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.treeType, 'broadleaf', 'la variante de árbol vuelve a su default');
+  assert.equal(prefs.pathWidth, 34, 'el ancho de camino vuelve a su default');
+  assert.equal(prefs.buildFloors, 'auto', 'las plantas vuelven a auto');
+});
+
+/* ── Regresión (auditoría 2026-08-08): HEX_RE aceptaba longitudes hex que no
+   son colores CSS (#abcde, 5 dígitos): el canvas las ignora en silencio y el
+   picker divergía del estado. ── */
+
+test('unas prefs con un hex inválido de 5 dígitos no cuelan; el válido sí', () => {
+  const app = loadApp({ prefs: { canvasBg: '#abcde', gridColor: '#123456' } });
+  assert.equal(app.$('canvas-bg-picker').value, '#ffffff', 'el hex de 5 dígitos se rechaza');
+  assert.equal(app.$('grid-color-picker').value, '#123456', 'el hex válido sí entra');
 });

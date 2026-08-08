@@ -1,6 +1,6 @@
 'use strict';
 /* ============================================================
-   arc.test.js — Tests de js/arc.js (geometría de arcos circulares)
+   arc.test.js — Tests de src/js/arc.js (geometría de arcos circulares)
    y de la validación del flag `arc` en Exporter.isValidElement.
    Los objetos devueltos por el vm se leen por propiedades numéricas
    (primitivas), sin comparar prototipos entre realms.

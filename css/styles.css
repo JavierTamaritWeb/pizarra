@@ -38,8 +38,7 @@
 :root {
   /* Brand */
   --color-primary: #4ecdc4;
-  --color-accent: #f790b2;
-  --color-danger: #e94560;
+  --color-danger: #f4778c;
   /* Surfaces */
   --bg-app: #0f1019;
   --bg-panel: #161822;
@@ -48,8 +47,9 @@
   /* Text */
   --text-primary: #e0e4ea;
   --text-secondary: #9aa0b0;
-  --text-muted: #8a90a3;
-  --text-dim: #767b8e;
+  --text-muted: #9096a8;
+  --text-dim: #7d8295;
+  --slider-track: #61678a;
   /* Borders */
   --border-main: #2a2d3e;
   /* Fonts */
@@ -102,7 +102,9 @@ input[type=range] {
   width: 100%;
   height: 0.4rem;
   border-radius: 0.2rem;
-  background: var(--bg-hover);
+  /* --slider-track, no --bg-hover: la pista es el único indicador de la
+     extensión del control y necesita ≥3:1 contra el panel (WCAG 1.4.11). */
+  background: var(--slider-track);
 }
 
 /* Foco visible solo al navegar con teclado */
@@ -145,6 +147,9 @@ input[type=range]::-moz-range-thumb {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  /* dvh donde exista: en móvil, 100vh queda por debajo de la barra de URL
+     retráctil y recortaba el pie del panel. La línea anterior es el fallback. */
+  height: 100dvh;
   overflow: hidden;
 }
 .app__body {
@@ -478,6 +483,9 @@ input[type=range]::-moz-range-thumb {
   justify-content: space-between;
   gap: 0.8rem;
 }
+.panel__title--block {
+  display: block;
+}
 .panel__gear {
   border: none;
   background: transparent;
@@ -487,6 +495,11 @@ input[type=range]::-moz-range-thumb {
   line-height: 1;
   padding: 0.2rem 0.4rem;
   border-radius: 0.6rem;
+  min-width: 2.4rem;
+  min-height: 2.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .panel__gear:hover {
   color: var(--text-primary);
@@ -994,11 +1007,19 @@ kbd {
     bottom: 0;
     z-index: 50;
     transform: translateX(100%);
-    transition: transform 0.2s ease;
+    /* El cajón cerrado debe salir también del árbol de accesibilidad y del
+       orden de tabulación: transform solo lo desplaza visualmente (Tab metía
+       el foco en ~30 controles invisibles, con el indicador fuera de
+       pantalla). visibility respeta el deslizamiento gracias al delay: se
+       oculta al ACABAR la transición y al abrir se muestra al instante. */
+    visibility: hidden;
+    transition: transform 0.2s ease, visibility 0s 0.2s;
     box-shadow: -0.8rem 0 4rem rgba(0, 0, 0, 0.4);
   }
   .app--panel-open .panel {
     transform: translateX(0);
+    visibility: visible;
+    transition: transform 0.2s ease, visibility 0s 0s;
   }
   .app--panel-open .panel-backdrop {
     display: block;

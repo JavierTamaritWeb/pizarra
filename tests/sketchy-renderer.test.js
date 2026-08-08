@@ -1,6 +1,6 @@
 'use strict';
 /* ============================================================
-   sketchy-renderer.test.js — Tests de js/sketchy.js y js/renderer.js
+   sketchy-renderer.test.js — Tests de src/js/sketchy.js y src/js/renderer.js
    contra el stub de CanvasRenderingContext2D (ctx-stub.js).
 
    Nota: Sketchy usa Math.random() (jitter ±roughness/2 por coordenada),
@@ -908,4 +908,24 @@ test('Renderer: los tintes de los componentes UI parten del color base aunque tr
   assert.ok(estilos.includes('#e9456015'), 'el tinte del botón parte del color base');
   const rotos = estilos.filter(v => v.startsWith('#') && ![4, 5, 7, 9].includes(v.length));
   assert.deepEqual(rotos, [], 'ningún estilo hex puede salir con 10 dígitos');
+});
+
+// Guardia de BUGS.md (auditoría 2026-08-08): la caché de imágenes solo
+// crecía — cada data-URL distinto de una sesión larga quedaba retenido en
+// memoria para siempre, aunque su elemento se hubiera borrado del lienzo y
+// del historial. La caché es privada: la única observabilidad es el número
+// de entradas expulsadas que devuelve pruneImageCache.
+test('Renderer.pruneImageCache expulsa los src muertos y conserva los vivos', () => {
+  // Contexto propio (la caché es estado del módulo) y con Image inyectada:
+  // sin ella, _image() ni siquiera puebla la caché (camino de los tests).
+  const ctx = load('src/js/sketchy.js', 'src/js/renderer.js');
+  ctx.Image = class { set src(v) { this._src = v; } get src() { return this._src; } };
+  const draw = createCtxStub();
+  const img = src => ({ type: 'image', x: 0, y: 0, w: 10, h: 10, color: '#1a1a2e', lineWidth: 1, src });
+  ctx.Renderer.renderElement(draw, img('data:image/png;base64,VIVA'));
+  ctx.Renderer.renderElement(draw, img('data:image/png;base64,MUERTA'));
+
+  const vivos = new Set(['data:image/png;base64,VIVA']);
+  assert.equal(ctx.Renderer.pruneImageCache(vivos), 1, 'expulsa exactamente la muerta');
+  assert.equal(ctx.Renderer.pruneImageCache(vivos), 0, 'la viva sobrevive a la segunda poda');
 });

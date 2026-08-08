@@ -1,6 +1,6 @@
 'use strict';
 /* ============================================================
-   config-templates.test.js — Tests de js/config.js y js/templates.js
+   config-templates.test.js — Tests de src/js/config.js y src/js/templates.js
    Ejecutar desde la raíz del proyecto:
      node --test tests/config-templates.test.js
    ============================================================ */

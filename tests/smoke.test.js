@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.1.1 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.2.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.1\.1</);
-  assert.match(html, /css\/styles\.css\?v=2\.1\.1/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.1\.1/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.1\.1/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.1\.1/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.1\.1/);
+  assert.match(html, /class="topbar__badge">v2\.2\.0</);
+  assert.match(html, /css\/styles\.css\?v=2\.2\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.2\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.2\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.2\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.2\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -93,6 +93,77 @@ test('toda custom property usada en css/styles.css está definida', () => {
   for (const use of css.matchAll(/var\(\s*(--[\w-]+)/g)) {
     assert.ok(defined.has(use[1]), `var(${use[1]}) se usa pero no está definida`);
   }
+});
+
+// Regresión de la auditoría 2026-08-08: el texto de .btn--danger («Eliminar
+// selección», «Limpiar todo» — justo las acciones destructivas) daba 4.13:1
+// (3.61 en hover) sobre su fondo translúcido, por debajo del AA (4.5:1 para
+// texto pequeño). El ratio se calcula aquí sobre el artefacto compilado real:
+// si alguien re-oscurece el token o sube el alpha del fondo, esto falla.
+test('el texto de .btn--danger cumple AA (≥4.5:1) en reposo y en hover', () => {
+  const css = fs.readFileSync(path.resolve(__dirname, '..', 'css', 'styles.css'), 'utf8');
+  const lum = hex => {
+    const [r, g, b] = hex.match(/\w\w/g).map(h => parseInt(h, 16) / 255)
+      .map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const ratio = (a, b) => {
+    const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+  // rgba(R,G,B,a) compuesto sobre un fondo opaco → hex efectivo
+  const over = (rgba, base) => {
+    const [, r, g, b, a] = rgba.map(Number);
+    return base.match(/\w\w/g).map((h, i) =>
+      Math.round([r, g, b][i] * a + parseInt(h, 16) * (1 - a))
+        .toString(16).padStart(2, '0')).join('');
+  };
+  const text = css.match(/--color-danger:\s*#([0-9a-f]{6})/i)[1];
+  const panel = css.match(/--bg-panel:\s*#([0-9a-f]{6})/i)[1];
+  const rest = css.match(/\.btn--danger \{[^}]*rgba\((\d+), (\d+), (\d+), ([\d.]+)\)/);
+  const hover = css.match(/\.btn--danger:hover \{[^}]*rgba\((\d+), (\d+), (\d+), ([\d.]+)\)/);
+  assert.ok(rest && hover, 'los fondos rgba de .btn--danger deben existir');
+  const rRest = ratio(text, over(rest, panel));
+  const rHover = ratio(text, over(hover, panel));
+  assert.ok(rRest >= 4.5, `reposo ${rRest.toFixed(2)}:1 — debe ser ≥ 4.5:1`);
+  assert.ok(rHover >= 4.5, `hover ${rHover.toFixed(2)}:1 — debe ser ≥ 4.5:1`);
+});
+
+// Auditoría 2026-08-08: los pares de texto pequeño secundario y la pista de
+// los sliders quedaban por debajo del mínimo WCAG. Se calculan aquí sobre los
+// tokens reales del artefacto, para que un retoque de paleta no los devuelva
+// por debajo sin que falle nada.
+test('texto secundario ≥4.5:1 y pista del slider ≥3:1 sobre sus fondos reales', () => {
+  const css = fs.readFileSync(path.resolve(__dirname, '..', 'css', 'styles.css'), 'utf8');
+  const token = name => css.match(new RegExp(`${name}:\\s*#([0-9a-f]{6})`, 'i'))[1];
+  const lum = hex => {
+    const [r, g, b] = hex.match(/\w\w/g).map(h => parseInt(h, 16) / 255)
+      .map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const ratio = (a, b) => {
+    const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+  const panel = token('--bg-panel'), hover = token('--bg-hover');
+  const dim = ratio(token('--text-dim'), panel);
+  const muted = ratio(token('--text-muted'), hover);
+  const track = ratio(token('--slider-track'), panel);
+  assert.ok(dim >= 4.5, `--text-dim sobre panel: ${dim.toFixed(2)}:1 — debe ser ≥ 4.5`);
+  assert.ok(muted >= 4.5, `--text-muted sobre hover: ${muted.toFixed(2)}:1 — debe ser ≥ 4.5`);
+  assert.ok(track >= 3, `--slider-track sobre panel: ${track.toFixed(2)}:1 — debe ser ≥ 3`);
+});
+
+// Regresión de la auditoría 2026-08-08: tres controles del panel no tenían
+// nombre accesible (un lector anunciaba «deslizador» sin decir qué ajusta), y
+// el cajón del panel no anunciaba su estado. Guard textual sobre index.html.
+test('los controles del panel tienen nombre accesible y el cajón anuncia su estado', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const tag = id => (html.match(new RegExp(`<[a-z]+[^>]*id="${id}"[^>]*>`)) || [null])[0];
+  assert.match(html, /<label[^>]*for="font-slider"/, 'el slider de texto necesita <label for>');
+  assert.match(html, /<label[^>]*for="zoom-slider"/, 'el slider de zoom necesita <label for>');
+  assert.match(tag('color-picker'), /aria-label="/, 'el picker de color del trazo necesita aria-label');
+  assert.match(tag('btn-panel-toggle'), /aria-expanded="false"/, 'el toggle del cajón anuncia su estado');
 });
 
 // El rango del slider de ancho de camino y los topes con los que garden.js

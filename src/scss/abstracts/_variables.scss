@@ -9,8 +9,12 @@
 
 // Marca
 $color-primary: #4ecdc4;
-$color-accent: #f790b2;
-$color-danger: #e94560;
+
+// Aclarado de #e94560 en v2.2.0: como texto de .btn--danger sobre su fondo
+// rgba(233,69,96,.12/.22) daba 4.13:1 (3.61 en hover) — por debajo del AA
+// (4.5:1) justo en los botones destructivos. Con #f4778c: 5.92 / 5.18.
+// Guardia: smoke.test.js calcula el ratio real del artefacto compilado.
+$color-danger: #f4778c;
 
 // Superficies
 $bg-app: #0f1019;
@@ -21,8 +25,17 @@ $bg-hover: #2a2d3e;
 // Texto
 $text-primary: #e0e4ea;
 $text-secondary: #9aa0b0;
-$text-muted: #8a90a3;
-$text-dim: #767b8e;
+
+// Aclarados en v2.2.0 (auditoría): como texto de 10-11px daban 4.28:1 sobre
+// --bg-hover (muted, en los <small> de modales) y 4.20:1 sobre --bg-panel
+// (dim, pie del panel) — por debajo del AA (4.5:1). Ahora: 4.61 y 4.63.
+// Guardia: smoke.test.js calcula los ratios sobre el artefacto compilado.
+$text-muted: #9096a8;
+$text-dim: #7d8295;
+
+// Pista de los sliders. Era --bg-hover (1.30:1 contra el panel: la extensión
+// del slider resultaba casi invisible); el mínimo no textual es 3:1 → 3.21.
+$slider-track: #61678a;
 
 // Bordes
 $border-main: #2a2d3e;

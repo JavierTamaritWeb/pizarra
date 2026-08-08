@@ -10,7 +10,11 @@ const Exporter = (() => {
     a.download = filename;
     a.href = url;
     a.click();
-    URL.revokeObjectURL(url);
+    // Revocar en el siguiente tick, no en línea: click() solo ENCOLA la
+    // descarga, y revocar el blob antes de que arranque es el patrón
+    // históricamente frágil (fallaba en navegadores antiguos y aún depende
+    // de que el click sea síncrono).
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
   function _downloadBlob(filename, blob) {

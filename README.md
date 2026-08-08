@@ -4,11 +4,11 @@
 
 **Wireframes, diagramas y bocetos con estética dibujada a mano — en el navegador y sin instalar nada.**
 
-[![Versión](https://img.shields.io/badge/versión-2.1.1-blueviolet?style=flat-square)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-2.2.0-blueviolet?style=flat-square)](CHANGELOG.md)
 [![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?style=flat-square&logo=javascript&logoColor=000)](src/js/)
 [![Estilos](https://img.shields.io/badge/estilos-SCSS%20·%20BEM%20·%20Gulp%205-cf649a?style=flat-square&logo=sass&logoColor=fff)](src/scss/)
 [![Dependencias](https://img.shields.io/badge/dependencias%20en%20runtime-0-brightgreen?style=flat-square)](#arquitectura)
-[![Tests](https://img.shields.io/badge/tests-401%20unitarios%20%2B%2026%20e2e-brightgreen?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-416%20unitarios%20%2B%2028%20e2e-brightgreen?style=flat-square)](#tests)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue?style=flat-square)](LICENSE)
 
 <img src="src/img/screenshot-pizarra.png" alt="La interfaz de Pizarra: barra de herramientas a la izquierda, lienzo con un wireframe de landing page dibujado a mano en el centro y panel de ajustes a la derecha" width="900">
@@ -94,7 +94,7 @@ Dos secciones para bocetar arquitectura y entorno con la misma estética. Ningun
 
 **Jardín** (vista de planta) — parcela, árboles, arbustos, flores, decoración, caminos y aromáticas: **46 variantes** en siete catálogos. En los catálogos **el icono es el dibujo real**, porque lo pinta la misma geometría que crea la herramienta: no puede engañar.
 
-Cada edificio y cada pieza de jardín se crea como una **unidad** — un clic la selecciona entera para mover, duplicar o borrar, y `Alt`+clic aísla una parte.
+Cada edificio y cada pieza de jardín se crea como una **unidad** — un clic la selecciona entera para mover, duplicar o borrar, y el **doble clic** desciende a una parte suelta (`Alt`+clic es el atajo). Todo gesto tiene su vía de un solo puntero: es una regla del proyecto.
 
 <details>
 <summary><b>Ver el catálogo completo</b></summary>
@@ -121,7 +121,7 @@ Cada pieza de jardín nace con una **etiqueta** que la nombra, dentro del mismo 
 
 ### Edición
 
-- **Selección múltiple** con `Shift`+clic, marquee o `Ctrl/Cmd+A`; el grupo se arrastra desde cualquier punto de su marco combinado, incluido el espacio vacío entre elementos.
+- **Selección múltiple** con marquee, `Ctrl/Cmd+A` o la casilla **«Los clics acumulan selección»** del panel — cada clic añade, y un clic sobre lo ya seleccionado lo quita (`Shift`+clic es el atajo); el grupo se arrastra desde cualquier punto de su marco combinado, incluido el espacio vacío entre elementos.
 - **Rotación por pasos** (`Shift+R`): cuadrados 45°, trapecios/triángulos/rectángulos 90°, pentágonos 36°, hexágonos 30°. En una selección múltiple cada forma usa su propio paso.
 - **Copiar y pegar** (`Ctrl/Cmd+C` / `V`), también entre pestañas: lo pegado aparece desplazado, queda seleccionado y las flechas ancladas se re-vinculan a sus clones.
 - **Undo/redo** con historial de 50 pasos.
@@ -178,7 +178,7 @@ Las herramientas que abren catálogo (Edificios y Jardín) muestran su modal de 
 ```text
 index.html               Shell de la app (carga src/js/ en orden de dependencia)
 css/styles.css           Estilos compilados (artefacto de src/scss/ — no editar a mano)
-fonts/                   OpenDyslexic autoalojada (woff2 + licencia SIL OFL)
+fonts/                   OpenDyslexic autoalojada (woff2 + su licencia, familia clásica Bitstream Vera)
 site.webmanifest         Manifiesto: nombre, colores e iconos para instalar la app
 src/
 ├── img/                  Todas las imágenes: favicon.ico, el juego de iconos,
@@ -239,7 +239,8 @@ Cuatro convenciones que conviene conocer:
 
 ## Tests
 
-**399 tests unitarios** con el runner nativo de Node, sin ninguna dependencia:
+**Más de 400 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
+(el número exacto lo dice el badge de arriba):
 
 ```bash
 node --test tests/*.test.js           # suite completa
@@ -274,4 +275,4 @@ Navegadores de escritorio modernos (Chrome, Edge, Firefox y Safari en versiones 
 
 ## Licencia
 
-[MIT](LICENSE) © Javier Tamarit
+[MIT](LICENSE) © Javier Tamarit — con [traducción al español](LICENSE.es.txt) a título informativo (la versión vinculante es la inglesa).

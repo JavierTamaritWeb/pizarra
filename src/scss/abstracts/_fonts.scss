@@ -2,10 +2,10 @@
 // ÚNICA FUENTE DE VERDAD TIPOGRÁFICA
 // Cambiar una familia aquí la propaga a:
 //   · CSS — via --font-ui / --font-sketch, emitidas en base/_tokens.scss
-//   · js/config.js → SKETCHY_FONT, que lee --font-sketch en runtime; su
+//   · src/js/config.js → SKETCHY_FONT, que lee --font-sketch en runtime; su
 //     literal de fallback debe seguir diciendo lo mismo que $font-sketch
 //     (lo ata el guard de tests/smoke.test.js)
-//   · js/exporter.js → FONT_FALLBACK, derivada de SKETCHY_FONT sin comillas
+//   · src/js/exporter.js → FONT_FALLBACK, derivada de SKETCHY_FONT sin comillas
 // PUNTOS MANUALES (URLs de fuentes, fuera del pipeline CSS):
 //   [ ] index.html          <link> de Google Fonts (Architects Daughter)
 //   [ ] src/js/exporter.js  @import dentro del SVG exportado (exportSVG)

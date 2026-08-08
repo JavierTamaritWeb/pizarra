@@ -38,6 +38,14 @@
     gap: 0.8rem;
   }
 
+  // Para los <label> que sustituyen a un <h3> de rótulo (Texto, Zoom):
+  // label es inline por defecto y el título debe ocupar su propia línea.
+  // Modificador propio para no volver block los span.panel__title que
+  // conviven con su control dentro de un mismo <label>.
+  &__title--block {
+    display: block;
+  }
+
   &__gear {
     border: none;
     background: transparent;
@@ -47,6 +55,14 @@
     line-height: 1;
     padding: 0.2rem 0.4rem;
     border-radius: 0.6rem;
+
+    // Objetivo mínimo de 24×24px (WCAG 2.5.8): con solo el padding quedaba
+    // en ~21×17px — el peor objetivo de la app para motricidad limitada.
+    min-width: 2.4rem;
+    min-height: 2.4rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   &__gear:hover {

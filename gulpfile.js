@@ -43,33 +43,48 @@ function css(done) {
 }
 
 async function copyDist() {
-  fs.rmSync(DIST, { recursive: true, force: true });
-  fs.mkdirSync(path.join(DIST, 'css'), { recursive: true });
-  fs.mkdirSync(path.join(DIST, 'js'), { recursive: true });
-  fs.copyFileSync('LICENSE', path.join(DIST, 'LICENSE'));
+  // Se construye entero en dist.tmp y solo al final sustituye a dist/: el
+  // rmSync-primero de antes dejaba dist/ a medias si el build fallaba a
+  // mitad (y ese medio-dist parecía publicable).
+  const TMP = DIST + '.tmp';
+  fs.rmSync(TMP, { recursive: true, force: true });
+  fs.mkdirSync(path.join(TMP, 'css'), { recursive: true });
+  fs.mkdirSync(path.join(TMP, 'js'), { recursive: true });
+  const sinBasura = src => path.basename(src) !== '.DS_Store'; // Finder los siembra
+  fs.copyFileSync('LICENSE', path.join(TMP, 'LICENSE'));
+  // Traducción de cortesía; la vinculante sigue siendo LICENSE (inglés).
+  fs.copyFileSync('LICENSE.es.txt', path.join(TMP, 'LICENSE.es.txt'));
   // Las fuentes autoalojadas (OpenDyslexic) viajan tal cual: css/ las
   // referencia como ../fonts/, que resuelve igual en la raíz y en dist/.
-  fs.cpSync('fonts', path.join(DIST, 'fonts'), { recursive: true });
+  fs.cpSync('fonts', path.join(TMP, 'fonts'), { recursive: true, filter: sinBasura });
 
   // Iconos: como los scripts, viven en src/ durante el desarrollo y en el
   // publicable van planos (dist/img/). El manifiesto viaja con ellos.
-  fs.cpSync(IMG_SRC, path.join(DIST, 'img'), {
+  fs.cpSync(IMG_SRC, path.join(TMP, 'img'), {
     recursive: true,
-    filter: src => fs.statSync(src).isDirectory() || !IMG_SKIP.test(src),
+    filter: src => sinBasura(src) &&
+      (fs.statSync(src).isDirectory() || !IMG_SKIP.test(src)),
   });
   const manifest = fs.readFileSync('site.webmanifest', 'utf8');
-  fs.writeFileSync(path.join(DIST, 'site.webmanifest'), manifest.replaceAll('src/img/', 'img/'));
+  fs.writeFileSync(path.join(TMP, 'site.webmanifest'), manifest.replaceAll('src/img/', 'img/'));
 
   // El publicable es plano: scripts en dist/js/ e imágenes en dist/img/, así
   // que las rutas src/ del index de desarrollo se aplanan. Es la única
-  // transformación que sufre el HTML.
-  const html = fs.readFileSync('index.html', 'utf8');
-  fs.writeFileSync(path.join(DIST, 'index.html'),
-    html.replaceAll('src="src/js/', 'src="js/').replaceAll('src/img/', 'img/'));
+  // transformación que sufre el HTML — y se VERIFICA: un replaceAll que no
+  // casa (comillas simples, espacios…) no falla solo, deja un dist/ roto.
+  // Global (no solo src="src/js/): los comentarios del HTML citan rutas
+  // src/js/… que en el publicable también deben leerse como js/… — y la
+  // verificación de abajo trata cualquier resto como un aplanado fallido.
+  const html = fs.readFileSync('index.html', 'utf8')
+    .replaceAll('src/js/', 'js/').replaceAll('src/img/', 'img/');
+  if (html.includes('src/js/') || html.includes('src/img/')) {
+    throw new Error('dist/index.html conserva rutas src/ sin aplanar: cambió el formato de index.html');
+  }
+  fs.writeFileSync(path.join(TMP, 'index.html'), html);
 
   // CSS de publicación: la misma fuente, comprimida.
   const min = sass.compile(ENTRY, { style: 'compressed' });
-  fs.writeFileSync(path.join(DIST, OUT), min.css);
+  fs.writeFileSync(path.join(TMP, OUT), min.css);
 
   // JS minificado conservando nombre de fichero (index.html los referencia
   // por nombre). Nada de mangle de nivel superior: cada <script> expone sus
@@ -78,8 +93,11 @@ async function copyDist() {
   for (const file of fs.readdirSync(JS_SRC).filter(f => f.endsWith('.js'))) {
     const code = fs.readFileSync(path.join(JS_SRC, file), 'utf8');
     const res = await minify(code, { mangle: true, compress: true });
-    fs.writeFileSync(path.join(DIST, 'js', file), res.code);
+    fs.writeFileSync(path.join(TMP, 'js', file), res.code);
   }
+
+  fs.rmSync(DIST, { recursive: true, force: true });
+  fs.renameSync(TMP, DIST);
   console.log(`[dist] ${DIST}/ regenerado (index.html, LICENSE, iconos, css/ y js/ minificados)`);
 }
 

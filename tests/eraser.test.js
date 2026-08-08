@@ -299,3 +299,39 @@ test('erase() no borra las máscaras heredadas', () => {
   const out = Eraser.erase(els, stroke([90, 100], [110, 100]), 8, DEPS);
   assert.equal(out.filter(e => e.type === 'eraser').length, 1, 'la máscara sobrevive intacta');
 });
+
+/* Guardias de BUGS.md (v2.2.0): el recorte usaba solo `r` donde `touches`
+   usa `r + grosor/2`, y todo trozo perdía id/anclas incondicionalmente. */
+
+test('el roce que toca la tinta gruesa pero no el eje también muerde (mismo umbral que touches)', () => {
+  // lineWidth 12: la tinta llega hasta ±6 del eje. El borrador (r=8) pasa a
+  // y=10: toca la tinta (10 ≤ 8+6) sin acercarse nunca a 8 del eje — antes
+  // "tocaba" sin borrar nada visible y aun así reconstruía la recta.
+  const els = [line(0, 0, 200, 0, { lineWidth: 12 })];
+  const out = Eraser.erase(els, stroke([100, 10]), 8, DEPS);
+  assert.equal(out.length, 2, 'el mordisco se ve: la recta queda partida');
+});
+
+test('mordisco en la cola de una flecha anclada: la punta no se desconecta', () => {
+  const els = [arrow(0, 100, 200, 100, {
+    id: 'a1', startAnchor: { id: 'n3' }, endAnchor: { id: 'n7' },
+  })];
+  const out = Eraser.erase(els, stroke([30, 100]), 8, DEPS);
+  assert.equal(out.length, 2);
+  const tip = out.find(e => e.type === 'arrow');
+  assert.equal(tip.endAnchor && tip.endAnchor.id, 'n7', 'la punta, que no se ha movido, sigue anclada');
+  assert.equal(tip.startAnchor, undefined, 'el extremo recortado sí pierde su ancla');
+  const tail = out.find(e => e.type === 'line');
+  assert.equal(tail.startAnchor, undefined, 'el trozo degradado a línea no arrastra anclas muertas');
+  assert.ok(out.every(e => e.id === undefined), 'ningún trozo hereda el id');
+});
+
+test('roce que toca sin que ninguna muestra caiga dentro: intacto por referencia (sin undo fantasma)', () => {
+  // Contacto continuo justo entre dos muestras (paso 4 px): touches da sí,
+  // pero ninguna muestra queda dentro del área efectiva (r+grosor/2 = 9):
+  // a (2, 8.9) la distancia continua es 8.9 y la muestra más cercana está a ~9.12.
+  const els = [line(0, 0, 100, 0)];
+  assert.equal(Eraser.touches(els[0], stroke([2, 8.9]), 8, DEPS), true, 'premisa: sí hay contacto');
+  const out = Eraser.erase(els, stroke([2, 8.9]), 8, DEPS);
+  assert.equal(out, els, 'ni se reconstruye ni pierde anclas ni apila undo');
+});

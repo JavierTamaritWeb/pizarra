@@ -26,10 +26,28 @@ const Renderer = (() => {
     if (!img) {
       img = new Image();
       img.onload = () => { if (_onImageLoad) _onImageLoad(); };
+      // Un data-URL que no decodifica se queda dibujado como placeholder;
+      // avisar igualmente deja el guion pintado sin esperar un load imposible.
+      img.onerror = () => { if (_onImageLoad) _onImageLoad(); };
       img.src = src;
       _imgCache.set(src, img);
     }
     return img;
+  }
+
+  /**
+   * Poda de la caché de imágenes: conserva solo los `src` del set recibido
+   * (escena + historial de undo/redo, que app.js recopila en cada autosave).
+   * Sin esto, cada imagen distinta de una sesión larga —data-URLs de
+   * megabytes— quedaba retenida en memoria para siempre, aunque su elemento
+   * se hubiera borrado.
+   */
+  function pruneImageCache(liveSrcs) {
+    let evicted = 0;
+    for (const src of [..._imgCache.keys()]) {
+      if (!liveSrcs.has(src)) { _imgCache.delete(src); evicted++; }
+    }
+    return evicted; // cuántas expulsó: única observabilidad (la caché es privada)
   }
 
   function _image(ctx, el) {
@@ -806,5 +824,6 @@ const Renderer = (() => {
     drawGrid,
     drawSelection,
     setImageLoadCallback,
+    pruneImageCache,
   };
 })();

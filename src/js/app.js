@@ -12,9 +12,37 @@
   const ERASER_SIZE_MIN = 4;
   const ERASER_SIZE_MAX = 100;
   const DEFAULT_ERASER_SIZE = 16;
-  // Ancho inicial de los caminos del jardín; los topes los pone js/garden.js
+  // Ancho inicial de los caminos del jardín; los topes los pone src/js/garden.js
   // (Garden.PATH_W_MIN/MAX), que es también de donde sale el rango del slider.
   const DEFAULT_PATH_WIDTH = 34;
+
+  // Defaults de creación de Edificios y Jardín (variantes de modal incluidas).
+  // Una sola fuente para el estado inicial Y para «Limpiar todo»: el botón
+  // promete la app recién abierta, y sin este reset el siguiente savePrefs()
+  // re-persistía la media configuración que quedara viva en state.
+  const CREATION_DEFAULTS = {
+    plantaShape: 'rect', // forma de huella elegida en el modal de Planta (Edificios)
+    doorType: 'door',    // tipo elegido en el modal de Puerta: door|arch|frame|archFrame
+    windowType: 'window', // tipo elegido en el modal de Ventana: window|arch|frame|archFrame
+    roofShape: 'gable',   // tipo elegido en el modal de Tejado: gable|mono|flat|hip|mansard
+    facadeShape: 'flat',  // tipo elegido en el modal de Fachada: flat|gable|profile
+    balconyType: 'balcony', // tipo elegido en el modal de Balcón (ver BALCONY_TYPES)
+    buildFloors: 'auto', // nº de plantas de Fachada/Alzado/Perfil ('auto' = según la altura)
+    buildBays: 'auto',   // ventanas por planta ('auto' = según el ancho)
+    roofPitch: 0.36,     // fracción de altura del tejado en Alzado/Perfil (0.20–0.50)
+    roofType: 'gable',   // cubierta del Alzado: gable (2 aguas) | hip (4 aguas) | mansard
+    // Jardín: variante elegida en cada modal (defaults de creación, ver src/js/garden.js)
+    plotShape: 'rect',   // parcela: rect|round|l|organic
+    treeType: 'broadleaf',
+    shrubType: 'bush',
+    flowerType: 'daisy',
+    decorType: 'pot',
+    pathType: 'path',
+    herbType: 'lavender',
+    gardenLabels: true,  // rotular cada pieza con el nombre de su variante
+    pathWidth: DEFAULT_PATH_WIDTH, // ancho de los caminos (el arrastre solo da el recorrido)
+    pathAnyAngle: false, // caminos en cualquier inclinación: ajuste pegajoso, no tecla mantenida
+  };
 
   const state = {
     tool:        TOOLS.PENCIL,
@@ -29,29 +57,9 @@
     fillOpacity: 0.4,   // opacidad del relleno translúcido (0..1)
     overlapMode: 'normal', // normal | hidden-dashed
     pendingEmoji: EMOJI_GROUPS[0].emojis[0], // el que se estampa con la herramienta Emoji
-    plantaShape: 'rect', // forma de huella elegida en el modal de Planta (Edificios)
-    doorType: 'door',    // tipo elegido en el modal de Puerta: door|arch|frame|archFrame
-    windowType: 'window', // tipo elegido en el modal de Ventana: window|arch|frame|archFrame
-    roofShape: 'gable',   // tipo elegido en el modal de Tejado: gable|mono|flat|hip|mansard
-    facadeShape: 'flat',  // tipo elegido en el modal de Fachada: flat|gable|profile
-    balconyType: 'balcony', // tipo elegido en el modal de Balcón (ver BALCONY_TYPES)
+    ...CREATION_DEFAULTS, // Edificios/Jardín (los resetea también «Limpiar todo»)
     toolBeforeModal: null, // herramienta activa antes de abrir un modal de Edificios (restaurar al cancelar)
     variantChosen: false, // true si se eligió variante en el modal (no fue cancelación)
-    buildFloors: 'auto', // nº de plantas de Fachada/Alzado/Perfil ('auto' = según la altura)
-    buildBays: 'auto',   // ventanas por planta ('auto' = según el ancho)
-    roofPitch: 0.36,     // fracción de altura del tejado en Alzado/Perfil (0.20–0.50)
-    roofType: 'gable',   // cubierta del Alzado: gable (2 aguas) | hip (4 aguas) | mansard
-    // Jardín: variante elegida en cada modal (defaults de creación, ver js/garden.js)
-    plotShape: 'rect',   // parcela: rect|round|l|organic
-    treeType: 'broadleaf',
-    shrubType: 'bush',
-    flowerType: 'daisy',
-    decorType: 'pot',
-    pathType: 'path',
-    herbType: 'lavender',
-    gardenLabels: true,  // rotular cada pieza con el nombre de su variante
-    pathWidth: DEFAULT_PATH_WIDTH, // ancho de los caminos (el arrastre solo da el recorrido)
-    pathAnyAngle: false, // caminos en cualquier inclinación: ajuste pegajoso, no tecla mantenida
     doubleHead:  false, // nuevas flechas con punta en ambos extremos
     dashed:      false, // nuevas líneas/flechas con trazo discontinuo
     curveFlip:   false, // Shift durante el trazado: curva hacia el otro lado
@@ -59,6 +67,8 @@
     curveChain:  null,  // borrador por clics: { start, segments, style... }
     showGrid:    true,
     snapGrid:    false,
+    multiSelect: false,      // «Los clics acumulan selección» (una mano; Shift = atajo)
+    pendingUnselect: null,   // clic sin arrastre sobre algo seleccionado: se quita en mouseup
     canvasBg:    DEFAULT_CANVAS_BG,
     gridColor:   DEFAULT_GRID_COLOR,
     elements:    [],
@@ -118,7 +128,10 @@
   const newSeed = () => (Math.random() * 2 ** 31) | 0;
 
   function withSeeds(els) {
-    return els.map(el => el.seed === undefined ? { ...el, seed: newSeed() } : el);
+    // No solo `undefined`: un seed corrupto de un JSON manipulado (string,
+    // null, NaN) haría a Sketchy caer a Math.random y el elemento temblaría
+    // en cada redraw — justo el defecto que el seed existe para eliminar.
+    return els.map(el => Number.isFinite(el.seed) ? el : { ...el, seed: newSeed() });
   }
 
   // Los elementos se tratan como inmutables (p. ej. moveElement devuelve una
@@ -703,16 +716,41 @@
 
   let autosaveTimer = null;
 
+  function saveAutosaveNow() {
+    try {
+      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({
+        elements: state.elements,
+        settings: { overlapMode: state.overlapMode },
+      }));
+    } catch (_) { /* almacenamiento lleno o bloqueado: se ignora */ }
+  }
+
   function scheduleAutosave() {
     clearTimeout(autosaveTimer);
     autosaveTimer = setTimeout(() => {
-      try {
-        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({
-          elements: state.elements,
-          settings: { overlapMode: state.overlapMode },
-        }));
-      } catch (_) { /* almacenamiento lleno o bloqueado: se ignora */ }
+      saveAutosaveNow();
+      pruneImageCache();
     }, 500);
+  }
+
+  // Un cambio hecho <0,5s antes de cerrar la pestaña se perdía: el debounce
+  // seguía pendiente. pagehide (y no beforeunload, que no corre al entrar en
+  // bfcache) dispara el guardado pendiente en el acto; guardar de más es
+  // idempotente, así que no hace falta mirar si el timer estaba vivo.
+  window.addEventListener('pagehide', saveAutosaveNow);
+
+  /** Poda la caché de imágenes del Renderer: sobreviven los `src` de la
+      escena y del historial (deshacer debe repintar sin recargar). Va a
+      remolque del autosave — ya debounced, y justo cuando la escena cambió. */
+  function pruneImageCache() {
+    const live = new Set();
+    const collect = els => els.forEach(el => {
+      if (el.type === 'image' && el.src) live.add(el.src);
+    });
+    collect(state.elements);
+    state.undoStack.forEach(collect);
+    state.redoStack.forEach(collect);
+    Renderer.pruneImageCache(live);
   }
 
   function restoreAutosave() {
@@ -732,7 +770,9 @@
     } catch (_) { /* autosave corrupto: se ignora */ }
   }
 
-  const HEX_RE = /^#[0-9a-fA-F]{3,8}$/;
+  // Solo longitudes hex válidas en CSS (3/4/6/8): {3,8} aceptaba #abcde,
+  // que el canvas ignora en silencio y desincroniza los pickers de prefs.
+  const HEX_RE = /^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 
   function savePrefs() {
     try {
@@ -1354,6 +1394,10 @@
       // el edificio entero y Supr lo borraba a él en vez de a lo pulsado.
       if (!e.shiftKey && state.selection.length > 1 && posInSelectionBounds(pos) &&
           (idx < 0 || state.selection.includes(idx))) {
+        // Modo «Los clics acumulan»: si el clic cae sobre un elemento
+        // seleccionado (no en un hueco del marco) y el gesto acaba sin
+        // arrastre, mouseup lo quitará de la selección; arrastrar gana.
+        if (state.multiSelect && idx >= 0) state.pendingUnselect = idx;
         state.dragLast = pos;
         // Snapshot ANTES de que el drag mute state.elements
         state.dragSnapshot = snapshot();
@@ -1375,10 +1419,20 @@
       }
 
       // 4. Click sobre un elemento: seleccionar (si no lo estaba) e iniciar drag.
-      //    Un clic normal selecciona el edificio completo; Alt+click aísla la pieza.
+      //    Un clic normal selecciona el edificio completo; Alt+click aísla la
+      //    pieza. Con «Los clics acumulan selección» (la vía de una mano para
+      //    la multi-selección disjunta; Shift es el atajo), el clic añade en
+      //    vez de sustituir, y sobre algo ya seleccionado se apunta la
+      //    retirada — que solo se consuma en mouseup si no hubo arrastre,
+      //    para que arrastrar la selección siga funcionando.
       if (idx >= 0) {
         if (e.altKey) setSelection([idx]);
-        else if (!state.selection.includes(idx)) setSelection(groupIndicesOf(idx));
+        else if (!state.selection.includes(idx)) {
+          const grp = groupIndicesOf(idx);
+          setSelection(state.multiSelect ? [...state.selection, ...grp] : grp);
+        } else if (state.multiSelect) {
+          state.pendingUnselect = idx;
+        }
         state.dragLast = pos;
         // Snapshot ANTES de que el drag mute state.elements
         state.dragSnapshot = snapshot();
@@ -1876,7 +1930,14 @@
             });
           }
         }
+      } else if (state.pendingUnselect !== null) {
+        // Modo «Los clics acumulan»: el clic que acabó sin arrastre sobre
+        // algo ya seleccionado lo quita (el grupo entero; con Alt, la pieza).
+        const grp = e.altKey ? [state.pendingUnselect]
+                             : groupIndicesOf(state.pendingUnselect);
+        setSelection(state.selection.filter(i => !grp.includes(i)));
       }
+      state.pendingUnselect = null;
       state.dragLast = null;
       state.dragSnapshot = null;
       state.didDrag = false;
@@ -2229,13 +2290,24 @@
         if (CurvePath.isChain(sel)) {
           const index = Number(hitCtrl.name.split(':')[1]);
           const seg = sel.segments[index];
-          const c = defaultCtrl(
-            { x: seg.x1, y: seg.y1 },
-            { x: seg.x2, y: seg.y2 },
-            false
-          );
-          state.elements[state.selection[0]] =
-            CurvePath.withControl(sel, index, { x: c.cx, y: c.cy }, false);
+          const p1 = { x: seg.x1, y: seg.y1 }, p2 = { x: seg.x2, y: seg.y2 };
+          if (seg.cx2 !== undefined) {
+            // Tramo cúbico: S canónica en los DOS controles, como el reset
+            // de la curva suelta. Resetear solo uno dejaba el tramo medio
+            // reseteado — y antes, además, el índice extraído de
+            // 'segCtrl2:N' movía siempre el PRIMER control (cx/cy) aunque
+            // el doble clic fuera sobre el segundo handle.
+            const len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+            const c = defaultCubicCtrls(
+              { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y }, 0.25 * len);
+            state.elements[state.selection[0]] = CurvePath.withControl(
+              CurvePath.withControl(sel, index, { x: c.cx, y: c.cy }, false),
+              index, { x: c.cx2, y: c.cy2 }, true);
+          } else {
+            const c = defaultCtrl(p1, p2, false);
+            state.elements[state.selection[0]] =
+              CurvePath.withControl(sel, index, { x: c.cx, y: c.cy }, false);
+          }
         } else if (sel.arc === true) {
           // Semicírculo: re-normalizar a 180° exactos, lado actual
           state.elements[state.selection[0]] = toArc(sel);
@@ -2252,6 +2324,17 @@
     }
     const idx = hitTest(pos);
     if (idx < 0) return;
+    // Doble clic sobre una pieza de una selección múltiple (p. ej. un
+    // edificio recién clicado): desciende a esa pieza. Es la vía de una
+    // sola mano para aislar una pieza de un grupo — Alt+clic queda como
+    // acelerador, nunca como única forma (regla permanente del proyecto).
+    // Sobre una etiqueta de texto del grupo, un segundo doble clic (ya
+    // aislada) cae al editor, como cualquier texto suelto.
+    if (state.selection.length > 1 && state.selection.includes(idx)) {
+      setSelection([idx]);
+      redraw();
+      return;
+    }
     const el = state.elements[idx];
     if (el.type === 'text') {
       state.editingIdx = idx;
@@ -2306,6 +2389,9 @@
     if (!file || !IMAGE_MIME.test(file.type)) return;
     const reader = new FileReader();
     reader.onload = () => addImage(reader.result, at);
+    // Sin esto, un fichero ilegible no daba ningún feedback (el onerror de
+    // addImage sí avisa cuando lo que falla es decodificar la imagen).
+    reader.onerror = () => alert('No se pudo leer el archivo de imagen');
     reader.readAsDataURL(file);
   }
 
@@ -2594,11 +2680,42 @@
         btn.className = 'sidebar__tool';
         btn.dataset.tool = t.id;
         btn.title = t.key ? `${t.name} (${t.key.toUpperCase()})` : t.name;
-        btn.innerHTML = `<span>${t.icon}</span><span class="sidebar__tool-name">${t.name}</span>`;
+        // createElement/textContent, como todos los catálogos: era el único
+        // innerHTML interpolado del proyecto (estático, pero la disciplina
+        // «nunca innerHTML» es una sola). El emoji va aria-hidden: el nombre
+        // ya lo da el span de texto y un lector no debe verbalizarlo dos veces.
+        const icon = document.createElement('span');
+        icon.textContent = t.icon;
+        icon.setAttribute('aria-hidden', 'true');
+        const name = document.createElement('span');
+        name.className = 'sidebar__tool-name';
+        name.textContent = t.name;
+        btn.appendChild(icon);
+        btn.appendChild(name);
         btn.addEventListener('click', () => selectTool(t.id));
         div.appendChild(btn);
       });
       sidebar.appendChild(div);
+    });
+
+    // role="toolbar" promete navegación con flechas: roving tabindex — la
+    // barra entera es UNA parada de Tab (antes eran ~45: cruzar del topbar
+    // al lienzo por teclado costaba una tabulación por herramienta) y el
+    // foco se mueve por dentro con flechas, Home y End.
+    const tools = [...sidebar.querySelectorAll('.sidebar__tool')];
+    tools.forEach((b, i) => { b.tabIndex = i === 0 ? 0 : -1; });
+    sidebar.addEventListener('keydown', e => {
+      const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
+      if (!(e.key in step) && e.key !== 'Home' && e.key !== 'End') return;
+      const current = tools.indexOf(document.activeElement);
+      if (current < 0) return;
+      e.preventDefault();
+      const next = e.key === 'Home' ? 0
+        : e.key === 'End' ? tools.length - 1
+        : (current + step[e.key] + tools.length) % tools.length;
+      tools[current].tabIndex = -1;
+      tools[next].tabIndex = 0;
+      tools[next].focus();
     });
     updateToolbarActive();
   }
@@ -3062,6 +3179,7 @@
     });
     $('check-grid').addEventListener('change', e => { state.showGrid = e.target.checked; redraw(); });
     $('check-snap').addEventListener('change', e => { state.snapGrid = e.target.checked; });
+    $('check-multi-select').addEventListener('change', e => { state.multiSelect = e.target.checked; });
 
     // Undo / Redo
     $('btn-undo').addEventListener('click', undo);
@@ -3081,6 +3199,13 @@
       $('canvas-bg-picker').value = DEFAULT_CANVAS_BG;
       $('grid-color-picker').value = DEFAULT_GRID_COLOR;
       $('overlap-mode').value = 'normal';
+      // Los defaults de creación de Edificios/Jardín también vuelven: sin
+      // esto, el siguiente savePrefs() (p. ej. cambiar el fondo) reescribía
+      // la configuración que el removeItem de abajo acababa de borrar.
+      Object.assign(state, CREATION_DEFAULTS);
+      syncBuildControls();
+      syncPathControls();
+      $('check-garden-labels').checked = state.gardenLabels;
       // El zoom vuelve al ajuste automático, no a un 100% fijo: «Limpiar todo»
       // debe dejar la app igual que recién abierta, y ahí el lienzo aprovecha
       // todo el ancho disponible. Olvidar `zoomManual` es parte del reset: si
@@ -3439,11 +3564,25 @@
 
   function setupModals() {
     // Panel-cajón en pantallas estrechas (≤1100px): el botón "⚙ Panel" lo
-    // muestra/oculta y el fondo lo cierra. En pantallas anchas el botón está
-    // oculto por CSS y el panel es fijo, así que esta clase no tiene efecto.
+    // muestra/oculta y el fondo o Escape lo cierran. En pantallas anchas el
+    // botón está oculto por CSS y el panel es fijo, así que no tiene efecto.
+    // aria-expanded viaja con la clase para que un lector de pantalla sepa
+    // si el cajón está abierto sin verlo.
     const appEl = document.querySelector('.app');
-    $('btn-panel-toggle').addEventListener('click', () => appEl.classList.toggle('app--panel-open'));
-    $('panel-backdrop').addEventListener('click', () => appEl.classList.remove('app--panel-open'));
+    const panelToggle = $('btn-panel-toggle');
+    const setPanelOpen = open => {
+      appEl.classList.toggle('app--panel-open', open);
+      panelToggle.setAttribute('aria-expanded', String(open));
+    };
+    panelToggle.addEventListener('click',
+      () => setPanelOpen(!appEl.classList.contains('app--panel-open')));
+    $('panel-backdrop').addEventListener('click', () => setPanelOpen(false));
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape' || !appEl.classList.contains('app--panel-open')) return;
+      // Con un modal abierto, Escape pertenece al <dialog> (que se cierra solo).
+      for (const d of document.querySelectorAll('dialog')) if (d.open) return;
+      setPanelOpen(false);
+    });
 
     // Un <dialog> trata como "click en el backdrop" cualquier click cuyo
     // target sea el propio dialog — incluido su padding interno, que cerraría

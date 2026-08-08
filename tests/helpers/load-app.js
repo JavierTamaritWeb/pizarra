@@ -1,6 +1,6 @@
 'use strict';
 /* ============================================================
-   load-app.js — Arranca js/app.js completo sobre el DOM de dom-stub.js
+   load-app.js — Arranca src/js/app.js completo sobre el DOM de dom-stub.js
    y expone gestos de alto nivel (elegir herramienta, arrastrar, borrar…).
 
    El estado se observa a través del **autosave**: app.js serializa
@@ -38,7 +38,10 @@ function loadApp({ prefs, autosave } = {}) {
     requestAnimationFrame: rafImpl,
     cancelAnimationFrame: () => {},
     setTimeout: (fn, ms) => { dom.timers.push({ fn, ms }); return dom.timers.length; },
-    clearTimeout: handle => { if (handle) dom.timers.length = 0; },
+    // Cancela SOLO el timer del handle (mina de la auditoría 2026-08-08: el
+    // vaciado total silenciaría cualquier segundo timer concurrente que
+    // app.js tenga en el futuro). flush() salta las entradas anuladas.
+    clearTimeout: handle => { if (handle) dom.timers[handle - 1] = null; },
     alert: msg => { sandbox.alerts.push(String(msg)); },
     alerts: [],
     createCtxStub,
@@ -123,6 +126,15 @@ function loadApp({ prefs, autosave } = {}) {
     click(x, y, opts = {}) {
       pointer('pointerdown', x, y, opts);
       pointer('pointerup', x, y, opts);
+      dom.flush();
+      return api;
+    },
+
+    /** Doble clic: dos clicks y el evento dblclick, como el navegador. */
+    dblclick(x, y, opts = {}) {
+      api.click(x, y, opts);
+      api.click(x, y, opts);
+      pointer('dblclick', x, y, opts);
       dom.flush();
       return api;
     },

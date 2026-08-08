@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=2.1.1" />
+  <link rel="stylesheet" href="css/styles.css?v=2.2.0" />
 </head>
 <body>
 
@@ -27,31 +27,31 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.1.1" alt="" aria-hidden="true" width="32" height="32" />
-        <span class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></span>
-        <span class="topbar__badge">v2.1.1</span>
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.2.0" alt="" aria-hidden="true" width="32" height="32" />
+        <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
+        <span class="topbar__badge">v2.2.0</span>
       </div>
       <nav class="topbar__actions">
-        <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes">
-          <span class="btn__icon">⚙</span> Panel
+        <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes" aria-expanded="false" aria-controls="side-panel">
+          <span class="btn__icon" aria-hidden="true">⚙</span> Panel
         </button>
         <button class="btn btn--ghost" id="btn-import" title="Importar JSON">
-          <span class="btn__icon">📂</span> Importar
+          <span class="btn__icon" aria-hidden="true">📂</span> Importar
         </button>
         <button class="btn btn--ghost" id="btn-templates" title="Plantillas">
-          <span class="btn__icon">📐</span> Plantillas
+          <span class="btn__icon" aria-hidden="true">📐</span> Plantillas
         </button>
         <button class="btn btn--ghost" id="btn-help" title="Ayuda y atajos (?)">
-          <span class="btn__icon">❔</span> Ayuda
+          <span class="btn__icon" aria-hidden="true">❔</span> Ayuda
         </button>
         <button class="btn btn--ghost" id="btn-undo" title="Deshacer (Ctrl+Z)">
-          <span class="btn__icon">↩</span> Deshacer
+          <span class="btn__icon" aria-hidden="true">↩</span> Deshacer
         </button>
         <button class="btn btn--ghost" id="btn-redo" title="Rehacer (Ctrl+Y)">
-          <span class="btn__icon">↪</span> Rehacer
+          <span class="btn__icon" aria-hidden="true">↪</span> Rehacer
         </button>
         <button class="btn btn--primary" id="btn-export">
-          <span class="btn__icon">⬇</span> Exportar
+          <span class="btn__icon" aria-hidden="true">⬇</span> Exportar
         </button>
       </nav>
     </header>
@@ -76,14 +76,15 @@
       </main>
 
       <!-- Right Panel -->
-      <aside class="panel">
+      <aside class="panel" id="side-panel">
 
         <!-- Color -->
         <section class="panel__section">
           <h3 class="panel__title">Color</h3>
           <div class="panel__color-grid" id="color-grid"></div>
           <div class="panel__color-custom">
-            <input class="panel__color-picker" type="color" id="color-picker" value="#1a1a2e" />
+            <input class="panel__color-picker" type="color" id="color-picker" value="#1a1a2e"
+                   aria-label="Color del trazo personalizado" />
             <code class="panel__color-hex" id="color-hex">#1a1a2e</code>
           </div>
         </section>
@@ -181,7 +182,7 @@
           <!-- Gemelos de los dos ajustes del modal de Camino (ver #modal-path).
                Con «Cualquier inclinación» el arrastre solo dice por dónde va el
                recorrido, así que el ancho sale de aquí. min/max deben coincidir
-               con PATH_W_MIN/PATH_W_MAX de js/garden.js -->
+               con PATH_W_MIN/PATH_W_MAX de src/js/garden.js -->
           <label class="panel__check">
             <input type="checkbox" id="check-path-any-angle" /> Caminos en cualquier inclinación
           </label>
@@ -193,13 +194,13 @@
 
         <!-- Font Size -->
         <section class="panel__section">
-          <h3 class="panel__title">Texto: <span id="font-val">18</span>px</h3>
+          <label class="panel__title panel__title--block" for="font-slider">Texto: <span id="font-val">18</span>px</label>
           <input class="panel__slider" type="range" id="font-slider" min="10" max="48" value="18" />
         </section>
 
         <!-- Zoom -->
         <section class="panel__section">
-          <h3 class="panel__title">Zoom: <span id="zoom-val">100</span>%</h3>
+          <label class="panel__title panel__title--block" for="zoom-slider">Zoom: <span id="zoom-val">100</span>%</label>
           <input class="panel__slider" type="range" id="zoom-slider" min="30" max="300" step="10" value="100" />
         </section>
 
@@ -231,6 +232,9 @@
           </label>
           <label class="panel__check">
             <input type="checkbox" id="check-snap" /> Ajustar a cuadrícula
+          </label>
+          <label class="panel__check">
+            <input type="checkbox" id="check-multi-select" /> Los clics acumulan selección
           </label>
         </section>
 
@@ -315,7 +319,7 @@
       <section class="modal__help-group">
         <h4 class="modal__help-title">Selección y portapapeles</h4>
         <ul class="modal__help-list">
-          <li><kbd>Shift</kbd>+click o arrastre en vacío: multi-selección · arrastra el grupo desde cualquier punto de su marco</li>
+          <li>Multi-selección: arrastre en vacío, o la casilla <strong>«Los clics acumulan selección»</strong> del panel (cada clic añade; un clic sobre lo ya seleccionado lo quita) · <kbd>Shift</kbd>+click es el atajo · arrastra el grupo desde cualquier punto de su marco</li>
           <li><kbd>Ctrl</kbd>+<kbd>C</kbd> copia la selección · <kbd>Ctrl</kbd>+<kbd>V</kbd> la pega (también entre pestañas)</li>
           <li><kbd>Ctrl</kbd>+<kbd>V</kbd> o arrastrar un archivo: imágenes PNG/JPG</li>
           <li><kbd>Shift</kbd>+<kbd>R</kbd> o <strong>Rotar selección</strong>: cuadrado 45° · trapecio/triángulo/rectángulo 90° · pentágono 36° · hexágono 30°</li>
@@ -416,7 +420,7 @@
           <li>La vista <strong>de lado</strong> (perfil) no lleva puerta: el acceso principal va en la fachada</li>
           <li>Con un edificio seleccionado, pulsar sobre algo dibujado <strong>encima</strong> lo selecciona a él; arrastrar desde un hueco del marco mueve el edificio entero</li>
           <li>Si <strong>cancelas</strong> el catálogo (botón Cerrar o <kbd>Esc</kbd>) sin elegir tipo, vuelve la herramienta anterior</li>
-          <li>Cada edificio se crea como una <strong>unidad</strong>: un clic lo selecciona entero (mover/duplicar/borrar); <kbd>Alt</kbd>+clic aísla una pieza</li>
+          <li>Cada edificio se crea como una <strong>unidad</strong>: un clic lo selecciona entero (mover/duplicar/borrar); doble clic sobre una pieza la aísla (<kbd>Alt</kbd>+clic es el atajo)</li>
         </ul>
       </section>
 
@@ -428,7 +432,7 @@
           <li>Todo se dibuja en <strong>vista de planta</strong> (desde arriba), como un plano de paisajismo: los árboles son su copa, los arbustos su mata y el pozo su brocal</li>
           <li>En los catálogos, el <strong>icono es el dibujo real</strong> que vas a obtener, no una ilustración aparte</li>
           <li>Cada pieza nace con una <strong>etiqueta</strong> que la nombra; se apaga en el panel <strong>Jardín</strong> y la elección se recuerda</li>
-          <li>Cada pieza se crea como una <strong>unidad</strong> (dibujo + etiqueta): un clic la selecciona entera; <kbd>Alt</kbd>+clic aísla una parte</li>
+          <li>Cada pieza se crea como una <strong>unidad</strong> (dibujo + etiqueta): un clic la selecciona entera; doble clic sobre una parte la aísla (<kbd>Alt</kbd>+clic es el atajo)</li>
           <li>El tamaño por defecto depende del tipo: un <strong>seto</strong> nace apaisado, un <strong>camino</strong> vertical y una <strong>flor</strong> suelta, menuda</li>
           <li>En el <strong>camino</strong>, del arrastre salen las dos cosas: el <strong>recorrido</strong> va por el lado largo y el <strong>grosor</strong> por el corto, así que moviendo el ratón en perpendicular lo engordas mientras lo dibujas</li>
           <li>Si arrastras en línea recta o solo haces clic, el grosor lo pone el <strong>ancho del camino</strong>, que se recuerda</li>
@@ -580,8 +584,8 @@
 
   <!-- ===== MODALES: JARDÍN =====
        Los siete comparten plantilla y los rellena app.js (buildGardenCatalog)
-       desde GARDEN_MODALS. Sus iconos no son SVG dibujados a mano: los pinta la
-       geometría real de js/garden.js, así que enseñan lo que van a crear. -->
+       desde VARIANT_MODALS (src/js/app.js). Sus iconos no son SVG dibujados a mano: los pinta la
+       geometría real de src/js/garden.js, así que enseñan lo que van a crear. -->
   <dialog class="modal" id="modal-plot" aria-labelledby="modal-plot-title">
       <h3 class="modal__heading" id="modal-plot-title">Forma del jardín</h3>
       <p class="modal__sub">Elige la parcela y arrástrala en el lienzo</p>
@@ -683,19 +687,19 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=2.1.1"></script>
-  <script src="src/js/sketchy.js?v=2.1.1"></script>
-  <script src="src/js/arc.js?v=2.1.1"></script>
-  <script src="src/js/curve-path.js?v=2.1.1"></script>
-  <script src="src/js/shape-rotation.js?v=2.1.1"></script>
-  <script src="src/js/regular-polygon.js?v=2.1.1"></script>
-  <script src="src/js/trapezoid.js?v=2.1.1"></script>
-  <script src="src/js/eraser.js?v=2.1.1"></script>
-  <script src="src/js/building.js?v=2.1.1"></script>
-  <script src="src/js/garden.js?v=2.1.1"></script>
-  <script src="src/js/renderer.js?v=2.1.1"></script>
-  <script src="src/js/exporter.js?v=2.1.1"></script>
-  <script src="src/js/templates.js?v=2.1.1"></script>
-  <script src="src/js/app.js?v=2.1.1"></script>
+  <script src="src/js/config.js?v=2.2.0"></script>
+  <script src="src/js/sketchy.js?v=2.2.0"></script>
+  <script src="src/js/arc.js?v=2.2.0"></script>
+  <script src="src/js/curve-path.js?v=2.2.0"></script>
+  <script src="src/js/shape-rotation.js?v=2.2.0"></script>
+  <script src="src/js/regular-polygon.js?v=2.2.0"></script>
+  <script src="src/js/trapezoid.js?v=2.2.0"></script>
+  <script src="src/js/eraser.js?v=2.2.0"></script>
+  <script src="src/js/building.js?v=2.2.0"></script>
+  <script src="src/js/garden.js?v=2.2.0"></script>
+  <script src="src/js/renderer.js?v=2.2.0"></script>
+  <script src="src/js/exporter.js?v=2.2.0"></script>
+  <script src="src/js/templates.js?v=2.2.0"></script>
+  <script src="src/js/app.js?v=2.2.0"></script>
 </body>
 </html>

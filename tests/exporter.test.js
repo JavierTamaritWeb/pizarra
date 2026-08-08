@@ -1,6 +1,6 @@
 'use strict';
 /* ============================================================
-   exporter.test.js — Tests de js/exporter.js sobre el
+   exporter.test.js — Tests de src/js/exporter.js sobre el
    COMPORTAMIENTO ACTUAL. Los blobs generados se capturan vía
    los stubs de Blob y URL.createObjectURL del helper
    (context.URL.blobs). No se modifica código de js/.

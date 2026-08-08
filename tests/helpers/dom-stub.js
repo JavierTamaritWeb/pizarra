@@ -1,6 +1,6 @@
 'use strict';
 /* ============================================================
-   dom-stub.js — DOM mínimo pero suficiente para ejecutar js/app.js
+   dom-stub.js — DOM mínimo pero suficiente para ejecutar src/js/app.js
    dentro de node:vm, que hasta ahora quedaba fuera del arnés (ver
    PLAN.md §6 y la sección "Solo verificables manualmente" de BUGS.md).
 
@@ -280,7 +280,7 @@ function createDom({ html } = {}) {
         const frames = rafQueue.splice(0, rafQueue.length);
         frames.forEach(fn => fn(rounds));
         const due = timers.splice(0, timers.length);
-        due.forEach(t => t.fn());
+        due.forEach(t => t && t.fn()); // null = timer cancelado con clearTimeout
       }
     },
     rafQueue,

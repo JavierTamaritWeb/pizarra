@@ -35,12 +35,21 @@
     bottom: 0;
     z-index: 50;
     transform: translateX(100%);
-    transition: transform 0.2s ease;
+
+    /* El cajón cerrado debe salir también del árbol de accesibilidad y del
+       orden de tabulación: transform solo lo desplaza visualmente (Tab metía
+       el foco en ~30 controles invisibles, con el indicador fuera de
+       pantalla). visibility respeta el deslizamiento gracias al delay: se
+       oculta al ACABAR la transición y al abrir se muestra al instante. */
+    visibility: hidden;
+    transition: transform 0.2s ease, visibility 0s 0.2s;
     box-shadow: -0.8rem 0 4rem rgba(0, 0, 0, 0.4);
   }
 
   .app--panel-open .panel {
     transform: translateX(0);
+    visibility: visible;
+    transition: transform 0.2s ease, visibility 0s 0s;
   }
 
   .app--panel-open .panel-backdrop {

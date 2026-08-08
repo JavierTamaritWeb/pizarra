@@ -6,7 +6,7 @@ Cada entrada indica el síntoma, la causa raíz, dónde se arregló y su
 —cuando no se puede automatizar— los pasos de verificación manual que hay que
 repetir antes de tocar esa zona.
 
-> **Desde v1.13.1 `js/app.js` también es testeable.** El arnés
+> **Desde v1.13.1 `src/js/app.js` también es testeable.** El arnés
 > `tests/helpers/load-app.js` levanta la app entera bajo `node:vm` con el DOM
 > construido a partir del `index.html` real, y los tests lanzan gestos de
 > verdad (pointer, teclado, modales) leyendo el resultado del autosave. Las
@@ -27,6 +27,238 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 ---
 
 ## Cubiertos por tests automáticos
+
+### Alt+clic era la única vía para aislar una pieza de un grupo
+
+- **Síntoma:** mover, recolorear o redimensionar una pieza suelta de un
+  edificio o un elemento de Jardín exigía mantener <kbd>Alt</kbd> mientras se
+  clicaba — un acorde tecla+puntero, imposible con una sola mano en el ratón.
+  Violaba la regla permanente del proyecto («ningún gesto con modificador como
+  única vía»), que hasta ahora solo se había aplicado a los arrastres.
+  Detectado en la auditoría de accesibilidad de 2026-08-08.
+- **Causa:** el aislamiento solo existía en las dos ramas `e.altKey` de
+  `onMouseDown` (app.js); re-clicar un grupo ya seleccionado no descendía a la
+  pieza, y la marquesina tampoco sirve (selecciona por intersección de cajas:
+  el bbox del muro cubre sus ventanas).
+- **Fix:** `src/js/app.js` (manejador `dblclick`) — doble clic sobre una pieza
+  de la selección múltiple desciende a esa pieza. Alt+clic queda como
+  acelerador. La ayuda (`index.html`) documenta el doble clic como vía
+  principal. Sobre una etiqueta de texto, el doble clic siguiente (ya aislada)
+  abre el editor, como cualquier texto.
+- **Guardia:** `tests/app-interaction.test.js` › *"doble clic desciende a la
+  pieza del edificio: aislar sin teclado (una mano)"* — falla con el código
+  anterior (verificado por sabotaje).
+
+### Doble clic en el segundo control de una cadena reseteaba el control equivocado
+
+- **Síntoma:** en una curva encadenada con tramos cúbicos (todas las piezas
+  orgánicas de Jardín), doble clic sobre el handle del **segundo** control de
+  un tramo movía el **primero** (`cx/cy`) a un default cuadrático y dejaba
+  `cx2/cy2` intacto: tramo medio reseteado y deformado, con su paso de undo
+  consumido. Detectado en la auditoría de 2026-08-08.
+- **Causa:** app.js extraía el índice de `'segCtrl2:N'` pero llamaba siempre a
+  `CurvePath.withControl(sel, index, …, false)` — el flag `second` nunca era
+  `true` (el arrastre del mismo handle sí lo distingue; el reset no).
+- **Fix:** `src/js/app.js` — en un tramo cúbico el doble clic resetea los
+  **dos** controles a la S canónica (`defaultCubicCtrls`, la misma que usa el
+  reset de la curva suelta); en uno cuadrático, el único control, como antes.
+- **Guardia:** `tests/app-interaction.test.js` › *"doble clic en el handle
+  segCtrl2 resetea el tramo entero, no el control equivocado"* — falla con el
+  código anterior (verificado por sabotaje).
+
+### El borrador «tocaba» sin morder y desanclaba flechas en silencio
+
+- **Síntoma:** doble. (1) Pasar el borrador rozando un trazo grueso —el círculo
+  tocaba la tinta pero sin llegar al eje— no borraba nada visible, pero aun así
+  apilaba un paso de undo, deseleccionaba, y la recta/flecha perdía `id`,
+  `startAnchor` y `endAnchor`: una flecha anclada a una forma dejaba de
+  seguirla sin ningún cambio en pantalla. (2) En tinta gruesa el hueco borrado
+  salía más estrecho que lo barrido. Y un mordisco en la cola de una flecha
+  anclada desconectaba también la punta, que no se había movido. Detectado en
+  la auditoría de 2026-08-08.
+- **Causa:** doble umbral. `Eraser.touches` decide el contacto con margen de
+  tinta (`r + lineWidth/2`, eraser.js), pero `_splitLine`/`_splitPencil`
+  clasificaban los puntos muestreados solo con `r`; en la franja intermedia el
+  elemento se reconstruía en un trozo geométricamente idéntico… al que se le
+  hacía incondicionalmente `delete piece.id/startAnchor/endAnchor`.
+- **Fix:** `src/js/eraser.js` — el recorte clasifica con el mismo
+  `r + lineWidth/2` que `touches`; si ninguna muestra cae dentro, el split
+  devuelve el elemento intacto **por referencia** (y `erase()` no lo cuenta
+  como cambio: sin undo fantasma); el trozo que sigue siendo flecha con su
+  extremo original conserva el ancla de ese extremo (el trozo degradado a
+  línea no arrastra anclas muertas — `resolveAnchors` ignora las líneas).
+- **Guardia:** `tests/eraser.test.js` › *"el roce que toca la tinta gruesa
+  pero no el eje también muerde (mismo umbral que touches)"*, *"mordisco en la
+  cola de una flecha anclada: la punta no se desconecta"* y *"roce que toca sin
+  que ninguna muestra caiga dentro: intacto por referencia (sin undo
+  fantasma)"* — las tres fallan con el código anterior (verificado por
+  sabotaje).
+
+### Shift+clic era la única vía de multi-selección disjunta
+
+- **Síntoma:** juntar dos elementos alejados sin arrastrar lo de en medio, o
+  sacar un elemento de la selección, exigía Shift+clic — el mismo acorde
+  tecla+puntero del caso Alt+clic. La marquesina solo cubre selecciones
+  contiguas. Detectado en la auditoría de accesibilidad de 2026-08-08.
+- **Causa:** el toggle de selección solo existía en la rama `e.shiftKey` de
+  `onMouseDown` (app.js).
+- **Fix:** `src/js/app.js` + `index.html` — casilla «Los clics acumulan
+  selección» (`#check-multi-select`, mismo patrón que «Ajustar a cuadrícula»:
+  modo pegajoso en el panel, Shift queda como atajo). Con el modo activo, el
+  clic sobre un elemento no seleccionado **añade** su grupo; el clic **sin
+  arrastre** sobre uno ya seleccionado lo quita (se apunta en `mousedown` como
+  `pendingUnselect` — también en la rama del marco combinado, que captura esos
+  clics — y solo se consuma en `mouseup` si no hubo arrastre, para que
+  arrastrar la selección siga funcionando).
+- **Guardia:** `tests/app-interaction.test.js` › *"«Los clics acumulan
+  selección»: multi-selección disjunta sin teclado"* y *"en modo acumular,
+  arrastrar sigue moviendo y el clic sin arrastre quita"* (verificadas por
+  sabotaje).
+
+### La caché de imágenes del Renderer crecía sin límite
+
+- **Síntoma:** cada imagen distinta pegada o importada en una sesión larga
+  (data-URLs de megabytes) quedaba retenida en memoria para siempre, aunque el
+  elemento se borrara, se deshiciera o se limpiara el lienzo; un data-URL que
+  no decodificaba quedaba como placeholder sin repintado. Detectado en la
+  auditoría de 2026-08-08.
+- **Causa:** `Renderer._imgCache` era un Map al que solo se añadía, sin poda
+  ni `onerror`.
+- **Fix:** `src/js/renderer.js` — `Renderer.pruneImageCache(liveSrcs)`
+  (devuelve cuántas expulsó: la caché es privada y ese retorno es la única
+  observabilidad) y `onerror` que notifica el repintado; `src/js/app.js` — la
+  poda va a remolque del autosave (ya debounced, y justo cuando la escena
+  cambió), conservando los `src` de la escena y del historial de undo/redo
+  (deshacer debe repintar sin recargar).
+- **Guardia:** `tests/sketchy-renderer.test.js` › *"Renderer.pruneImageCache
+  expulsa los src muertos y conserva los vivos"*.
+
+### `role="toolbar"` sin el patrón de teclado que ese rol promete
+
+- **Síntoma:** cada una de las ~45 herramientas del sidebar era una parada de
+  Tab: cruzar del topbar al lienzo por teclado costaba una tabulación por
+  botón, y el rol anunciaba a los lectores una navegación por flechas que no
+  existía. Detectado en la auditoría de 2026-08-08.
+- **Causa:** `buildSidebar` (app.js) creaba botones planos sin gestión de foco.
+- **Fix:** `src/js/app.js` — roving tabindex: un solo `tabindex="0"` en la
+  barra, flechas/Home/End mueven el foco (y el tabstop viaja con él). De paso,
+  el botón se construye con `createElement`/`textContent` (era el único
+  `innerHTML` interpolado del proyecto) y el emoji del icono va `aria-hidden`
+  (el nombre ya lo da su span de texto).
+- **Guardia (e2e):** `e2e/keyboard-focus.spec.js` › *"la barra de herramientas
+  es una sola parada de Tab y se recorre con flechas"*.
+
+### Contrastes por debajo del mínimo en texto secundario, pista de sliders y objetivo del ⚙
+
+- **Síntoma:** `--text-dim` en el pie del panel daba 4.20:1 y `--text-muted`
+  sobre `--bg-hover` (los `<small>` de los modales, texto de 10px) 4.28:1 —
+  AA exige 4.5:1; la pista de los sliders daba 1.30:1 contra el panel (mínimo
+  no textual: 3:1) y el ⚙ del borrador medía ~21×17px de objetivo efectivo
+  (mínimo 24×24). Detectado en la auditoría de 2026-08-08 con ratios WCAG
+  calculados.
+- **Fix:** `src/scss/abstracts/_variables.scss` — `$text-dim: #7d8295`
+  (4.63), `$text-muted: #9096a8` (4.61 sobre hover, 5.99 sobre panel) y token
+  nuevo `$slider-track: #61678a` (3.21) que `base/_reset.scss` usa en la
+  pista; `components/_panel.scss` — el ⚙ pasa a `min-width/min-height 2.4rem`
+  con centrado flex.
+- **Guardia:** `tests/smoke.test.js` › *"texto secundario ≥4.5:1 y pista del
+  slider ≥3:1 sobre sus fondos reales"* — calcula los ratios sobre el
+  artefacto compilado.
+
+### El publicable (`dist/`) se generaba sin verificación y sin tests
+
+- **Síntoma:** el `replaceAll` que aplana `src/js/` → `js/` en
+  `dist/index.html` no verificaba el resultado (un cambio de formato en los
+  `<script>` dejaba un dist/ roto en silencio); el `rmSync` inicial dejaba
+  `dist/` a medias si el build fallaba a mitad; ningún test cubría la carpeta;
+  `cpSync` habría publicado cualquier `.DS_Store`. Detectado en la auditoría
+  de 2026-08-08.
+- **Fix:** `gulpfile.js` — el build lanza un error si el HTML aplanado
+  conserva rutas `src/`; se construye entero en `dist.tmp` y solo al final
+  sustituye a `dist/`; filtro de `.DS_Store` en las dos copias recursivas.
+- **Guardia:** `tests/dist.test.js` — rutas aplanadas, mismos scripts que
+  `src/js/`, fuentes/licencias/manifest presentes e `IMG_SKIP` respetado; con
+  `dist/` ausente hace **skip explícito** (es un artefacto local: `npm run
+  build` primero), nunca un verde engañoso.
+
+### «Limpiar todo» resucitaba media configuración de Edificios/Jardín
+
+- **Síntoma:** el botón borraba `sketchwire.prefs` pero dejaba en `state` los
+  defaults de creación (variantes de modal, plantas, ancho de camino…): el
+  siguiente `savePrefs()` —cambiar el fondo, p. ej.— los re-persistía,
+  deshaciendo el `removeItem`. El botón promete «la app recién abierta» y para
+  media configuración no lo cumplía. Detectado en la auditoría de 2026-08-08.
+- **Fix:** `src/js/app.js` — los defaults viven una sola vez en
+  `CREATION_DEFAULTS` (el estado inicial los esparce y `btn-clear` los
+  re-asigna con `Object.assign` + `syncBuildControls()` + `syncPathControls()`
+  + el checkbox de etiquetas).
+- **Guardia:** `tests/app-interaction.test.js` › *"«Limpiar todo» también
+  devuelve los defaults de Edificios y Jardín"* (verificada por sabotaje).
+
+### `HEX_RE` de prefs aceptaba hex de 5 y 7 dígitos
+
+- **Síntoma:** unas prefs con `canvasBg: '#abcde'` (manipuladas o corruptas)
+  pasaban la validación: el canvas ignora ese `fillStyle` en silencio y el
+  picker divergía del estado. Detectado en la auditoría de 2026-08-08.
+- **Fix:** `src/js/app.js` — `HEX_RE` solo acepta las longitudes válidas en
+  CSS (3/4/6/8).
+- **Guardia:** `tests/app-interaction.test.js` › *"unas prefs con un hex
+  inválido de 5 dígitos no cuelan; el válido sí"* (verificada por sabotaje).
+
+### El cajón del panel cerrado seguía siendo tabulable y expuesto a los lectores
+
+- **Síntoma:** en pantallas ≤1100px con el cajón cerrado, Tab tras la barra
+  superior metía el foco en ~30 controles invisibles: el indicador de foco
+  desaparecía de la pantalla durante decenas de tabulaciones, y los lectores
+  de pantalla leían el panel como contenido presente. Además el botón «⚙
+  Panel» no anunciaba el estado y Escape no cerraba el cajón. Detectado en la
+  auditoría de accesibilidad de 2026-08-08.
+- **Causa:** el cajón se ocultaba solo con `transform: translateX(100%)`, que
+  desplaza visualmente pero no saca del árbol de accesibilidad ni del orden de
+  tabulación.
+- **Fix:** `src/scss/components/_panel-drawer.scss` — `visibility: hidden` en
+  el estado cerrado, con delay en la transición para que el deslizamiento se
+  vea entero (se oculta al acabar; al abrir, delay 0). `src/js/app.js`
+  (`setupModals`) — helper `setPanelOpen` que sincroniza la clase con
+  `aria-expanded` en el botón, y Escape cierra el cajón cuando no hay ningún
+  `<dialog>` abierto. `index.html` — `aria-expanded`/`aria-controls` iniciales
+  y `id="side-panel"` en el panel.
+- **Guardia (e2e):** `e2e/responsive.spec.js` › *"el cajón cerrado no puede
+  recibir el foco; aria-expanded y Escape acompañan"* — solo un navegador real
+  ve visibility, foco y Escape.
+
+### Tres controles del panel no tenían nombre accesible
+
+- **Síntoma:** `#font-slider`, `#zoom-slider` y `#color-picker` (color del
+  trazo) se anunciaban como «deslizador»/«selector de color» a secas: los
+  `<h3>` adyacentes («Texto: 18px», «Zoom: 100%», «Color») no estaban
+  asociados programáticamente. El resto de sliders sí llevaba `aria-label` —
+  era omisión, no criterio. Detectado en la auditoría de 2026-08-08.
+- **Causa:** rótulos como encabezados (`<h3>`) en vez de `<label for>`.
+- **Fix:** `index.html` — los rótulos de Texto y Zoom pasan a
+  `<label class="panel__title panel__title--block" for="…">` (mismo estilo:
+  el modificador `--block` en `_panel.scss` les devuelve la línea propia sin
+  volver block los `span.panel__title` que conviven con su control);
+  `aria-label` en `#color-picker`. De paso, el nombre de la app en el topbar
+  pasa de `<span>` a `<h1>`: el documento no tenía ningún encabezado raíz.
+- **Guardia:** `tests/smoke.test.js` › *"los controles del panel tienen nombre
+  accesible y el cajón anuncia su estado"*.
+
+### Los botones destructivos eran el texto menos legible de la app
+
+- **Síntoma:** «🗑 Eliminar selección» y «🗑 Limpiar todo» (texto de 12px
+  sobre fondo translúcido) daban 4.13:1 en reposo y 3.61:1 en hover — por
+  debajo del AA (4.5:1) justo en las dos acciones más peligrosas. Detectado en
+  la auditoría de 2026-08-08 calculando los ratios WCAG sobre los colores
+  compuestos reales.
+- **Causa:** `$color-danger: #e94560` como color de texto sobre
+  `rgba(233,69,96,.12/.22)` compuesto sobre `--bg-panel` (#161822).
+- **Fix:** `src/scss/abstracts/_variables.scss` — `$color-danger: #f4778c`
+  (mismo tono, más claro: 5.92:1 y 5.18:1). El token solo lo consume ese
+  texto; los fondos rgba no cambian.
+- **Guardia:** `tests/smoke.test.js` › *"el texto de .btn--danger cumple AA
+  (≥4.5:1) en reposo y en hover"* — calcula el ratio sobre el artefacto
+  compilado real (verificado por sabotaje).
 
 ### Los nombres del sidebar se partían por dentro y pisaban su icono
 
@@ -80,7 +312,7 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   HTML exportado. Detectado en la auditoría de 2026-08-08.
 - **Causa:** `FONT_FALLBACK` ya saneaba la misma familia para los atributos
   XML del SVG, pero el bloque CSS del HTML usaba el valor original.
-- **Fix:** `js/exporter.js` — `FONT_CSS` (la familia sin `<`, `>`, `{`, `}`
+- **Fix:** `src/js/exporter.js` — `FONT_CSS` (la familia sin `<`, `>`, `{`, `}`
   ni `;`: sin `<` no hay forma de cerrar la etiqueta, y sin llaves ni `;` no
   se inyectan reglas o declaraciones ajenas); `FONT_FALLBACK` descarta ahora
   también `<>&`, que malformarían el XML del SVG.
@@ -474,6 +706,32 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   puede juzgar esto**: la suite prueba lógica, no cómo se lee un dibujo.
 
 ## Solo verificables manualmente (lógica en `app.js`, sin arnés DOM)
+
+### Un `seed` corrupto en un JSON importado hacía temblar el elemento para siempre
+
+- **Síntoma:** un proyecto JSON (o un payload del portapapeles) editado a mano
+  con `seed: "abc"` o `seed: null` pasaba la validación; `Sketchy.setSeed` cae
+  entonces a `Math.random` y el elemento «temblaba» en cada redraw — justo el
+  defecto que el seed determinista existe para eliminar — y el valor corrupto
+  se re-exportaba. Detectado en la auditoría de 2026-08-08.
+- **Fix:** `src/js/app.js` — `withSeeds` re-siembra todo seed no finito
+  (`Number.isFinite`), no solo los `undefined`.
+- **Verificación manual:** exportar un JSON, editar un `"seed"` a `"abc"`,
+  importarlo → el elemento debe dibujarse estable (sin temblor al mover el
+  ratón por encima) y re-exportarse con un seed numérico. (El arnés no cubre
+  el diálogo de importación: su `FileReader` es un stub inerte.)
+
+### Un cambio hecho justo antes de cerrar la pestaña se perdía
+
+- **Síntoma:** el autosave va con debounce de 500 ms y no había flush al
+  cerrar: dibujar y cerrar la pestaña en menos de medio segundo perdía ese
+  último cambio. Detectado en la auditoría de 2026-08-08.
+- **Fix:** `src/js/app.js` — el cuerpo del guardado sale a `saveAutosaveNow()`
+  y un listener de `pagehide` (no `beforeunload`: no corre al entrar en
+  bfcache) lo dispara en el acto.
+- **Verificación manual:** dibujar un trazo y cerrar la pestaña
+  inmediatamente; al reabrir la app el trazo debe estar. (El evento `pagehide`
+  real solo existe en un navegador.)
 
 ### El undo de un arrastre no revertía nada
 

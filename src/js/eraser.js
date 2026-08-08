@@ -260,8 +260,18 @@ const Eraser = (function () {
    * en el corte.
    */
   function _splitLine(el, segs, r) {
+    // El mismo margen de tinta que usa `touches`: clasificar solo con `r`
+    // dejaba una franja (entre el eje y el borde del trazo) que "tocaba"
+    // sin borrar nada visible — y aun así reconstruía el elemento.
+    const w = r + (el.lineWidth || 1) / 2;
     const p1 = { x: el.x1, y: el.y1 }, p2 = { x: el.x2, y: el.y2 };
-    const runs = _survivingRuns(_sampleLine(p1, p2), segs, r);
+    const runs = _survivingRuns(_sampleLine(p1, p2), segs, w);
+    // Roce sin mordisco (contacto continuo justo entre dos muestras):
+    // intacto POR REFERENCIA — reconstruirlo desanclaba la flecha y
+    // apilaba un paso de undo sin ningún cambio visible.
+    if (runs.length === 1 && runs[0][0] === p1 && runs[0][runs[0].length - 1] === p2) {
+      return [el];
+    }
     return runs.map(run => {
       const a = run[0], b = run[run.length - 1];
       const piece = { ...el, x1: a.x, y1: a.y, x2: b.x, y2: b.y };
@@ -277,6 +287,13 @@ const Eraser = (function () {
           delete piece.heads;
         }
       }
+      // Un extremo que no se ha movido conserva su ancla — solo mientras el
+      // trozo siga siendo flecha (resolveAnchors ignora las líneas): morder
+      // la cola no debe desconectar la punta anclada, que está donde estaba.
+      if (piece.type === 'arrow') {
+        if (a === p1 && el.startAnchor !== undefined) piece.startAnchor = el.startAnchor;
+        if (b === p2 && el.endAnchor !== undefined) piece.endAnchor = el.endAnchor;
+      }
       return piece;
     });
   }
@@ -284,7 +301,15 @@ const Eraser = (function () {
   /** Recorta un `pencil` contra el trazo del borrador: un hueco en medio del
       trazo lo parte en varios `pencil` independientes. */
   function _splitPencil(el, segs, r) {
-    return _survivingRuns(el.points, segs, r).map(run => {
+    const w = r + (el.lineWidth || 1) / 2; // mismo margen de tinta que `touches`
+    const pts = el.points;
+    const runs = _survivingRuns(pts, segs, w);
+    // Roce sin mordisco: intacto por referencia (ver _splitLine).
+    if (runs.length === 1 &&
+        runs[0][0] === pts[0] && runs[0][runs[0].length - 1] === pts[pts.length - 1]) {
+      return [el];
+    }
+    return runs.map(run => {
       const piece = { ...el, points: run };
       delete piece.id;
       return piece;
@@ -304,10 +329,19 @@ const Eraser = (function () {
     const out = [];
     elements.forEach(el => {
       if (el.type === 'eraser' || !touches(el, pts, r, deps)) { out.push(el); return; }
-      changed = true;
-      if (el.type === 'pencil') out.push(..._splitPencil(el, segs, r));
-      else if (el.type === 'line' || el.type === 'arrow') out.push(..._splitLine(el, segs, r));
-      // Cualquier otro tipo tocado se elimina entero (no se empuja nada).
+      let pieces = null;
+      if (el.type === 'pencil') pieces = _splitPencil(el, segs, r);
+      else if (el.type === 'line' || el.type === 'arrow') pieces = _splitLine(el, segs, r);
+      if (pieces) {
+        // `touches` mide distancia continua y el recorte muestrea cada 4 px:
+        // un roce puede tocar sin que ninguna muestra caiga dentro. Si el
+        // split devuelve el elemento intacto, no ha cambiado nada.
+        if (pieces.length === 1 && pieces[0] === el) { out.push(el); return; }
+        changed = true;
+        out.push(...pieces);
+        return;
+      }
+      changed = true; // cualquier otro tipo tocado se elimina entero
     });
     return changed ? out : elements;
   }

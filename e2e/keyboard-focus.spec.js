@@ -199,3 +199,37 @@ test('el círculo del borrador no queda fantasma al cambiar de herramienta', asy
   await settle(page);
   expect(await inked(), 'el overlay debe quedar limpio').toBe(0);
 });
+
+// BUGS.md › "role=toolbar sin el patrón de teclado que promete": cada botón
+// era una parada de Tab (~45 tabulaciones para cruzar la barra). Con roving
+// tabindex la barra es UNA parada y las flechas mueven el foco por dentro.
+test('la barra de herramientas es una sola parada de Tab y se recorre con flechas', async ({ page }) => {
+  await openApp(page);
+  const tools = page.locator('.sidebar__tool');
+
+  // Un solo tabstop: exactamente un botón con tabindex=0
+  await expect(tools.locator('nth=0')).toHaveAttribute('tabindex', '0');
+  expect(await page.locator('.sidebar__tool[tabindex="0"]').count()).toBe(1);
+
+  // Las flechas mueven el foco (y el tabstop viaja con él)
+  await tools.first().focus();
+  await page.keyboard.press('ArrowDown');
+  const second = await page.evaluate(() =>
+    document.activeElement.classList.contains('sidebar__tool') &&
+    document.activeElement.tabIndex === 0 &&
+    document.activeElement !== document.querySelectorAll('.sidebar__tool')[0]);
+  expect(second, 'ArrowDown enfoca la siguiente herramienta').toBe(true);
+
+  await page.keyboard.press('End');
+  const last = await page.evaluate(() => {
+    const all = document.querySelectorAll('.sidebar__tool');
+    return document.activeElement === all[all.length - 1];
+  });
+  expect(last, 'End salta a la última herramienta').toBe(true);
+
+  // Tab desde la barra sale de ella (no recorre las ~45 herramientas)
+  await page.keyboard.press('Tab');
+  const outside = await page.evaluate(() =>
+    !document.activeElement.classList.contains('sidebar__tool'));
+  expect(outside, 'Tab abandona la barra en un solo paso').toBe(true);
+});

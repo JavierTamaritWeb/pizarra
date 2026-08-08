@@ -28,10 +28,12 @@ test('por debajo de 1100px el panel es un cajón que se abre con «⚙ Panel»',
   const panel = page.locator('.panel');
 
   await expect(toggle).toBeVisible();
-  // Cerrado: desplazado fuera por la derecha
-  const closed = await panel.boundingBox();
+  // Cerrado: desplazado fuera por la derecha. boundingBox() devolvería null
+  // (el cajón cerrado es visibility:hidden desde v2.2.0), así que se mide
+  // con getBoundingClientRect, que ignora la visibilidad.
+  const closed = await panel.evaluate(el => el.getBoundingClientRect().x);
   const width = 900;
-  expect(closed.x, 'el cajón empieza fuera de la ventana').toBeGreaterThanOrEqual(width - 1);
+  expect(closed, 'el cajón empieza fuera de la ventana').toBeGreaterThanOrEqual(width - 1);
 
   await toggle.click();
   await expect(page.locator('.app--panel-open')).toHaveCount(1);
@@ -51,6 +53,33 @@ test('en escritorio ancho el panel está fijo y el botón «⚙ Panel» oculto',
   await openApp(page, { viewport: { width: 1400, height: 900 } });
   await expect(page.locator('#btn-panel-toggle')).toBeHidden();
   await expect(page.locator('#zoom-slider')).toBeVisible();
+});
+
+// BUGS.md › "El cajón cerrado seguía siendo tabulable (oculto solo con
+// transform)": el foco entraba en ~30 controles invisibles y desaparecía de
+// pantalla. Solo un navegador real ve visibility, foco y Escape.
+test('el cajón cerrado no puede recibir el foco; aria-expanded y Escape acompañan', async ({ page }) => {
+  await openApp(page, { viewport: { width: 900, height: 800 } });
+  const toggle = page.locator('#btn-panel-toggle');
+
+  // Cerrado: sus controles ni se ven ni pueden enfocarse (visibility: hidden)
+  await expect(page.locator('#zoom-slider')).toBeHidden();
+  const focusable = await page.locator('#zoom-slider').evaluate(el => {
+    el.focus();
+    return document.activeElement === el;
+  });
+  expect(focusable, 'un control del cajón cerrado no debe poder enfocarse').toBe(false);
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+  // Abierto: visible, enfocable, y el botón lo anuncia
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('#zoom-slider')).toBeVisible();
+
+  // Escape lo cierra (sin modal abierto, la tecla es del cajón)
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.app--panel-open')).toHaveCount(0);
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
 });
 
 // BUGS.md › "Los modales desbordaban en pantallas estrechas (~320px)".
