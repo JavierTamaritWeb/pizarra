@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v1.25.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.0.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v1\.25\.0</);
-  assert.match(html, /css\/styles\.css\?v=1\.25\.0/);
-  assert.match(html, /src\/js\/app\.js\?v=1\.25\.0/);
-  assert.match(html, /src\/js\/building\.js\?v=1\.25\.0/);
-  assert.match(html, /src\/js\/garden\.js\?v=1\.25\.0/);
-  assert.match(html, /src\/js\/config\.js\?v=1\.25\.0/);
+  assert.match(html, /class="topbar__badge">v2\.0\.0</);
+  assert.match(html, /css\/styles\.css\?v=2\.0\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.0\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.0\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.0\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.0\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -82,6 +82,17 @@ test('css/styles.css es el artefacto compilado y conserva sus contratos', () => 
   assert.ok(m, 'falta --font-sketch en :root');
   const ctx = load('src/js/config.js'); // sin getComputedStyle: SKETCHY_FONT es el fallback
   assert.equal(m[1].trim().replace(/"/g, "'"), ctx.SKETCHY_FONT);
+});
+
+// Regresión de var(--text-main) (BUGS.md): una custom property usada pero no
+// definida no falla en ningún sitio — ni SCSS, ni stylelint, ni el navegador
+// avisan; la declaración se descarta en silencio y gana la herencia.
+test('toda custom property usada en css/styles.css está definida', () => {
+  const css = fs.readFileSync(path.resolve(__dirname, '..', 'css', 'styles.css'), 'utf8');
+  const defined = new Set([...css.matchAll(/(--[\w-]+)\s*:/g)].map(m => m[1]));
+  for (const use of css.matchAll(/var\(\s*(--[\w-]+)/g)) {
+    assert.ok(defined.has(use[1]), `var(${use[1]}) se usa pero no está definida`);
+  }
 });
 
 // El rango del slider de ancho de camino y los topes con los que garden.js

@@ -63,8 +63,12 @@ const Exporter = (() => {
 
   // La misma familia que SKETCHY_FONT (config.js) pero sin comillas: va en
   // atributos XML font-family="..." del SVG exportado, donde una comilla
-  // (simple del fallback o doble de --font-sketch) malformaría el atributo.
-  const FONT_FALLBACK = SKETCHY_FONT.replace(/["']/g, '');
+  // (simple del fallback o doble de --font-sketch) malformaría el atributo;
+  // <, > y & malformarían el propio XML.
+  const FONT_FALLBACK = SKETCHY_FONT.replace(/["'<>&]/g, '');
+  // Y para el <style> del HTML exportado: sin '<' no se puede cerrar la
+  // etiqueta, y sin llaves ni ';' no se inyectan reglas/declaraciones ajenas.
+  const FONT_CSS = SKETCHY_FONT.replace(/[<>{};]/g, '');
   const DEFAULT_FILL_OPACITY = 0.4;
 
   /** Tipos sin representación HTML propia: van en un <svg> incrustado.
@@ -358,7 +362,7 @@ const Exporter = (() => {
 <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&display=swap" rel="stylesheet">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: ${SKETCHY_FONT}; background: #fff; }
+body { font-family: ${FONT_CSS}; background: #fff; }
 .wireframe { position: relative; width: ${CANVAS_W}px; height: ${CANVAS_H}px; margin: 20px auto; border: 1px solid #ccc; }
 .wireframe > * { position: absolute; }
 </style>

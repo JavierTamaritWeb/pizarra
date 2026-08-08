@@ -8,7 +8,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { load } = require('./helpers/load.js');
+const { load, createContext, loadScript } = require('./helpers/load.js');
 
 /** Contexto fresco con Exporter y sus dependencias (Renderer/Sketchy). */
 function freshCtx() {
@@ -204,6 +204,28 @@ test('Exporter.html: color y lineWidth se escapan en los atributos style', () =>
   const out = lastBlob(ctx).content;
   assert.ok(!out.includes('"><script>alert(1)</script>'), 'el color no debe llegar crudo al atributo style');
   assert.ok(out.includes('&quot;&gt;&lt;script&gt;'), 'el color aparece escapado');
+});
+
+test('Exporter.html: una --font-sketch envenenada no puede cerrar el <style>', () => {
+  // Regresión: SKETCHY_FONT (leído de la custom property --font-sketch) se
+  // interpolaba crudo en el <style> del HTML exportado. Se carga config.js
+  // con un getComputedStyle envenenado para simular una hoja manipulada.
+  const ctx = createContext();
+  ctx.document.documentElement = {};
+  ctx.getComputedStyle = () => ({
+    getPropertyValue: () => '"Evil</style><script>alert(1)</script>", cursive',
+  });
+  for (const f of ['src/js/config.js', 'src/js/sketchy.js', 'src/js/curve-path.js',
+                   'src/js/regular-polygon.js', 'src/js/trapezoid.js',
+                   'src/js/renderer.js', 'src/js/exporter.js']) {
+    loadScript(ctx, f);
+  }
+  ctx.Exporter.html([elButton]);
+  const out = lastBlob(ctx).content;
+  const style = out.match(/<style>([\s\S]*?)<\/style>/);
+  assert.ok(style, 'el export conserva su bloque <style>');
+  assert.ok(!style[1].includes('<'), 'ningún < dentro del bloque <style>');
+  assert.ok(!out.includes('<script>alert(1)</script>'), 'no se inyecta markup ejecutable');
 });
 
 /* ============================================================

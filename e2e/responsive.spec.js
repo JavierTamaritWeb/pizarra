@@ -77,3 +77,31 @@ test('a 320px las variantes de un catálogo se apilan en una columna', async ({ 
     .evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length);
   expect(cols).toBe(1);
 });
+
+// BUGS.md › "Los nombres del sidebar se partían por dentro y pisaban su icono".
+// Se comprueba en los dos modos (una y dos columnas): OpenDyslexic es ancha y
+// un cambio de fuente, de cuerpo o de ancho de botón rompe esto en silencio.
+test('los nombres del sidebar caben enteros y no pisan su icono', async ({ page }) => {
+  await openApp(page, { viewport: { width: 1400, height: 900 } });
+  const audit = () => page.evaluate(() => {
+    const bad = [];
+    for (const btn of document.querySelectorAll('.sidebar__tool')) {
+      const name = btn.querySelector('.sidebar__tool-name');
+      const icon = btn.querySelector('span:not(.sidebar__tool-name)');
+      if (!name) continue;
+      // Sin sitio para la palabra más larga, el contenido desborda su caja.
+      if (name.scrollWidth > name.clientWidth + 1) bad.push(`desborda: ${name.textContent}`);
+      const n = name.getBoundingClientRect();
+      if (icon && n.top < icon.getBoundingClientRect().bottom - 1) {
+        bad.push(`pisa el icono: ${name.textContent}`);
+      }
+      if (n.bottom > btn.getBoundingClientRect().bottom + 1) {
+        bad.push(`se sale del botón: ${name.textContent}`);
+      }
+    }
+    return bad;
+  });
+  expect(await audit(), 'sidebar ancho (dos columnas)').toEqual([]);
+  await page.setViewportSize({ width: 1100, height: 800 });
+  expect(await audit(), 'sidebar compacto (una columna)').toEqual([]);
+});

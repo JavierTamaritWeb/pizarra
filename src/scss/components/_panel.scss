@@ -73,11 +73,7 @@
     border: 0.1rem solid var(--border-main);
     border-radius: 0.6rem;
     padding: 0.7rem 0.9rem;
-
-    // TODO(1.25.1): --text-main no existe (la real es --text-primary). Se
-    // migra tal cual para no cambiar ni un byte: hoy resuelve a nada y el
-    // <select> hereda el color del padre. Fix aparte con entrada en BUGS.md.
-    color: var(--text-main);
+    color: var(--text-primary);
     background: var(--bg-hover);
     font: inherit;
     cursor: pointer;

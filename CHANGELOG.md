@@ -4,9 +4,54 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.0.0] — 2026-08-08
+
+Salto de versión mayor: consolida el cambio de stack de desarrollo iniciado en
+la 1.25.0 — estilos en **SCSS (BEM) compilados con Gulp 5 + dart-sass**, fuente
+en `src/`, publicable minificado en `dist/` y toolchain de stylelint/terser. La
+app en runtime sigue siendo la misma (cero dependencias, clonar y abrir), pero
+la forma de desarrollarla ya no: `css/styles.css` es un artefacto y editarlo a
+mano está vetado.
+
+### Corregido
+
+- **Los nombres del sidebar ya no se parten por dentro de la palabra ni pisan
+  su icono.** «Rectángulo» salía como «Rectán / gulo» y los nombres de varias
+  líneas se montaban sobre el icono: el `overflow-wrap: anywhere` partía por
+  cualquier carácter y el botón tenía altura fija y 52px de ancho para
+  palabras que en OpenDyslexic miden 58. El botón pasa a 6.8rem con
+  `min-height`, sin letter-spacing en el nombre; los anchos del sidebar
+  (72/132px) no cambian. Ver `BUGS.md`.
+- `.panel__select` usaba `var(--text-main)`, que no existe (la real es
+  `--text-primary`): la declaración se descartaba en silencio y el `<select>`
+  heredaba el color del padre. Era el fix aparte que dejó programado la
+  migración a SCSS de v1.25.0. Ver `BUGS.md`.
+- El export HTML interpolaba la familia tipográfica (`SKETCHY_FONT`, leída de
+  `--font-sketch`) sin sanear dentro de su `<style>`; era la única
+  interpolación del exporter sin defensa. Ahora `FONT_CSS` descarta `<>{};`
+  (no se puede cerrar la etiqueta ni inyectar reglas) y `FONT_FALLBACK`
+  descarta también `<>&` para los atributos XML del SVG. Ver `BUGS.md`.
+
+### Tests
+
+- Guardia general nueva en `tests/smoke.test.js`: **toda custom property usada
+  en `css/styles.css` está definida** — un `var()` con nombre equivocado no
+  falla en ningún sitio por sí solo.
+- Guardia en `tests/exporter.test.js`: una `--font-sketch` envenenada no puede
+  cerrar el `<style>` del HTML exportado (config.js se carga con un
+  `getComputedStyle` manipulado).
+- Guardia e2e en `responsive.spec.js`: en ambos modos del sidebar, ningún
+  nombre desborda su caja, invade su icono ni se sale del botón.
+- `BUGS.md` y `CHANGELOG.md` normalizados a markdownlint (líneas en blanco
+  alrededor de títulos y listas; `.markdownlint.json` nuevo con `MD024
+  siblings_only` para los títulos repetidos del formato Keep a Changelog);
+  sin cambios de contenido. Cache-busting (`?v=`), insignia del topbar y
+  badges del README sincronizados con la versión. **399 unitarios + 26 e2e.**
+
 ## [1.25.0] — 2026-08-08
 
 ### Cambiado
+
 - **Los estilos se desarrollan en SCSS (BEM) y se compilan con Gulp 5 +
   dart-sass.** El antiguo `css/styles.css` monolítico pasa a ser un artefacto
   generado desde `src/scss/` — 18 ficheros que respetan el orden literal del
@@ -42,6 +87,7 @@ versionado es [SemVer](https://semver.org/lang/es/).
   largas en dos líneas («Semicírculo» se recortaba por los lados).
 
 ### Añadido
+
 - **La app fuente vive en `src/`**: `src/scss/` (estilos) y `src/js/` (los
   14 módulos, movidos desde la raíz; `index.html` apunta ahora a
   `src/js/*.js`). `index.html` se queda en la raíz — el harness de tests,
@@ -61,6 +107,7 @@ versionado es [SemVer](https://semver.org/lang/es/).
   notación de color legacy a propósito, para no reescribir el CSS heredado).
 
 ### Tests
+
 - Guardia nueva en `smoke.test.js`: `css/styles.css` debe ser el artefacto
   compilado (banner), conservar la convención `1rem = 10px`, las custom
   properties responsive (`--sidebar-w` 7.2/13.2rem), las cuatro media queries,
@@ -76,6 +123,7 @@ versionado es [SemVer](https://semver.org/lang/es/).
 ## [1.24.0] — 2026-08-08
 
 ### Cambiado
+
 - **La inclinación del camino se marca de un clic, no manteniendo Shift.** El
   ángulo libre llegó en la v1.23.0 atado a Shift+arrastrar, que es un gesto de
   **dos manos**: quien solo puede usar una se quedaba fuera de la función
@@ -85,6 +133,7 @@ versionado es [SemVer](https://semver.org/lang/es/).
   inclinar un camino suelto sin tocar la casilla.
 
 ### Añadido
+
 - **El ancho del camino se cambia desde el propio catálogo.** Con el camino
   inclinado el arrastre ya no deja lado corto que leer, así que el ancho solo
   puede venir del deslizador — y estaba únicamente en el panel, que por debajo
@@ -101,6 +150,7 @@ versionado es [SemVer](https://semver.org/lang/es/).
   caja no aparece: ahí el camino solo puede salir a 0° o 90°.
 
 ### Tests
+
 - Cuatro guardias nuevas en `app-interaction.test.js`: el trazado en diagonal
   sin tocar el teclado (y su persistencia en prefs), el ancho cambiado desde el
   modal llegando al camino inclinado, el reparto correcto entre iconos (modo
@@ -113,6 +163,7 @@ versionado es [SemVer](https://semver.org/lang/es/).
 ## [1.23.0] — 2026-08-07
 
 ### Añadido
+
 - **El camino puede trazarse en cualquier ángulo.** Por defecto, el arrastre
   de Camino sigue leyéndose como caja —el lado largo es el recorrido y el
   corto, el grosor, tal cual desde v1.21.0—. Manteniendo pulsado **Shift**
@@ -129,6 +180,7 @@ versionado es [SemVer](https://semver.org/lang/es/).
   cantos salen casi redondos.
 
 ### Tests
+
 - Seis guardias nuevas en `garden.test.js` (dirección exacta a varios
   ángulos, el ancho lo manda `pathWidth` y no un lado corto inexistente, el
   clic sin arrastrar no cambia con el flag, los cantos siguen cabiendo entre
@@ -142,18 +194,21 @@ versionado es [SemVer](https://semver.org/lang/es/).
 ## [1.22.1] — 2026-08-07
 
 ### Arreglado
+
 - **«Limpiar todo» reinicia el tamaño del borrador.** El botón ya devolvía el
   fondo, la cuadrícula, el solapamiento y el zoom a sus valores por defecto,
   pero olvidaba `state.eraserSize`: si se había cambiado el tamaño del
   borrador, seguía con ese valor tras limpiar en vez de volver a 16px.
 
 ### Tests
+
 - Guardia en `app-interaction.test.js` para el reinicio del tamaño del
   borrador al pulsar «Limpiar todo». **384 unitarios + 25 e2e**.
 
 ## [1.22.0] — 2026-08-07
 
 ### Añadido
+
 - **Modal de tamaño del borrador.** Elegir la herramienta Borrador abre un
   modal con una previsualización más grande del círculo real y su propio
   deslizador, igual que Planta o Balcón abren su catálogo al elegirlos; un
@@ -163,6 +218,7 @@ versionado es [SemVer](https://semver.org/lang/es/).
   la herramienta anterior: el borrador ya es usable con el tamaño que tenga.
 
 ### Cambiado
+
 - **El borrador recorta recta, flecha y trazo a mano en vez de borrarlos
   enteros.** Pasar el borrador por el centro de una línea, o justo por donde
   se cruzan dos trazos, ya solo se lleva el tramo bajo el círculo: lo demás
@@ -174,6 +230,7 @@ versionado es [SemVer](https://semver.org/lang/es/).
   de forma exacta queda fuera de alcance.
 
 ### Tests
+
 - Cobertura de `Eraser.erase()`: recorte de recta y flecha (con y sin doble
   punta), trazo con hueco en medio, la intersección de dos trazos que ya no
   se borra entera, y que el resto de tipos sigue eliminándose entero.
@@ -183,6 +240,7 @@ versionado es [SemVer](https://semver.org/lang/es/).
 ## [1.21.0] — 2026-08-07
 
 ### Cambiado
+
 - **El grosor del camino vuelve al ratón.** El arrastre se lee otra vez como
   caja: el lado largo es el recorrido y el corto, el grosor, así que moviendo el
   ratón arriba o abajo el camino engorda mientras se dibuja. Es la única forma
@@ -201,6 +259,7 @@ versionado es [SemVer](https://semver.org/lang/es/).
   suelte cientos de piezas.
 
 ### Tests
+
 - Las guardias de camino se reescriben para la caja: el recorrido por el lado
   largo, el grosor creciendo al bajar el ratón, el ancho del panel como
   reserva, los cantos entre los bordes en los dos sentidos y a cualquier ancho,
@@ -209,6 +268,7 @@ versionado es [SemVer](https://semver.org/lang/es/).
 ## [1.20.0] — 2026-08-07
 
 ### Añadido
+
 - **Ancho del camino**, en el panel «Jardín» (8–120 px). Al pasar el arrastre a
   ser el recorrido (1.19.0) desapareció el lado corto de la caja, que era de
   donde salía el ancho: el camino quedó sin forma de ensancharse o estrecharse.
@@ -217,6 +277,7 @@ versionado es [SemVer](https://semver.org/lang/es/).
   camino en curso la previsualización se actualiza en el momento.
 
 ### Tests
+
 - 4 guardias nuevas: el ancho pedido es el que separa los bordes, se acota a
   los topes, se conserva a cualquier inclinación, y el rango del slider coincide
   con el que aplica `js/garden.js` (que ahora lo exporta justo para poder
@@ -227,6 +288,7 @@ versionado es [SemVer](https://semver.org/lang/es/).
 ## [1.19.0] — 2026-08-07
 
 ### Añadido
+
 - **Los caminos del Jardín se trazan en cualquier inclinación.** El arrastre ya
   no es una caja: **es el recorrido**, así que el camino sale en la dirección
   del gesto —vertical, horizontal o en cualquier diagonal— en vez de limitarse
@@ -234,6 +296,7 @@ versionado es [SemVer](https://semver.org/lang/es/).
   horizontal. Un clic sin arrastrar sigue dando el camino vertical por defecto.
 
 ### Cambiado
+
 - El ancho del camino pasa a ser una fracción acotada de su recorrido (antes lo
   daba el lado corto de la caja, que ya no existe): un sendero largo no sale
   como un hilo ni uno corto como una plaza.
@@ -244,6 +307,7 @@ versionado es [SemVer](https://semver.org/lang/es/).
   con los bordes la misma y única onda a cualquier ángulo.
 
 ### Tests
+
 - Las guardias de camino pasan a barrer varios ángulos (0°, 90°, 30°, −45°,
   135°, 180°, −120°): la dirección y el sentido de los bordes, el giro completo
   del serpenteante y —la más valiosa— que los cantos siguen cabiendo entre los
@@ -253,6 +317,7 @@ versionado es [SemVer](https://semver.org/lang/es/).
 ## [1.18.1] — 2026-08-07
 
 ### Cambiado
+
 - **Los caminos del Jardín nacen en vertical** y, sobre todo, **corren por el
   eje largo del arrastre**: arrástralo a lo alto y el sendero baja; a lo ancho,
   cruza. Antes el recorrido estaba clavado en la horizontal, así que un
@@ -265,6 +330,7 @@ versionado es [SemVer](https://semver.org/lang/es/).
   y única onda.
 
 ### Tests
+
 - 2 guardias nuevas: el camino sigue el eje largo del arrastre (recto y
   serpenteante) y los cantos caben entre los bordes también en vertical —el
   gemelo en el otro eje de la guardia que ya existía—. **362 unitarios + 25
@@ -275,6 +341,7 @@ versionado es [SemVer](https://semver.org/lang/es/).
 Nueva herramienta **Balcón** en la sección Edificios, con 8 tipos.
 
 ### Añadido
+
 - **Balcón** (sección Edificios): barandilla arriba y losa volada abajo, en
   alzado como la puerta y la ventana. Ocho tipos en su catálogo — **de
   barrotes, francés, de forja, balaustrada, corrido, acristalado, terraza y
@@ -290,6 +357,7 @@ Nueva herramienta **Balcón** en la sección Edificios, con 8 tipos.
   sección.
 
 ### Cambiado
+
 - La tabla de modales de variante (`VARIANT_MODALS` en `app.js`) deja de ser
   exclusiva del Jardín: ahora describe también el catálogo del Balcón, con el
   módulo generador y el constructor de opts como campos. Los cinco catálogos
@@ -301,6 +369,7 @@ Nueva herramienta **Balcón** en la sección Edificios, con 8 tipos.
   descuido.
 
 ### Tests
+
 - 13 guardias nuevas: geometría de los ocho tipos, la panza de la forja, las
   ménsulas del corrido, cajas por variante, ningún rect degenerado en balcones
   diminutos, «dos tipos nunca se dibujan igual» (la misma guardia que el
@@ -314,6 +383,7 @@ su entrada en `BUGS.md` y su guardia de regresión probada contra el código
 roto (14 tests nuevos en `tests/`, 4 en `e2e/`).
 
 ### Corregido
+
 - **Atajos y foco.** Cambiar un `<select>` del panel («Solapamiento»,
   «Plantas»…) dejaba muertos todos los atajos hasta clicar en otro sitio;
   `Shift+R` sobre una selección sin formas rotables activaba Rectángulo y
@@ -347,6 +417,7 @@ roto (14 tests nuevos en `tests/`, 4 en `e2e/`).
 - README: Caminos también es herramienta sin atajo, no solo Aromáticas.
 
 ### Herramientas
+
 - Eliminado el código muerto del export (`'eraser'` inalcanzable en
   `VECTOR_TYPES`/`_svgElement`) y la copia duplicada de `distToSegment` en
   `app.js` (ahora delega en `Eraser.distToSegment`).
@@ -357,6 +428,7 @@ roto (14 tests nuevos en `tests/`, 4 en `e2e/`).
 ## [1.17.0] — 2026-08-07
 
 ### Añadido
+
 - **Botón «Caminos» en el Jardín, con cuatro trazados.** El camino tiene ahora
   dos ejes independientes: puede ser **serpenteante o recto** y **liso o
   empedrado**, en sus cuatro combinaciones. El empedrado son cantos irregulares
@@ -376,6 +448,7 @@ roto (14 tests nuevos en `tests/`, 4 en `e2e/`).
   nunca de lo que se marcó.
 
 ### Cambiado
+
 - La guardia *"dos variantes nunca se dibujan igual"* compara también la
   **proporción**, no solo qué piezas hay: la parcela cuadrada lleva exactamente
   las mismas que la rectangular y aun así son dos opciones distintas de un
@@ -383,6 +456,7 @@ roto (14 tests nuevos en `tests/`, 4 en `e2e/`).
   hecho saltar el test sin haber nada roto.
 
 ### Herramientas
+
 - **Suite end-to-end en un navegador real** (`e2e/`, Playwright): 21 tests que
   cubren lo que el arnés `node:vm` no puede ver por definición —layout, CSS,
   foco y acciones por defecto del navegador—. Casi todos son entradas de
@@ -398,6 +472,7 @@ roto (14 tests nuevos en `tests/`, 4 en `e2e/`).
 ## [1.16.1] — 2026-08-07
 
 ### Corregido
+
 - **«Limpiar todo» dejaba el lienzo pequeño en vez de como al abrir la app.**
   En pantallas anchas el lienzo se ajusta solo para aprovechar el espacio, pero
   el botón forzaba el zoom al 100% y dejaba márgenes vacíos alrededor. Peor: lo
@@ -409,6 +484,7 @@ roto (14 tests nuevos en `tests/`, 4 en `e2e/`).
 ## [1.16.0] — 2026-07-25
 
 ### Añadido
+
 - **Almendro y algarrobo** en el catálogo de Árbol (Jardín), que pasa de 6 a 8
   especies. Como el resto, en vista de planta y con silueta propia: el almendro
   es una copa clara y abierta con la flor marcada en la periferia; el algarrobo,
@@ -427,6 +503,7 @@ roto (14 tests nuevos en `tests/`, 4 en `e2e/`).
 ## [1.15.0] — 2026-07-25
 
 ### Añadido
+
 - **Sección «Jardín»** en el sidebar, después de Edificios: cinco herramientas
   que dibujan **en vista de planta** (cenital, como un plano de paisajismo).
   Como las de Edificios, son **solo de creación** —producen `rect`/`line`/
@@ -450,6 +527,7 @@ roto (14 tests nuevos en `tests/`, 4 en `e2e/`).
   salen alargados, una flor suelta menuda.
 
 ### Corregido
+
 - **La previsualización del arrastre no dibujaba las curvas encadenadas.**
   `drawBuildingPreview` leía `cx`/`cy` de nivel superior, que una curva
   encadenada no tiene, y `quadraticCurveTo(undefined, …)` no hace nada ni avisa.
@@ -462,7 +540,9 @@ roto (14 tests nuevos en `tests/`, 4 en `e2e/`).
   una variante desde un test no hacía nada. No lo usaba ningún test todavía.
 
 ### Corregido tras probarlo en el navegador
+
 Tres cosas que **pasaban todos los tests** y solo se ven usando la aplicación:
+
 - **«Frondoso» y «Olivo» se dibujaban igual.** Cada variante se comprobaba por
   separado y ninguna prueba comparaba una con sus hermanas. El olivo motea
   ahora el follaje en vez de marcar ramas, y un test nuevo compara la firma de
@@ -475,6 +555,7 @@ Tres cosas que **pasaban todos los tests** y solo se ven usando la aplicación:
   radio alto y bajo en ocho puntos: eso es simetría de orden 4.
 
 ### Notas
+
 - Los atajos del jardín son `8 9 H X Z`, las cinco teclas sueltas que quedaban
   libres. Un test nuevo impide que una herramienta reutilice `F`, `Q`, `D` o `S`:
   esas ya actúan sobre las flechas curvas y se comprueban antes, así que la
@@ -485,6 +566,7 @@ Tres cosas que **pasaban todos los tests** y solo se ven usando la aplicación:
 Ajustes salidos de probar la aplicación en un navegador real.
 
 ### Corregido
+
 - **Pulsar `1` para abrir Fachada cambiaba «Plantas» a 1.** El atajo de
   herramienta no cancelaba la tecla, así que seguía viva y la recibía el primer
   control que el diálogo enfoca: el `<select>` de Plantas la interpretaba como
@@ -503,6 +585,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
 ## [1.14.0] — 2026-07-25
 
 ### Cambiado
+
 - **El borrador elimina de verdad.** Hasta ahora no borraba: añadía al lienzo una
   *máscara* que tapaba lo que había debajo. Como la máscara se queda fija en su
   sitio, al mover el dibujo lo "borrado" salía de debajo y **reaparecía**; además
@@ -519,6 +602,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
   que ocultan). Lo que cambia es que la herramienta ya no crea ninguna.
 
 ### Interno
+
 - Nuevo `js/eraser.js` (`Eraser`): geometría pura de "qué toca el trazo", con
   distancia segmento-segmento y detección de cruce. Recibe por inyección lo que
   vive fuera (bounds, muestreo de curvas, vértices de polígonos y trapecios), así
@@ -527,6 +611,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
 ## [1.13.1] — 2026-07-25
 
 ### Corregido
+
 - **Lo dibujado sobre un edificio quedaba inalcanzable.** Con un edificio
   seleccionado, su marco combinado cubre todo su interior y se tragaba cualquier
   clic dentro: la puerta o la ventana que pusieras encima no se podían
@@ -542,8 +627,9 @@ Ajustes salidos de probar la aplicación en un navegador real.
   al cambiarlos. El de puerta se atenúa en la vista *De lado*, que no lleva.
 
 ### Interno
-- **`js/app.js` pasa a ser testeable.** Nuevo arnés (`tests/helpers/dom-stub.js`
-  + `load-app.js`) que construye el DOM desde el `index.html` real y ejecuta la
+
+- **`js/app.js` pasa a ser testeable.** Nuevo arnés (`tests/helpers/dom-stub.js` +
+  `load-app.js`) que construye el DOM desde el `index.html` real y ejecuta la
   app entera bajo `node:vm`; los tests lanzan gestos de verdad (pointer, teclado,
   clics de modal) y leen el resultado del autosave, sin ningún hook de test en
   producción. Cierra el hueco que `PLAN.md §6` daba por inevitable. Suite de
@@ -553,6 +639,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
 ## [1.13.0] — 2026-07-25
 
 ### Añadido
+
 - **Miniatura en vivo en el modal de Fachada**: se repinta con cada ajuste, así
   que ya no hay que dibujar-deshacer-repetir para ver el efecto. No es un dibujo
   aparte: usa la misma geometría que la previsualización del arrastre, de modo
@@ -568,6 +655,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
   tiene cubierta ni pendiente; el perfil lleva siempre la suya trapezoidal).
 
 ### Cambiado
+
 - Las tres vistas de Fachada pasan a **lenguaje llano** —*De frente*, *Con
   tejado*, *De lado*— con el término de arquitecto (*Fachada plana*, *Alzado*,
   *Perfil*) como subtítulo: quien no es arquitecto no sabía cuál elegir.
@@ -577,6 +665,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
   recargar, así que media configuración sobrevivía y media no.
 
 ### Corregido
+
 - El botón **«Alzado (2 aguas)» dibujaba otra cubierta**: la forma real la fija
   `roofType`, así que con *Cuatro aguas* o *Mansarda* la etiqueta mentía. El
   nombre ya no promete una forma y el icono dibuja el faldón realmente activo.
@@ -585,6 +674,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
   ahora va sin puerta y con las plantas acompasadas.
 
 ### Interno
+
 - `buildOpts()` centraliza los opts de `Building.elements` para sus tres
   consumidores (preview del arrastre, commit y miniatura), que antes los
   duplicaban; `syncBuildControls()` es el único punto que reparte el estado a
@@ -595,6 +685,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
 ## [1.12.0] — 2026-07-24
 
 ### Añadido
+
 - **Fachadas ricas**: Fachada, Alzado y Perfil dibujan sus huecos con el **tipo de
   Puerta y Ventana elegido** en los modales (antes siempre usaban los básicos).
   Elige *Óculo* o *Ventana de arco* y la fachada los coloca; igual con la puerta
@@ -613,6 +704,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
   una pieza. El clon de un edificio es un grupo independiente.
 
 ### Corregido
+
 - La **previsualización del óculo** no mostraba el círculo al arrastrar; ahora sí,
   y la preview respeta el trazo fino del detalle.
 - **Cancelar** (Cerrar/Escape/clic-exterior) un modal de Planta/Puerta/Ventana sin
@@ -622,6 +714,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
   solaparse con el tejado en Alzado/Perfil.
 
 ### Interno
+
 - Unificado el arco de puerta/ventana (`_arched`) y extraído el alféizar (`_sill`)
   en `js/building.js`; nuevo campo `buildingGroupId` validado en `isValidElement`
   y preservado en el round-trip JSON. Suite de **231 → 241** pruebas.
@@ -629,6 +722,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
 ## [1.11.0] — 2026-07-24
 
 ### Añadido
+
 - Más **tipos de puerta** en el modal (de 4 a **8**): además de *Puerta*,
   *Puerta de arco*, *Marco* y *Marco de arco*, ahora **Puerta doble** (dos hojas
   con montante central y tiradores), **Puerta de paneles** (dos paneles
@@ -645,6 +739,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
   trazo fino (`_lineT`/`_rectT`).
 
 ### Interno
+
 - Iconos SVG nuevos en `doorIcon`/`windowIcon` (app.js) para las tarjetas del
   modal, construidos con `createElementNS` (nunca `innerHTML`).
 - La guardia de regresión `tests/building.test.js` gana 6 pruebas de geometría
@@ -654,6 +749,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
 ## [1.10.0] — 2026-07-24
 
 ### Añadido
+
 - Nueva sección de barra lateral **Edificios** para bocetar el exterior de un
   edificio: **Planta** (`w`) con selector de huella en modal (rectangular, en L,
   en U con jardín, claustro); **Fachada** (`1`), **Alzado** (`x`) y **Perfil**
@@ -682,6 +778,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
   de regresión `tests/building.test.js` (19 pruebas).
 
 ### Interno
+
 - `CREATION_ONLY_TOOLS` (exporter.js) excluye las herramientas de Edificios de
   `ELEMENT_TYPES`, evitando elementos fantasma al importar un JSON manipulado.
 - El comando de test documentado pasa a `node --test tests/*.test.js`: la forma
@@ -690,6 +787,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
 ## [1.9.0] — 2026-07-24
 
 ### Añadido
+
 - Botones **Cuadrado** (`4`) y **Trapecio** (`7`) en la barra de Formas.
   El cuadrado se crea regular desde el centro; el trapecio isósceles se crea
   por esquinas y admite proporciones libres.
@@ -704,6 +802,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
 ## [1.8.1] — 2026-07-24
 
 ### Añadido
+
 - **Tamaño del borrador independiente**, regulable de 4 a 100 px y con
   16 px por defecto. Al activar el Borrador, el control de Trazo cambia de
   nombre, rango y valor sin modificar el grosor del lápiz o de las formas.
@@ -714,6 +813,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
   histórico usando automáticamente cuatro veces ese grosor.
 
 ### Corregido
+
 - El **Borrador** ya no perfora el color de fondo ni la cuadrícula: elimina
   únicamente los elementos dibujados, por lo que deja de verse como una
   mancha oscura o transparente. App y exportación raster comparten ahora el
@@ -730,6 +830,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
 ## [1.8.0] — 2026-07-24
 
 ### Añadido
+
 - **Rotación discreta de formas** desde el panel o con `Shift+R`: cada
   triángulo, rectángulo o rectángulo redondeado gira 90°, cada pentágono 36°
   y cada hexágono 30° alrededor de su propio centro. La acción admite
@@ -743,6 +844,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
 ## [1.7.0] — 2026-07-24
 
 ### Añadido
+
 - **Triángulo, pentágono y hexágono regulares** en la barra de Formas, con
   atajos `3`, `5` y `6`. El arrastre parte del centro y el redimensionado
   conserva un contenedor cuadrado para que todos los lados sigan siendo
@@ -762,6 +864,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
   exportación y round-trip JSON: la suite pasa de 169 a 177.
 
 ### Cambiado
+
 - En pantallas de más de 1200 px, la barra lateral amplía su ancho y organiza
   todas las herramientas en dos columnas; hasta 1200 px conserva la
   disposición compacta de una columna.
@@ -769,6 +872,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
 ## [1.6.0] — 2026-07-24
 
 ### Añadido
+
 - **Relleno sólido o translúcido regulable** para círculo/elipse, rectángulo y
   rectángulo redondeado: el checkbox "Relleno translúcido" alterna el modo y
   un nuevo slider permite ajustar la opacidad del 0 al 100 % (40 % por
@@ -790,6 +894,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
 ## [1.5.0] — 2026-07-23
 
 ### Cambiado
+
 - **La aplicación pasa a llamarse Pizarra también en la interfaz**: el
   wordmark de la barra superior y el `<title>` de la pestaña decían todavía
   "SketchWire", mientras que el README ya usaba Pizarra desde la 1.1.1.
@@ -798,14 +903,13 @@ Ajustes salidos de probar la aplicación en un navegador real.
   antiguo a propósito**: renombrarlas dejaría huérfanos el lienzo y las
   preferencias ya guardados de cada usuario. Queda anotado en el código y en
   `CLAUDE.md`.
-
-### Cambiado
 - **"Limpiar todo" devuelve también el zoom al 100 %** (además de vaciar el
   lienzo y restaurar los colores). El 100 % se mantiene aunque después se
   redimensione la ventana: la limpieza cuenta como una elección explícita de
   zoom, así que el auto-ajuste no vuelve a agrandarlo por su cuenta.
 
 ### Corregido
+
 - **La herramienta Texto no creaba nada.** Al hacer click en el lienzo, el
   editor se abría y se cerraba en el mismo instante (el `focus()` síncrono se
   perdía por el cambio de foco por defecto del `pointerdown`, y el `blur`
@@ -841,6 +945,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
     lo cierra (solo el click fuera del cuadro).
 
 ### Añadido
+
 - **Pestaña de Ayuda**: nuevo botón `❔ Ayuda` en la barra superior (y tecla
   `?`) que abre un panel con todos los atajos y trucos, agrupados por tema
   (general, selección y portapapeles, formas y relleno, emoji, flechas y
@@ -866,6 +971,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
 ## [1.4.0] — 2026-07-23
 
 ### Añadido
+
 - **Rellenar formas con color**: las formas geométricas (rectángulo,
   redondeado y círculo) admiten un color de relleno propio (`fillColor`),
   elegible desde la nueva sección "Relleno" del panel. Hasta ahora el
@@ -878,11 +984,13 @@ Ajustes salidos de probar la aplicación en un navegador real.
   exports SVG/HTML.
 
 ### Cambiado
+
 - El **zoom llega hasta el 300 %** (antes 200 %). Los límites viven ahora en
   `ZOOM_MIN`/`ZOOM_MAX` en app.js, que acotan `applyZoom` y el auto-ajuste,
   en lugar de estar repetidos a mano.
 
 ### Corregido
+
 - **Con zoom > 100 % ya se puede llegar a todo el lienzo.** El desbordamiento
   por la izquierda y por arriba quedaba fuera del área scrollable (un
   `transform: scale` no cambia la caja de layout), así que al 200 % había
@@ -905,6 +1013,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
 ## [1.3.0] — 2026-07-23
 
 ### Añadido
+
 - **Colores personalizables del lienzo**: nueva sección "Lienzo" en el panel
   derecho con selectores de color para el **fondo** y la **cuadrícula**.
   `Renderer.drawGrid` acepta ahora un color base (antes fijo), con la línea
@@ -915,6 +1024,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
   original (además de vaciar el lienzo), y borra la preferencia guardada.
 
 ### Cambiado
+
 - **Lienzo más grande y aprovechamiento de pantalla**: el padding alrededor
   del lienzo baja de 24 a 12 px, y el zoom se auto-ajusta al cargar la página
   (y al redimensionar la ventana) al mayor valor que quepa en el espacio
@@ -928,6 +1038,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
 ## [1.2.1] — 2026-07-23
 
 ### Cambiado
+
 - **Mover la multi-selección en grupo desde cualquier punto de su marco**:
   con varios elementos seleccionados, el arrastre puede empezar también en
   el espacio vacío dentro del recuadro combinado (antes había que acertar
@@ -939,6 +1050,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
 ## [1.2.0] — 2026-07-23
 
 ### Añadido
+
 - **Copiar y pegar la selección** con `Ctrl/Cmd+C` y `Ctrl/Cmd+V`: funciona
   con uno o varios elementos (Shift+click, marquee o `Ctrl/Cmd+A`), pega con
   desplazamiento de 20 px, activa la herramienta Mover y deja lo pegado
@@ -952,6 +1064,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
   manipulado no puede inyectar elementos inválidos.
 
 ### Cambiado
+
 - El pegado de imágenes PNG/JPG con `Ctrl/Cmd+V` se mantiene: los elementos
   propios tienen prioridad y, si no los hay, se intenta la imagen. Dentro de
   campos de texto, copiar/pegar siguen siendo los nativos del navegador.
@@ -959,6 +1072,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
 ## [1.1.1] — 2026-07-23
 
 ### Cambiado
+
 - El proyecto pasa a presentarse como **Pizarra** en el README.
 - Se amplía la documentación con instrucciones de clonación y ejecución, un
   flujo básico de uso, detalles del autoguardado y atajos multiplataforma.
@@ -968,6 +1082,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
 ## [1.1.0] — 2026-07-23
 
 ### Añadido
+
 - **Herramienta Semicírculo** (`◠`, tecla `G`): dibuja arcos de 180° exactos
   y sin puntas de flecha. El arrastre fija el diámetro, así que cada trazo
   puede tener un radio distinto.
@@ -987,6 +1102,7 @@ Ajustes salidos de probar la aplicación en un navegador real.
   la suite pasa de 123 a 133.
 
 ### Cambiado
+
 - La punta de las flechas curvas al desactivar un semicírculo con `Q` se
   restaura al valor por defecto (una punta).
 - El checkbox "Doble punta" ignora los semicírculos (nunca llevan punta).

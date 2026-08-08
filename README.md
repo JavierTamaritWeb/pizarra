@@ -4,11 +4,11 @@
 
 **Wireframes, diagramas y bocetos con estética dibujada a mano — en el navegador y sin instalar nada.**
 
-[![Versión](https://img.shields.io/badge/versión-1.25.0-blueviolet?style=flat-square)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-2.0.0-blueviolet?style=flat-square)](CHANGELOG.md)
 [![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?style=flat-square&logo=javascript&logoColor=000)](src/js/)
 [![Estilos](https://img.shields.io/badge/estilos-SCSS%20·%20BEM%20·%20Gulp%205-cf649a?style=flat-square&logo=sass&logoColor=fff)](src/scss/)
 [![Dependencias](https://img.shields.io/badge/dependencias%20en%20runtime-0-brightgreen?style=flat-square)](#arquitectura)
-[![Tests](https://img.shields.io/badge/tests-397%20unitarios%20%2B%2025%20e2e-brightgreen?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-399%20unitarios%20%2B%2026%20e2e-brightgreen?style=flat-square)](#tests)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue?style=flat-square)](LICENSE)
 
 <img src="docs/pizarra.png" alt="La interfaz de Pizarra: barra de herramientas a la izquierda, lienzo con un wireframe de landing page dibujado a mano en el centro y panel de ajustes a la derecha" width="900">
@@ -26,21 +26,24 @@ Pizarra es una aplicación de wireframing sobre `<canvas>` escrita en JavaScript
 
 ## Índice
 
-- [Inicio rápido](#inicio-rápido)
-- [Características](#características)
-  - [Dibujo y formas](#dibujo-y-formas)
-  - [Flechas de nivel diagrama](#flechas-de-nivel-diagrama)
-  - [Edificios y Jardín](#edificios-y-jardín)
-  - [Edición](#edición)
-  - [Exportación](#exportación)
-- [Cómo usar Pizarra](#cómo-usar-pizarra)
-- [Atajos de teclado](#atajos-de-teclado)
-- [Arquitectura](#arquitectura)
-- [Desarrollo de estilos (SCSS + Gulp)](#desarrollo-de-estilos-scss--gulp)
-- [Tests](#tests)
-- [Documentación del proyecto](#documentación-del-proyecto)
-- [Compatibilidad](#compatibilidad)
-- [Licencia](#licencia)
+- [✎ Pizarra](#-pizarra)
+  - [Índice](#índice)
+  - [Inicio rápido](#inicio-rápido)
+  - [Características](#características)
+    - [Dibujo y formas](#dibujo-y-formas)
+    - [Flechas de nivel diagrama](#flechas-de-nivel-diagrama)
+    - [Edificios y Jardín](#edificios-y-jardín)
+    - [Edición](#edición)
+    - [Exportación](#exportación)
+  - [Cómo usar Pizarra](#cómo-usar-pizarra)
+  - [Atajos de teclado](#atajos-de-teclado)
+  - [Arquitectura](#arquitectura)
+    - [Principios de diseño](#principios-de-diseño)
+  - [Desarrollo de estilos (SCSS + Gulp)](#desarrollo-de-estilos-scss--gulp)
+  - [Tests](#tests)
+  - [Documentación del proyecto](#documentación-del-proyecto)
+  - [Compatibilidad](#compatibilidad)
+  - [Licencia](#licencia)
 
 ## Inicio rápido
 
@@ -63,7 +66,7 @@ Para *usar* la app no hay nada que instalar ni compilar: el CSS ya viene compila
 ### Dibujo y formas
 
 | | |
-|---|---|
+| --- | --- |
 | **Trazo a mano alzada** | Lápiz, línea, flecha y flecha curva con jitter determinista: cada elemento guarda su semilla y no "tiembla" entre repintados. |
 | **Formas** | Rectángulo, redondeado, elipse, cuadrado, trapecio, triángulo, pentágono y hexágono. Los polígonos regulares se arrastran desde el centro y conservan sus lados iguales; el trapecio admite proporciones libres. |
 | **Semicírculos** | 180° exactos y sin puntas. El arrastre fija el diámetro; después `+`/`−` o su handle ajustan el radio manteniendo la media circunferencia. `Q` convierte una flecha curva en semicírculo y viceversa. |
@@ -97,7 +100,7 @@ Cada edificio y cada pieza de jardín se crea como una **unidad** — un clic la
 <summary><b>Ver el catálogo completo</b></summary>
 
 | Herramienta | Variantes |
-|---|---|
+| --- | --- |
 | **Planta** (`W`) | Rectangular · en L · en U con jardín · claustro |
 | **Fachada** (`1`) | De frente · con tejado · de lado — multiplanta, con la puerta y las ventanas del tipo elegido |
 | **Tejado** (`2`) | Dos aguas · un agua · plano · cuatro aguas · mansarda (todos con tejas) |
@@ -130,7 +133,7 @@ Cada pieza de jardín nace con una **etiqueta** que la nombra, dentro del mismo 
 ### Exportación
 
 | Formato | Detalle |
-|---------|---------|
+| --- | --- |
 | **PNG / JPG** | Imagen rasterizada del lienzo limpio |
 | **SVG** | Vectorial escalable, fiel al render |
 | **HTML** | Página editable con componentes reales + SVG incrustado para los trazos |
@@ -149,7 +152,7 @@ Cada pieza de jardín nace con una **etiqueta** que la nombra, dentro del mismo 
 ## Atajos de teclado
 
 | Atajo | Acción |
-|-------|--------|
+| --- | --- |
 | `P` `L` `A` `U` `G` `E` | Lápiz · Línea · Flecha · Flecha curva · Semicírculo · Borrador |
 | `R` `O` `C` | Rectángulo · Redondeado · Círculo |
 | `3` `4` `5` `6` `7` | Triángulo · Cuadrado · Pentágono · Hexágono · Trapecio |
@@ -172,7 +175,7 @@ Las herramientas que abren catálogo (Edificios y Jardín) muestran su modal de 
 
 ## Arquitectura
 
-```
+```text
 index.html               Shell de la app (carga src/js/ en orden de dependencia)
 css/styles.css           Estilos compilados (artefacto de src/scss/ — no editar a mano)
 fonts/                   OpenDyslexic autoalojada (woff2 + licencia SIL OFL)
@@ -205,7 +208,7 @@ e2e/                     Suite end-to-end (Playwright)
 
 Cada módulo se expone como un global mediante una IIFE y `index.html` los carga en orden de dependencia. No hay imports ni bundler.
 
-**Principios de diseño**
+### Principios de diseño
 
 - **Un solo estado fuente de verdad** (`state.elements`): objetos planos, serializables e inmutables. Cada edición produce copias, lo que hace el undo trivial y el autoguardado gratuito.
 - **Módulos de geometría puros**: `arc`, `curve-path`, `regular-polygon`, `trapezoid`, `eraser`, `building` y `garden` no tocan el DOM ni el canvas — reciben números y devuelven elementos planos. Por eso se pueden probar sin navegador.
@@ -233,7 +236,7 @@ Cuatro convenciones que conviene conocer:
 
 ## Tests
 
-**397 tests unitarios** con el runner nativo de Node, sin ninguna dependencia:
+**399 tests unitarios** con el runner nativo de Node, sin ninguna dependencia:
 
 ```bash
 node --test tests/*.test.js           # suite completa
@@ -242,7 +245,7 @@ node --test tests/exporter.test.js    # un archivo
 
 Los módulos se cargan en un contexto `node:vm` con stubs de canvas y DOM, incluido `src/js/app.js` completo: los tests lanzan gestos reales —puntero, teclado, modales— y leen el resultado del autoguardado, sin ningún hook de test en el código de producción.
 
-**25 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco y acciones por defecto del navegador.
+**26 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco y acciones por defecto del navegador.
 
 ```bash
 npm install && npm run e2e:install    # una vez (descarga Chromium)
@@ -256,7 +259,7 @@ npm run test:all                      # las dos
 ## Documentación del proyecto
 
 | Documento | Contenido |
-|---|---|
+| --- | --- |
 | [`CHANGELOG.md`](CHANGELOG.md) | Historial de versiones |
 | [`BUGS.md`](BUGS.md) | Cada error corregido con su síntoma, causa raíz y **guardia de regresión** |
 | [`PLAN.md`](PLAN.md) | Hoja de ruta de mejoras |

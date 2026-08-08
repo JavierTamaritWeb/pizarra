@@ -28,7 +28,68 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### Los nombres del sidebar se partían por dentro y pisaban su icono
+
+- **Síntoma:** los nombres de las herramientas salían cortados por cualquier
+  sitio («Rectán / gulo», «Borrad / or», «Tarjet / a») y, al crecer a dos o
+  tres líneas, el texto se montaba sobre el icono o se salía del botón.
+  Reportado por el usuario con captura.
+- **Causa:** tres decisiones que se sumaban. (1) `overflow-wrap: anywhere`
+  —añadido en la migración a OpenDyslexic justo para que las palabras largas
+  no se recortaran— parte por cualquier carácter, no por sílabas ni espacios.
+  (2) El botón medía 5.2rem (52px) cuando la palabra más ancha del catálogo
+  («Redondeado») mide ~58px en OpenDyslexic a 0.9rem sin letter-spacing —con
+  el letter-spacing de 0.05rem subía a 63px—, así que ninguna caja podía
+  contenerla entera. (3) La altura del botón era fija (`height`), así que un
+  nombre de varias líneas no tenía dónde crecer y empujaba sobre el icono.
+- **Fix:** `src/scss/components/_sidebar.scss` — el botón compacto pasa a
+  6.8rem de ancho (cabe en los 7.2rem contractuales del sidebar) con
+  `min-height` en vez de `height`; fuera el `overflow-wrap: anywhere` y el
+  `letter-spacing` del nombre; en el modo ancho (columnas de ~59px) el cuerpo
+  baja medio punto (0.85rem). Los anchos documentados del sidebar (72/132px)
+  no cambian.
+- **Guardia (e2e):** `e2e/responsive.spec.js` › *"los nombres del sidebar
+  caben enteros y no pisan su icono"* — en ambos modos: ningún nombre
+  desborda su caja (`scrollWidth`), ninguno invade el rectángulo del icono y
+  ninguno se sale del botón. Solo un navegador real puede medir esto.
+
+### El desplegable del panel usaba una variable CSS inexistente (`--text-main`)
+
+- **Síntoma:** `.panel__select` declaraba `color: var(--text-main)`, pero esa
+  custom property no existe en ningún sitio (la real es `--text-primary`). La
+  declaración se descartaba en silencio y el `<select>` heredaba el color del
+  padre — legible de casualidad, no por diseño. Detectado en la migración a
+  SCSS (v1.25.0) y migrado tal cual a propósito para no cambiar ni un byte;
+  este es el fix aparte que aquella versión dejó programado.
+- **Causa:** un `var()` con nombre equivocado no falla en ninguna parte: ni
+  dart-sass ni stylelint ni el navegador avisan — la declaración inválida se
+  ignora y gana la herencia.
+- **Fix:** `src/scss/components/_panel.scss` — `color: var(--text-primary)`
+  (y `css/styles.css` recompilado).
+- **Guardia:** `tests/smoke.test.js` › *"toda custom property usada en
+  css/styles.css está definida"* — general: cubre esta y cualquier futura
+  variable con nombre equivocado en el artefacto compilado.
+
+### La familia tipográfica entraba sin sanear en el `<style>` del export HTML
+
+- **Síntoma:** `html()` interpolaba `SKETCHY_FONT` crudo dentro del bloque
+  `<style>` del archivo exportado. El valor viene de la custom property
+  `--font-sketch` (la hoja de estilos propia), así que en uso normal es
+  inocuo, pero era la única interpolación del exporter sin sanear: una hoja
+  de estilos manipulada podía cerrar el `<style>` e inyectar markup en el
+  HTML exportado. Detectado en la auditoría de 2026-08-08.
+- **Causa:** `FONT_FALLBACK` ya saneaba la misma familia para los atributos
+  XML del SVG, pero el bloque CSS del HTML usaba el valor original.
+- **Fix:** `js/exporter.js` — `FONT_CSS` (la familia sin `<`, `>`, `{`, `}`
+  ni `;`: sin `<` no hay forma de cerrar la etiqueta, y sin llaves ni `;` no
+  se inyectan reglas o declaraciones ajenas); `FONT_FALLBACK` descarta ahora
+  también `<>&`, que malformarían el XML del SVG.
+- **Guardia:** `tests/exporter.test.js` › *"una --font-sketch envenenada no
+  puede cerrar el <style>"* (config.js cargado con un `getComputedStyle`
+  manipulado).
+
 ### La inclinación del camino exigía dos manos, y su ancho quedaba fuera de alcance
+
 - **Síntoma:** el usuario, que **solo puede utilizar la mano izquierda**, no
   podía trazar ningún camino inclinado: la función entera (v1.23.0) estaba
   atada a `Shift`+arrastrar, y mantener una tecla mientras se arrastra el ratón
@@ -64,6 +125,7 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   atajo, nunca como puerta. Anotado también en `CLAUDE.md`.
 
 ### «Limpiar todo» dejaba el lienzo pequeño, no como al abrir la app
+
 - **Síntoma:** al abrir Pizarra en una pantalla ancha, el lienzo se ajusta solo
   para aprovechar el espacio disponible (auto-ajuste del zoom). Pulsar «Limpiar
   todo» —que promete devolver la app a su estado inicial— lo dejaba al 100% con
@@ -84,6 +146,7 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   actuar al redimensionar"* (fija que `zoomManual` también se resetea).
 
 ### La previsualización del arrastre no dibujaba las curvas encadenadas ni el texto
+
 - **Síntoma:** al arrastrar una pieza de Jardín con silueta orgánica (copa de
   árbol, piedra, estanque, parcela orgánica) la previsualización mostraba solo
   el detalle: la silueta y la etiqueta aparecían de golpe al soltar. Preview ≠
@@ -104,6 +167,7 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   llamadas reales al contexto del canvas de overlay a mitad de arrastre.
 
 ### Dos tipos de árbol distintos se dibujaban igual ("Frondoso" y "Olivo")
+
 - **Síntoma:** en el catálogo de Árbol, "Frondoso" y "Olivo" mostraban el mismo
   icono a efectos prácticos: copa lobulada con radios y tronco. No había forma
   de elegir entre ellos, ni en el catálogo ni en el lienzo.
@@ -118,6 +182,7 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   si las curvas son siluetas cerradas o trazos abiertos) de todas las hermanas.
 
 ### Un atajo nuevo podía chocar en silencio con una acción de flecha curva
+
 - **Síntoma:** (evitado antes de publicar) las teclas `F`, `Q`, `D` y `S` ya
   actúan sobre las flechas curvas seleccionadas y se comprueban **antes** que
   `TOOL_KEYS`. Asignar una de ellas a una herramienta nueva habría funcionado
@@ -132,6 +197,7 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   pisa una acción ya reservada"*, con la lista `RESERVED_PLAIN_KEYS`.
 
 ### La sección "Edificios" generaba geometría degenerada en arrastres pequeños
+
 - **Síntoma:** con la herramienta Planta en modo Claustro/U/L y un arrastre
   corto (6–19 px), el elemento resultante tenía rectángulos de `w`/`h`
   negativos o polilíneas autointersectadas; esa basura entraba en
@@ -147,6 +213,7 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   ni polilíneas U cruzadas"*.
 
 ### El Borrador perforaba el fondo y parecía pintar una mancha oscura
+
 - **Síntoma:** al borrar sobre el lienzo, el trazo podía verse transparente
   u oscuro y también desaparecía la cuadrícula, dando la impresión de que la
   herramienta no funcionaba.
@@ -165,6 +232,7 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   elimina contenido sin perforar fondo ni cuadrícula"*.
 
 ### El borrador corrompía PNG/JPG (agujero transparente / mancha negra)
+
 - **Síntoma:** exportar a PNG dejaba agujeros transparentes donde se había
   borrado; en JPG salían manchas negras (la transparencia se compone sobre
   negro en `toDataURL('image/jpeg')`).
@@ -177,6 +245,7 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   blanco con destination-over tras renderizar (eraser)"*.
 
 ### SVG/HTML simulaban el borrador con una línea blanca
+
 - **Síntoma:** un trazo borrado con el borrador volvía a aparecer en el SVG
   y el HTML exportados o quedaba cubierto de blanco aunque el fondo fuese
   diferente.
@@ -191,6 +260,7 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   usa una escena SVG única y una máscara real"*.
 
 ### Import JSON malformado rompía toda la app
+
 - **Síntoma:** importar un JSON con `elements` no-array, un `pencil` sin
   `points` o coordenadas en string hacía fallar `redraw()` — y como todo
   pasa por `redraw()`, la app entera dejaba de responder.
@@ -202,6 +272,7 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   elementos malformados"*.
 
 ### `label` no-string se colaba en flechas (regresión de orden de checks)
+
 - **Síntoma:** un `label` no-string pasaba la validación en `arrow` /
   `curveArrow` / `pencil` aunque sí se rechazaba en otros tipos.
 - **Causa:** el check de `label` estaba escrito después de los `return`
@@ -212,6 +283,7 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   no-string se rechaza también en flechas (regresión de orden)"*.
 
 ### Valores sin escapar en los exports SVG/HTML (inyección de markup)
+
 - **Síntoma:** `el.color`, `el.lineWidth` y el texto de usuario se
   interpolaban crudos en atributos y contenido; un JSON importado
   manipulado podía inyectar markup ejecutable en el archivo exportado.
@@ -224,6 +296,7 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   lineWidth se escapan en los atributos style"*.
 
 ### El botón «Alzado (2 aguas)» dibujaba otra cubierta distinta
+
 - **Síntoma:** el modal de Fachada ofrecía «Alzado (2 aguas)», pero la cubierta
   que se dibujaba realmente la decide `state.roofType` del panel Edificios. Con
   «Cuatro aguas» o «Mansarda» seleccionadas, el botón etiquetado *2 aguas*
@@ -244,6 +317,7 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   una cubierta concreta en el nombre"* (cubre `name` y `hint`).
 
 ### El atajo de herramienta se filtraba al modal que abría (`1` fijaba Plantas=1)
+
 - **Síntoma:** pulsar `1` para abrir **Fachada** abría el modal y, de paso,
   cambiaba **Plantas** a 1 sin que el usuario tocara nada. Silencioso: el
   siguiente edificio salía de una planta.
@@ -265,6 +339,7 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   la vista activa, no el primer &lt;select&gt;"*.
 
 ### El borrador se llevaba figuras enteras al barrer por su hueco
+
 - **Síntoma:** con el borrador nuevo (v1.14.0), una sola pasada horizontal por
   el centro de una fachada borraba **el muro entero**, no solo las ventanas que
   el usuario cruzaba. Cualquier forma grande desaparecía al barrer por dentro.
@@ -287,6 +362,7 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   por su caja"*.
 
 ### Lo borrado reaparecía al mover el dibujo (el borrador no borraba)
+
 - **Síntoma:** pasabas el borrador sobre parte de una fachada y desaparecía; al
   mover luego la fachada, lo borrado **volvía a verse**. Lo mismo con cualquier
   elemento. Además lo "borrado" seguía viajando dentro del JSON exportado, así
@@ -313,6 +389,7 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   ensucia el historial"* y *"los proyectos antiguos conservan su máscara"*.
 
 ### El marco de un edificio seleccionado se tragaba todos los clics de su interior
+
 - **Síntoma:** tres síntomas del mismo fallo. Con un edificio seleccionado, todo
   lo dibujado dentro de su marco quedaba inalcanzable: (1) **Supr borraba el
   edificio** en lugar del elemento pulsado, así que lo que el usuario creía
@@ -336,6 +413,7 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   hueco de su marco"* (esta última evita "arreglarlo" quitando la comodidad).
 
 ### El tipo de puerta y ventana no se podía elegir al crear una fachada
+
 - **Síntoma:** la fachada dibuja sus huecos con `state.doorType`/`windowType`,
   pero esos valores solo se fijaban desde las herramientas **Puerta** y
   **Ventana**, que al seleccionarlas cambian la herramienta activa. Desde el
@@ -357,6 +435,7 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   Fachada persisten en prefs"*.
 
 ### El Perfil (vista lateral) dibujaba la puerta principal centrada
+
 - **Síntoma:** la vista **Perfil** repetía exactamente los huecos de la fachada
   frontal: mismo ritmo de vanos y la puerta de entrada centrada en la planta
   baja. Un canto lateral con portalón central es arquitectónicamente falso, y
@@ -376,6 +455,7 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 ## Solo verificables manualmente (juicio visual, no lógica)
 
 ### El césped de la parcela se leía como flechas «↓», y el macizo como un rombo
+
 - **Síntoma:** las matas de césped del botón Jardín parecían flechas apuntando
   hacia abajo, y el arbusto "Macizo" salía como un rombo en vez de una mata.
   Ambas cosas eran geométricamente correctas y pasaban todos los tests.
@@ -396,6 +476,7 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 ## Solo verificables manualmente (lógica en `app.js`, sin arnés DOM)
 
 ### El undo de un arrastre no revertía nada
+
 - **Síntoma:** mover un elemento y pulsar Ctrl+Z no lo devolvía a su
   posición original; el stack de undo además se llenaba de snapshots
   duplicados en cada click de selección, destruyendo el `redoStack`.
@@ -409,6 +490,7 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   arrastre → no debe apilar undo.
 
 ### Colocar un texto y hacer click para colocar otro descartaba el primero
+
 - **Síntoma:** con la herramienta Texto, escribir un texto y —sin pulsar
   Enter— hacer click en otro punto del lienzo para poner otro **borraba el
   primero sin guardarlo**, y además el editor nuevo no quedaba abierto.
@@ -426,6 +508,7 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   punto, escribir "dos", Enter → deben quedar los dos textos.
 
 ### Tras usar un control del panel, los atajos y Ctrl+Z/C/V dejaban de funcionar
+
 - **Síntoma:** después de mover el slider de trazo/zoom, marcar un checkbox o
   elegir un color, `Ctrl+Z`, copiar/pegar y las teclas de herramienta **no
   respondían** hasta hacer click en el lienzo.
@@ -441,6 +524,7 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   el lienzo pulsar `Ctrl+Z` → debe deshacer.
 
 ### Los atajos de teclado seguían activos con un modal abierto
+
 - **Síntoma:** con el modal de Exportar/Plantillas/Emoji/Ayuda abierto, pulsar
   una tecla de herramienta, `Supr` o `Ctrl+Z` **actuaba sobre el lienzo de
   detrás** del modal.
@@ -455,6 +539,7 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   y una tecla de herramienta → el elemento y la herramienta activa no cambian.
 
 ### Los botones "Duplicar/Eliminar selección" se veían siempre
+
 - **Síntoma:** los botones que solo deberían aparecer con una selección se
   mostraban permanentemente, incluso con el lienzo vacío.
 - **Causa:** `.btn { display: inline-flex }` gana en especificidad a la regla
@@ -465,8 +550,10 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   selección" no se ven; al seleccionar un elemento, aparecen.
 
 ### Gestos de puntero y atajos a media interacción (varios)
+
 Un segundo bloque de la auditoría, todos con la misma raíz: estado de gesto
 que quedaba a medias.
+
 - **`pointercancel` no cerraba un resize ni un marquee** (solo miraba
   `isDrawing`/`didDrag`): el gesto quedaba colgado y **secuestraba el
   siguiente**. Ahora `pointercancel` cierra cualquier gesto activo
@@ -491,6 +578,7 @@ que quedaba a medias.
   puntero ignorado sin corromper el trazo).
 
 ### En ventanas ≤1100px el panel entero desaparecía sin alternativa
+
 - **Síntoma:** en una ventana estrecha (`@media (max-width:1100px)`) el panel
   derecho se ocultaba con `display:none`, y con él **color, trazo, tamaño de
   texto, zoom, relleno, fondo/cuadrícula y los botones**, sin ninguna forma
@@ -505,6 +593,7 @@ que quedaba a medias.
   "⚙ Panel"; al pulsarlo se abre el panel y sus controles son usables.
 
 ### Anclar los dos extremos de una flecha al mismo elemento la colapsaba
+
 - **Síntoma:** arrastrar ambos extremos de una flecha sobre el mismo elemento
   la dejaba con longitud ~0 (invisible).
 - **Causa:** `resolveAnchors` proyecta cada extremo hacia el otro sobre el
@@ -518,6 +607,7 @@ que quedaba a medias.
   mismo rect → la flecha conserva su longitud (el segundo extremo no se ancla).
 
 ### Otros arreglos menores de la auditoría
+
 - **Importar JSON no limpiaba la selección** (`js/app.js`): los índices
   previos apuntaban a elementos importados arbitrarios. Ahora hace
   `setSelection([])` como al cargar una plantilla.
@@ -532,6 +622,7 @@ que quedaba a medias.
   pero seleccionables. Ahora se excluyen junto a `select`. Cubierto por test.
 
 ### La herramienta Texto no creaba nada (el editor se cerraba solo)
+
 - **Síntoma:** con la herramienta Texto, al hacer click en el lienzo el
   textarea aparecía y desaparecía en el mismo instante, así que era
   **imposible crear texto**: lo escrito no llegaba a ninguna parte. Editar un
@@ -553,6 +644,7 @@ que quedaba a medias.
   duplica el elemento.
 
 ### Con zoom > 100% no se podía llegar a la parte izquierda/superior del lienzo
+
 - **Síntoma:** al ampliar, el lienzo crecía hacia los cuatro lados pero el
   scroll solo alcanzaba la parte derecha/inferior: al 200 % quedaban ~960 px
   inalcanzables por la izquierda, y al 300 % más de 2000 px. El trabajo
@@ -577,6 +669,7 @@ que quedaba a medias.
   x ≈ 0, no x ≈ 0 × zoom).
 
 ### El textarea de texto aparecía lejos del click con zoom ≠ 100%
+
 - **Síntoma:** con el zoom distinto de 100%, hacer doble click para editar
   texto abría el textarea desplazado del punto pulsado.
 - **Causa:** `showTextInput` multiplicaba la posición por el zoom, pero el
@@ -589,6 +682,7 @@ que quedaba a medias.
   lienzo → el textarea debe abrirse justo en el punto pulsado.
 
 ### Hit-test de líneas/flechas robaba clicks por su bounding box
+
 - **Síntoma:** una diagonal larga tenía un bounding box de media pantalla y
   capturaba clicks muy lejos del trazo real.
 - **Fix:** `js/app.js` — hit-test de `line`/`arrow`/`curveArrow` por
@@ -597,6 +691,7 @@ que quedaba a medias.
   lejos del trazo pero dentro de su bbox → no debe seleccionarla.
 
 ### Texto multilínea con bounds incorrectos
+
 - **Síntoma:** el bbox estimado de un texto ignoraba los `\n`: altura de
   una sola línea y ancho absurdo para textos de varias líneas, difíciles de
   seleccionar.
@@ -607,6 +702,7 @@ que quedaba a medias.
   la esquina real.
 
 ### La previsualización del óculo (Edificios) no dibujaba el círculo
+
 - **Síntoma:** al arrastrar con Ventana → **Óculo** (`round`/`roundFrame`), el
   aro circular **no aparecía** durante el arrastre (solo la cruz de diámetros);
   el óculo sí se creaba bien al soltar. Además la preview de cualquier edificio
@@ -621,6 +717,7 @@ que quedaba a medias.
   verse el aro completo además de la cruz, con el aro más grueso que la cruz.
 
 ### Cancelar el modal de variante dejaba la herramienta de Edificios "a medias"
+
 - **Síntoma:** al pulsar Planta/Puerta/Ventana se abre un modal de variante; si
   se cerraba con **Escape / Cerrar / clic-exterior** sin elegir, la herramienta
   de edificio quedaba activa igual, así que un arrastre dibujaba el edificio
@@ -639,6 +736,7 @@ que quedaba a medias.
   Puerta.
 
 ### Los modales desbordaban en pantallas estrechas (~320px)
+
 - **Síntoma:** en móvil (~320px de ancho) los diálogos de variante (y el resto)
   desbordaban horizontalmente el viewport; sin scroll vertical si el contenido
   superaba el alto.
@@ -655,6 +753,7 @@ que quedaba a medias.
   desborde horizontal y las variantes se apilan en una columna.
 
 ### Media configuración de Edificios se perdía al recargar
+
 - **Síntoma:** los ajustes de la sección Edificios sobrevivían a la recarga solo
   a medias. Plantas, vanos, pendiente y cubierta volvían tal como se dejaron,
   pero la variante elegida en cada modal (huella de Planta, vista de Fachada,
@@ -681,6 +780,7 @@ que quedaba a medias.
   recargar vuelven los valores por defecto.
 
 ### Los ajustes de Fachada estaban lejos de la elección de vista
+
 - **Síntoma:** el modal de Fachada solo dejaba elegir la vista; plantas,
   ventanas por planta, pendiente y cubierta vivían en el panel lateral, que en
   pantallas ≤1100px es un cajón oculto. Se elegía la vista a ciegas y había que
@@ -722,6 +822,7 @@ fixes de esta tanda llevan guardia automática, y cada guardia se probó contra
 el código roto (revertir el fix hace fallar exactamente sus tests).
 
 ### Los `<select>` del panel dejaban muertos todos los atajos
+
 - **Síntoma:** cambiar «Solapamiento», «Plantas» o cualquier `<select>` del
   panel con el ratón mataba TODOS los atajos (Ctrl+Z/C/V, teclas de
   herramienta) hasta hacer clic en otro sitio.
@@ -737,6 +838,7 @@ el código roto (revertir el fix hace fallar exactamente sus tests).
   mueve el foco y pasaría incluso sin el arreglo.
 
 ### Elegir color de relleno podía expulsar el historial de undo entero
+
 - **Síntoma:** con una forma seleccionada, arrastrar por el diálogo nativo de
   «Color de relleno» apilaba decenas de pasos de undo (uno por tono pisado);
   el límite del stack es 50, así que un solo gesto podía vaciar el historial, y
@@ -750,6 +852,7 @@ el código roto (revertir el fix hace fallar exactamente sus tests).
   arrastrando por el picker es UN paso de undo"*.
 
 ### Mantener pulsado un atajo de curva inundaba el historial
+
 - **Síntoma:** mantener `+`/`−` sobre una flecha curva (~30 repeticiones/s)
   apilaba un undo por auto-repeat y en ~2 s expulsaba los 50 pasos; F/Q/D/S
   tenían el mismo agujero.
@@ -764,6 +867,7 @@ el código roto (revertir el fix hace fallar exactamente sus tests).
   una curva es UN paso de undo"*.
 
 ### Las flechas tenían handles de esquina invisibles pero activos
+
 - **Síntoma:** con una flecha o curva seleccionada, clicar a ≤8 px de una
   esquina de su bbox —espacio vacío a la vista, el bbox incluye los puntos de
   control— no deseleccionaba ni iniciaba marquee: arrancaba un **resize
@@ -778,6 +882,7 @@ el código roto (revertir el fix hace fallar exactamente sus tests).
   que la esquina no pisa ningún handle real).
 
 ### Ctrl+V pegaba detrás de un modal abierto
+
 - **Síntoma:** con Exportar (o cualquier modal) abierto, Ctrl+V con un payload
   propio en el portapapeles pegaba clones en el lienzo detrás del modal y
   además cambiaba la herramienta activa a Mover.
@@ -791,6 +896,7 @@ el código roto (revertir el fix hace fallar exactamente sus tests).
   sí se pega sin modal) para que el test no pase en vacío.
 
 ### El borrador trataba el interior de una forma rellena como su CAJA
+
 - **Síntoma:** un círculo o triángulo rellenos se borraban barriendo la
   esquina de su bounding box, a ~15 px de la tinta más cercana — contradice la
   regla documentada «se borra lo que se ve», que la caja solo cumple para
@@ -807,6 +913,7 @@ el código roto (revertir el fix hace fallar exactamente sus tests).
   la silueta real, no la caja"*.
 
 ### Un radio mayor que el lado dibujaba `roundedRect` autointersecado
+
 - **Síntoma:** un rectángulo redondeado menor de 24 px (creable: el umbral de
   creación es >3 px) salía como un garabato cruzado en el canvas, mientras el
   SVG/HTML exportado se veía bien — misma forma, dibujo distinto por formato.
@@ -819,6 +926,7 @@ el código roto (revertir el fix hace fallar exactamente sus tests).
   borde, no la caja: el bug nunca sale de la caja).
 
 ### El export HTML perdía el z-order entre vectores y componentes
+
 - **Síntoma:** en el HTML exportado, toda línea/flecha/forma vectorial quedaba
   DEBAJO de todos los componentes HTML: una flecha dibujada encima de un card
   desaparecía tras él.
@@ -833,6 +941,7 @@ el código roto (revertir el fix hace fallar exactamente sus tests).
   con los componentes"* (ambos órdenes + conteo de `<svg>` por tramos).
 
 ### Un color `#rrggbbaa` importado rompía todos los tintes concatenados
+
 - **Síntoma:** con un color de 8 dígitos (que `HEX_COLOR` acepta
   expresamente), botones/inputs/cards se pintaban con el estilo que quedara
   del elemento anterior en canvas, y en el SVG/HTML exportado el fondo salía
@@ -849,6 +958,7 @@ el código roto (revertir el fix hace fallar exactamente sus tests).
   concatenados"*.
 
 ### `isValidElement` aceptaba cajas con `w/h ≤ 0` y `fontSize` sin signo
+
 - **Síntoma:** un JSON manipulado con `w:-100` (rect, imagen, componente UI) o
   `fontSize:-20` pasaba la validación: el canvas aún dibujaba algo, pero
   `<rect width="-100">` es un error SVG y CSS descarta los width negativos —
@@ -864,6 +974,7 @@ el código roto (revertir el fix hace fallar exactamente sus tests).
   en las cajas"* y *"el fontSize del texto debe ser positivo"*.
 
 ### Un polígono degenerado (w=h=0) era invisible e imborrable
+
 - **Síntoma:** un polígono de tamaño cero llegado de datos externos no se
   veía, no respondía al hit-test y el borrador tampoco lo eliminaba: solo lo
   quitaba «Limpiar todo».
@@ -879,6 +990,7 @@ el código roto (revertir el fix hace fallar exactamente sus tests).
   siendo borrable"*.
 
 ### Un fallo de lectura en el import JSON colgaba la promesa para siempre
+
 - **Síntoma:** si `FileReader` fallaba al leer el archivo elegido, el import
   moría en silencio: ni alerta ni error, y el `await` del llamador quedaba
   colgado.
@@ -891,6 +1003,7 @@ el código roto (revertir el fix hace fallar exactamente sus tests).
   fallo con `{ error: true }`).
 
 ### Shift+R sin formas rotables activaba la herramienta Rectángulo
+
 - **Síntoma:** seleccionar una flecha y pulsar Shift+R (atajo documentado de
   rotar) cambiaba la herramienta a Rectángulo y perdía la selección.
 - **Causa:** la condición del handler de rotar exigía "hay algo rotable en la
@@ -902,6 +1015,7 @@ el código roto (revertir el fix hace fallar exactamente sus tests).
   sin rotables no cae en Rectángulo"*.
 
 ### «?» apilaba la Ayuda encima de cualquier otro modal
+
 - **Síntoma:** con Exportar (u otro modal) abierto, pulsar `?` abría la Ayuda
   encima, apilando dos diálogos.
 - **Causa:** el handler de `?` corre antes del guard de `dialog[open]` a
@@ -913,6 +1027,7 @@ el código roto (revertir el fix hace fallar exactamente sus tests).
   otro modal, y su toggle sigue vivo"*.
 
 ### El círculo del borrador quedaba fantasma al cambiar de herramienta
+
 - **Síntoma:** pasar el cursor por el lienzo con Borrador y pulsar `v` (sin
   mover el ratón) dejaba el círculo indicador pintado en el overlay hasta el
   siguiente gesto.
@@ -926,6 +1041,7 @@ el código roto (revertir el fix hace fallar exactamente sus tests).
   overlay real).
 
 ### La preview del modo cadena ignoraba «Ajustar a cuadrícula»
+
 - **Síntoma:** arrastrando durante un clic de cadena con snap activo, el tramo
   en la previsualización seguía al puntero sin snap, y al soltar el commit sí
   snapeaba: preview ≠ resultado.
@@ -938,6 +1054,7 @@ el código roto (revertir el fix hace fallar exactamente sus tests).
   `quadraticCurveTo` real del overlay a mitad de gesto).
 
 ### Limpieza: rama muerta de `eraser` en el export HTML
+
 - **Síntoma (latente):** `'eraser'` en `VECTOR_TYPES` y el `case 'eraser'`
   vacío de `_svgElement` eran inalcanzables — `html()` desvía a `_svgScene`
   toda escena con borradores y `_svgScene` los convierte en máscaras antes de
@@ -948,6 +1065,7 @@ el código roto (revertir el fix hace fallar exactamente sus tests).
   en verde (el comportamiento no cambia).
 
 ### «Limpiar todo» no reiniciaba el tamaño del borrador
+
 - **Síntoma:** tras cambiar el tamaño del borrador (panel o modal) a algo
   distinto de 16px, pulsar «Limpiar todo» dejaba el lienzo en blanco pero el
   borrador seguía con el tamaño que se le hubiera dado, en vez de volver al
@@ -963,6 +1081,7 @@ el código roto (revertir el fix hace fallar exactamente sus tests).
   tamaño del borrador a 16px"*.
 
 ### Limpieza: `distToSegment` estaba duplicado en app.js
+
 - **Síntoma (latente):** `js/app.js` mantenía su propia copia de la distancia
   punto-segmento que `js/eraser.js` ya exporta — la misma fórmula dos veces
   esperando a divergir.

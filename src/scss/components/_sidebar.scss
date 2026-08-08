@@ -32,8 +32,9 @@
   }
 
   &__tool {
-    width: 5.2rem;
-    height: 4.4rem;
+    width: 6.8rem;
+    min-height: 4.4rem;
+    padding: 0.3rem 0.2rem;
     border: none;
     border-radius: 0.8rem;
     display: flex;
@@ -61,13 +62,15 @@
 
   &__tool-name {
     font-size: 0.9rem;
-    letter-spacing: 0.05rem;
     font-weight: 500;
+    line-height: 1.15;
+    text-align: center;
 
-    // OpenDyslexic es más ancha que la fuente anterior: sin esto, un nombre
-    // de una sola palabra larga (Semicírculo, Redondeado) se recorta por los
-    // lados en la barra estrecha de 7.2rem en vez de partirse en dos líneas.
-    overflow-wrap: anywhere;
+    // OpenDyslexic es más ancha que una sans típica: el botón mide lo justo
+    // (6.8rem) para que la palabra más larga del catálogo («Redondeado»,
+    // ~59px a 0.9rem sin letter-spacing) quepa entera. Nada de
+    // overflow-wrap: anywhere aquí: partiría palabras por cualquier sitio
+    // («Rectán / gulo»); los nombres de varias palabras saltan por el espacio.
   }
 }
 
@@ -102,13 +105,14 @@
 
     &__tool {
       width: 100%;
-      height: 5.6rem;
+      min-height: 5.6rem;
       padding: 0.3rem 0.2rem;
     }
 
     &__tool-name {
-      line-height: 1.15;
-      overflow-wrap: anywhere;
+      // Las columnas del grid (~59px) van más justas que el botón compacto:
+      // medio punto menos de cuerpo mantiene «Redondeado» en una línea.
+      font-size: 0.85rem;
     }
   }
 }
