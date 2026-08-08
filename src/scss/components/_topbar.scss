@@ -17,15 +17,13 @@
     gap: 1rem;
   }
 
+  /* El PNG ya trae sus esquinas redondeadas: recortarlo aquí además se comería
+     unos píxeles del dibujo. */
   &__logo-icon {
     width: 3.2rem;
     height: 3.2rem;
-    border-radius: 0.8rem;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.6rem;
+    object-fit: contain;
+    flex-shrink: 0;
   }
 
   &__logo-text {

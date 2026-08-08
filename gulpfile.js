@@ -46,6 +46,16 @@ async function copyDist() {
   // referencia como ../fonts/, que resuelve igual en la raíz y en dist/.
   fs.cpSync('fonts', path.join(DIST, 'fonts'), { recursive: true });
 
+  // Iconos y manifiesto: index.html los referencia con rutas relativas, así
+  // que basta copiarlos con la misma estructura. El .png fuente se queda
+  // fuera del publicable (solo sirve para regenerar los tamaños).
+  fs.cpSync('icons', path.join(DIST, 'icons'), {
+    recursive: true,
+    filter: src => !src.endsWith('icon-source-512.png'),
+  });
+  fs.copyFileSync('favicon.ico', path.join(DIST, 'favicon.ico'));
+  fs.copyFileSync('site.webmanifest', path.join(DIST, 'site.webmanifest'));
+
   // El publicable es plano: los scripts van en dist/js/, así que las rutas
   // src/js/ del index de desarrollo se aplanan. Es la única transformación
   // que sufre el HTML.
@@ -65,7 +75,7 @@ async function copyDist() {
     const res = await minify(code, { mangle: true, compress: true });
     fs.writeFileSync(path.join(DIST, 'js', file), res.code);
   }
-  console.log(`[dist] ${DIST}/ regenerado (index.html, LICENSE, css/ y js/ minificados)`);
+  console.log(`[dist] ${DIST}/ regenerado (index.html, LICENSE, iconos, css/ y js/ minificados)`);
 }
 
 function watchScss() {

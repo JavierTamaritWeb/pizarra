@@ -4,6 +4,33 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.1.0] — 2026-08-08
+
+### Añadido
+
+- **Icono propio de la app, en todos los formatos que piden los sistemas.**
+  Sustituye al favicon inline (un `✎` sobre un cuadrado turquesa, dibujado
+  como data URI en el `<head>`) por el juego completo generado desde
+  `icons/icon-source-512.png`: `favicon.ico` multi-resolución (16/32/48),
+  `icons/favicon-16x16.png`, `-32x32`, `-48x48`, `icons/icon-192.png`,
+  `icons/icon-512.png`, `icons/apple-touch-icon.png` (180 px) y
+  `icons/icon-maskable-512.png`.
+- **`site.webmanifest`** con nombre, colores de marca y los cuatro iconos, de
+  modo que la app se puede instalar en el escritorio o en la pantalla de
+  inicio con su propio icono en lugar de una captura del sitio.
+- Guard en `tests/smoke.test.js`: todo icono referenciado por el `<head>`, por
+  el manifiesto o por la barra superior existe en disco y mide lo que declara
+  su `sizes`.
+- `npm run build` copia `icons/`, `favicon.ico` y `site.webmanifest` a
+  `dist/` (el PNG fuente se queda fuera del publicable).
+
+### Cambiado
+
+- **La marca de la barra superior es ahora el icono real**
+  (`icons/logo-96.png`, a 96 px para pantallas 2x) en lugar del glifo `✎`
+  sobre un cuadrado con degradado. Es decorativa (`alt=""`): el nombre
+  «Pizarra» va justo al lado.
+
 ## [2.0.0] — 2026-08-08
 
 Salto de versión mayor: consolida el cambio de stack de desarrollo iniciado en

@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.0.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.1.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.0\.0</);
-  assert.match(html, /css\/styles\.css\?v=2\.0\.0/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.0\.0/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.0\.0/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.0\.0/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.0\.0/);
+  assert.match(html, /class="topbar__badge">v2\.1\.0</);
+  assert.match(html, /css\/styles\.css\?v=2\.1\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.1\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.1\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.1\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.1\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -140,4 +140,51 @@ test('los controles gemelos de Edificios (panel y modal) ofrecen lo mismo', () =
   };
   assert.deepEqual([...rangeOf('build-roof-pitch')], [...rangeOf('facade-roof-pitch')],
     'el slider de pendiente debe tener el mismo min/max/step en panel y modal');
+});
+
+// Los iconos son binarios que nadie compila: si un fichero se renombra o no
+// llega al repo, el navegador se limita a un 404 silencioso y cae al icono
+// por defecto. Y un `sizes` que miente hace que el sistema elija mal la pieza.
+test('todos los iconos referenciados existen y miden lo que declaran', () => {
+  const root = path.resolve(__dirname, '..');
+  const pngSize = rel => {
+    const buf = fs.readFileSync(path.join(root, rel)); // IHDR: ancho/alto en 16..24
+    assert.equal(buf.toString('ascii', 12, 16), 'IHDR', `${rel} no es un PNG válido`);
+    return [buf.readUInt32BE(16), buf.readUInt32BE(20)];
+  };
+
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const links = [...html.matchAll(/<link[^>]*rel="(?:icon|apple-touch-icon|manifest)"[^>]*>/g)]
+    .map(m => m[0]);
+  assert.ok(links.length >= 5, 'el <head> debe declarar el .ico, los PNG y el manifiesto');
+  for (const tag of links) {
+    const href = tag.match(/href="([^"]+)"/)[1];
+    assert.ok(!href.startsWith('/'), `${href} debe ser relativo (la app se abre por file://)`);
+    assert.ok(fs.existsSync(path.join(root, href)), `falta ${href}`);
+    const sizes = tag.match(/sizes="(\d+)x\d+"/);
+    if (sizes && href.endsWith('.png')) {
+      assert.deepEqual(pngSize(href), [Number(sizes[1]), Number(sizes[1])],
+        `${href} no mide lo que declara su atributo sizes`);
+    }
+  }
+
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, 'site.webmanifest'), 'utf8'));
+  for (const icon of manifest.icons) {
+    assert.ok(fs.existsSync(path.join(root, icon.src)), `falta ${icon.src} del manifiesto`);
+    const [w, h] = pngSize(icon.src);
+    assert.equal(`${w}x${h}`, icon.sizes, `${icon.src} no mide ${icon.sizes}`);
+  }
+  assert.ok(manifest.icons.some(i => i.purpose === 'maskable'),
+    'falta un icono maskable: Android recorta el resto en un círculo');
+
+  // El logo de la topbar es la única imagen del documento, y su ?v= la mete
+  // en el mismo cache-busting que el resto de assets versionados.
+  const logo = html.match(/<img[^>]*class="topbar__logo-icon"[^>]*>/);
+  assert.ok(logo, 'la marca de la topbar debe ser un <img>, no un glifo');
+  const src = logo[0].match(/src="([^"?]+)/)[1];
+  assert.ok(fs.existsSync(path.join(root, src)), `falta ${src}`);
+  assert.match(logo[0], /alt=""/, 'el logo es decorativo: alt vacío, el nombre va al lado');
+  const [lw, lh] = pngSize(src);
+  assert.equal(lw, lh, `${src} debe ser cuadrado`);
+  assert.ok(lw >= 64, `${src} debe cubrir pantallas 2x sobre sus 32 px de caja`);
 });
