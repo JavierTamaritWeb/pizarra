@@ -12,7 +12,7 @@ const { load } = require('./helpers/load.js');
 /* ---------------- config.js ---------------- */
 
 test('config.js — TOOLS', async t => {
-  const ctx = load('js/config.js');
+  const ctx = load('src/js/config.js');
 
   await t.test('TOOLS está congelado (Object.freeze)', () => {
     assert.equal(Object.isFrozen(ctx.TOOLS), true);
@@ -39,7 +39,7 @@ test('config.js — TOOLS', async t => {
 });
 
 test('config.js — TOOL_GROUPS: cada tool referenciado existe en TOOLS', () => {
-  const ctx = load('js/config.js');
+  const ctx = load('src/js/config.js');
   const toolIds = new Set(Object.values(ctx.TOOLS));
   assert.ok(Array.isArray(ctx.TOOL_GROUPS));
   assert.ok(ctx.TOOL_GROUPS.length > 0);
@@ -58,7 +58,7 @@ test('config.js — TOOL_GROUPS: cada tool referenciado existe en TOOLS', () => 
 });
 
 test('config.js — genera los botones Cuadrado y Trapecio con atajos propios', () => {
-  const ctx = load('js/config.js');
+  const ctx = load('src/js/config.js');
   const forms = ctx.TOOL_GROUPS.find(group => group.label === 'Formas');
   const square = forms.tools.find(tool => tool.id === ctx.TOOLS.SQUARE);
   const trapezoid = forms.tools.find(tool => tool.id === ctx.TOOLS.TRAPEZOID);
@@ -71,7 +71,7 @@ test('config.js — genera los botones Cuadrado y Trapecio con atajos propios', 
 });
 
 test('config.js — COLORS son colores hex válidos (#rrggbb)', () => {
-  const ctx = load('js/config.js');
+  const ctx = load('src/js/config.js');
   assert.ok(Array.isArray(ctx.COLORS));
   assert.ok(ctx.COLORS.length > 0);
   for (const c of ctx.COLORS) {
@@ -80,13 +80,13 @@ test('config.js — COLORS son colores hex válidos (#rrggbb)', () => {
 });
 
 test('config.js — CANVAS_W/CANVAS_H', () => {
-  const ctx = load('js/config.js');
+  const ctx = load('src/js/config.js');
   assert.equal(ctx.CANVAS_W, 1200);
   assert.equal(ctx.CANVAS_H, 800);
 });
 
 test('config.js — UI_DEFAULTS tiene w/h positivos para los 5 componentes UI', () => {
-  const ctx = load('js/config.js');
+  const ctx = load('src/js/config.js');
   const { TOOLS, UI_DEFAULTS } = ctx;
   const keys = [TOOLS.BUTTON, TOOLS.INPUT, TOOLS.IMAGE_PLACEHOLDER, TOOLS.NAV, TOOLS.CARD];
   for (const key of keys) {
@@ -104,7 +104,7 @@ test('config.js — UI_DEFAULTS tiene w/h positivos para los 5 componentes UI', 
 const TEMPLATE_NAMES = ['landing', 'dashboard', 'form'];
 
 test('templates.js — Templates.get devuelve copias profundas', () => {
-  const ctx = load('js/templates.js');
+  const ctx = load('src/js/templates.js');
   for (const name of TEMPLATE_NAMES) {
     const a = ctx.Templates.get(name);
     assert.ok(Array.isArray(a) && a.length > 0, `template "${name}" vacío`);
@@ -122,7 +122,7 @@ test('templates.js — Templates.get devuelve copias profundas', () => {
 });
 
 test('templates.js — elementos válidos (type conocido, coords en canvas, w/h positivos)', async t => {
-  const ctx = load('js/templates.js');
+  const ctx = load('src/js/templates.js');
   const knownTypes = new Set(Object.values(ctx.TOOLS));
   const W = ctx.CANVAS_W; // 1200
   const H = ctx.CANVAS_H; // 800
@@ -162,7 +162,7 @@ test('templates.js — elementos válidos (type conocido, coords en canvas, w/h 
 });
 
 test('templates.js — Templates.get("inexistente") devuelve []', () => {
-  const ctx = load('js/templates.js');
+  const ctx = load('src/js/templates.js');
   const res = ctx.Templates.get('inexistente');
   assert.ok(Array.isArray(res));
   assert.equal(res.length, 0);
@@ -176,7 +176,7 @@ test('templates.js — Templates.get("inexistente") devuelve []', () => {
 test('templates.js — get() con nombres heredados de Object.prototype devuelve []', () => {
   // Regresión: `all[name] || []` no filtraba propiedades heredadas y
   // Templates.get('toString') lanzaba SyntaxError. Corregido con Object.hasOwn.
-  const ctx = load('js/templates.js');
+  const ctx = load('src/js/templates.js');
   assert.equal(ctx.Templates.get('toString').length, 0);
   assert.equal(ctx.Templates.get('constructor').length, 0);
   assert.equal(ctx.Templates.get('hasOwnProperty').length, 0);
@@ -187,7 +187,7 @@ test('templates.js — get() con nombres heredados de Object.prototype devuelve 
    ──────────────────────────────────────────────────────────── */
 
 test('config.js — EMOJI_GROUPS: grupos con label y emojis no vacíos', () => {
-  const ctx = load('js/config.js');
+  const ctx = load('src/js/config.js');
   assert.ok(Array.isArray(ctx.EMOJI_GROUPS));
   assert.ok(ctx.EMOJI_GROUPS.length > 0);
   for (const g of ctx.EMOJI_GROUPS) {
@@ -203,19 +203,19 @@ test('config.js — EMOJI_GROUPS: grupos con label y emojis no vacíos', () => {
 });
 
 test('config.js — EMOJI_GROUPS: sin emojis repetidos entre grupos', () => {
-  const ctx = load('js/config.js');
+  const ctx = load('src/js/config.js');
   const all = ctx.EMOJI_GROUPS.flatMap(g => g.emojis);
   assert.equal(new Set(all).size, all.length, 'hay emojis duplicados en el catálogo');
 });
 
 test('config.js — EMOJI_MIN_SIZE es un número positivo', () => {
-  const ctx = load('js/config.js');
+  const ctx = load('src/js/config.js');
   assert.equal(typeof ctx.EMOJI_MIN_SIZE, 'number');
   assert.ok(ctx.EMOJI_MIN_SIZE > 0);
 });
 
 test('config.js — la herramienta Emoji existe en TOOL_GROUPS con atajo propio', () => {
-  const ctx = load('js/config.js');
+  const ctx = load('src/js/config.js');
   const all = ctx.TOOL_GROUPS.flatMap(g => g.tools);
   const emojiTool = all.find(t => t.id === ctx.TOOLS.EMOJI);
   assert.ok(emojiTool, 'falta la entrada de la herramienta Emoji en el sidebar');
@@ -238,7 +238,7 @@ const RESERVED_PLAIN_KEYS = Object.freeze({
 });
 
 test('config.js — ningún atajo de herramienta pisa una acción ya reservada', () => {
-  const ctx = load('js/config.js');
+  const ctx = load('src/js/config.js');
   const all = ctx.TOOL_GROUPS.flatMap(g => g.tools);
   for (const tool of all.filter(t => t.key)) {
     assert.equal(
@@ -248,7 +248,7 @@ test('config.js — ningún atajo de herramienta pisa una acción ya reservada',
 });
 
 test('config.js — el sidebar de Edificios y BUILDING_TOOLS son la misma lista', () => {
-  const ctx = load('js/config.js');
+  const ctx = load('src/js/config.js');
   const build = ctx.TOOL_GROUPS.find(g => g.label === 'Edificios');
   assert.ok(build, 'falta el grupo Edificios en el sidebar');
   assert.deepEqual(
@@ -263,7 +263,7 @@ test('config.js — el sidebar de Edificios y BUILDING_TOOLS son la misma lista'
 });
 
 test('config.js — el sidebar de Jardín y GARDEN_TOOLS son la misma lista', () => {
-  const ctx = load('js/config.js');
+  const ctx = load('src/js/config.js');
   const garden = ctx.TOOL_GROUPS.find(g => g.label === 'Jardín');
   assert.ok(garden, 'falta el grupo Jardín en el sidebar');
   assert.deepEqual(
@@ -280,7 +280,7 @@ test('config.js — el sidebar de Jardín y GARDEN_TOOLS son la misma lista', ()
 });
 
 test('config.js — los catálogos de variante están congelados y bien formados', () => {
-  const ctx = load('js/config.js');
+  const ctx = load('src/js/config.js');
   const catalogs = {
     PLOT_SHAPES: ctx.PLOT_SHAPES, TREE_TYPES: ctx.TREE_TYPES,
     SHRUB_TYPES: ctx.SHRUB_TYPES, FLOWER_TYPES: ctx.FLOWER_TYPES,

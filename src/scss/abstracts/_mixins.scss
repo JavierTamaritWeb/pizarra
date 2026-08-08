@@ -1,0 +1,12 @@
+// Cuerpo común de los pulgares del slider. Cada navegador necesita SU regla:
+// un selector vendor desconocido invalida el grupo entero, así que
+// ::-webkit-slider-thumb y ::-moz-range-thumb no pueden compartir una lista
+// con coma — la única forma segura de no repetirse es este mixin.
+@mixin range-thumb {
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  background: var(--color-primary);
+  cursor: pointer;
+  border: 0.2rem solid var(--bg-panel);
+}

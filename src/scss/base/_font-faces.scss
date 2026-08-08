@@ -1,0 +1,41 @@
+// OpenDyslexic autoalojada (fonts/ en la raíz; el publicable la copia a
+// dist/fonts/). No está en Google Fonts, y autoalojarla la hace funcionar
+// también con file:// y sin red. Los woff2 se generaron con fontTools a
+// partir de los OTF oficiales aportados por el usuario (familia clásica v1,
+// derivada de Bitstream Vera — licencia en fonts/LICENSE-OpenDyslexic.txt).
+// Cuatro variantes reales: los pesos intermedios 500/600 que usa la interfaz
+// resuelven a 400/700 por el algoritmo de font-matching de CSS.
+
+/* OpenDyslexic — tipografía de la interfaz, diseñada para lectores con
+   dislexia. Fuente de verdad de las familias: src/scss/abstracts/_fonts.scss */
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("../fonts/OpenDyslexic-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("../fonts/OpenDyslexic-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("../fonts/OpenDyslexic-Italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("../fonts/OpenDyslexic-BoldItalic.woff2") format("woff2");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}

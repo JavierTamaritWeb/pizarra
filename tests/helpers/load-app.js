@@ -55,7 +55,7 @@ function loadApp({ prefs, autosave } = {}) {
   // loadScript (de load.js) recarga cada fichero y además copia sus `const`
   // top-level conocidos (KNOWN_GLOBALS) a globalThis, igual que loadAll():
   // así context.Garden/TOOLS/etc. quedan legibles desde fuera del sandbox.
-  for (const file of [...ALL_FILES, 'js/app.js']) loadScript(context, file);
+  for (const file of [...ALL_FILES, 'src/js/app.js']) loadScript(context, file);
   dom.flush();
 
   const $ = id => dom.document.getElementById(id);

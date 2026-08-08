@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { load, getGlobal } = require('./helpers/load.js');
 
 function rotationContext(...extra) {
-  const ctx = load('js/shape-rotation.js', ...extra);
+  const ctx = load('src/js/shape-rotation.js', ...extra);
   return {
     ctx,
     ShapeRotation: getGlobal(ctx, 'ShapeRotation'),
@@ -24,7 +24,7 @@ test('ShapeRotation asigna los pasos solicitados a cada forma', () => {
 });
 
 test('ShapeRotation gira el cuadrado 45° alrededor del mismo centro', () => {
-  const { ctx, ShapeRotation } = rotationContext('js/regular-polygon.js');
+  const { ctx, ShapeRotation } = rotationContext('src/js/regular-polygon.js');
   const RegularPolygon = getGlobal(ctx, 'RegularPolygon');
   const original = { type: 'square', x: 20, y: 30, w: 100, h: 100 };
   const rotated = ShapeRotation.rotateElement(original);
@@ -104,7 +104,7 @@ test('ShapeRotation acumula polígonos y no modifica tipos incompatibles', () =>
 });
 
 test('RegularPolygon aplica la orientación guardada sin deformar los lados', () => {
-  const { ctx } = rotationContext('js/regular-polygon.js');
+  const { ctx } = rotationContext('src/js/regular-polygon.js');
   const RegularPolygon = getGlobal(ctx, 'RegularPolygon');
   const base = RegularPolygon.vertices({ type: 'pentagon', x: 0, y: 0, w: 100, h: 100 });
   const rotated = RegularPolygon.vertices({

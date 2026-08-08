@@ -1,0 +1,44 @@
+@use 'sass:meta';
+@use '../abstracts/variables' as v;
+@use '../abstracts/fonts';
+
+/* ── Custom Properties ── */
+// Los valores viven como variables Sass en abstracts/_variables.scss (y las
+// tipografías en abstracts/_fonts.scss); aquí solo se emiten. Deben salir
+// como custom properties, nunca resueltas en compilación — ver _variables.
+:root {
+  /* Brand */
+  --color-primary: #{v.$color-primary};
+  --color-accent: #{v.$color-accent};
+  --color-danger: #{v.$color-danger};
+
+  /* Surfaces */
+  --bg-app: #{v.$bg-app};
+  --bg-panel: #{v.$bg-panel};
+  --bg-surface: #{v.$bg-surface};
+  --bg-hover: #{v.$bg-hover};
+
+  /* Text */
+  --text-primary: #{v.$text-primary};
+  --text-secondary: #{v.$text-secondary};
+  --text-muted: #{v.$text-muted};
+  --text-dim: #{v.$text-dim};
+
+  /* Borders */
+  --border-main: #{v.$border-main};
+
+  /* Fonts */
+  // meta.inspect y no #{} a secas: la interpolación directa de una lista
+  // Sass despoja las comillas de cada familia, y js/config.js relee esta
+  // custom property en runtime — debe llegar entrecomillada tal cual.
+  --font-ui: #{meta.inspect(fonts.$font-ui)};
+  --font-sketch: #{meta.inspect(fonts.$font-sketch)};
+
+  /* Sizes */
+  --topbar-h: #{v.$topbar-h};
+  --sidebar-w: #{v.$sidebar-w};
+  --panel-w: #{v.$panel-w};
+
+  /* Transitions */
+  --ease: #{v.$ease};
+}

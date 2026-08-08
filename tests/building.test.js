@@ -1,6 +1,6 @@
 'use strict';
 /* ============================================================
-   building.test.js — Geometría de la sección "Edificios" (js/building.js).
+   building.test.js — Geometría de la sección "Edificios" (src/js/building.js).
    Todas las herramientas son de creación: producen rect/line existentes.
    Ejecutar: node --test tests/building.test.js
    ============================================================ */

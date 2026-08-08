@@ -1,0 +1,14 @@
+@use '../abstracts/mixins' as mx;
+
+// Dos reglas separadas a propósito — ver la nota del mixin: agruparlas con
+// coma haría que ambos navegadores descartaran la regla entera.
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+
+  @include mx.range-thumb;
+}
+
+input[type="range"]::-moz-range-thumb {
+  @include mx.range-thumb;
+}

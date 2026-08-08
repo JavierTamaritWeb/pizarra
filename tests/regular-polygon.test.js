@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { load, createCtxStub } = require('./helpers/load.js');
 
-const ctx = load('js/sketchy.js', 'js/renderer.js', 'js/exporter.js');
+const ctx = load('src/js/sketchy.js', 'src/js/renderer.js', 'src/js/exporter.js');
 const { RegularPolygon, Renderer, Exporter } = ctx;
 const base = { x: 20, y: 30, w: 100, h: 100, color: '#333344', lineWidth: 2, seed: 4 };
 

@@ -12,7 +12,7 @@ const { load } = require('./helpers/load.js');
 
 /** Contexto fresco con Exporter y sus dependencias (Renderer/Sketchy). */
 function freshCtx() {
-  return load('js/sketchy.js', 'js/renderer.js', 'js/exporter.js');
+  return load('src/js/sketchy.js', 'src/js/renderer.js', 'src/js/exporter.js');
 }
 
 /** Último blob pasado a URL.createObjectURL en el contexto. */

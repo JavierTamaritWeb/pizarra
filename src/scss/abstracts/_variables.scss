@@ -1,0 +1,37 @@
+// ============================================================
+// TOKENS DE DISEÑO — colores, dimensiones y movimiento
+// Única fuente de verdad de los valores; base/_tokens.scss los emite como
+// custom properties en :root (y deben seguir siéndolo en el CSS final:
+// --sidebar-w se redefine en runtime dentro de una media query, y config.js
+// lee --font-sketch con getComputedStyle). Las tipografías tienen su propio
+// fichero, abstracts/_fonts.scss.
+// ============================================================
+
+// Marca
+$color-primary: #4ecdc4;
+$color-accent: #f790b2;
+$color-danger: #e94560;
+
+// Superficies
+$bg-app: #0f1019;
+$bg-panel: #161822;
+$bg-surface: #1c1f2e;
+$bg-hover: #2a2d3e;
+
+// Texto
+$text-primary: #e0e4ea;
+$text-secondary: #9aa0b0;
+$text-muted: #8a90a3;
+$text-dim: #767b8e;
+
+// Bordes
+$border-main: #2a2d3e;
+
+// Dimensiones (1rem = 10px, ver base/_reset.scss)
+$topbar-h: 5.2rem;
+$sidebar-w: 7.2rem; // barra compacta de una columna
+$sidebar-w-wide: 13.2rem; // dos columnas, desde $sidebar-2col (_breakpoints.scss)
+$panel-w: 22rem;
+
+// Movimiento
+$ease: 0.15s ease;

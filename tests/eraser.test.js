@@ -1,6 +1,6 @@
 'use strict';
 /* ============================================================
-   eraser.test.js — Geometría pura del borrador (js/eraser.js).
+   eraser.test.js — Geometría pura del borrador (src/js/eraser.js).
    Ejecutar: node --test tests/eraser.test.js
    ============================================================ */
 const test = require('node:test');

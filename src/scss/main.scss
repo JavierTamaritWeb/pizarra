@@ -1,0 +1,25 @@
+/* ============================================================
+   Pizarra — Styles (BEM)
+   GENERADO AUTOMÁTICAMENTE desde src/scss/ — no editar css/styles.css a mano.
+   Compilar: npm run build:css · Vigilar: npm run watch:css (Gulp 5 + dart-sass)
+   ============================================================ */
+// El orden de estos @use ES la cascada del CSS final — no alfabetizar ni
+// reordenar: varios overrides (.btn[hidden], el cajón del panel, la sidebar
+// ancha) dependen de ir después de su regla base. Cada parcial lleva sus
+// propias media queries para que base y override viajen siempre juntos.
+@use 'base/font-faces';
+@use 'base/tokens';
+@use 'base/reset';
+@use 'base/focus';
+@use 'base/range-thumbs';
+@use 'components/app';
+@use 'components/topbar';
+@use 'components/btn';
+@use 'components/sidebar';
+@use 'components/canvas-area';
+@use 'components/panel';
+@use 'components/modal';
+@use 'components/panel-drawer';
+
+// Va el último porque en el CSS original el scrollbar cierra el fichero.
+@use 'base/scrollbar';

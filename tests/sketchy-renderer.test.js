@@ -12,7 +12,7 @@ const assert = require('node:assert/strict');
 const { load, createCtxStub } = require('./helpers/load.js');
 
 // Contexto compartido de solo-lectura (Sketchy/Renderer no mutan estado propio).
-const vmCtx = load('js/sketchy.js', 'js/renderer.js');
+const vmCtx = load('src/js/sketchy.js', 'src/js/renderer.js');
 const { Sketchy, Renderer } = vmCtx;
 
 /* ────────────────────────────────────────────────────────────

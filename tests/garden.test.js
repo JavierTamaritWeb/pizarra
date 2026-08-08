@@ -1,6 +1,6 @@
 'use strict';
 /* ============================================================
-   garden.test.js — Geometría de la sección "Jardín" (js/garden.js).
+   garden.test.js — Geometría de la sección "Jardín" (src/js/garden.js).
    Todas las herramientas son de creación: producen elementos ya existentes
    (rect/line/circle/curveArrow/text) en vista de planta.
    Ejecutar: node --test tests/garden.test.js

@@ -4,6 +4,75 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [1.25.0] — 2026-08-08
+
+### Cambiado
+- **Los estilos se desarrollan en SCSS (BEM) y se compilan con Gulp 5 +
+  dart-sass.** El antiguo `css/styles.css` monolítico pasa a ser un artefacto
+  generado desde `src/scss/` — 18 ficheros que respetan el orden literal del
+  original: un parcial por bloque BEM con sus propias media queries, más
+  `abstracts/` con los tokens de diseño (`_variables.scss`), las tipografías
+  (`_fonts.scss`), los breakpoints y los mixins. El CSS compilado **sigue
+  commiteado en la misma ruta**, así que clonar y abrir `index.html` funciona
+  igual que siempre y la app conserva sus **cero dependencias en runtime**;
+  Node solo hace falta para desarrollar. La equivalencia con el CSS anterior
+  se verificó con un diff normalizado que resuelve los valores computados:
+  mismas 141 reglas, mismo resultado.
+- **Todas las distancias de la interfaz están ahora en `rem`, con 1rem =
+  10px** (raíz al 62.5%, `body` restaura los 16px efectivos): si se sube el
+  tamaño de fuente del navegador, la interfaz escala con él — mejora real de
+  accesibilidad. Los breakpoints de las media queries y las coordenadas del
+  lienzo (px de canvas, fijadas por JS) se quedan en px a propósito.
+- **Las tipografías se cambian en un único sitio:**
+  `src/scss/abstracts/_fonts.scss` declara `$font-ui` y `$font-sketch`, de ahí
+  salen las custom properties del CSS, y ahora también el lienzo:
+  `SKETCHY_FONT` (config.js) lee `--font-sketch` en runtime (con su literal
+  como resguardo para el harness de tests) y `FONT_FALLBACK` (exporter.js) se
+  deriva de ella sin comillas para los atributos XML del SVG exportado. Antes
+  la misma familia estaba escrita 4 veces en 3 ficheros con 3 sintaxis.
+- **La interfaz usa OpenDyslexic**, una tipografía diseñada para lectores con
+  dislexia, en lugar de IBM Plex Sans. Va **autoalojada** en `fonts/`: cuatro
+  woff2 (Regular, Bold, Italic y BoldItalic) generados con fontTools a partir
+  de los OTF oficiales aportados por el usuario — familia clásica derivada de
+  Bitstream Vera, con su licencia al lado — así que funciona sin red y
+  abriendo por `file://`. Sus `@font-face` viven en
+  `src/scss/base/_font-faces.scss` y el `<link>` de Google Fonts queda solo
+  para Architects Daughter, la manuscrita del lienzo. Como OpenDyslexic es
+  más ancha, las etiquetas de la barra estrecha parten ahora las palabras
+  largas en dos líneas («Semicírculo» se recortaba por los lados).
+
+### Añadido
+- **La app fuente vive en `src/`**: `src/scss/` (estilos) y `src/js/` (los
+  14 módulos, movidos desde la raíz; `index.html` apunta ahora a
+  `src/js/*.js`). `index.html` se queda en la raíz — el harness de tests,
+  Playwright y el «clonar y abrir» lo anclan ahí.
+- **`dist/`, el publicable minificado**: `npm run build` deja en `dist/` la
+  app lista para desplegar — LICENSE tal cual, index.html con las rutas
+  `src/js/` aplanadas a `js/` (la única transformación de HTML que existe),
+  el CSS recompilado comprimido (24K → 16K) y el JS minificado con terser
+  (396K → 172K) conservando nombres de fichero. Va sin versionar: se
+  regenera cuando se necesita. Los `src/js/` no se transforman nunca en el
+  árbol fuente — son los que leen el harness de tests y el navegador en
+  desarrollo.
+- **Toolchain de desarrollo**: Gulp 5 (`build`/`build:css`/`watch:css`) con la
+  API moderna de Sass —sin plugins intermedios, sin sourcemaps, sin
+  autoprefixer, salida determinista—, terser para el `dist/` y stylelint
+  (`stylelint-config-standard-scss` con el patrón de clases ajustado a BEM y
+  notación de color legacy a propósito, para no reescribir el CSS heredado).
+
+### Tests
+- Guardia nueva en `smoke.test.js`: `css/styles.css` debe ser el artefacto
+  compilado (banner), conservar la convención `1rem = 10px`, las custom
+  properties responsive (`--sidebar-w` 7.2/13.2rem), las cuatro media queries,
+  los selectores vendor sin agrupar y — la clave — **la familia de
+  `--font-sketch` idéntica al resguardo de `SKETCHY_FONT`**, porque en
+  navegador una divergencia sería invisible para el harness. Verificada
+  contra el código roto (cambiar la familia solo en el CSS la tumba).
+  **397 unitarios + 25 e2e.**
+- Conocido (fix aparte): `.panel__select` usa `var(--text-main)`, que no
+  existe. Se migró tal cual para que esta versión no cambie ni un byte de
+  comportamiento; corregirlo lleva su propia entrada en BUGS.md.
+
 ## [1.24.0] — 2026-08-08
 
 ### Cambiado

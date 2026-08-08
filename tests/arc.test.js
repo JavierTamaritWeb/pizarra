@@ -11,7 +11,7 @@ const assert = require('node:assert/strict');
 const { load } = require('./helpers/load.js');
 
 function freshArc() {
-  return load('js/arc.js').ArcMath;
+  return load('src/js/arc.js').ArcMath;
 }
 
 /** Punto de la cúbica p1–c1–c2–p2 en t. */
@@ -125,7 +125,7 @@ test('clampSagitta: conserva el signo y recorta a [min(6,h), h]', () => {
 });
 
 test('isValidElement: flag arc — solo `true` y solo en cúbicas', () => {
-  const ctx = load('js/sketchy.js', 'js/renderer.js', 'js/exporter.js');
+  const ctx = load('src/js/sketchy.js', 'src/js/renderer.js', 'src/js/exporter.js');
   const base = {
     type: 'curveArrow', x1: 0, y1: 0, x2: 100, y2: 0,
     cx: 0, cy: 66, cx2: 100, cy2: 66,
@@ -145,7 +145,7 @@ test('isValidElement: flag arc — solo `true` y solo en cúbicas', () => {
 });
 
 test('Exporter.svg: un semicírculo heads:"none" no lleva puntas de flecha', () => {
-  const ctx = load('js/sketchy.js', 'js/renderer.js', 'js/exporter.js');
+  const ctx = load('src/js/sketchy.js', 'src/js/renderer.js', 'src/js/exporter.js');
   const semi = {
     type: 'curveArrow', x1: 0, y1: 0, x2: 100, y2: 0,
     cx: 0, cy: 66.67, cx2: 100, cy2: 66.67,

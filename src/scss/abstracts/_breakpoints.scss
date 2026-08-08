@@ -1,0 +1,19 @@
+// Los 4 breakpoints del proyecto — única fuente de verdad. El de la sidebar
+// está probado a ambos lados por e2e/responsive.spec.js y documentado en
+// CLAUDE.md; cambiar un valor aquí exige actualizar ambos.
+$sidebar-2col: 1201px; // min-width: sidebar de 132px con grupos a 2 columnas
+$panel-drawer: 1100px; // max-width: el panel derecho pasa a cajón deslizable
+$modal-stack: 420px; // max-width: .modal__build apila la miniatura
+$modal-1col: 360px; // max-width: los grids de catálogo del modal a 1 columna
+
+@mixin from($bp) {
+  @media (min-width: $bp) {
+    @content;
+  }
+}
+
+@mixin until($bp) {
+  @media (max-width: $bp) {
+    @content;
+  }
+}

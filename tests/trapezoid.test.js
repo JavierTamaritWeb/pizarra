@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { load, createCtxStub } = require('./helpers/load.js');
 
-const ctx = load('js/sketchy.js', 'js/renderer.js', 'js/exporter.js');
+const ctx = load('src/js/sketchy.js', 'src/js/renderer.js', 'src/js/exporter.js');
 const { Trapezoid, Renderer, Exporter } = ctx;
 const base = {
   type: 'trapezoid',

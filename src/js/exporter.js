@@ -61,7 +61,10 @@ const Exporter = (() => {
     _downloadBlob('wireframe.svg', new Blob([out], { type: 'image/svg+xml' }));
   }
 
-  const FONT_FALLBACK = 'Architects Daughter, Segoe Print, Comic Neue, cursive';
+  // La misma familia que SKETCHY_FONT (config.js) pero sin comillas: va en
+  // atributos XML font-family="..." del SVG exportado, donde una comilla
+  // (simple del fallback o doble de --font-sketch) malformaría el atributo.
+  const FONT_FALLBACK = SKETCHY_FONT.replace(/["']/g, '');
   const DEFAULT_FILL_OPACITY = 0.4;
 
   /** Tipos sin representación HTML propia: van en un <svg> incrustado.

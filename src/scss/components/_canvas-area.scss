@@ -1,0 +1,85 @@
+/* ============================================================
+   BLOCK: canvas-area
+   ============================================================ */
+// Selectores planos: los comentarios de arquitectura de este bloque viven
+// entre reglas y deben seguir ahí en el CSS final (ver nota en _btn.scss).
+.canvas-area {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  padding: 1.2rem;
+  background: var(--bg-app);
+  background-image: radial-gradient(circle at 50% 50%, #1a1d2e 0%, var(--bg-app) 70%);
+}
+
+/* El sizer ocupa en layout el tamaño ya escalado del lienzo (lo fija
+   applyZoom en JS). Un `transform: scale` no cambia la caja de layout, así
+   que sin él lo que desborda por la izquierda/arriba queda fuera del área
+   scrollable y es inalcanzable con el zoom alto. margin:auto lo centra
+   mientras cabe. */
+.canvas-area__sizer {
+  margin: auto;
+  flex-shrink: 0;
+  transition: width 0.2s ease, height 0.2s ease;
+}
+
+.canvas-area__wrapper {
+  position: relative;
+
+  /* Se ciñe a los canvas: sin esto se estiraría al ancho del sizer (que ya
+     está escalado) y el transform lo volvería a escalar sobre eso */
+  width: fit-content;
+  border-radius: 0.8rem;
+  overflow: hidden;
+  box-shadow:
+    0 0.8rem 4rem rgba(0, 0, 0, 0.38),
+    0 0 0 0.1rem var(--border-main);
+
+  /* top left: el lienzo crece hacia la derecha/abajo desde el origen del
+     sizer, así el desbordamiento cae dentro del área scrollable */
+  transform-origin: top left;
+  transition: transform 0.2s ease;
+}
+
+.canvas-area__canvas {
+  display: block;
+  cursor: crosshair;
+  touch-action: none; /* pointer events: sin scroll/zoom táctil sobre el lienzo */
+}
+
+/* Feedback al arrastrar un archivo sobre el lienzo */
+.canvas-area__wrapper--dropping {
+  outline: 0.3rem dashed var(--color-primary);
+  outline-offset: -0.3rem;
+}
+
+.canvas-area__canvas--move {
+  cursor: move;
+}
+
+.canvas-area__canvas--eraser {
+  cursor: none;
+}
+
+.canvas-area__overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.canvas-area__text-input {
+  position: absolute;
+  background: #fff;
+  border: 0.2rem solid var(--color-primary);
+  border-radius: 0.4rem;
+  padding: 0.6rem;
+  font-family: var(--font-sketch);
+  color: #1a1a2e;
+  outline: none;
+  min-width: 12rem;
+  min-height: 3.2rem;
+  z-index: 10;
+  box-shadow: 0 0.4rem 1.2rem rgba(0, 0, 0, 0.2);
+  resize: none;
+}

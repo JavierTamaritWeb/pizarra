@@ -356,7 +356,21 @@ const CANVAS_H = 800;
 /** Tamaño mínimo al insertar un emoji, para que se lea como icono */
 const EMOJI_MIN_SIZE = 32;
 
-const SKETCHY_FONT = "'Architects Daughter', 'Segoe Print', 'Comic Neue', cursive";
+/** Familia manuscrita del lienzo. La fuente de verdad es --font-sketch
+    (scss/abstracts/_fonts.scss): cambiarla allí cambia también esto. El
+    literal es el resguardo para el harness node:vm (sin getComputedStyle)
+    y para una hoja de estilos que no cargó; tests/smoke.test.js comprueba
+    que ambos dicen lo mismo. */
+const SKETCHY_FONT = (() => {
+  const FALLBACK = "'Architects Daughter', 'Segoe Print', 'Comic Neue', cursive";
+  try {
+    if (typeof getComputedStyle !== 'function' || !document.documentElement) return FALLBACK;
+    const v = getComputedStyle(document.documentElement).getPropertyValue('--font-sketch').trim();
+    return v || FALLBACK;
+  } catch (e) {
+    return FALLBACK;
+  }
+})();
 
 /** Default dimensions when a UI component is placed with a tiny drag */
 const UI_DEFAULTS = {

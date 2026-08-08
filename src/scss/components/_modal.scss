@@ -1,0 +1,388 @@
+@use '../abstracts/breakpoints' as bp;
+
+/* ============================================================
+   BLOCK: modal
+   ============================================================ */
+// Selectores planos: este bloque está lleno de comentarios de arquitectura
+// entre reglas, y anidarlos los atraparía dentro del bloque padre (ver nota
+// en _btn.scss). Ojo también a la especificidad heredada: la regla
+// `.modal__shape-grid--three .modal__shape` va ANTES que `.modal__shape` y
+// le gana solo por especificidad — no lo "ordenes".
+
+/* <dialog> nativo: showModal() aporta foco, trampa de Tab y Escape */
+.modal {
+  margin: auto;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-radius: 1.6rem;
+  padding: 2.8rem;
+
+  /* Se adapta a pantallas estrechas (móvil ~320px) sin desbordar el viewport,
+     y hace scroll vertical si el contenido supera el alto disponible. */
+  // Interpolado como cadena: dart-sass aplanaría el calc() dentro de min()
+  // (salida válida pero distinta byte a byte del CSS de referencia).
+  width: #{"min(46rem, calc(100vw - 2.4rem))"};
+  max-height: calc(100vh - 2.4rem);
+  overflow-y: auto;
+  border: 0.1rem solid var(--border-main);
+  box-shadow: 0 2rem 6rem rgba(0, 0, 0, 0.4);
+}
+
+.modal::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(0.4rem);
+}
+
+.modal__heading {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+}
+
+.modal__sub {
+  font-size: 1.2rem;
+  color: var(--text-muted);
+  margin-bottom: 2rem;
+}
+
+.modal__cancel {
+  margin-top: 1.2rem;
+}
+
+/* Export grid */
+.modal__grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.modal__grid--2col {
+  grid-template-columns: 1fr 1fr;
+}
+
+.modal__option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 1.6rem;
+  border: none;
+  border-radius: 1rem;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--ease);
+}
+
+.modal__option:hover {
+  background: #353850;
+  transform: translateY(-0.1rem);
+}
+
+.modal__option--wide {
+  grid-column: span 2;
+}
+
+.modal__option-icon {
+  font-size: 2.4rem;
+}
+
+.modal__option strong {
+  font-weight: 700;
+}
+
+.modal__option small {
+  font-size: 1rem;
+  color: var(--text-muted);
+}
+
+/* Ayuda */
+.modal--help {
+  /* Más ancho que el modal estándar, pero igualmente limitado al viewport. */
+  // Cadena interpolada por lo mismo que en .modal (min + calc).
+  width: #{"min(62rem, calc(100vw - 2.4rem))"};
+
+  /* La lista es larga: se limita al alto de la ventana y hace scroll dentro */
+  max-height: 85vh;
+}
+
+.modal__help-group {
+  margin-bottom: 1.8rem;
+}
+
+.modal__help-title {
+  margin-bottom: 0.8rem;
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15rem;
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.modal__help-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.modal__help-list li {
+  position: relative;
+  padding-left: 1.4rem;
+  font-size: 1.3rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.modal__help-list li::before {
+  content: "·";
+  position: absolute;
+  left: 0.2rem;
+  color: var(--text-dim);
+}
+
+.modal__help-list strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+// Elemento global sin bloque propio: vive aquí porque solo lo usa la ayuda
+// del modal, y moverlo a base/ reordenaría la cascada respecto al original.
+kbd {
+  display: inline-block;
+  padding: 0.1rem 0.6rem;
+  border: 0.1rem solid var(--border-main);
+  border-bottom-width: 0.2rem;
+  border-radius: 0.4rem;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+/* Emoji picker */
+.modal__emoji-group {
+  margin-bottom: 1.2rem;
+}
+
+.modal__emoji-label {
+  display: block;
+  margin-bottom: 0.6rem;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.modal__emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.6rem;
+}
+
+.modal__emoji {
+  padding: 0.8rem 0;
+  font-size: 2.4rem;
+  line-height: 1.2;
+  border: 0.2rem solid transparent;
+  border-radius: 0.8rem;
+  background: var(--bg-hover);
+  cursor: pointer;
+  transition: all var(--ease);
+}
+
+.modal__emoji:hover {
+  background: #353850;
+  transform: scale(1.12);
+}
+
+.modal__emoji--active {
+  border-color: var(--color-primary);
+}
+
+.modal__emoji:focus-visible {
+  outline: 0.2rem solid var(--color-primary);
+  outline-offset: 0.2rem;
+}
+
+/* Selector de forma de planta (Edificios) */
+.modal__shape-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+/* Tres vistas de Fachada en una fila: caben porque el modal ya trae arriba la
+   miniatura y los ajustes, y así la elección de vista queda en un solo golpe. */
+.modal__shape-grid--three { grid-template-columns: repeat(3, 1fr); }
+
+.modal__shape-grid--three .modal__shape {
+  padding: 1.2rem 0.6rem;
+  gap: 0.6rem;
+}
+
+/* En pantallas muy estrechas (~320px) las dos columnas no caben: una sola. */
+@include bp.until(bp.$modal-1col) {
+  .modal__shape-grid,
+  .modal__shape-grid--three { grid-template-columns: 1fr; }
+}
+
+/* ── Modal de Fachada: miniatura en vivo + ajustes de Edificios ──
+   Los cuatro ajustes viven a la vez aquí y en el panel (app.js los mantiene
+   sincronizados); tenerlos junto a la miniatura evita elegir a ciegas. */
+.modal__build {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1.4rem;
+  margin-bottom: 1.8rem;
+}
+
+/* Fondo claro como el del lienzo: sobre el modal oscuro, un trazo de color
+   oscuro (el que se va a dibujar) sería invisible. */
+.modal__preview {
+  width: 17.6rem;
+  height: 16.8rem;
+  border: 0.1rem solid var(--border-main);
+  border-radius: 0.8rem;
+}
+
+.modal__build-fields {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+}
+
+.modal__field-label,
+.modal__legend {
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.modal__legend { margin-bottom: 0.8rem; }
+
+/* Ajuste que la vista elegida ignora (la cubierta en la fachada plana, o el
+   tipo de cubierta en el perfil, que siempre lleva la suya trapezoidal). */
+.modal__field--off { opacity: 0.4; }
+
+/* Apilado en modales estrechos: la miniatura pasa a ocupar todo el ancho. */
+@include bp.until(bp.$modal-stack) {
+  .modal__build { grid-template-columns: 1fr; }
+  .modal__preview { width: 100%; }
+}
+
+.modal__shape {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.6rem 1rem;
+  border: 0.2rem solid transparent;
+  border-radius: 1rem;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 1.3rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--ease);
+}
+
+.modal__shape:hover {
+  background: #353850;
+}
+
+.modal__shape svg {
+  width: 4.6rem;
+  height: 3.4rem;
+  color: var(--text-secondary);
+}
+
+/* Icono de los catálogos de Jardín: un canvas con la geometría real, no un SVG.
+   Va algo más cuadrado que los 46×34 de Edificios porque un símbolo en planta
+   lo es. Debe coincidir con GARDEN_ICON_W/H en app.js.
+   No hereda `currentColor` —se pinta con la tinta del usuario, que además es
+   información útil—, así que la variante activa se distingue por el borde y el
+   fondo de .modal__shape--active. */
+.modal__shape-icon {
+  width: 5.6rem;
+  height: 4.8rem;
+  border-radius: 0.4rem;
+}
+
+.modal__shape-name {
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* Nota bajo el nombre: refleja un ajuste que vive fuera del modal
+   (p. ej. la cubierta activa del panel Edificios en el botón Alzado). */
+.modal__shape-note {
+  text-align: center;
+  line-height: 1.2;
+
+  // Era 0.72rem con la raíz de 16px; mismo tamaño físico (11.52px) con la
+  // raíz al 62.5%: 0.72 × 1.6 = 1.152rem.
+  font-size: 1.152rem;
+  opacity: 0.7;
+}
+
+.modal__shape--active {
+  border-color: var(--color-primary);
+  background: rgba(78, 205, 196, 0.12);
+}
+
+.modal__shape--active svg {
+  color: var(--color-primary);
+}
+
+.modal__shape:focus-visible {
+  outline: 0.2rem solid var(--color-primary);
+  outline-offset: 0.2rem;
+}
+
+/* Templates list */
+.modal__list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.modal__template {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  padding: 1.4rem 1.6rem;
+  border: none;
+  border-radius: 1rem;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--ease);
+}
+
+.modal__template:hover {
+  background: #353850;
+  transform: translateX(0.2rem);
+}
+
+.modal__template-icon {
+  font-size: 2.8rem;
+}
+
+.modal__template strong {
+  display: block;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.modal__template small {
+  font-size: 1.1rem;
+  color: var(--text-muted);
+}

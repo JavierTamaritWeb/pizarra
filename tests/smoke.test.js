@@ -6,7 +6,7 @@ const path = require('node:path');
 const { load, loadAll, getGlobal } = require('./helpers/load.js');
 
 test('config.js expone TOOLS y CANVAS_W en el contexto', () => {
-  const ctx = load('js/config.js');
+  const ctx = load('src/js/config.js');
   assert.ok(ctx.TOOLS, 'TOOLS debe existir');
   assert.equal(typeof ctx.TOOLS, 'object');
   assert.equal(ctx.TOOLS.PENCIL, 'pencil');
@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v1.24.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v1.25.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v1\.24\.0</);
-  assert.match(html, /css\/styles\.css\?v=1\.24\.0/);
-  assert.match(html, /js\/app\.js\?v=1\.24\.0/);
-  assert.match(html, /js\/building\.js\?v=1\.24\.0/);
-  assert.match(html, /js\/garden\.js\?v=1\.24\.0/);
-  assert.match(html, /js\/config\.js\?v=1\.24\.0/);
+  assert.match(html, /class="topbar__badge">v1\.25\.0</);
+  assert.match(html, /css\/styles\.css\?v=1\.25\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=1\.25\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=1\.25\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=1\.25\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=1\.25\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -56,6 +56,32 @@ test('index publica v1.24.0 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="stroke-label">Trazo</);
   assert.match(html, /Tamaño del borrador/);
   assert.match(html, /entre 4 y 100 px \(16 px por defecto\)/);
+});
+
+// css/styles.css es un artefacto compilado desde scss/ (Gulp 5 + dart-sass).
+// Este guard vigila sus contratos de runtime: que nadie lo edite a mano
+// (banner), que la convención 1rem = 10px siga en pie, que las custom
+// properties responsive existan (los e2e las asertan computadas), que los
+// selectores vendor de los thumbs no acaben agrupados con coma (un selector
+// desconocido invalida el grupo entero) y — la clave — que --font-sketch y
+// el fallback de config.js digan lo mismo, porque en navegador SKETCHY_FONT
+// se lee de esa custom property y una divergencia sería invisible en el vm.
+test('css/styles.css es el artefacto compilado y conserva sus contratos', () => {
+  const css = fs.readFileSync(path.resolve(__dirname, '..', 'css', 'styles.css'), 'utf8');
+  assert.match(css, /GENERADO AUTOMÁTICAMENTE desde src\/scss\//);
+  assert.match(css, /html \{\s*font-size: 62\.5%;/);
+  assert.match(css, /--sidebar-w: 7\.2rem/);
+  assert.match(css, /--sidebar-w: 13\.2rem/);
+  for (const mq of ['(min-width: 1201px)', '(max-width: 1100px)',
+                    '(max-width: 420px)', '(max-width: 360px)']) {
+    assert.ok(css.includes(`@media ${mq}`), `falta @media ${mq}`);
+  }
+  assert.match(css, /\ninput\[type=range\]::-webkit-slider-thumb \{/);
+  assert.match(css, /\ninput\[type=range\]::-moz-range-thumb \{/);
+  const m = css.match(/--font-sketch:\s*([^;]+);/);
+  assert.ok(m, 'falta --font-sketch en :root');
+  const ctx = load('src/js/config.js'); // sin getComputedStyle: SKETCHY_FONT es el fallback
+  assert.equal(m[1].trim().replace(/"/g, "'"), ctx.SKETCHY_FONT);
 });
 
 // El rango del slider de ancho de camino y los topes con los que garden.js

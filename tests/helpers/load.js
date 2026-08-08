@@ -5,7 +5,7 @@
 
    API:
      load(...files)            -> context   (crea contexto, antepone
-                                            'js/config.js' si falta, carga
+                                            'src/js/config.js' si falta, carga
                                             en orden y devuelve el contexto)
      loadAll()                 -> context   (config, sketchy, renderer,
                                             exporter, templates — en orden)
@@ -49,19 +49,19 @@ const KNOWN_GLOBALS = [
 
 /** Orden completo de dependencias del proyecto (app.js excluido: requiere DOM real). */
 const ALL_FILES = [
-  'js/config.js',
-  'js/sketchy.js',
-  'js/arc.js',
-  'js/curve-path.js',
-  'js/shape-rotation.js',
-  'js/regular-polygon.js',
-  'js/trapezoid.js',
-  'js/eraser.js',
-  'js/building.js',
-  'js/garden.js',
-  'js/renderer.js',
-  'js/exporter.js',
-  'js/templates.js',
+  'src/js/config.js',
+  'src/js/sketchy.js',
+  'src/js/arc.js',
+  'src/js/curve-path.js',
+  'src/js/shape-rotation.js',
+  'src/js/regular-polygon.js',
+  'src/js/trapezoid.js',
+  'src/js/eraser.js',
+  'src/js/building.js',
+  'src/js/garden.js',
+  'src/js/renderer.js',
+  'src/js/exporter.js',
+  'src/js/templates.js',
 ];
 
 function createContext() {
@@ -193,24 +193,24 @@ function getGlobal(context, name) {
  * Si faltan, antepone config.js y curve-path.js antes de renderer.js:
  * son dependencias globales de los scripts probados.
  *
- *   const ctx = load('js/sketchy.js', 'js/renderer.js');
+ *   const ctx = load('src/js/sketchy.js', 'src/js/renderer.js');
  *   ctx.Renderer.renderElement(createCtxStub(), el);
  */
 function load(...files) {
   const list = files.flat();
-  if (list.length === 0) list.push('js/config.js');
-  if (!list.some(f => f.endsWith('config.js'))) list.unshift('js/config.js');
+  if (list.length === 0) list.push('src/js/config.js');
+  if (!list.some(f => f.endsWith('config.js'))) list.unshift('src/js/config.js');
   const rendererIndex = list.findIndex(f => f.endsWith('renderer.js'));
   if (rendererIndex >= 0 && !list.some(f => f.endsWith('curve-path.js'))) {
-    list.splice(rendererIndex, 0, 'js/curve-path.js');
+    list.splice(rendererIndex, 0, 'src/js/curve-path.js');
   }
   const rendererIndexAfterCurve = list.findIndex(f => f.endsWith('renderer.js'));
   if (rendererIndexAfterCurve >= 0 && !list.some(f => f.endsWith('regular-polygon.js'))) {
-    list.splice(rendererIndexAfterCurve, 0, 'js/regular-polygon.js');
+    list.splice(rendererIndexAfterCurve, 0, 'src/js/regular-polygon.js');
   }
   const rendererIndexAfterPolygon = list.findIndex(f => f.endsWith('renderer.js'));
   if (rendererIndexAfterPolygon >= 0 && !list.some(f => f.endsWith('trapezoid.js'))) {
-    list.splice(rendererIndexAfterPolygon, 0, 'js/trapezoid.js');
+    list.splice(rendererIndexAfterPolygon, 0, 'src/js/trapezoid.js');
   }
   const context = createContext();
   for (const f of list) loadScript(context, f);

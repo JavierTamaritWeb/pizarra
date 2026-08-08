@@ -1,0 +1,16 @@
+// Vive en base/ pero main.scss lo carga el último: en el CSS original el
+// scrollbar cierra el fichero y la partición respeta el orden literal.
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 0.6rem;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-hover);
+  border-radius: 0.3rem;
+}

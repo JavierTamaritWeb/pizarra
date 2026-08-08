@@ -1,0 +1,57 @@
+/* ============================================================
+   BLOCK: topbar
+   ============================================================ */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--topbar-h);
+  padding: 0 1.6rem;
+  background: var(--bg-panel);
+  border-bottom: 0.1rem solid var(--border-main);
+  flex-shrink: 0;
+
+  &__brand {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  &__logo-icon {
+    width: 3.2rem;
+    height: 3.2rem;
+    border-radius: 0.8rem;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+  }
+
+  &__logo-text {
+    font-size: 1.8rem;
+    font-weight: 700;
+    letter-spacing: -0.05rem;
+  }
+
+  &__logo-accent {
+    color: var(--color-primary);
+  }
+
+  &__badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem 0.8rem;
+    border-radius: 0.6rem;
+    font-size: 1rem;
+    font-weight: 600;
+    background: rgba(78, 205, 196, 0.08);
+    color: var(--color-primary);
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+  }
+}

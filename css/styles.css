@@ -1,38 +1,64 @@
+@charset "UTF-8";
 /* ============================================================
-   Pizarra — Styles (BEM methodology)
+   Pizarra — Styles (BEM)
+   GENERADO AUTOMÁTICAMENTE desde src/scss/ — no editar css/styles.css a mano.
+   Compilar: npm run build:css · Vigilar: npm run watch:css (Gulp 5 + dart-sass)
    ============================================================ */
-
+/* OpenDyslexic — tipografía de la interfaz, diseñada para lectores con
+   dislexia. Fuente de verdad de las familias: src/scss/abstracts/_fonts.scss */
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("../fonts/OpenDyslexic-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("../fonts/OpenDyslexic-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("../fonts/OpenDyslexic-Italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("../fonts/OpenDyslexic-BoldItalic.woff2") format("woff2");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
 /* ── Custom Properties ── */
 :root {
   /* Brand */
   --color-primary: #4ecdc4;
   --color-accent: #f790b2;
   --color-danger: #e94560;
-
   /* Surfaces */
   --bg-app: #0f1019;
   --bg-panel: #161822;
   --bg-surface: #1c1f2e;
   --bg-hover: #2a2d3e;
-
   /* Text */
   --text-primary: #e0e4ea;
   --text-secondary: #9aa0b0;
   --text-muted: #8a90a3;
   --text-dim: #767b8e;
-
   /* Borders */
   --border-main: #2a2d3e;
-
   /* Fonts */
-  --font-ui: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-ui: "OpenDyslexic", "Segoe UI", system-ui, sans-serif;
   --font-sketch: "Architects Daughter", "Segoe Print", "Comic Neue", cursive;
-
   /* Sizes */
-  --topbar-h: 52px;
-  --sidebar-w: 72px;
-  --panel-w: 220px;
-
+  --topbar-h: 5.2rem;
+  --sidebar-w: 7.2rem;
+  --panel-w: 22rem;
   /* Transitions */
   --ease: 0.15s ease;
 }
@@ -46,8 +72,19 @@
   box-sizing: border-box;
 }
 
+/* 1rem = 10px: la raíz baja al 62.5% del tamaño por defecto del navegador
+   (16px × 0.625 = 10px) y todas las distancias de la app se escriben en rem;
+   body restaura los 16px efectivos (1.6rem) para el texto que no fija tamaño.
+   Si el usuario sube la fuente del navegador, la interfaz escala con ella
+   (el lienzo no: sus coordenadas son px de canvas, fijadas por JS). Los
+   breakpoints de las media queries siguen en px a propósito. */
+html {
+  font-size: 62.5%;
+}
+
 body {
   font-family: var(--font-ui);
+  font-size: 1.6rem;
   color: var(--text-primary);
   background: var(--bg-app);
   overflow: hidden;
@@ -59,12 +96,12 @@ button {
   cursor: pointer;
 }
 
-input[type="range"] {
+input[type=range] {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 4px;
-  border-radius: 2px;
+  height: 0.4rem;
+  border-radius: 0.2rem;
   background: var(--bg-hover);
 }
 
@@ -72,33 +109,33 @@ input[type="range"] {
 .btn:focus-visible,
 .sidebar__tool:focus-visible,
 .panel__color-swatch:focus-visible,
-input[type="range"]:focus-visible,
-input[type="checkbox"]:focus-visible,
+input[type=range]:focus-visible,
+input[type=checkbox]:focus-visible,
 .panel__select:focus-visible,
 .modal__option:focus-visible,
 .modal__template:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
+  outline: 0.2rem solid var(--color-primary);
+  outline-offset: 0.2rem;
 }
 
-input[type="range"]::-webkit-slider-thumb {
+input[type=range]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 1.4rem;
+  height: 1.4rem;
   border-radius: 50%;
   background: var(--color-primary);
   cursor: pointer;
-  border: 2px solid var(--bg-panel);
+  border: 0.2rem solid var(--bg-panel);
 }
 
-input[type="range"]::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
+input[type=range]::-moz-range-thumb {
+  width: 1.4rem;
+  height: 1.4rem;
   border-radius: 50%;
   background: var(--color-primary);
   cursor: pointer;
-  border: 2px solid var(--bg-panel);
+  border: 0.2rem solid var(--bg-panel);
 }
 
 /* ============================================================
@@ -110,7 +147,6 @@ input[type="range"]::-moz-range-thumb {
   height: 100vh;
   overflow: hidden;
 }
-
 .app__body {
   display: flex;
   flex: 1;
@@ -125,54 +161,48 @@ input[type="range"]::-moz-range-thumb {
   align-items: center;
   justify-content: space-between;
   height: var(--topbar-h);
-  padding: 0 16px;
+  padding: 0 1.6rem;
   background: var(--bg-panel);
-  border-bottom: 1px solid var(--border-main);
+  border-bottom: 0.1rem solid var(--border-main);
   flex-shrink: 0;
 }
-
 .topbar__brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 1rem;
 }
-
 .topbar__logo-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 0.8rem;
   background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 1.6rem;
 }
-
 .topbar__logo-text {
-  font-size: 18px;
+  font-size: 1.8rem;
   font-weight: 700;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.05rem;
 }
-
 .topbar__logo-accent {
   color: var(--color-primary);
 }
-
 .topbar__badge {
   display: inline-flex;
   align-items: center;
-  padding: 3px 8px;
-  border-radius: 6px;
-  font-size: 10px;
+  padding: 0.3rem 0.8rem;
+  border-radius: 0.6rem;
+  font-size: 1rem;
   font-weight: 600;
   background: rgba(78, 205, 196, 0.08);
   color: var(--color-primary);
 }
-
 .topbar__actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.8rem;
 }
 
 /* ============================================================
@@ -181,11 +211,11 @@ input[type="range"]::-moz-range-thumb {
 .btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
+  gap: 0.6rem;
+  padding: 0.8rem 1.4rem;
   border: none;
-  border-radius: 8px;
-  font-size: 12px;
+  border-radius: 0.8rem;
+  font-size: 1.2rem;
   font-weight: 600;
   transition: all var(--ease);
   background: var(--bg-hover);
@@ -204,7 +234,7 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .btn__icon {
-  font-size: 13px;
+  font-size: 1.3rem;
 }
 
 /* Modifiers */
@@ -216,7 +246,7 @@ input[type="range"]::-moz-range-thumb {
 .btn--ghost {
   background: transparent;
   color: var(--text-secondary);
-  border: 1px solid var(--border-main);
+  border: 0.1rem solid var(--border-main);
 }
 
 .btn--ghost:hover {
@@ -227,7 +257,7 @@ input[type="range"]::-moz-range-thumb {
 .btn--danger {
   background: rgba(233, 69, 96, 0.12);
   color: var(--color-danger);
-  border: 1px solid rgba(233, 69, 96, 0.25);
+  border: 0.1rem solid rgba(233, 69, 96, 0.25);
 }
 
 .btn--danger:hover {
@@ -245,63 +275,58 @@ input[type="range"]::-moz-range-thumb {
 .sidebar {
   width: var(--sidebar-w);
   background: var(--bg-panel);
-  border-right: 1px solid var(--border-main);
+  border-right: 0.1rem solid var(--border-main);
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 12px 0;
-  gap: 2px;
+  padding: 1.2rem 0;
+  gap: 0.2rem;
   overflow-y: auto;
   flex-shrink: 0;
 }
-
 .sidebar__group {
   display: flex;
   flex-direction: column;
   align-items: center;
 }
-
 .sidebar__group-label {
-  font-size: 11px;
+  font-size: 1.1rem;
   text-transform: uppercase;
-  letter-spacing: 1.5px;
+  letter-spacing: 0.15rem;
   color: var(--text-muted);
-  margin: 10px 0 4px;
+  margin: 1rem 0 0.4rem;
   font-weight: 600;
 }
-
 .sidebar__tool {
-  width: 52px;
-  height: 44px;
+  width: 5.2rem;
+  height: 4.4rem;
   border: none;
-  border-radius: 8px;
+  border-radius: 0.8rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
-  font-size: 18px;
+  gap: 0.1rem;
+  font-size: 1.8rem;
   background: transparent;
   color: var(--text-secondary);
   transition: all var(--ease);
   cursor: pointer;
 }
-
 .sidebar__tool:hover {
   background: rgba(78, 205, 196, 0.08);
   color: var(--text-primary);
 }
-
 .sidebar__tool--active {
   background: rgba(78, 205, 196, 0.12);
   color: var(--color-primary);
-  outline: 1.5px solid rgba(78, 205, 196, 0.25);
+  outline: 0.15rem solid rgba(78, 205, 196, 0.25);
 }
-
 .sidebar__tool-name {
-  font-size: 9px;
-  letter-spacing: 0.5px;
+  font-size: 0.9rem;
+  letter-spacing: 0.05rem;
   font-weight: 500;
+  overflow-wrap: anywhere;
 }
 
 /* En escritorios amplios, la colección de herramientas aprovecha el espacio
@@ -309,40 +334,34 @@ input[type="range"]::-moz-range-thumb {
    compacta de una sola columna. */
 @media (min-width: 1201px) {
   :root {
-    --sidebar-w: 132px;
+    --sidebar-w: 13.2rem;
   }
-
   .sidebar {
     align-items: stretch;
-    padding-inline: 6px;
+    padding-inline: 0.6rem;
   }
-
   .sidebar__group {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: stretch;
-    gap: 3px 2px;
+    gap: 0.3rem 0.2rem;
     width: 100%;
   }
-
   .sidebar__group-label {
-    grid-column: 1 / -1;
+    grid-column: 1/-1;
     justify-self: start;
-    margin-left: 4px;
+    margin-left: 0.4rem;
   }
-
   .sidebar__tool {
     width: 100%;
-    height: 56px;
-    padding: 3px 2px;
+    height: 5.6rem;
+    padding: 0.3rem 0.2rem;
   }
-
   .sidebar__tool-name {
     line-height: 1.15;
     overflow-wrap: anywhere;
   }
 }
-
 /* ============================================================
    BLOCK: canvas-area
    ============================================================ */
@@ -350,7 +369,7 @@ input[type="range"]::-moz-range-thumb {
   flex: 1;
   overflow: auto;
   display: flex;
-  padding: 12px;
+  padding: 1.2rem;
   background: var(--bg-app);
   background-image: radial-gradient(circle at 50% 50%, #1a1d2e 0%, var(--bg-app) 70%);
 }
@@ -371,11 +390,9 @@ input[type="range"]::-moz-range-thumb {
   /* Se ciñe a los canvas: sin esto se estiraría al ancho del sizer (que ya
      está escalado) y el transform lo volvería a escalar sobre eso */
   width: fit-content;
-  border-radius: 8px;
+  border-radius: 0.8rem;
   overflow: hidden;
-  box-shadow:
-    0 8px 40px rgba(0, 0, 0, 0.38),
-    0 0 0 1px var(--border-main);
+  box-shadow: 0 0.8rem 4rem rgba(0, 0, 0, 0.38), 0 0 0 0.1rem var(--border-main);
   /* top left: el lienzo crece hacia la derecha/abajo desde el origen del
      sizer, así el desbordamiento cae dentro del área scrollable */
   transform-origin: top left;
@@ -390,8 +407,8 @@ input[type="range"]::-moz-range-thumb {
 
 /* Feedback al arrastrar un archivo sobre el lienzo */
 .canvas-area__wrapper--dropping {
-  outline: 3px dashed var(--color-primary);
-  outline-offset: -3px;
+  outline: 0.3rem dashed var(--color-primary);
+  outline-offset: -0.3rem;
 }
 
 .canvas-area__canvas--move {
@@ -412,16 +429,16 @@ input[type="range"]::-moz-range-thumb {
 .canvas-area__text-input {
   position: absolute;
   background: #fff;
-  border: 2px solid var(--color-primary);
-  border-radius: 4px;
-  padding: 6px;
+  border: 0.2rem solid var(--color-primary);
+  border-radius: 0.4rem;
+  padding: 0.6rem;
   font-family: var(--font-sketch);
   color: #1a1a2e;
   outline: none;
-  min-width: 120px;
-  min-height: 32px;
+  min-width: 12rem;
+  min-height: 3.2rem;
   z-index: 10;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0.4rem 1.2rem rgba(0, 0, 0, 0.2);
   resize: none;
 }
 
@@ -431,160 +448,138 @@ input[type="range"]::-moz-range-thumb {
 .panel {
   width: var(--panel-w);
   background: var(--bg-panel);
-  border-left: 1px solid var(--border-main);
-  padding: 16px;
+  border-left: 0.1rem solid var(--border-main);
+  padding: 1.6rem;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 1.6rem;
   overflow-y: auto;
   flex-shrink: 0;
 }
-
 .panel__section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0.6rem;
 }
-
 .panel__section--border {
-  border-top: 1px solid var(--border-main);
-  padding-top: 12px;
+  border-top: 0.1rem solid var(--border-main);
+  padding-top: 1.2rem;
 }
-
 .panel__title {
-  font-size: 11px;
+  font-size: 1.1rem;
   text-transform: uppercase;
-  letter-spacing: 1.5px;
+  letter-spacing: 0.15rem;
   color: var(--text-muted);
   font-weight: 600;
 }
-
 .panel__title--row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 0.8rem;
 }
-
 .panel__gear {
   border: none;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 13px;
+  font-size: 1.3rem;
   line-height: 1;
-  padding: 2px 4px;
-  border-radius: 6px;
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.6rem;
 }
-
 .panel__gear:hover {
   color: var(--text-primary);
   background: var(--bg-hover);
 }
-
 .panel__slider {
   cursor: pointer;
 }
-
 .panel__slider:disabled {
   cursor: not-allowed;
   opacity: 0.35;
 }
-
 .panel__field {
   display: grid;
-  gap: 6px;
+  gap: 0.6rem;
 }
-
 .panel__select {
   width: 100%;
-  border: 1px solid var(--border-main);
-  border-radius: 6px;
-  padding: 7px 9px;
+  border: 0.1rem solid var(--border-main);
+  border-radius: 0.6rem;
+  padding: 0.7rem 0.9rem;
   color: var(--text-main);
   background: var(--bg-hover);
   font: inherit;
   cursor: pointer;
 }
-
 .panel__color-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  gap: 4px;
+  gap: 0.4rem;
 }
-
 .panel__color-swatch {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: 2px solid transparent;
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: 0.6rem;
+  border: 0.2rem solid transparent;
   cursor: pointer;
   transition: all var(--ease);
 }
-
 .panel__color-swatch:hover {
   transform: scale(1.12);
 }
-
 .panel__color-swatch--active {
   border-color: var(--color-primary);
-  outline: 2px solid rgba(78, 205, 196, 0.25);
-  outline-offset: 1px;
+  outline: 0.2rem solid rgba(78, 205, 196, 0.25);
+  outline-offset: 0.1rem;
 }
-
 .panel__color-custom {
-  margin-top: 8px;
+  margin-top: 0.8rem;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.8rem;
 }
-
 .panel__color-picker {
-  width: 32px;
-  height: 28px;
+  width: 3.2rem;
+  height: 2.8rem;
   border: none;
-  border-radius: 4px;
+  border-radius: 0.4rem;
   cursor: pointer;
   background: none;
   padding: 0;
 }
-
 .panel__color-hex {
-  font-size: 11px;
+  font-size: 1.1rem;
   color: var(--text-muted);
 }
-
 .panel__canvas-colors {
-  margin-top: 8px;
+  margin-top: 0.8rem;
   display: flex;
-  gap: 16px;
+  gap: 1.6rem;
 }
-
 .panel__canvas-color {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
+  gap: 0.8rem;
+  font-size: 1.2rem;
   color: var(--text-secondary);
   cursor: pointer;
 }
-
 .panel__check {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.8rem;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 1.2rem;
   color: var(--text-secondary);
 }
-
-.panel__check input[type="checkbox"] {
+.panel__check input[type=checkbox] {
   accent-color: var(--color-primary);
 }
-
 .panel__footer {
   margin-top: auto;
-  font-size: 11px;
+  font-size: 1.1rem;
   color: var(--text-dim);
   line-height: 1.6;
   text-align: center;
@@ -598,42 +593,42 @@ input[type="range"]::-moz-range-thumb {
   margin: auto;
   background: var(--bg-surface);
   color: var(--text-primary);
-  border-radius: 16px;
-  padding: 28px;
+  border-radius: 1.6rem;
+  padding: 2.8rem;
   /* Se adapta a pantallas estrechas (móvil ~320px) sin desbordar el viewport,
      y hace scroll vertical si el contenido supera el alto disponible. */
-  width: min(460px, calc(100vw - 24px));
-  max-height: calc(100vh - 24px);
+  width: min(46rem, calc(100vw - 2.4rem));
+  max-height: calc(100vh - 2.4rem);
   overflow-y: auto;
-  border: 1px solid var(--border-main);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  border: 0.1rem solid var(--border-main);
+  box-shadow: 0 2rem 6rem rgba(0, 0, 0, 0.4);
 }
 
 .modal::backdrop {
   background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(0.4rem);
 }
 
 .modal__heading {
-  font-size: 18px;
+  font-size: 1.8rem;
   font-weight: 700;
-  margin-bottom: 4px;
+  margin-bottom: 0.4rem;
 }
 
 .modal__sub {
-  font-size: 12px;
+  font-size: 1.2rem;
   color: var(--text-muted);
-  margin-bottom: 20px;
+  margin-bottom: 2rem;
 }
 
 .modal__cancel {
-  margin-top: 12px;
+  margin-top: 1.2rem;
 }
 
 /* Export grid */
 .modal__grid {
   display: grid;
-  gap: 10px;
+  gap: 1rem;
 }
 
 .modal__grid--2col {
@@ -644,10 +639,10 @@ input[type="range"]::-moz-range-thumb {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 16px;
+  gap: 0.4rem;
+  padding: 1.6rem;
   border: none;
-  border-radius: 10px;
+  border-radius: 1rem;
   background: var(--bg-hover);
   color: var(--text-primary);
   cursor: pointer;
@@ -656,7 +651,7 @@ input[type="range"]::-moz-range-thumb {
 
 .modal__option:hover {
   background: #353850;
-  transform: translateY(-1px);
+  transform: translateY(-0.1rem);
 }
 
 .modal__option--wide {
@@ -664,7 +659,7 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .modal__option-icon {
-  font-size: 24px;
+  font-size: 2.4rem;
 }
 
 .modal__option strong {
@@ -672,27 +667,27 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .modal__option small {
-  font-size: 10px;
+  font-size: 1rem;
   color: var(--text-muted);
 }
 
 /* Ayuda */
 .modal--help {
   /* Más ancho que el modal estándar, pero igualmente limitado al viewport. */
-  width: min(620px, calc(100vw - 24px));
+  width: min(62rem, calc(100vw - 2.4rem));
   /* La lista es larga: se limita al alto de la ventana y hace scroll dentro */
   max-height: 85vh;
 }
 
 .modal__help-group {
-  margin-bottom: 18px;
+  margin-bottom: 1.8rem;
 }
 
 .modal__help-title {
-  margin-bottom: 8px;
-  font-size: 11px;
+  margin-bottom: 0.8rem;
+  font-size: 1.1rem;
   text-transform: uppercase;
-  letter-spacing: 1.5px;
+  letter-spacing: 0.15rem;
   color: var(--color-primary);
   font-weight: 700;
 }
@@ -701,13 +696,13 @@ input[type="range"]::-moz-range-thumb {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 0.7rem;
 }
 
 .modal__help-list li {
   position: relative;
-  padding-left: 14px;
-  font-size: 13px;
+  padding-left: 1.4rem;
+  font-size: 1.3rem;
   line-height: 1.5;
   color: var(--text-secondary);
 }
@@ -715,7 +710,7 @@ input[type="range"]::-moz-range-thumb {
 .modal__help-list li::before {
   content: "·";
   position: absolute;
-  left: 2px;
+  left: 0.2rem;
   color: var(--text-dim);
 }
 
@@ -726,14 +721,14 @@ input[type="range"]::-moz-range-thumb {
 
 kbd {
   display: inline-block;
-  padding: 1px 6px;
-  border: 1px solid var(--border-main);
-  border-bottom-width: 2px;
-  border-radius: 4px;
+  padding: 0.1rem 0.6rem;
+  border: 0.1rem solid var(--border-main);
+  border-bottom-width: 0.2rem;
+  border-radius: 0.4rem;
   background: var(--bg-hover);
   color: var(--text-primary);
   font-family: inherit;
-  font-size: 11px;
+  font-size: 1.1rem;
   font-weight: 600;
   line-height: 1.6;
   white-space: nowrap;
@@ -741,15 +736,15 @@ kbd {
 
 /* Emoji picker */
 .modal__emoji-group {
-  margin-bottom: 12px;
+  margin-bottom: 1.2rem;
 }
 
 .modal__emoji-label {
   display: block;
-  margin-bottom: 6px;
-  font-size: 10px;
+  margin-bottom: 0.6rem;
+  font-size: 1rem;
   text-transform: uppercase;
-  letter-spacing: 1.5px;
+  letter-spacing: 0.15rem;
   color: var(--text-muted);
   font-weight: 600;
 }
@@ -757,15 +752,15 @@ kbd {
 .modal__emoji-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  gap: 6px;
+  gap: 0.6rem;
 }
 
 .modal__emoji {
-  padding: 8px 0;
-  font-size: 24px;
+  padding: 0.8rem 0;
+  font-size: 2.4rem;
   line-height: 1.2;
-  border: 2px solid transparent;
-  border-radius: 8px;
+  border: 0.2rem solid transparent;
+  border-radius: 0.8rem;
   background: var(--bg-hover);
   cursor: pointer;
   transition: all var(--ease);
@@ -781,86 +776,100 @@ kbd {
 }
 
 .modal__emoji:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
+  outline: 0.2rem solid var(--color-primary);
+  outline-offset: 0.2rem;
 }
 
 /* Selector de forma de planta (Edificios) */
 .modal__shape-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
+  gap: 1rem;
 }
 
 /* Tres vistas de Fachada en una fila: caben porque el modal ya trae arriba la
    miniatura y los ajustes, y así la elección de vista queda en un solo golpe. */
-.modal__shape-grid--three { grid-template-columns: repeat(3, 1fr); }
-.modal__shape-grid--three .modal__shape { padding: 12px 6px; gap: 6px; }
+.modal__shape-grid--three {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.modal__shape-grid--three .modal__shape {
+  padding: 1.2rem 0.6rem;
+  gap: 0.6rem;
+}
 
 /* En pantallas muy estrechas (~320px) las dos columnas no caben: una sola. */
 @media (max-width: 360px) {
   .modal__shape-grid,
-  .modal__shape-grid--three { grid-template-columns: 1fr; }
+  .modal__shape-grid--three {
+    grid-template-columns: 1fr;
+  }
 }
-
 /* ── Modal de Fachada: miniatura en vivo + ajustes de Edificios ──
    Los cuatro ajustes viven a la vez aquí y en el panel (app.js los mantiene
    sincronizados); tenerlos junto a la miniatura evita elegir a ciegas. */
 .modal__build {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 14px;
-  margin-bottom: 18px;
+  gap: 1.4rem;
+  margin-bottom: 1.8rem;
 }
 
 /* Fondo claro como el del lienzo: sobre el modal oscuro, un trazo de color
    oscuro (el que se va a dibujar) sería invisible. */
 .modal__preview {
-  width: 176px;
-  height: 168px;
-  border: 1px solid var(--border-main);
-  border-radius: 8px;
+  width: 17.6rem;
+  height: 16.8rem;
+  border: 0.1rem solid var(--border-main);
+  border-radius: 0.8rem;
 }
 
 .modal__build-fields {
   display: grid;
-  gap: 10px;
+  gap: 1rem;
   align-content: start;
 }
 
 .modal__field-label,
 .modal__legend {
-  font-size: 11px;
+  font-size: 1.1rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
-.modal__legend { margin-bottom: 8px; }
+.modal__legend {
+  margin-bottom: 0.8rem;
+}
 
 /* Ajuste que la vista elegida ignora (la cubierta en la fachada plana, o el
    tipo de cubierta en el perfil, que siempre lleva la suya trapezoidal). */
-.modal__field--off { opacity: 0.4; }
+.modal__field--off {
+  opacity: 0.4;
+}
 
 /* Apilado en modales estrechos: la miniatura pasa a ocupar todo el ancho. */
 @media (max-width: 420px) {
-  .modal__build { grid-template-columns: 1fr; }
-  .modal__preview { width: 100%; }
+  .modal__build {
+    grid-template-columns: 1fr;
+  }
+  .modal__preview {
+    width: 100%;
+  }
 }
-
 .modal__shape {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 16px 10px;
-  border: 2px solid transparent;
-  border-radius: 10px;
+  gap: 1rem;
+  padding: 1.6rem 1rem;
+  border: 0.2rem solid transparent;
+  border-radius: 1rem;
   background: var(--bg-hover);
   color: var(--text-primary);
   font-family: var(--font-ui);
-  font-size: 13px;
+  font-size: 1.3rem;
   font-weight: 600;
   cursor: pointer;
   transition: all var(--ease);
@@ -871,8 +880,8 @@ kbd {
 }
 
 .modal__shape svg {
-  width: 46px;
-  height: 34px;
+  width: 4.6rem;
+  height: 3.4rem;
   color: var(--text-secondary);
 }
 
@@ -883,9 +892,9 @@ kbd {
    información útil—, así que la variante activa se distingue por el borde y el
    fondo de .modal__shape--active. */
 .modal__shape-icon {
-  width: 56px;
-  height: 48px;
-  border-radius: 4px;
+  width: 5.6rem;
+  height: 4.8rem;
+  border-radius: 0.4rem;
 }
 
 .modal__shape-name {
@@ -898,7 +907,7 @@ kbd {
 .modal__shape-note {
   text-align: center;
   line-height: 1.2;
-  font-size: 0.72rem;
+  font-size: 1.152rem;
   opacity: 0.7;
 }
 
@@ -912,24 +921,24 @@ kbd {
 }
 
 .modal__shape:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
+  outline: 0.2rem solid var(--color-primary);
+  outline-offset: 0.2rem;
 }
 
 /* Templates list */
 .modal__list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 1rem;
 }
 
 .modal__template {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
+  gap: 1.2rem;
+  padding: 1.4rem 1.6rem;
   border: none;
-  border-radius: 10px;
+  border-radius: 1rem;
   background: var(--bg-hover);
   color: var(--text-primary);
   text-align: left;
@@ -939,26 +948,25 @@ kbd {
 
 .modal__template:hover {
   background: #353850;
-  transform: translateX(2px);
+  transform: translateX(0.2rem);
 }
 
 .modal__template-icon {
-  font-size: 28px;
+  font-size: 2.8rem;
 }
 
 .modal__template strong {
   display: block;
-  font-size: 14px;
+  font-size: 1.4rem;
   font-weight: 700;
 }
 
 .modal__template small {
-  font-size: 11px;
+  font-size: 1.1rem;
   color: var(--text-muted);
 }
 
 /* ── Responsive mínimo ── */
-
 /* En portátiles estrechos (sidebar 72 + canvas 1200 + panel 220 desbordan)
    el panel derecho se colapsa; sus controles clave siguen accesibles por
    atajos de teclado */
@@ -966,6 +974,7 @@ kbd {
 .panel-toggle {
   display: none;
 }
+
 .panel-backdrop {
   display: none;
   position: fixed;
@@ -986,7 +995,7 @@ kbd {
     z-index: 50;
     transform: translateX(100%);
     transition: transform 0.2s ease;
-    box-shadow: -8px 0 40px rgba(0, 0, 0, 0.4);
+    box-shadow: -0.8rem 0 4rem rgba(0, 0, 0, 0.4);
   }
   .app--panel-open .panel {
     transform: translateX(0);
@@ -998,10 +1007,9 @@ kbd {
     display: inline-flex;
   }
 }
-
 /* ── Scrollbar ── */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 0.6rem;
 }
 
 ::-webkit-scrollbar-track {
@@ -1010,5 +1018,5 @@ kbd {
 
 ::-webkit-scrollbar-thumb {
   background: var(--bg-hover);
-  border-radius: 3px;
+  border-radius: 0.3rem;
 }

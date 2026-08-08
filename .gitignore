@@ -10,9 +10,18 @@ Thumbs.db
 # Logs
 *.log
 
-# Dependencias (solo las usa la suite e2e de Playwright; la app sigue sin
-# ninguna: index.html carga sus <script> directamente)
+# Dependencias de desarrollo (suite e2e de Playwright y compilación de
+# estilos con Gulp + Sass). La app en runtime sigue sin ninguna: index.html
+# carga sus <script> y css/styles.css directamente.
 node_modules/
+
+# Estilos: css/styles.css (compilado desde src/scss/) SÍ va commiteado para
+# que «clonar y abrir index.html» siga funcionando; sourcemaps no se generan.
+*.map
+.sass-cache/
+
+# Artefacto de publicación: se regenera con `npm run build`
+/dist/
 
 # Playwright: navegadores, informes y artefactos de ejecución
 /test-results/

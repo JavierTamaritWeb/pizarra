@@ -1,0 +1,41 @@
+/* ── Reset ── */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* 1rem = 10px: la raíz baja al 62.5% del tamaño por defecto del navegador
+   (16px × 0.625 = 10px) y todas las distancias de la app se escriben en rem;
+   body restaura los 16px efectivos (1.6rem) para el texto que no fija tamaño.
+   Si el usuario sube la fuente del navegador, la interfaz escala con ella
+   (el lienzo no: sus coordenadas son px de canvas, fijadas por JS). Los
+   breakpoints de las media queries siguen en px a propósito. */
+html {
+  font-size: 62.5%;
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: 1.6rem;
+  color: var(--text-primary);
+  background: var(--bg-app);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 0.4rem;
+  border-radius: 0.2rem;
+  background: var(--bg-hover);
+}
