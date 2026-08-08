@@ -20,9 +20,14 @@ const ENTRY = 'src/scss/main.scss';
 const OUT = 'css/styles.css';
 
 /* Publicable = lo que la app necesita en runtime + la licencia (MIT pide
-   acompañar el código distribuido). docs/, tests y config de dev se quedan. */
+   acompañar el código distribuido). Tests y config de dev se quedan. */
 const DIST = 'dist';
 const JS_SRC = 'src/js';
+const IMG_SRC = 'src/img';
+
+/* Imágenes que viven en src/img/ pero no las necesita la app: el PNG del que
+   se derivan todos los iconos y las capturas que ilustran el README. */
+const IMG_SKIP = /icon-source-512\.png$|screenshot-/;
 
 function compile() {
   // style: 'expanded' conserva los comentarios /* */ del fuente; dart-sass
@@ -46,21 +51,21 @@ async function copyDist() {
   // referencia como ../fonts/, que resuelve igual en la raíz y en dist/.
   fs.cpSync('fonts', path.join(DIST, 'fonts'), { recursive: true });
 
-  // Iconos y manifiesto: index.html los referencia con rutas relativas, así
-  // que basta copiarlos con la misma estructura. El .png fuente se queda
-  // fuera del publicable (solo sirve para regenerar los tamaños).
-  fs.cpSync('icons', path.join(DIST, 'icons'), {
+  // Iconos: como los scripts, viven en src/ durante el desarrollo y en el
+  // publicable van planos (dist/img/). El manifiesto viaja con ellos.
+  fs.cpSync(IMG_SRC, path.join(DIST, 'img'), {
     recursive: true,
-    filter: src => !src.endsWith('icon-source-512.png'),
+    filter: src => fs.statSync(src).isDirectory() || !IMG_SKIP.test(src),
   });
-  fs.copyFileSync('favicon.ico', path.join(DIST, 'favicon.ico'));
-  fs.copyFileSync('site.webmanifest', path.join(DIST, 'site.webmanifest'));
+  const manifest = fs.readFileSync('site.webmanifest', 'utf8');
+  fs.writeFileSync(path.join(DIST, 'site.webmanifest'), manifest.replaceAll('src/img/', 'img/'));
 
-  // El publicable es plano: los scripts van en dist/js/, así que las rutas
-  // src/js/ del index de desarrollo se aplanan. Es la única transformación
-  // que sufre el HTML.
+  // El publicable es plano: scripts en dist/js/ e imágenes en dist/img/, así
+  // que las rutas src/ del index de desarrollo se aplanan. Es la única
+  // transformación que sufre el HTML.
   const html = fs.readFileSync('index.html', 'utf8');
-  fs.writeFileSync(path.join(DIST, 'index.html'), html.replaceAll('src="src/js/', 'src="js/'));
+  fs.writeFileSync(path.join(DIST, 'index.html'),
+    html.replaceAll('src="src/js/', 'src="js/').replaceAll('src/img/', 'img/'));
 
   // CSS de publicación: la misma fuente, comprimida.
   const min = sass.compile(ENTRY, { style: 'compressed' });

@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.1.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.1.1 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.1\.0</);
-  assert.match(html, /css\/styles\.css\?v=2\.1\.0/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.1\.0/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.1\.0/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.1\.0/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.1\.0/);
+  assert.match(html, /class="topbar__badge">v2\.1\.1</);
+  assert.match(html, /css\/styles\.css\?v=2\.1\.1/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.1\.1/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.1\.1/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.1\.1/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.1\.1/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -187,4 +187,25 @@ test('todos los iconos referenciados existen y miden lo que declaran', () => {
   const [lw, lh] = pngSize(src);
   assert.equal(lw, lh, `${src} debe ser cuadrado`);
   assert.ok(lw >= 64, `${src} debe cubrir pantallas 2x sobre sus 32 px de caja`);
+});
+
+// Todas las imágenes viven en src/img/. Una suelta en la raíz o en una carpeta
+// propia funcionaría igual en desarrollo y desaparecería del publicable: el
+// build solo aplana src/img/ → img/, no sabe de ninguna otra ruta.
+test('no hay imágenes fuera de src/img/', () => {
+  const root = path.resolve(__dirname, '..');
+  const SKIP = new Set(['node_modules', 'dist', '.git', 'test-results',
+                        'playwright-report', 'src']);
+  const IMG = /\.(png|jpe?g|gif|webp|svg|ico|avif)$/i;
+  const walk = dir => fs.readdirSync(dir, { withFileTypes: true }).flatMap(e => {
+    const full = path.join(dir, e.name);
+    if (e.isDirectory()) return SKIP.has(e.name) ? [] : walk(full);
+    return IMG.test(e.name) ? [path.relative(root, full)] : [];
+  });
+  assert.deepEqual(walk(root), [], 'mueve estas imágenes a src/img/');
+  // Y dentro de src/ solo puede haberlas en img/.
+  const inSrc = fs.readdirSync(path.join(root, 'src'), { withFileTypes: true })
+    .filter(e => e.name !== 'img')
+    .flatMap(e => e.isDirectory() ? walk(path.join(root, 'src', e.name)) : []);
+  assert.deepEqual(inSrc, [], 'mueve estas imágenes a src/img/');
 });

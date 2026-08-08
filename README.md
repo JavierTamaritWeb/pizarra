@@ -4,14 +4,14 @@
 
 **Wireframes, diagramas y bocetos con estética dibujada a mano — en el navegador y sin instalar nada.**
 
-[![Versión](https://img.shields.io/badge/versión-2.1.0-blueviolet?style=flat-square)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-2.1.1-blueviolet?style=flat-square)](CHANGELOG.md)
 [![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?style=flat-square&logo=javascript&logoColor=000)](src/js/)
 [![Estilos](https://img.shields.io/badge/estilos-SCSS%20·%20BEM%20·%20Gulp%205-cf649a?style=flat-square&logo=sass&logoColor=fff)](src/scss/)
 [![Dependencias](https://img.shields.io/badge/dependencias%20en%20runtime-0-brightgreen?style=flat-square)](#arquitectura)
-[![Tests](https://img.shields.io/badge/tests-400%20unitarios%20%2B%2026%20e2e-brightgreen?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-401%20unitarios%20%2B%2026%20e2e-brightgreen?style=flat-square)](#tests)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue?style=flat-square)](LICENSE)
 
-<img src="docs/pizarra.png" alt="La interfaz de Pizarra: barra de herramientas a la izquierda, lienzo con un wireframe de landing page dibujado a mano en el centro y panel de ajustes a la derecha" width="900">
+<img src="src/img/screenshot-pizarra.png" alt="La interfaz de Pizarra: barra de herramientas a la izquierda, lienzo con un wireframe de landing page dibujado a mano en el centro y panel de ajustes a la derecha" width="900">
 
 </div>
 
@@ -88,7 +88,7 @@ Para *usar* la app no hay nada que instalar ni compilar: el CSS ya viene compila
 
 Dos secciones para bocetar arquitectura y entorno con la misma estética. Ninguna introduce tipos de elemento nuevos: cada arrastre produce líneas, rectángulos, círculos, curvas y texto corrientes, así que la exportación, el undo y el JSON funcionan igual que con el resto del dibujo.
 
-<img src="docs/edificios-jardin.png" alt="Un alzado de edificio de tres plantas con tejado a dos aguas, rodeado de una parcela con árboles, parterre, fuente y seto, todos etiquetados" width="820">
+<img src="src/img/screenshot-edificios-jardin.png" alt="Un alzado de edificio de tres plantas con tejado a dos aguas, rodeado de una parcela con árboles, parterre, fuente y seto, todos etiquetados" width="820">
 
 **Edificios** (alzado) — planta, fachada, tejado, puerta, ventana y balcón. La fachada abre un modal con **miniatura en vivo**, tres vistas y los ajustes de plantas, ventanas por planta, pendiente y cubierta, todos sincronizados con el panel lateral. El balcón trae **8 tipos** y su catálogo, como los del jardín, usa **el dibujo real como icono**.
 
@@ -179,10 +179,10 @@ Las herramientas que abren catálogo (Edificios y Jardín) muestran su modal de 
 index.html               Shell de la app (carga src/js/ en orden de dependencia)
 css/styles.css           Estilos compilados (artefacto de src/scss/ — no editar a mano)
 fonts/                   OpenDyslexic autoalojada (woff2 + licencia SIL OFL)
-icons/                   Favicon, apple-touch, maskable, logo de la topbar + PNG fuente
-favicon.ico              Icono multi-resolución (16/32/48) en la raíz
 site.webmanifest         Manifiesto: nombre, colores e iconos para instalar la app
 src/
+├── img/                  Todas las imágenes: favicon.ico, el juego de iconos,
+│                        el logo de la topbar, el PNG fuente y las capturas
 ├── scss/                Fuente de los estilos: SCSS con BEM
 │   ├── abstracts/       _variables (tokens), _fonts (tipografías), _breakpoints, _mixins
 │   ├── base/            _tokens (custom properties), _reset, _focus, …

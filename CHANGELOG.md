@@ -4,6 +4,24 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.1.1] — 2026-08-08
+
+### Cambiado
+
+- **Todas las imágenes viven ahora en `src/img/`**, junto a `src/scss/` y
+  `src/js/`: el juego de iconos, `favicon.ico`, el logo de la topbar, el PNG
+  fuente y las capturas del README. Desaparecen las carpetas `icons/` y
+  `docs/` y no queda nada con forma de imagen en la raíz.
+- `npm run build` aplana `src/img/` a `dist/img/` igual que ya hacía con
+  `src/js/` → `dist/js/`, y reescribe también las rutas de
+  `site.webmanifest` (sus `src` se resuelven relativos al propio
+  manifiesto, no al documento).
+- Las capturas del README pasan a llamarse `screenshot-*`: es el prefijo por
+  el que `IMG_SKIP` las deja fuera del publicable.
+- Guard en `tests/smoke.test.js`: no puede haber imágenes fuera de
+  `src/img/`. Una suelta en la raíz funcionaría en desarrollo y
+  desaparecería del publicable, porque el build solo conoce esa ruta.
+
 ## [2.1.0] — 2026-08-08
 
 ### Añadido
