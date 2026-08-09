@@ -4,11 +4,11 @@
 
 **Wireframes, diagramas y bocetos con estética dibujada a mano — en el navegador y sin instalar nada.**
 
-[![Versión](https://img.shields.io/badge/versión-2.6.0-blueviolet?style=flat-square)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-2.7.1-blueviolet?style=flat-square)](CHANGELOG.md)
 [![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?style=flat-square&logo=javascript&logoColor=000)](src/js/)
 [![Estilos](https://img.shields.io/badge/estilos-SCSS%20·%20BEM%20·%20Gulp%205-cf649a?style=flat-square&logo=sass&logoColor=fff)](src/scss/)
 [![Dependencias](https://img.shields.io/badge/dependencias%20en%20runtime-0-brightgreen?style=flat-square)](#arquitectura)
-[![Tests](https://img.shields.io/badge/tests-462%20unitarios%20%2B%2031%20e2e-brightgreen?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-477%20unitarios%20%2B%2036%20e2e-brightgreen?style=flat-square)](#tests)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue?style=flat-square)](LICENSE)
 
 <img src="src/img/screenshot-pizarra.png" alt="La interfaz de Pizarra: barra de herramientas a la izquierda, lienzo con un wireframe de landing page dibujado a mano en el centro y panel de ajustes a la derecha" width="900">
@@ -92,7 +92,7 @@ Dos secciones para bocetar arquitectura y entorno con la misma estética. Ningun
 
 **Edificios** — planta, fachada, tejado, puerta, ventana, balcón, muro, verjas y cancela. La fachada abre un modal con **miniatura en vivo**, tres vistas y los ajustes de plantas, ventanas por planta, pendiente y cubierta, todos sincronizados con el panel lateral. El balcón trae **8 tipos** y su catálogo, como los del jardín, usa **el dibujo real como icono**. El muro se dibuja en **vista de planta o de alzado**, en piedra, hormigón o ladrillo cara vista, con verja opcional arriba y **dieciocho cancelas** a elegir. La herramienta **Verjas** dibuja paños independientes en planta o alzado, ofrece trece diseños de forja con lanzas —incluidos seis inspirados en tradiciones españolas— y regula su altura entre **0 y 350 cm** mediante una miniatura en vivo. Los trece remates tienen hojas diferentes —lanceolada, aguja, ojiva, rombo, laurel, llama, palmeta, hoja facetada, flor de lis, piramidión, cáliz, corazón y rocalla— sin abandonar el repertorio clásico de los maestros forjadores. La herramienta **Cancela** permite colocar cualquiera de los dieciocho estilos como elemento autónomo, en planta o alzado y con altura regulable de **0 a 350 cm**.
 
-**Jardín** (vista de planta) — parcela, árboles, arbustos, flores, decoración, caminos y aromáticas: **46 variantes** en siete catálogos. En los catálogos **el icono es el dibujo real**, porque lo pinta la misma geometría que crea la herramienta: no puede engañar.
+**Jardín** — **58 variantes en ocho catálogos**, incluidas **40 especies vegetales** documentadas con nombre botánico y dimensiones adultas. Árboles, arbustos, flores, aromáticas y trepadoras se representan en **planta o alzado**, con etapa joven/en desarrollo/adulta, tamaño 50–150 %, escala 8–50 px/m, color natural o tinta y tres tipos de etiqueta. Parcela, decoración y caminos conservan la planta cenital. En todos los catálogos **el icono es el dibujo real**, conserva la proporción botánica de la especie y mantiene rasgos reconocibles —por ejemplo, el ciprés fastigiado en llama o el pino piñonero aparasolado— aunque el trazo siga siendo esquemático.
 
 Cada edificio y cada pieza de jardín se crea como una **unidad** — un clic la selecciona entera para mover, duplicar o borrar, y el **doble clic** desciende a una parte suelta (`Alt`+clic es el atajo). Todo gesto tiene su vía de un solo puntero: es una regla del proyecto.
 
@@ -111,14 +111,15 @@ Cada edificio y cada pieza de jardín se crea como una **unidad** — un clic la
 | **Verjas** | Planta o alzado · 13 diseños de forja con lanzas · altura de 0 a 350 cm |
 | **Cancela** | Planta o alzado · 18 estilos clásicos y monumentales · altura de 0 a 350 cm |
 | **Jardín** (`8`) | Parcela rectangular · cuadrada · redonda · en L · orgánica, con textura de césped |
-| **Árbol** (`9`) | Frondoso · conífera · palmera · olivo · almendro · algarrobo · frutal · ciprés |
-| **Arbusto** (`H`) | Mata redonda · seto · macizo · topiario · adelfa · boj recortado · lentisco |
-| **Flor** (`X`) | Margarita · rosa · tulipán · parterre · girasol |
+| **Árbol** (`9`) | Encina · pino piñonero · palmera datilera · olivo · almendro · algarrobo · naranjo · ciprés · higuera · granado · limonero · jacaranda |
+| **Arbusto** (`H`) | Mirto · seto de mirto y lentisco · alcaparra · olivo topiario · romero arbustivo · olivo recortado · lentisco · madroño · jara blanca |
+| **Flor** (`X`) | Caléndula · rosa siempreverde · estátice mediterráneo · macizo mediterráneo · boca de dragón |
 | **Decoración** (`Z`) | Maceta · pozo · regadera · piedra · banco · fuente · reloj de sol (de suelo o de pared) · estanque |
 | **Caminos** | Serpenteante o recto, liso o empedrado — las cuatro combinaciones. Del arrastre salen las dos cosas: el **recorrido** por el lado largo y el **grosor** por el corto. Marcando **«Cualquier inclinación»** el recorrido sigue el ángulo exacto del gesto —rotulado junto al puntero mientras arrastras— y el **ancho** pasa a su deslizador, con miniatura en vivo. Todo desde el propio catálogo y sin mantener ninguna tecla |
 | **Aromáticas** | Lavanda · romero · tomillo · salvia · santolina · agave · aloe · chumbera |
+| **Trepadoras** | Buganvilla · jazmín · parra · glicinia · hiedra · rosal trepador |
 
-Cada pieza de jardín nace con una **etiqueta** que la nombra, dentro del mismo grupo (se mueve y se borra con ella); se apaga con la casilla «Etiquetas» del panel. El tamaño por defecto depende del tipo: un seto o un camino nacen alargados, una flor suelta menuda.
+Cada pieza de jardín nace con una **etiqueta** dentro del mismo grupo (se mueve y se borra con ella); puede mostrar nombre común, nombre botánico o dimensiones. Al seleccionar una planta completa aparece **«Editar planta»**, que reabre su ficha y permite sustituir especie o representación en la misma posición; toda la sustitución se deshace en un paso. El tamaño por defecto depende de las dimensiones de la especie y de la escala elegida.
 
 </details>
 
@@ -162,7 +163,7 @@ Cada pieza de jardín nace con una **etiqueta** que la nombra, dentro del mismo 
 | `T` `J` `B` `I` `M` `N` `K` | Texto · Emoji · Botón · Input · Imagen · Navbar · Tarjeta |
 | `V` | Mover / seleccionar |
 | `W` `1` `2` `0` `Y` | Edificios: Planta · Fachada · Tejado · Puerta · Ventana (Balcón, Muro, Verjas y Cancela no tienen atajo) |
-| `8` `9` `H` `X` `Z` | Jardín: Jardín · Árbol · Arbusto · Flor · Decoración (Caminos y Aromáticas van sin atajo) |
+| `8` `9` `H` `X` `Z` | Jardín: Jardín · Árbol · Arbusto · Flor · Decoración (Caminos, Aromáticas y Trepadoras van sin atajo) |
 | `Ctrl/Cmd+Z` · `Ctrl+Y` o `Cmd+Shift+Z` | Deshacer · rehacer |
 | `Ctrl/Cmd+D` · `Ctrl/Cmd+A` | Duplicar · seleccionar todo |
 | `Ctrl/Cmd+C` · `Ctrl/Cmd+V` | Copiar selección · pegarla (o pegar una imagen del portapapeles) |
@@ -174,7 +175,7 @@ Cada pieza de jardín nace con una **etiqueta** que la nombra, dentro del mismo 
 | `+` · `−` (+`Shift`) | Ajustar curvatura — en semicírculos, el radio (fino) |
 | `?` | Abrir la ayuda con todos los atajos |
 
-Las herramientas que abren catálogo (Edificios y Jardín) muestran su modal de tipos al pulsar el atajo. **Balcón**, **Muro**, **Verjas**, **Cancela**, **Caminos** y **Aromáticas** son las únicas sin atajo: ya no queda ninguna tecla suelta libre.
+Las herramientas que abren catálogo (Edificios y Jardín) muestran su modal de tipos al pulsar el atajo. **Balcón**, **Muro**, **Verjas**, **Cancela**, **Caminos**, **Aromáticas** y **Trepadoras** no tienen atajo: ya no queda ninguna tecla suelta libre.
 
 ## Arquitectura
 
@@ -201,7 +202,7 @@ src/
     ├── trapezoid.js     Geometría y rotación del trapecio
     ├── eraser.js        Qué elementos toca un trazo de borrador
     ├── building.js      Geometría de la sección Edificios
-    ├── garden.js        Geometría de la sección Jardín, en vista de planta
+    ├── garden.js        Geometría paisajística del Jardín, en planta y alzado
     ├── renderer.js      Render por tipo de elemento + cuadrícula + selección
     ├── exporter.js      Export PNG/JPG/SVG/HTML/JSON + import validado
     ├── templates.js     Plantillas predefinidas
@@ -242,7 +243,7 @@ Cuatro convenciones que conviene conocer:
 
 ## Tests
 
-**462 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
+**477 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
 de runtime:
 
 ```bash
@@ -252,7 +253,7 @@ node --test tests/exporter.test.js    # un archivo
 
 Los módulos se cargan en un contexto `node:vm` con stubs de canvas y DOM, incluido `src/js/app.js` completo: los tests lanzan gestos reales —puntero, teclado, modales— y leen el resultado del autoguardado, sin ningún hook de test en el código de producción.
 
-**31 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco, acciones por defecto del navegador y los flujos completos de Verjas y Cancela.
+**36 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco, acciones por defecto del navegador, los flujos completos de Verjas y Cancela y el Jardín botánico en escritorio, móvil y anchos intermedios.
 
 ```bash
 npm install && npm run e2e:install    # una vez (descarga Chromium)

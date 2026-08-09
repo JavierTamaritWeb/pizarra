@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=2.6.0" />
+  <link rel="stylesheet" href="css/styles.css?v=2.7.1" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.6.0" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.7.1" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v2.6.0</span>
+        <span class="topbar__badge">v2.7.1</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes" aria-expanded="false" aria-controls="side-panel">
@@ -241,6 +241,9 @@
         <!-- Info -->
         <section class="panel__section panel__section--border">
           <h3 class="panel__title" aria-live="polite">Elementos: <span id="el-count">0</span></h3>
+          <button class="btn btn--ghost btn--block" id="btn-edit-garden" hidden>
+            🌿 Editar planta
+          </button>
           <button class="btn btn--ghost btn--block" id="btn-duplicate-sel" hidden>
             ⧉ Duplicar selección
           </button>
@@ -429,12 +432,13 @@
       <section class="modal__help-group">
         <h4 class="modal__help-title">🌳 Jardín</h4>
         <ul class="modal__help-list">
-          <li><strong>Jardín</strong> (<kbd>8</kbd>), <strong>Árbol</strong> (<kbd>9</kbd>), <strong>Arbusto</strong> (<kbd>H</kbd>), <strong>Flor</strong> (<kbd>X</kbd>), <strong>Decoración</strong> (<kbd>Z</kbd>) y <strong>Aromáticas</strong>: cada una abre su catálogo; elige un tipo y arrastra en el lienzo</li>
-          <li><strong>Aromáticas</strong> reúne las matas de siempre (lavanda, romero, tomillo, salvia, santolina) y las mediterráneas de roseta (agave, aloe, chumbera). Es el único botón sin atajo: no quedaban teclas sueltas libres</li>
-          <li>Todo se dibuja en <strong>vista de planta</strong> (desde arriba), como un plano de paisajismo: los árboles son su copa, los arbustos su mata y el pozo su brocal</li>
+          <li><strong>Jardín</strong> (<kbd>8</kbd>), <strong>Árbol</strong> (<kbd>9</kbd>), <strong>Arbusto</strong> (<kbd>H</kbd>), <strong>Flor</strong> (<kbd>X</kbd>), <strong>Decoración</strong> (<kbd>Z</kbd>), <strong>Aromáticas</strong> y <strong>Trepadoras</strong>: cada una abre su catálogo; elige un tipo y dibuja en el lienzo</li>
+          <li>Las <strong>40 especies vegetales</strong> ofrecen vista de <strong>planta o alzado</strong>, etapa joven/en desarrollo/adulta, escala 8–50 px/m, tamaño 50–150 %, color natural y etiquetas comunes, botánicas o acotadas</li>
+          <li>Parcela, decoración y caminos mantienen la <strong>vista de planta</strong> propia del plano paisajístico; el alzado de las plantas enseña troncos, portes, floraciones y soportes de trepadoras</li>
           <li>En los catálogos, el <strong>icono es el dibujo real</strong> que vas a obtener, no una ilustración aparte</li>
           <li>Cada pieza nace con una <strong>etiqueta</strong> que la nombra; se apaga en el panel <strong>Jardín</strong> y la elección se recuerda</li>
           <li>Cada pieza se crea como una <strong>unidad</strong> (dibujo + etiqueta): un clic la selecciona entera; doble clic sobre una parte la aísla (<kbd>Alt</kbd>+clic es el atajo)</li>
+          <li>Al seleccionar una planta completa aparece <strong>«Editar planta»</strong>: reabre su ficha para cambiar especie y representación sin recolocarla; <strong>Deshacer</strong> revierte todo en un paso</li>
           <li>El tamaño por defecto depende del tipo: un <strong>seto</strong> nace apaisado, un <strong>camino</strong> vertical y una <strong>flor</strong> suelta, menuda</li>
           <li>En el <strong>camino</strong>, del arrastre salen las dos cosas: el <strong>recorrido</strong> va por el lado largo y el <strong>grosor</strong> por el corto, así que moviendo el ratón en perpendicular lo engordas mientras lo dibujas</li>
           <li>Si arrastras en línea recta o solo haces clic, el grosor lo pone el <strong>ancho del camino</strong>, que se recuerda</li>
@@ -730,7 +734,7 @@
   </dialog>
 
   <!-- ===== MODALES: JARDÍN =====
-       Los siete comparten plantilla y los rellena app.js (buildGardenCatalog)
+       Los ocho comparten plantilla y los rellena app.js (buildVariantCatalog)
        desde VARIANT_MODALS (src/js/app.js). Sus iconos no son SVG dibujados a mano: los pinta la
        geometría real de src/js/garden.js, así que enseñan lo que van a crear. -->
   <dialog class="modal" id="modal-plot" aria-labelledby="modal-plot-title">
@@ -740,23 +744,26 @@
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
   </dialog>
 
-  <dialog class="modal" id="modal-tree" aria-labelledby="modal-tree-title">
+  <dialog class="modal modal--plant" id="modal-tree" aria-labelledby="modal-tree-title">
       <h3 class="modal__heading" id="modal-tree-title">Tipo de árbol</h3>
-      <p class="modal__sub">Vista desde arriba: elige la especie y arrástrala</p>
+      <p class="modal__sub">Elige planta o alzado, etapa, escala y una especie botánica</p>
+      <div id="tree-catalog-controls"></div>
       <div id="tree-catalog"></div>
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
   </dialog>
 
-  <dialog class="modal" id="modal-shrub" aria-labelledby="modal-shrub-title">
+  <dialog class="modal modal--plant" id="modal-shrub" aria-labelledby="modal-shrub-title">
       <h3 class="modal__heading" id="modal-shrub-title">Tipo de arbusto</h3>
-      <p class="modal__sub">Vista desde arriba: elige el tipo y arrástralo</p>
+      <p class="modal__sub">Compara el porte adulto en planta o alzado paisajístico</p>
+      <div id="shrub-catalog-controls"></div>
       <div id="shrub-catalog"></div>
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
   </dialog>
 
-  <dialog class="modal" id="modal-flower" aria-labelledby="modal-flower-title">
+  <dialog class="modal modal--plant" id="modal-flower" aria-labelledby="modal-flower-title">
       <h3 class="modal__heading" id="modal-flower-title">Tipo de flor</h3>
-      <p class="modal__sub">Vista desde arriba: elige el tipo y arrástralo</p>
+      <p class="modal__sub">Flores a escala, en planta o alzado, con nombre y dimensiones</p>
+      <div id="flower-catalog-controls"></div>
       <div id="flower-catalog"></div>
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
   </dialog>
@@ -796,10 +803,19 @@
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
   </dialog>
 
-  <dialog class="modal" id="modal-herb" aria-labelledby="modal-herb-title">
+  <dialog class="modal modal--plant" id="modal-herb" aria-labelledby="modal-herb-title">
       <h3 class="modal__heading" id="modal-herb-title">Aromáticas y mediterráneas</h3>
-      <p class="modal__sub">Vista desde arriba: elige la planta y arrástrala</p>
+      <p class="modal__sub">Elige la especie, su etapa y la representación paisajística</p>
+      <div id="herb-catalog-controls"></div>
       <div id="herb-catalog"></div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
+  <dialog class="modal modal--plant" id="modal-climber" aria-labelledby="modal-climber-title">
+      <h3 class="modal__heading" id="modal-climber-title">Trepadoras</h3>
+      <p class="modal__sub">Vegetación vertical para muros, fachadas, verjas y pérgolas</p>
+      <div id="climber-catalog-controls"></div>
+      <div id="climber-catalog"></div>
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
   </dialog>
 
@@ -834,19 +850,19 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=2.6.0"></script>
-  <script src="src/js/sketchy.js?v=2.6.0"></script>
-  <script src="src/js/arc.js?v=2.6.0"></script>
-  <script src="src/js/curve-path.js?v=2.6.0"></script>
-  <script src="src/js/shape-rotation.js?v=2.6.0"></script>
-  <script src="src/js/regular-polygon.js?v=2.6.0"></script>
-  <script src="src/js/trapezoid.js?v=2.6.0"></script>
-  <script src="src/js/eraser.js?v=2.6.0"></script>
-  <script src="src/js/building.js?v=2.6.0"></script>
-  <script src="src/js/garden.js?v=2.6.0"></script>
-  <script src="src/js/renderer.js?v=2.6.0"></script>
-  <script src="src/js/exporter.js?v=2.6.0"></script>
-  <script src="src/js/templates.js?v=2.6.0"></script>
-  <script src="src/js/app.js?v=2.6.0"></script>
+  <script src="src/js/config.js?v=2.7.1"></script>
+  <script src="src/js/sketchy.js?v=2.7.1"></script>
+  <script src="src/js/arc.js?v=2.7.1"></script>
+  <script src="src/js/curve-path.js?v=2.7.1"></script>
+  <script src="src/js/shape-rotation.js?v=2.7.1"></script>
+  <script src="src/js/regular-polygon.js?v=2.7.1"></script>
+  <script src="src/js/trapezoid.js?v=2.7.1"></script>
+  <script src="src/js/eraser.js?v=2.7.1"></script>
+  <script src="src/js/building.js?v=2.7.1"></script>
+  <script src="src/js/garden.js?v=2.7.1"></script>
+  <script src="src/js/renderer.js?v=2.7.1"></script>
+  <script src="src/js/exporter.js?v=2.7.1"></script>
+  <script src="src/js/templates.js?v=2.7.1"></script>
+  <script src="src/js/app.js?v=2.7.1"></script>
 </body>
 </html>

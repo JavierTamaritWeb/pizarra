@@ -18,7 +18,7 @@ test('config.js — TOOLS', async t => {
     assert.equal(Object.isFrozen(ctx.TOOLS), true);
   });
 
-  await t.test('TOOLS tiene exactamente los 39 ids esperados', () => {
+  await t.test('TOOLS tiene exactamente los 40 ids esperados', () => {
     const expected = [
       'pencil', 'line', 'rect', 'roundedRect', 'circle', 'arrow',
       'curveArrow', 'arc', 'text', 'eraser', 'select', 'imagePlaceholder',
@@ -27,14 +27,14 @@ test('config.js — TOOLS', async t => {
       // Edificios (creación): Fachada y Tejado unifican sus tipos en sendos modales
       'planta', 'fachada', 'tejado', 'puerta', 'ventana', 'balcon', 'muro', 'verja', 'cancela',
       // Jardín (creación): cada una elige su variante en su propio modal
-      'jardin', 'arbol', 'arbusto', 'flor', 'decoracion', 'camino', 'aromatica',
+      'jardin', 'arbol', 'arbusto', 'flor', 'decoracion', 'camino', 'aromatica', 'trepadora',
     ];
     const values = Object.values(ctx.TOOLS);
-    assert.equal(values.length, 39);
+    assert.equal(values.length, 40);
     assert.deepEqual([...values].sort(), [...expected].sort());
-    // Las claves también son 39 y únicas
-    assert.equal(Object.keys(ctx.TOOLS).length, 39);
-    assert.equal(new Set(values).size, 39);
+    // Las claves también son 40 y únicas
+    assert.equal(Object.keys(ctx.TOOLS).length, 40);
+    assert.equal(new Set(values).size, 40);
   });
 });
 
@@ -271,13 +271,13 @@ test('config.js — el sidebar de Jardín y GARDEN_TOOLS son la misma lista', ()
     [...garden.tools.map(t => t.id)].sort(),
     [...ctx.GARDEN_TOOLS].sort(),
     'los botones del sidebar y GARDEN_TOOLS deben coincidir');
-  // Caminos y Aromáticas se quedaron sin atajo: `8 9 h x z` agotaron las teclas
+  // Caminos, Aromáticas y Trepadoras se quedaron sin atajo: `8 9 h x z` agotaron las teclas
   // sueltas libres. Es deliberado —mejor sin atajo que pisando una acción
   // existente—, así que se fija aquí para que el hueco no crezca por descuido:
   // toda herramienta nueva del jardín entra ya sin tecla, y ninguna de las que
   // sí la tienen puede perderla en una refactorización.
   const sinAtajo = garden.tools.filter(t => !t.key).map(t => t.id);
-  assert.deepEqual([...sinAtajo], ['camino', 'aromatica']);
+  assert.deepEqual([...sinAtajo], ['camino', 'aromatica', 'trepadora']);
 });
 
 test('config.js — los catálogos de variante están congelados y bien formados', () => {
@@ -286,7 +286,8 @@ test('config.js — los catálogos de variante están congelados y bien formados
     PLOT_SHAPES: ctx.PLOT_SHAPES, TREE_TYPES: ctx.TREE_TYPES,
     SHRUB_TYPES: ctx.SHRUB_TYPES, FLOWER_TYPES: ctx.FLOWER_TYPES,
     DECOR_TYPES: ctx.DECOR_TYPES, PATH_TYPES: ctx.PATH_TYPES,
-    HERB_TYPES: ctx.HERB_TYPES, BALCONY_TYPES: ctx.BALCONY_TYPES,
+    HERB_TYPES: ctx.HERB_TYPES, CLIMBER_TYPES: ctx.CLIMBER_TYPES,
+    BALCONY_TYPES: ctx.BALCONY_TYPES,
     WALL_VIEWS: ctx.WALL_VIEWS, FORGE_TYPES: ctx.FORGE_TYPES,
     FENCE_VIEWS: ctx.FENCE_VIEWS,
   };

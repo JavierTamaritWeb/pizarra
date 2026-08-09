@@ -57,7 +57,14 @@
     decorType: 'pot',
     pathType: 'path',
     herbType: 'lavender',
+    climberType: 'bougainvillea',
     gardenLabels: true,  // rotular cada pieza con el nombre de su variante
+    gardenLabelMode: 'dimensions', // nombre | nombre botánico | nombre + cotas
+    plantView: 'plan',   // vegetación: planta cenital o alzado paisajístico
+    plantStage: 'adult', // joven | en desarrollo | adulto
+    plantScalePct: 100,  // porcentaje sobre las dimensiones de la ficha botánica
+    plantPxPerM: 20,     // escala explícita para los tamaños por clic
+    plantColorMode: 'natural', // natural | ink (tinta global de la app)
     pathWidth: DEFAULT_PATH_WIDTH, // ancho de los caminos (el arrastre solo da el recorrido)
     pathAnyAngle: false, // caminos en cualquier inclinación: ajuste pegajoso, no tecla mantenida
   };
@@ -78,6 +85,7 @@
     ...CREATION_DEFAULTS, // Edificios/Jardín (los resetea también «Limpiar todo»)
     toolBeforeModal: null, // herramienta activa antes de abrir un modal de Edificios (restaurar al cancelar)
     variantChosen: false, // true si se eligió variante en el modal (no fue cancelación)
+    editGardenGroupId: null, // grupo vegetal que se regenerará al elegir otra especie
     doubleHead:  false, // nuevas flechas con punta en ambos extremos
     dashed:      false, // nuevas líneas/flechas con trazo discontinuo
     curveFlip:   false, // Shift durante el trazado: curva hacia el otro lado
@@ -310,20 +318,45 @@
     return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
   }
 
+  // Una planta editable es la selección completa de un único grupo cuyos
+  // elementos comparten la ficha semántica gardenMeta. Una pieza aislada con
+  // Alt+click no debe poder regenerar accidentalmente el resto del ejemplar.
+  function selectedGardenGroup() {
+    if (state.selection.length < 2) return null;
+    const first = state.elements[state.selection[0]];
+    const gid = first && first.buildingGroupId;
+    if (!gid || !first.gardenMeta) return null;
+    const indices = groupIndicesOf(state.selection[0]);
+    if (indices.length !== state.selection.length ||
+        !indices.every((idx, pos) => idx === state.selection[pos])) return null;
+    if (!indices.every(i => state.elements[i].gardenMeta &&
+                            state.elements[i].buildingGroupId === gid)) return null;
+    return { gid, indices, meta: first.gardenMeta };
+  }
+
   function moveElement(el, dx, dy) {
+    let m;
     if (el.type === 'curveArrow' && CurvePath.isChain(el)) {
-      return CurvePath.move(el, dx, dy);
-    }
-    const m = { ...el };
-    if (m.points) {
-      m.points = m.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
-    } else if (m.x1 !== undefined) {
-      m.x1 += dx; m.y1 += dy; m.x2 += dx; m.y2 += dy;
-      if (m.cx !== undefined) { m.cx += dx; m.cy += dy; }
-      if (m.cx2 !== undefined) { m.cx2 += dx; m.cy2 += dy; }
+      m = CurvePath.move(el, dx, dy);
     } else {
-      m.x = (m.x || 0) + dx;
-      m.y = (m.y || 0) + dy;
+      m = { ...el };
+      if (m.points) {
+        m.points = m.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
+      } else if (m.x1 !== undefined) {
+        m.x1 += dx; m.y1 += dy; m.x2 += dx; m.y2 += dy;
+        if (m.cx !== undefined) { m.cx += dx; m.cy += dy; }
+        if (m.cx2 !== undefined) { m.cx2 += dx; m.cy2 += dy; }
+      } else {
+        m.x = (m.x || 0) + dx;
+        m.y = (m.y || 0) + dy;
+      }
+    }
+    if (m.gardenMeta) {
+      m.gardenMeta = {
+        ...m.gardenMeta,
+        p1: { x: m.gardenMeta.p1.x + dx, y: m.gardenMeta.p1.y + dy },
+        p2: { x: m.gardenMeta.p2.x + dx, y: m.gardenMeta.p2.y + dy },
+      };
     }
     return m;
   }
@@ -839,7 +872,14 @@
         decorType: state.decorType,
         pathType: state.pathType,
         herbType: state.herbType,
+        climberType: state.climberType,
         gardenLabels: state.gardenLabels,
+        gardenLabelMode: state.gardenLabelMode,
+        plantView: state.plantView,
+        plantStage: state.plantStage,
+        plantScalePct: state.plantScalePct,
+        plantPxPerM: state.plantPxPerM,
+        plantColorMode: state.plantColorMode,
         pathWidth: state.pathWidth,
         pathAnyAngle: state.pathAnyAngle,
       }));
@@ -933,7 +973,20 @@
       restoreVariant(prefs.decorType,   DECOR_TYPES,   'decorType');
       restoreVariant(prefs.pathType,    PATH_TYPES,    'pathType');
       restoreVariant(prefs.herbType,    HERB_TYPES,    'herbType');
+      restoreVariant(prefs.climberType, CLIMBER_TYPES, 'climberType');
       if (typeof prefs.gardenLabels === 'boolean') state.gardenLabels = prefs.gardenLabels;
+      restoreVariant(prefs.gardenLabelMode, GARDEN_LABEL_MODES, 'gardenLabelMode');
+      restoreVariant(prefs.plantView, GARDEN_PLANT_VIEWS, 'plantView');
+      restoreVariant(prefs.plantStage, GARDEN_STAGES, 'plantStage');
+      if (Number.isFinite(prefs.plantScalePct)) {
+        state.plantScalePct = Math.min(Garden.PLANT_SCALE_MAX,
+          Math.max(Garden.PLANT_SCALE_MIN, prefs.plantScalePct));
+      }
+      if (Number.isFinite(prefs.plantPxPerM)) {
+        state.plantPxPerM = Math.min(Garden.PLANT_PX_PER_M_MAX,
+          Math.max(Garden.PLANT_PX_PER_M_MIN, prefs.plantPxPerM));
+      }
+      if (['ink', 'natural'].includes(prefs.plantColorMode)) state.plantColorMode = prefs.plantColorMode;
       if (Number.isFinite(prefs.pathWidth)) {
         state.pathWidth = Math.min(Garden.PATH_W_MAX, Math.max(Garden.PATH_W_MIN, prefs.pathWidth));
       }
@@ -1041,8 +1094,9 @@
     const single = state.selection.length === 1;
     const groupBox = selectionGroupBounds();
     if (groupBox) {
-      // Edificio seleccionado como unidad: una sola caja combinada (sin handles).
-      Renderer.drawSelection(ctx, groupBox, false);
+      // Edificio seleccionado como unidad: una sola caja combinada, CON
+      // handles — escalan el grupo entero de forma uniforme (resizeGroupTo).
+      Renderer.drawSelection(ctx, groupBox, true);
     } else {
       state.selection.forEach(i => {
         const el = state.elements[i];
@@ -1113,6 +1167,7 @@
     const hasSel = state.selection.length > 0;
     $('btn-delete-sel').hidden = !hasSel;
     $('btn-duplicate-sel').hidden = !hasSel;
+    $('btn-edit-garden').hidden = !selectedGardenGroup();
     const rotatable = state.selection.filter(i => ShapeRotation.isType(state.elements[i].type));
     const rotateBtn = $('btn-rotate-sel');
     rotateBtn.hidden = rotatable.length === 0;
@@ -1270,17 +1325,59 @@
       if (m.cx !== undefined) { m.cx = mapX(m.cx); m.cy = mapY(m.cy); }
       if (m.cx2 !== undefined) { m.cx2 = mapX(m.cx2); m.cy2 = mapY(m.cy2); }
     } else if (m.type === 'text') {
-      m.x = to.x; m.y = to.y;
+      m.x = mapX(el.x); m.y = mapY(el.y);
       m.fontSize = Math.max(8, Math.round(m.fontSize * sy));
     } else {
-      m.x = to.x; m.y = to.y; m.w = to.w; m.h = to.h;
+      m.x = mapX(el.x); m.y = mapY(el.y);
+      m.w = el.w * sx; m.h = el.h * sy;
     }
     return m;
+  }
+
+  /**
+   * Escala un grupo entero (un edificio, una planta) desde la esquina opuesta
+   * a la agarrada.
+   *
+   * El factor es UNIFORME a propósito, y no el estirón libre de los dos ejes
+   * que sí permite el resize de un elemento suelto: aquí dentro viaja de todo,
+   * y hay piezas con invariantes que un estirón libre rompería. Los polígonos
+   * regulares exigen `w === h` e `isValidElement` RECHAZA al importar los que
+   * no lo cumplen, así que un escalado libre podría dejar un proyecto que ya
+   * no se puede volver a abrir. Aparte, una fachada estirada de un solo eje
+   * deja de leerse como la misma fachada.
+   */
+  function resizeGroupTo(p, r) {
+    const f = r.from;
+    const fixed = {
+      nw: { x: f.x + f.w, y: f.y + f.h },
+      ne: { x: f.x,       y: f.y + f.h },
+      sw: { x: f.x + f.w, y: f.y },
+      se: { x: f.x,       y: f.y },
+    }[r.corner];
+    if (!fixed) return;
+    // Manda el eje que más ha crecido; en valor absoluto, para que arrastrar
+    // más allá de la esquina fija agrande en vez de dar el grupo del revés.
+    const sx = f.w ? Math.abs(p.x - fixed.x) / f.w : 0;
+    const sy = f.h ? Math.abs(p.y - fixed.y) / f.h : 0;
+    const s = Math.max(sx, sy);
+    const w = f.w * s, h = f.h * s;
+    if ((f.w > 0 && w < 10) || (f.h > 0 && h < 10)) return;   // mismo suelo que el resize simple
+    const to = {
+      x: r.corner.includes('w') ? fixed.x - w : fixed.x,
+      y: r.corner.includes('n') ? fixed.y - h : fixed.y,
+      w, h,
+    };
+    r.group.forEach((idx, k) => {
+      state.elements[idx] = scaleElement(r.originals[k], f, to);
+    });
+    r.did = true;
   }
 
   function resizeTo(pos, e) {
     const r = state.resizing;
     const p = (state.snapGrid && !e.altKey) ? { x: snapVal(pos.x), y: snapVal(pos.y) } : pos;
+    // Grupo seleccionado como unidad: escala todas sus piezas a la vez.
+    if (r.group) { resizeGroupTo(p, r); return; }
     // Handles de extremo (p1/p2): mueven ese extremo; durante el arrastre se
     // suelta el anclaje de ese lado (para que siga al puntero) y se registra
     // el candidato bajo el cursor para re-anclar al soltar
@@ -1459,6 +1556,27 @@
         }
       }
 
+      // 1-bis. Handles de resize del grupo (un edificio o una planta
+      // seleccionados como unidad). Van ANTES del arrastre por marco
+      // combinado de abajo: los handles caen justo sobre las esquinas de ese
+      // marco, así que sin esta precedencia agarrar una esquina movería el
+      // grupo en vez de escalarlo, y no habría forma de redimensionarlo.
+      const groupResizeBox = selectionGroupBounds();
+      if (groupResizeBox) {
+        const groupCorner = hitHandle(pos, groupResizeBox);
+        if (groupCorner) {
+          state.resizing = {
+            corner: groupCorner,
+            from: groupResizeBox,
+            group: [...state.selection],
+            originals: state.selection.map(i => state.elements[i]),
+            snapshot: snapshot(),
+            did: false,
+          };
+          return;
+        }
+      }
+
       const idx = hitTest(pos);
 
       // 2. Multi-selección: arrastrar desde cualquier punto del marco
@@ -1602,7 +1720,14 @@
       shrubType: state.shrubType, flowerType: state.flowerType,
       decorType: state.decorType, pathType: state.pathType,
       herbType: state.herbType,
+      climberType: state.climberType,
       labels: state.gardenLabels,
+      gardenLabelMode: state.gardenLabelMode,
+      plantView: state.plantView,
+      plantStage: state.plantStage,
+      plantScalePct: state.plantScalePct,
+      plantPxPerM: state.plantPxPerM,
+      plantColorMode: state.plantColorMode,
       pathWidth: state.pathWidth,
       // Dos vías a lo mismo, y la casilla manda: `pathAnyAngle` es un ajuste
       // pegajoso que se marca de un clic, y `pathFreeAngle` el Shift mantenido
@@ -2218,6 +2343,7 @@
         if (created.length > 1) {
           const gid = newId();
           for (const el of created) el.buildingGroupId = gid;
+          if (GARDEN_TOOLS.includes(state.tool)) applyGardenMeta(created, state.tool, p1, p2, gid);
         }
         for (const el of created) state.elements.push(el);
       }
@@ -2621,9 +2747,9 @@
     // controles, con la misma geometría que las entradas del Muro.
     { tool: TOOLS.BUILD_GATE, modal: 'modal-gate', root: 'gate-catalog', cls: 'modal__gate', data: 'gate', catalog: GATE_VIEWS, key: 'gateView', gen: () => Building, opts: () => buildOpts(), box: { x: 0, y: 0 } },
     { tool: TOOLS.GARDEN_PLOT,   modal: 'modal-plot',   root: 'plot-catalog',   cls: 'modal__plot',   data: 'plot',   catalog: PLOT_SHAPES,   key: 'plotShape'  },
-    { tool: TOOLS.GARDEN_TREE,   modal: 'modal-tree',   root: 'tree-catalog',   cls: 'modal__tree',   data: 'tree',   catalog: TREE_TYPES,    key: 'treeType'   },
-    { tool: TOOLS.GARDEN_SHRUB,  modal: 'modal-shrub',  root: 'shrub-catalog',  cls: 'modal__shrub',  data: 'shrub',  catalog: SHRUB_TYPES,   key: 'shrubType'  },
-    { tool: TOOLS.GARDEN_FLOWER, modal: 'modal-flower', root: 'flower-catalog', cls: 'modal__flower', data: 'flower', catalog: FLOWER_TYPES,  key: 'flowerType' },
+    { tool: TOOLS.GARDEN_TREE,   modal: 'modal-tree',   root: 'tree-catalog',   cls: 'modal__tree',   data: 'tree',   catalog: TREE_TYPES,    key: 'treeType', plant: true },
+    { tool: TOOLS.GARDEN_SHRUB,  modal: 'modal-shrub',  root: 'shrub-catalog',  cls: 'modal__shrub',  data: 'shrub',  catalog: SHRUB_TYPES,   key: 'shrubType', plant: true },
+    { tool: TOOLS.GARDEN_FLOWER, modal: 'modal-flower', root: 'flower-catalog', cls: 'modal__flower', data: 'flower', catalog: FLOWER_TYPES,  key: 'flowerType', plant: true },
     { tool: TOOLS.GARDEN_DECOR,  modal: 'modal-decor',  root: 'decor-catalog',  cls: 'modal__decor',  data: 'decor',  catalog: DECOR_TYPES,   key: 'decorType'  },
     // Caminos: caja propia, vertical y corta. Vertical porque así nace un
     // camino, y corta para que los cantos aún se distingan a 56 px. Al llevar
@@ -2634,9 +2760,83 @@
     // o recto, liso o empedrado), no la inclinación. Quien enseña el ancho y la
     // inclinación activos es la miniatura de al lado (`renderPathPreview`).
     { tool: TOOLS.GARDEN_PATH,   modal: 'modal-path',   root: 'path-catalog',   cls: 'modal__path',   data: 'path',   catalog: PATH_TYPES,    key: 'pathType', opts: () => ({ ...gardenOpts(), freeAngle: false }), box: { x: 44, y: 84 } },
-    { tool: TOOLS.GARDEN_HERB,   modal: 'modal-herb',   root: 'herb-catalog',   cls: 'modal__herb',   data: 'herb',   catalog: HERB_TYPES,    key: 'herbType'   },
+    { tool: TOOLS.GARDEN_HERB,   modal: 'modal-herb',   root: 'herb-catalog',   cls: 'modal__herb',   data: 'herb',   catalog: HERB_TYPES,    key: 'herbType', plant: true },
+    { tool: TOOLS.GARDEN_CLIMBER,modal: 'modal-climber',root: 'climber-catalog',cls: 'modal__climber',data: 'climber',catalog: CLIMBER_TYPES, key: 'climberType', plant: true },
   ].map(cfg => ({ gen: () => Garden, opts: () => gardenOpts(), box: { x: 100, y: 84 }, ...cfg }));
   const variantModalOf = tool => VARIANT_MODALS.find(m => m.tool === tool);
+
+  /** Ficha compacta y serializable con la intención de diseño del ejemplar.
+      Se repite en cada pieza para que sobreviva a copiar, mover y exportar. */
+  function gardenGroupMeta(tool, p1, p2, style = {}) {
+    const cfg = variantModalOf(tool);
+    if (!cfg || !cfg.plant) return null;
+    return {
+      version: 1,
+      tool,
+      variant: state[cfg.key],
+      p1: { x: p1.x, y: p1.y },
+      p2: { x: p2.x, y: p2.y },
+      color: style.color || state.color,
+      lineWidth: style.lineWidth || state.lineWidth,
+      plantView: state.plantView,
+      plantStage: state.plantStage,
+      plantScalePct: state.plantScalePct,
+      plantPxPerM: state.plantPxPerM,
+      plantColorMode: state.plantColorMode,
+      gardenLabelMode: state.gardenLabelMode,
+      labels: state.gardenLabels,
+    };
+  }
+
+  function applyGardenMeta(created, tool, p1, p2, gid, style) {
+    const meta = gardenGroupMeta(tool, p1, p2, style);
+    if (!meta) return;
+    for (const el of created) {
+      el.buildingGroupId = gid;
+      el.gardenMeta = { ...meta, p1: { ...meta.p1 }, p2: { ...meta.p2 } };
+    }
+  }
+
+  /** Sustituye el grupo vegetal conservando su posición y orden de apilado. */
+  function regenerateGardenGroup(cfg) {
+    const gid = state.editGardenGroupId;
+    if (!gid || !cfg.plant) return false;
+    const indices = [];
+    state.elements.forEach((el, i) => { if (el.buildingGroupId === gid) indices.push(i); });
+    const old = indices.length && state.elements[indices[0]];
+    if (!old || !old.gardenMeta) { state.editGardenGroupId = null; return false; }
+    const { p1, p2, color, lineWidth } = old.gardenMeta;
+    const style = { color, lineWidth };
+    const created = withSeeds(Garden.elements(cfg.tool, p1, p2, { ...gardenOpts(), ...style }));
+    if (!created.length) { state.editGardenGroupId = null; return false; }
+    saveUndo();
+    applyGardenMeta(created, cfg.tool, p1, p2, gid, style);
+    const first = indices[0];
+    state.elements = state.elements.filter(el => el.buildingGroupId !== gid);
+    state.elements.splice(first, 0, ...created);
+    setSelection(Array.from({ length: created.length }, (_, i) => first + i));
+    state.editGardenGroupId = null;
+    redraw();
+    return true;
+  }
+
+  function editSelectedGarden() {
+    const selected = selectedGardenGroup();
+    if (!selected) return;
+    const { meta } = selected;
+    const cfg = variantModalOf(meta.tool);
+    if (!cfg || !cfg.plant || !cfg.catalog.some(item => item.id === meta.variant)) return;
+    state[cfg.key] = meta.variant;
+    state.plantView = meta.plantView;
+    state.plantStage = meta.plantStage;
+    state.plantScalePct = meta.plantScalePct;
+    state.plantPxPerM = meta.plantPxPerM;
+    state.plantColorMode = meta.plantColorMode;
+    state.gardenLabelMode = meta.gardenLabelMode;
+    state.gardenLabels = meta.labels;
+    state.editGardenGroupId = selected.gid;
+    selectTool(meta.tool);
+  }
   /** true si elegir esta herramienta abre un catálogo de variante. */
   const opensVariantModal = tool =>
     MODAL_BUILD_TOOLS.includes(tool) || VARIANT_MODALS.some(m => m.tool === tool);
@@ -2681,12 +2881,13 @@
       syncBuildControls();
       $('modal-facade').showModal();
     }
-    // Catálogos genéricos (Balcón y los siete del Jardín): se reconstruyen al
+    // Catálogos genéricos (Balcón y los ocho del Jardín): se reconstruyen al
     // abrir porque sus iconos se pintan con la geometría real, y esa depende
     // del color y el trazo activos.
     const variant = variantModalOf(id);
     if (variant) {
       buildVariantCatalog(variant);
+      if (variant.plant) syncPlantControls(variant);
       // Camino lleva ajustes propios además del catálogo: hay que repartirlos a
       // los dos juegos de controles y repintar la miniatura antes de enseñarlo,
       // igual que hace Fachada con syncBuildControls().
@@ -3412,6 +3613,7 @@
     // Selection actions
     $('btn-delete-sel').addEventListener('click', deleteSelection);
     $('btn-duplicate-sel').addEventListener('click', duplicateSelection);
+    $('btn-edit-garden').addEventListener('click', editSelectedGarden);
     $('btn-rotate-sel').addEventListener('click', rotateSelection);
 
     // Import
@@ -3927,15 +4129,23 @@
     // Balcón y Jardín: todos se cablean con la misma receta desde VARIANT_MODALS.
     VARIANT_MODALS.forEach(cfg => {
       const modal = $(cfg.modal);
+      if (cfg.plant) installPlantControls(cfg);
       buildVariantCatalog(cfg);
+      if (cfg.plant) syncPlantControls(cfg);
       modal.querySelector('.modal__cancel').addEventListener('click', () => modal.close());
       closeOnBackdrop(modal);
       wireBuildModalCancel(modal);
+      if (cfg.plant) modal.addEventListener('close', () => {
+        // Elegir una variante ya ha consumido el id en regenerateGardenGroup;
+        // cualquier id restante corresponde a Cerrar/Escape/backdrop.
+        state.editGardenGroupId = null;
+      });
       modal.addEventListener('click', e => {
         const btn = e.target.closest('.' + cfg.cls);
         if (!btn) return;
         state[cfg.key] = btn.dataset[cfg.data];
         state.variantChosen = true;
+        if (cfg.plant) regenerateGardenGroup(cfg);
         updateVariantActive(cfg);
         savePrefs();
         modal.close();
@@ -3975,7 +4185,15 @@
     ictx.fillRect(0, 0, GARDEN_ICON_W, GARDEN_ICON_H);
 
     const opts = { ...cfg.opts(), [cfg.key]: variantId, labels: false };
-    const els = cfg.gen().elements(cfg.tool, { x: 0, y: 0 }, cfg.box, opts);
+    /* Las plantas no pueden compartir la caja fija del resto de catálogos:
+       esa caja convertía un ciprés de 18 × 4 m en un óvalo casi redondo y
+       hacía que un tomillo pareciera tan alto como una lavanda. Un clic sin
+       arrastre delega en Garden._plantDefault(), que conserva altura,
+       diámetro, etapa y escala botánicos. El ajuste a los bounds de abajo ya
+       se encarga de meter después cada proporción en los 56 × 48 px. */
+    const origin = { x: 0, y: 0 };
+    const end = cfg.plant ? origin : cfg.box;
+    const els = cfg.gen().elements(cfg.tool, origin, end, opts);
     if (!els.length) return canvas;
     // Ajuste por los bounds REALES: las frondas y las ondas se salen de la caja
     // del arrastre, y recortadas el icono engañaría.
@@ -4013,6 +4231,15 @@
       name.className = 'modal__shape-name';
       name.textContent = item.name;
       btn.appendChild(name);
+      if (item.botanical) {
+        const note = document.createElement('small');
+        note.className = 'modal__shape-note modal__shape-note--botanical';
+        const stage = Garden.plantSize(cfg.tool, item.id, cfg.opts());
+        note.textContent = stage
+          ? `${item.botanical} · H ${formatMetres(stage.heightM)} m · Ø ${formatMetres(stage.spreadM)} m`
+          : item.botanical;
+        btn.appendChild(note);
+      }
       // El <dialog> enfoca solo su primer control; se le señala el activo para
       // que la tecla que abrió el modal no acabe escribiendo en otro sitio.
       if (item.id === state[cfg.key]) btn.autofocus = true;
@@ -4020,6 +4247,161 @@
     });
     root.appendChild(grid);
     updateVariantActive(cfg);
+  }
+
+  const formatMetres = n => Number(n.toFixed(n < 1 ? 2 : 1)).toLocaleString('es-ES');
+
+  /** Controles compartidos por Árbol, Arbusto, Flor, Aromáticas y Trepadoras.
+      Se crean desde la tabla para que los cinco modales no puedan divergir. */
+  function installPlantControls(cfg) {
+    const modal = $(cfg.modal), root = $(cfg.root);
+    const controlId = name => `${cfg.data}-${name.replace(/[A-Z]/g, c => '-' + c.toLowerCase())}`;
+    const wrap = document.createElement('div');
+    wrap.className = 'modal__build modal__plant-build';
+    wrap.dataset.plantControls = '';
+
+    const preview = document.createElement('canvas');
+    preview.className = 'modal__preview modal__plant-preview';
+    preview.width = 176; preview.height = 168;
+    preview.setAttribute('role', 'img');
+    preview.setAttribute('aria-label', 'Vista previa botánica con los ajustes actuales');
+    wrap.appendChild(preview);
+
+    const fields = document.createElement('div');
+    fields.className = 'modal__build-fields modal__plant-fields';
+    const selectField = (caption, values, dataName) => {
+      const label = document.createElement('label');
+      label.className = 'panel__field modal__plant-field modal__plant-field--' +
+        dataName.replace(/[A-Z]/g, c => '-' + c.toLowerCase());
+      const span = document.createElement('span');
+      span.className = 'modal__field-label'; span.textContent = caption;
+      const select = document.createElement('select');
+      select.className = 'panel__select'; select.dataset[dataName] = '';
+      select.id = controlId(dataName);
+      values.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.id; opt.textContent = item.name; select.appendChild(opt);
+      });
+      label.appendChild(span); label.appendChild(select); fields.appendChild(label);
+      return select;
+    };
+    const view = selectField('Representación', GARDEN_PLANT_VIEWS, 'plantView');
+    const stage = selectField('Etapa', GARDEN_STAGES, 'plantStage');
+    const labelMode = selectField('Etiqueta', GARDEN_LABEL_MODES, 'plantLabelMode');
+
+    const rangeField = (caption, min, max, step, dataName) => {
+      const label = document.createElement('label');
+      label.className = 'panel__field';
+      const span = document.createElement('span');
+      span.className = 'modal__field-label';
+      const value = document.createElement('strong'); value.dataset[`${dataName}Value`] = '';
+      span.textContent = caption + ': '; span.appendChild(value);
+      const input = document.createElement('input');
+      input.type = 'range'; input.className = 'panel__slider'; input.min = min;
+      input.max = max; input.step = step; input.dataset[dataName] = '';
+      input.id = controlId(dataName);
+      label.appendChild(span); label.appendChild(input); fields.appendChild(label);
+      return { input, value };
+    };
+    const scale = rangeField('Tamaño', Garden.PLANT_SCALE_MIN, Garden.PLANT_SCALE_MAX, 5, 'plantScale');
+    const px = rangeField('Escala', Garden.PLANT_PX_PER_M_MIN, Garden.PLANT_PX_PER_M_MAX, 1, 'plantPx');
+
+    const colorLabel = document.createElement('label');
+    colorLabel.className = 'panel__check modal__plant-color';
+    const color = document.createElement('input');
+    color.type = 'checkbox'; color.dataset.plantNatural = '';
+    color.id = controlId('plantNatural');
+    colorLabel.appendChild(color);
+    const colorText = document.createElement('span');
+    colorText.textContent = 'Color natural y volumen suave';
+    colorLabel.appendChild(colorText);
+    fields.appendChild(colorLabel);
+    const dimensions = document.createElement('p');
+    dimensions.className = 'modal__plant-dimensions'; dimensions.setAttribute('aria-live', 'polite');
+    dimensions.id = controlId('plantDimensions');
+    fields.appendChild(dimensions);
+    wrap.appendChild(fields);
+    $(cfg.root + '-controls').appendChild(wrap);
+
+    cfg.plantControls = { preview, view, stage, labelMode, scale, px, color, dimensions };
+    const changed = () => {
+      state.plantView = view.value;
+      state.plantStage = stage.value;
+      state.gardenLabelMode = labelMode.value;
+      state.plantScalePct = Number(scale.input.value);
+      state.plantPxPerM = Number(px.input.value);
+      state.plantColorMode = color.checked ? 'natural' : 'ink';
+      buildVariantCatalog(cfg);
+      syncPlantControls(cfg);
+      savePrefs();
+    };
+    [view, stage, labelMode, scale.input, px.input, color].forEach(control => {
+      control.addEventListener(control.type === 'range' ? 'input' : 'change', changed);
+    });
+
+    let hoverId = null;
+    const hover = e => {
+      const btn = e.target.closest && e.target.closest('.' + cfg.cls);
+      const id = btn ? btn.dataset[cfg.data] : null;
+      if (id === hoverId) return;
+      hoverId = id;
+      renderPlantPreview(cfg, id || state[cfg.key]);
+    };
+    modal.addEventListener('pointerover', hover);
+    modal.addEventListener('focusin', hover);
+    modal.addEventListener('pointerleave', () => {
+      hoverId = null; renderPlantPreview(cfg, state[cfg.key]);
+    });
+    modal.addEventListener('close', () => { hoverId = null; });
+  }
+
+  function renderPlantPreview(cfg, variantId) {
+    if (!cfg.plantControls) return;
+    const { preview, dimensions } = cfg.plantControls;
+    const pctx = preview.getContext('2d');
+    if (!pctx) return;
+    pctx.setTransform(1, 0, 0, 1, 0, 0);
+    pctx.clearRect(0, 0, preview.width, preview.height);
+    pctx.fillStyle = state.canvasBg;
+    pctx.fillRect(0, 0, preview.width, preview.height);
+    const opts = { ...cfg.opts(), [cfg.key]: variantId, labels: false };
+    const els = Garden.elements(cfg.tool, { x: 0, y: 0 }, { x: 0, y: 0 }, opts);
+    if (els.length) {
+      let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+      els.forEach(el => {
+        const b = getElementBounds(el);
+        x1 = Math.min(x1, b.x); y1 = Math.min(y1, b.y);
+        x2 = Math.max(x2, b.x + b.w); y2 = Math.max(y2, b.y + b.h);
+      });
+      const pad = 14;
+      const s = Math.min((preview.width - pad * 2) / Math.max(1, x2 - x1),
+        (preview.height - pad * 2) / Math.max(1, y2 - y1));
+      pctx.save();
+      pctx.translate(preview.width / 2, preview.height / 2);
+      pctx.scale(s, s);
+      pctx.translate(-(x1 + x2) / 2, -(y1 + y2) / 2);
+      drawPiecesPreview(pctx, els.map(el => ({ ...el, lineWidth: Math.max(el.lineWidth, 0.9 / s) })));
+      pctx.restore();
+    }
+    const size = Garden.plantSize(cfg.tool, variantId, opts);
+    const item = cfg.catalog.find(v => v.id === variantId);
+    dimensions.textContent = size && item
+      ? `${item.name} · ${item.botanical} · ${formatMetres(size.heightM)} m de alto · ${formatMetres(size.spreadM)} m de diámetro`
+      : '';
+  }
+
+  function syncPlantControls(cfg) {
+    if (!cfg.plantControls) return;
+    const c = cfg.plantControls;
+    c.view.value = state.plantView;
+    c.stage.value = state.plantStage;
+    c.labelMode.value = state.gardenLabelMode;
+    c.scale.input.value = state.plantScalePct;
+    c.scale.value.textContent = `${state.plantScalePct}%`;
+    c.px.input.value = state.plantPxPerM;
+    c.px.value.textContent = `${state.plantPxPerM} px/m`;
+    c.color.checked = state.plantColorMode === 'natural';
+    renderPlantPreview(cfg, state[cfg.key]);
   }
 
   /** Resalta la variante activa. La consulta va acotada a su propio catálogo. */

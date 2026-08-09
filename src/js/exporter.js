@@ -534,6 +534,39 @@ body { font-family: ${FONT_CSS}; background: #fff; }
     if (el.id !== undefined && !(typeof el.id === 'string' && ID_RE.test(el.id))) return false;
     // buildingGroupId: id compartido por las piezas de un mismo edificio (agrupación)
     if (el.buildingGroupId !== undefined && !(typeof el.buildingGroupId === 'string' && ID_RE.test(el.buildingGroupId))) return false;
+    // gardenMeta: intención botánica del grupo (permite reabrir y regenerar la
+    // planta tras exportar/importar). Whitelist estricta: estas cotas vuelven a
+    // alimentar geometría, por lo que no se aceptan strings ni valores libres.
+    if (el.gardenMeta !== undefined) {
+      const m = el.gardenMeta;
+      const catalogs = {
+        [TOOLS.GARDEN_TREE]: TREE_TYPES,
+        [TOOLS.GARDEN_SHRUB]: SHRUB_TYPES,
+        [TOOLS.GARDEN_FLOWER]: FLOWER_TYPES,
+        [TOOLS.GARDEN_HERB]: HERB_TYPES,
+        [TOOLS.GARDEN_CLIMBER]: CLIMBER_TYPES,
+      };
+      const allowed = ['version', 'tool', 'variant', 'p1', 'p2', 'color', 'lineWidth', 'plantView',
+        'plantStage', 'plantScalePct', 'plantPxPerM', 'plantColorMode',
+        'gardenLabelMode', 'labels'];
+      const point = p => p && typeof p === 'object' && !Array.isArray(p) &&
+        Object.keys(p).length === 2 && _isNum(p.x) && _isNum(p.y);
+      if (!(m && typeof m === 'object' && !Array.isArray(m) &&
+            Object.keys(m).length === allowed.length &&
+            Object.keys(m).every(key => allowed.includes(key)) &&
+            m.version === 1 && catalogs[m.tool] &&
+            typeof m.variant === 'string' && catalogs[m.tool].some(v => v.id === m.variant) &&
+            point(m.p1) && point(m.p2) &&
+            typeof m.color === 'string' && HEX_COLOR.test(m.color) &&
+            _isNum(m.lineWidth) && m.lineWidth >= 1 && m.lineWidth <= 8 &&
+            GARDEN_PLANT_VIEWS.some(v => v.id === m.plantView) &&
+            GARDEN_STAGES.some(v => v.id === m.plantStage) &&
+            _isNum(m.plantScalePct) && m.plantScalePct >= 50 && m.plantScalePct <= 150 &&
+            _isNum(m.plantPxPerM) && m.plantPxPerM >= 8 && m.plantPxPerM <= 50 &&
+            (m.plantColorMode === 'natural' || m.plantColorMode === 'ink') &&
+            GARDEN_LABEL_MODES.some(v => v.id === m.gardenLabelMode) &&
+            typeof m.labels === 'boolean')) return false;
+    }
     const validAnchor = a => a === undefined ||
       (a !== null && typeof a === 'object' && !Array.isArray(a) &&
        typeof a.id === 'string' && ID_RE.test(a.id));

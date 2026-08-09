@@ -224,6 +224,13 @@ function createDom({ html } = {}) {
   const doc = {
     activeElement: null,
     getElementById(id) {
+      // Los controles de Jardín botánico se crean dinámicamente. El navegador
+      // los incorpora automáticamente al índice de ids; el stub debe buscar
+      // también en el árbol antes de fabricar su elemento de reserva.
+      if (!byId.has(id) && doc.body) {
+        const dynamic = descendants(doc.body).find(el => el.id === id);
+        if (dynamic) byId.set(id, dynamic);
+      }
       if (!byId.has(id)) {
         // Id que no está en el HTML: se crea al vuelo para no romper el arranque
         const el = createElementStub(CANVAS_IDS.has(id) ? 'canvas' : 'div', doc);

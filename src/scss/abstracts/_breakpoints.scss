@@ -1,10 +1,12 @@
-// Los 4 breakpoints del proyecto — única fuente de verdad. El de la sidebar
+// Breakpoints del proyecto — única fuente de verdad. El de la sidebar
 // está probado a ambos lados por e2e/responsive.spec.js y documentado en
 // CLAUDE.md; cambiar un valor aquí exige actualizar ambos.
 $sidebar-2col: 1201px; // min-width: sidebar de 132px con grupos a 2 columnas
 $panel-drawer: 1100px; // max-width: el panel derecho pasa a cajón deslizable
 $modal-stack: 420px; // max-width: .modal__build apila la miniatura
 $modal-1col: 360px; // max-width: los grids de catálogo del modal a 1 columna
+$modal-plant-stack: 700px; // max-width: la ficha botánica apila miniatura/controles
+$modal-plant-1col: 520px; // max-width: controles botánicos en una sola columna
 
 @mixin from($bp) {
   @media (min-width: $bp) {

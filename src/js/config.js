@@ -34,11 +34,11 @@ const TOOLS = Object.freeze({
   BUILD_WALL:   'muro',           BUILD_FENCE:  'verja',
   BUILD_GATE:   'cancela',
   // Jardín — herramientas de creación (NO tipos de elemento): producen
-  // rect/line/circle/curveArrow/text. Todo en vista de planta. Ver js/garden.js.
+  // rect/line/circle/curveArrow/text. La vegetación admite planta y alzado.
   GARDEN_PLOT:   'jardin',        GARDEN_TREE:   'arbol',
   GARDEN_SHRUB:  'arbusto',       GARDEN_FLOWER: 'flor',
   GARDEN_DECOR:  'decoracion',    GARDEN_PATH:   'camino',
-  GARDEN_HERB:   'aromatica',
+  GARDEN_HERB:   'aromatica',     GARDEN_CLIMBER:'trepadora',
 });
 
 /** Herramientas de la sección "Edificios": todas son SOLO de creación
@@ -200,10 +200,27 @@ const GATE_VIEWS = Object.freeze([
 const GARDEN_TOOLS = Object.freeze([
   TOOLS.GARDEN_PLOT, TOOLS.GARDEN_TREE, TOOLS.GARDEN_SHRUB,
   TOOLS.GARDEN_FLOWER, TOOLS.GARDEN_DECOR, TOOLS.GARDEN_PATH,
-  TOOLS.GARDEN_HERB,
+  TOOLS.GARDEN_HERB, TOOLS.GARDEN_CLIMBER,
 ]);
 
-/* Los cinco catálogos del jardín comparten formato con los de Edificios
+/** Vistas y etapas compartidas por toda la vegetación. `factor` se aplica a
+    la altura y anchura adultas de la ficha botánica. */
+const GARDEN_PLANT_VIEWS = Object.freeze([
+  { id: 'plan', name: 'Vista de planta' },
+  { id: 'elevation', name: 'Vista de alzado' },
+]);
+const GARDEN_STAGES = Object.freeze([
+  { id: 'young', name: 'Joven', factor: 0.38 },
+  { id: 'developing', name: 'En desarrollo', factor: 0.68 },
+  { id: 'adult', name: 'Adulto', factor: 1 },
+]);
+const GARDEN_LABEL_MODES = Object.freeze([
+  { id: 'name', name: 'Nombre común' },
+  { id: 'botanical', name: 'Nombre común y botánico' },
+  { id: 'dimensions', name: 'Nombre y dimensiones' },
+]);
+
+/* Los ocho catálogos del jardín comparten formato con los de Edificios
    ({ id, name }) y su icono NO se dibuja a mano: app.js lo pinta con la
    geometría real de js/garden.js, así que el icono es siempre lo que se
    obtiene al arrastrar. Añadir una variante = añadir una entrada aquí y su
@@ -218,51 +235,73 @@ const PLOT_SHAPES = Object.freeze([
   { id: 'organic', name: 'Orgánica' },
 ]);
 
-/** Tipos del botón Árbol (copa vista desde arriba). */
+/** Especies del botón Árbol. Las cotas son valores adultos orientativos en
+    metros y gobiernan el tamaño a escala al hacer clic sin arrastrar. */
 const TREE_TYPES = Object.freeze([
-  { id: 'broadleaf', name: 'Frondoso' },
-  { id: 'conifer',   name: 'Conífera' },
-  { id: 'palm',      name: 'Palmera' },
-  { id: 'olive',     name: 'Olivo' },
-  { id: 'almond',    name: 'Almendro' },
-  { id: 'carob',     name: 'Algarrobo' },
-  { id: 'fruit',     name: 'Frutal' },
-  { id: 'cypress',   name: 'Ciprés' },
+  { id: 'broadleaf', name: 'Encina', botanical: 'Quercus ilex', heightM: 12, spreadM: 14, habit: 'rounded', foliage: '#496b3a' },
+  { id: 'conifer',   name: 'Pino piñonero', botanical: 'Pinus pinea', heightM: 18, spreadM: 12, habit: 'umbrella', foliage: '#365f46' },
+  { id: 'palm',      name: 'Palmera datilera', botanical: 'Phoenix dactylifera', heightM: 14, spreadM: 7, habit: 'palm', foliage: '#557c3e' },
+  { id: 'olive',     name: 'Olivo', botanical: 'Olea europaea', heightM: 7, spreadM: 8, habit: 'spreading', foliage: '#718067' },
+  { id: 'almond',    name: 'Almendro', botanical: 'Prunus dulcis', heightM: 6, spreadM: 7, habit: 'vase', foliage: '#78905d', accent: '#d89bb0' },
+  { id: 'carob',     name: 'Algarrobo', botanical: 'Ceratonia siliqua', heightM: 9, spreadM: 13, habit: 'spreading', foliage: '#3f643b' },
+  { id: 'fruit',     name: 'Naranjo', botanical: 'Citrus sinensis', heightM: 5, spreadM: 5, habit: 'rounded', foliage: '#397246', accent: '#e58a26' },
+  { id: 'cypress',   name: 'Ciprés mediterráneo', botanical: 'Cupressus sempervirens', heightM: 18, spreadM: 4, habit: 'columnar', foliage: '#315c49' },
+  { id: 'fig',       name: 'Higuera', botanical: 'Ficus carica', heightM: 6, spreadM: 8, habit: 'spreading', foliage: '#5f7d43' },
+  { id: 'pomegranate', name: 'Granado', botanical: 'Punica granatum', heightM: 5, spreadM: 4, habit: 'vase', foliage: '#537b3d', accent: '#b93632' },
+  { id: 'lemon',     name: 'Limonero', botanical: 'Citrus limon', heightM: 5, spreadM: 5, habit: 'rounded', foliage: '#4d8240', accent: '#e1c83e' },
+  { id: 'jacaranda', name: 'Jacaranda', botanical: 'Jacaranda mimosifolia', heightM: 12, spreadM: 10, habit: 'umbrella', foliage: '#557d55', accent: '#7655a6' },
 ]);
 
 /** Tipos del botón Arbusto: primero las formas genéricas, luego los arbustos
     leñosos habituales en un jardín mediterráneo. */
 const SHRUB_TYPES = Object.freeze([
-  { id: 'bush',     name: 'Mata redonda' },
-  { id: 'hedge',    name: 'Seto' },
-  { id: 'clump',    name: 'Macizo' },
-  { id: 'topiary',  name: 'Topiario' },
-  { id: 'oleander', name: 'Adelfa' },
-  { id: 'box',      name: 'Boj recortado' },
-  { id: 'mastic',   name: 'Lentisco' },
+  { id: 'bush',     name: 'Mirto', botanical: 'Myrtus communis', heightM: 2.5, spreadM: 2.2, habit: 'rounded', foliage: '#3e7351', accent: '#e6e5d5' },
+  { id: 'hedge',    name: 'Seto de mirto y lentisco', botanical: 'Myrtus communis + Pistacia lentiscus', heightM: 2, spreadM: 5, depthM: 0.8, habit: 'hedge', foliage: '#467247' },
+  { id: 'clump',    name: 'Alcaparra', botanical: 'Capparis spinosa', heightM: 1.2, spreadM: 1.8, habit: 'spreading', foliage: '#587057', accent: '#f0e5d4' },
+  { id: 'topiary',  name: 'Olivo topiario', botanical: 'Olea europaea', heightM: 3.5, spreadM: 2.5, habit: 'topiary', foliage: '#66765f' },
+  { id: 'oleander', name: 'Romero arbustivo', botanical: 'Salvia rosmarinus', heightM: 2, spreadM: 2.5, habit: 'vase', foliage: '#587266', accent: '#7182b4' },
+  { id: 'box',      name: 'Olivo recortado', botanical: 'Olea europaea', heightM: 2.5, spreadM: 2, habit: 'box', foliage: '#66765f' },
+  { id: 'mastic',   name: 'Lentisco', botanical: 'Pistacia lentiscus', heightM: 3, spreadM: 3.5, habit: 'spreading', foliage: '#426b3e' },
+  { id: 'strawberryTree', name: 'Madroño', botanical: 'Arbutus unedo', heightM: 5, spreadM: 4, habit: 'rounded', foliage: '#476f43', accent: '#b43f32' },
+  /* `pittosporum` se conserva como id interno para no romper proyectos
+     guardados; la especie visible sí se sustituye por una mediterránea. */
+  { id: 'pittosporum', name: 'Jara blanca', botanical: 'Cistus albidus', heightM: 1.5, spreadM: 1.5, habit: 'rounded', foliage: '#6f7a55', accent: '#c987a6' },
 ]);
 
 /** Tipos del botón Aromáticas: las matas aromáticas de toda la vida y las
     mediterráneas de porte arquitectónico (roseta), que en planta se leen muy
     distintas de un arbusto cualquiera. */
 const HERB_TYPES = Object.freeze([
-  { id: 'lavender',  name: 'Lavanda' },
-  { id: 'rosemary',  name: 'Romero' },
-  { id: 'thyme',     name: 'Tomillo' },
-  { id: 'sage',      name: 'Salvia' },
-  { id: 'santolina', name: 'Santolina' },
-  { id: 'agave',     name: 'Agave' },
-  { id: 'aloe',      name: 'Aloe' },
-  { id: 'pricklypear', name: 'Chumbera' },
+  { id: 'lavender',  name: 'Lavanda', botanical: 'Lavandula angustifolia', heightM: 0.8, spreadM: 0.9, habit: 'tuft', foliage: '#718366', accent: '#72589a' },
+  { id: 'rosemary',  name: 'Romero', botanical: 'Salvia rosmarinus', heightM: 1.5, spreadM: 1.5, habit: 'tuft', foliage: '#54715f', accent: '#6b76a8' },
+  { id: 'thyme',     name: 'Tomillo', botanical: 'Thymus vulgaris', heightM: 0.35, spreadM: 0.6, habit: 'groundcover', foliage: '#70805d', accent: '#a783a8' },
+  { id: 'sage',      name: 'Salvia', botanical: 'Salvia officinalis', heightM: 0.7, spreadM: 0.8, habit: 'tuft', foliage: '#77816f', accent: '#8068a5' },
+  { id: 'santolina', name: 'Santolina', botanical: 'Santolina chamaecyparissus', heightM: 0.6, spreadM: 0.8, habit: 'rounded', foliage: '#8a9170', accent: '#d2b93c' },
+  { id: 'agave',     name: 'Agave', botanical: 'Agave americana', heightM: 1.8, spreadM: 2.4, habit: 'rosette', foliage: '#5e8377' },
+  { id: 'aloe',      name: 'Aloe', botanical: 'Aloe vera', heightM: 0.8, spreadM: 0.9, habit: 'rosette', foliage: '#5f8a62', accent: '#d66f32' },
+  { id: 'pricklypear', name: 'Chumbera', botanical: 'Opuntia ficus-indica', heightM: 3, spreadM: 3, habit: 'pads', foliage: '#66864f', accent: '#c65b46' },
 ]);
 
 /** Tipos del botón Flor. */
 const FLOWER_TYPES = Object.freeze([
-  { id: 'daisy',     name: 'Margarita' },
-  { id: 'rose',      name: 'Rosa' },
-  { id: 'tulip',     name: 'Tulipán' },
-  { id: 'bed',       name: 'Parterre' },
-  { id: 'sunflower', name: 'Girasol' },
+  /* Los ids históricos permanecen estables para que preferencias y escenas
+     antiguas migren sin perder ejemplares. */
+  { id: 'daisy',     name: 'Caléndula', botanical: 'Calendula officinalis', heightM: 0.5, spreadM: 0.5, habit: 'flower', foliage: '#687a4e', accent: '#df9c28' },
+  { id: 'rose',      name: 'Rosa siempreverde', botanical: 'Rosa sempervirens', heightM: 1.5, spreadM: 1.2, habit: 'flower', foliage: '#4f7148', accent: '#f1eee2' },
+  { id: 'tulip',     name: 'Estátice mediterráneo', botanical: 'Limonium sinuatum', heightM: 0.6, spreadM: 0.5, habit: 'flower', foliage: '#667956', accent: '#7c69a7' },
+  { id: 'bed',       name: 'Macizo mediterráneo', botanical: 'Calendula officinalis + Rosa sempervirens + Limonium sinuatum', heightM: 0.7, spreadM: 4, depthM: 2.4, habit: 'bed', foliage: '#668052', accent: '#b56b8d' },
+  { id: 'sunflower', name: 'Boca de dragón', botanical: 'Antirrhinum majus', heightM: 1, spreadM: 0.4, habit: 'flower', foliage: '#5f7c41', accent: '#c65c78' },
+]);
+
+/** Trepadoras: en planta se dibuja su banda de ocupación; el alzado enseña el
+    soporte, la arquitectura de los tallos y la floración. */
+const CLIMBER_TYPES = Object.freeze([
+  { id: 'bougainvillea', name: 'Buganvilla', botanical: 'Bougainvillea glabra', heightM: 6, spreadM: 5, depthM: 0.6, habit: 'climber', foliage: '#4b7444', accent: '#c44188' },
+  { id: 'jasmine', name: 'Jazmín', botanical: 'Jasminum officinale', heightM: 5, spreadM: 4, depthM: 0.5, habit: 'climber', foliage: '#3f714b', accent: '#f0ead2' },
+  { id: 'vine', name: 'Parra', botanical: 'Vitis vinifera', heightM: 3, spreadM: 6, depthM: 0.8, habit: 'climber', foliage: '#5e7d42', accent: '#76557c' },
+  { id: 'wisteria', name: 'Glicinia', botanical: 'Wisteria sinensis', heightM: 8, spreadM: 6, depthM: 0.7, habit: 'climber', foliage: '#52734e', accent: '#7463a0' },
+  { id: 'ivy', name: 'Hiedra', botanical: 'Hedera helix', heightM: 8, spreadM: 5, depthM: 0.4, habit: 'climber', foliage: '#365f42' },
+  { id: 'climbingRose', name: 'Rosal trepador', botanical: 'Rosa spp.', heightM: 4, spreadM: 3, depthM: 0.6, habit: 'climber', foliage: '#477045', accent: '#c74f61' },
 ]);
 
 /** Tipos del botón Decoración. */
@@ -350,7 +389,7 @@ const TOOL_GROUPS = [
       { id: TOOLS.BUILD_WINDOW, icon: '🪟', name: 'Ventana',        key: 'y' },
       // Sin atajo: no queda ninguna tecla suelta libre —las 26 letras y los 10
       // dígitos están asignados, y `f q d s` las usan las acciones de flecha
-      // curva—, así que entra igual que Caminos y Aromáticas. `key` es
+      // curva—, así que entra igual que Caminos, Aromáticas y Trepadoras. `key` es
       // opcional; mejor sin atajo que pisando una acción existente.
       { id: TOOLS.BUILD_BALCONY, icon: '▥', name: 'Balcón' },
       { id: TOOLS.BUILD_WALL,    icon: '🧱', name: 'Muro y cancela' },
@@ -378,6 +417,7 @@ const TOOL_GROUPS = [
       // pisando una acción existente.
       { id: TOOLS.GARDEN_PATH,   icon: '〰️', name: 'Caminos' },
       { id: TOOLS.GARDEN_HERB,   icon: '🍃', name: 'Aromáticas' },
+      { id: TOOLS.GARDEN_CLIMBER,icon: '🍇', name: 'Trepadoras' },
     ],
   },
 ];

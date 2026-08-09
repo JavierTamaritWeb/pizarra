@@ -28,6 +28,47 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### El ciprés del catálogo parecía una bola en vez de una llama
+
+- **Síntoma:** en la vista de alzado, el icono del Ciprés mediterráneo era un
+  óvalo casi redondo. Además, especies de alturas y diámetros muy diferentes
+  ocupaban la misma proporción dentro de sus iconos.
+- **Causa:** `variantIcon()` entregaba a todas las variantes vegetales una caja
+  fija de 100 × 84 px. Al existir un arrastre válido, `Garden.elements()` no
+  llegaba a consultar las dimensiones botánicas; un `Cupressus sempervirens`
+  de 18 × 4 m terminaba deformado a la misma caja que cualquier copa redonda.
+  Su contorno de alzado era, además, una elipse sin ápice.
+- **Fix:** los iconos vegetales simulan ahora un clic sin arrastre, para que la
+  caja nazca de altura, diámetro, etapa y escala. El ciprés usa un contorno
+  fastigiado cerrado, con ápice centrado, ensanchamiento inferior y ramas
+  ascendentes. La auditoría se extendió a las 40 especies: perfiles de copa,
+  matas, espigas, corolas y racimos conservan rasgos botánicos reconocibles.
+- **Guardias:** `tests/app-interaction.test.js` › *«los iconos de plantas usan
+  la caja botánica…»*; `tests/garden.test.js` › *«las 40 especies conservan sus
+  proporciones…»* y *«el ciprés… es una llama…»*; y
+  `e2e/garden-botanical.spec.js` › *«el icono del ciprés conserva su silueta
+  fastigiada en llama»*, que mide la tinta del canvas en Chromium.
+
+### Los controles botánicos se veían entrecortados en ventanas intermedias
+
+- **Síntoma:** en los modales de Árbol, Arbusto, Flor, Aromáticas y
+  Trepadoras, textos como «Vista de alzado», «Adulto» o «Nombre y
+  dimensiones» aparecían cortados, especialmente alrededor de 450–720 px de
+  ancho.
+- **Causa:** todos los diálogos estaban limitados a 46rem y la ficha intentaba
+  mantener simultáneamente una miniatura de 17,6rem y dos columnas de campos.
+  El breakpoint general de 420px miraba el viewport, no el ancho útil que
+  quedaba dentro del diálogo tras descontar padding. Además, el ancho mínimo
+  intrínseco de los controles nativos podía ensanchar las celdas del grid.
+- **Fix:** los cinco diálogos llevan `modal--plant` (máximo 72rem), la ficha
+  apila miniatura y controles a 700px y pasa los campos a una columna a 520px.
+  Los controles aceptan `min-width:0`, ocupan el 100% de su celda y el selector
+  de etiqueta usa una fila completa.
+- **Guardia:** `e2e/garden-botanical.spec.js` › *«los controles botánicos no
+  se cortan en anchos intermedios»*. Chromium mide el texto seleccionado con
+  la fuente real, reserva la flecha nativa y comprueba ausencia de overflow a
+  460 y 720px.
+
 ### El muro de piedra salía de bloques prefabricados, la altura no se notaba y la verja no se podía elegir
 
 - **Síntoma:** tres defectos de la herramienta Muro reportados juntos. (1) El

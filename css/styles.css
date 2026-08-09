@@ -692,6 +692,13 @@ input[type=range]::-moz-range-thumb {
   max-height: 85vh;
 }
 
+/* Las fichas botánicas necesitan más ancho que un selector sencillo: reúnen
+   miniatura, cinco ajustes y cotas. El límite al viewport sigue siendo el
+   mismo, por lo que no introduce scroll horizontal en pantallas pequeñas. */
+.modal--plant {
+  width: min(72rem, calc(100vw - 2.4rem));
+}
+
 .modal__help-group {
   margin-bottom: 1.8rem;
 }
@@ -843,6 +850,60 @@ kbd {
   align-content: start;
 }
 
+/* Jardín botánico: los mismos controles se generan para cinco catálogos.
+   En escritorio caben en dos columnas; la miniatura mantiene un plano claro
+   para que las tintas naturales no se pierdan sobre el diálogo oscuro. */
+.modal__plant-build {
+  align-items: start;
+  padding: 1.2rem;
+  border: 0.1rem solid var(--border-main);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.modal__plant-fields {
+  grid-template-columns: repeat(2, minmax(12rem, 1fr));
+  min-width: 30rem;
+}
+
+/* Los controles nativos conservan un ancho mínimo intrínseco según su texto.
+   En una celda grid estrecha ese mínimo fuerza el desborde y corta el vecino;
+   min-width:0 hace que obedezcan a la columna, y width:100% aprovecha todo el
+   espacio disponible. */
+.modal__plant-fields .panel__field,
+.modal__plant-fields .panel__select,
+.modal__plant-fields .panel__slider {
+  width: 100%;
+  min-width: 0;
+}
+
+.modal__plant-color,
+.modal__plant-dimensions {
+  grid-column: 1/-1;
+}
+
+/* Es el texto más largo de los selectores ("Nombre y dimensiones"); ocupa
+   una fila completa para que OpenDyslexic y la flecha nativa no lo recorten. */
+.modal__plant-field--plant-label-mode {
+  grid-column: 1/-1;
+}
+
+.modal__plant-dimensions {
+  min-height: 3.2rem;
+  margin: 0;
+  padding: 0.8rem 1rem;
+  border-radius: 0.7rem;
+  background: rgba(78, 205, 196, 0.08);
+  color: var(--text-secondary);
+  font-size: 1.2rem;
+  line-height: 1.35;
+}
+
+.modal__shape-note--botanical {
+  max-width: 16rem;
+  font-style: italic;
+}
+
 .modal__field-label,
 .modal__legend {
   font-size: 1.1rem;
@@ -862,6 +923,29 @@ kbd {
   opacity: 0.4;
 }
 
+/* La ficha botánica se apila antes que los modales pequeños: con una ventana
+   de 500–700px el diálogo ya ha perdido bastante ancho útil por su padding,
+   aunque el viewport aún no haya alcanzado el breakpoint general de 420px. */
+@media (max-width: 700px) {
+  .modal__plant-build {
+    grid-template-columns: 1fr;
+  }
+  .modal__plant-preview {
+    width: 100%;
+  }
+  .modal__plant-fields {
+    min-width: 0;
+  }
+}
+@media (max-width: 520px) {
+  .modal__plant-fields {
+    grid-template-columns: 1fr;
+  }
+  .modal__plant-color,
+  .modal__plant-dimensions {
+    grid-column: auto;
+  }
+}
 /* Apilado en modales estrechos: la miniatura pasa a ocupar todo el ancho. */
 @media (max-width: 420px) {
   .modal__build {
@@ -869,6 +953,14 @@ kbd {
   }
   .modal__preview {
     width: 100%;
+  }
+  .modal__plant-fields {
+    grid-template-columns: 1fr;
+    min-width: 0;
+  }
+  .modal__plant-color,
+  .modal__plant-dimensions {
+    grid-column: auto;
   }
 }
 .modal__shape {

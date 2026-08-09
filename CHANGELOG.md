@@ -4,6 +4,76 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.7.1] — 2026-08-09
+
+### Corregido
+
+- **Un grupo seleccionado ya se puede redimensionar.** El marco combinado de un
+  edificio o una planta se dibujaba sin tiradores y solo se podía mover: los
+  tiradores existían únicamente con un elemento suelto seleccionado. Como desde
+  que existen Edificios y Jardín casi todo lo que se dibuja es un grupo —un muro
+  son ~70 piezas—, en la práctica el redimensionado había desaparecido de la
+  app: al pulsar sobre lo recién dibujado salía una multiselección, y una
+  multiselección no ofrecía por dónde agarrar.
+
+  Ahora el marco del grupo lleva sus cuatro tiradores y arrastrarlos escala
+  todas las piezas a la vez, en un único paso de deshacer. Detalles:
+
+  - La **escala del grupo es uniforme**, a diferencia del estirón libre de dos
+    ejes que sí admite un elemento suelto. Dentro de un grupo viaja de todo, y
+    un estirón libre rompería invariantes ajenas: los polígonos regulares exigen
+    `w === h` y la validación de importación **rechaza** los deformados, así que
+    un escalado libre podía dejar un proyecto imposible de volver a abrir.
+  - El impacto sobre los tiradores se comprueba **antes** que el arrastre por
+    marco combinado. Caen sobre las mismas esquinas, y con el otro orden agarrar
+    una esquina movería el grupo en lugar de escalarlo.
+
+## [2.7.0] — 2026-08-09
+
+### Añadido
+
+- **Jardín botánico en planta y alzado.** Árboles, arbustos, flores,
+  aromáticas y trepadoras comparten una vista previa viva y pueden cambiar de
+  representación sin duplicar catálogos ni geometrías.
+- **40 especies documentadas** con nombre científico, altura, diámetro, porte,
+  follaje y floración/fruto cuando procede. Los catálogos de Árbol y Arbusto
+  crecen a 12 y 9 especies, y nace **Trepadoras** con 6 especies.
+- Controles por ejemplar para etapa joven/en desarrollo/adulta, tamaño
+  **50–150 %**, escala **8–50 px/m**, acabado natural o tinta y etiquetas por
+  nombre común, botánico o dimensiones.
+- **Botón «Editar planta»** al seleccionar un ejemplar completo. Reabre su
+  ficha, permite sustituir especie y representación en la misma posición y
+  registra toda la regeneración como un único paso de Deshacer.
+- Metadatos `gardenMeta` validados y serializables para conservar la intención
+  botánica al mover, duplicar, guardar, exportar e importar el proyecto.
+
+### Cambiado
+
+- Las copas, troncos, portes, rosetas, floraciones y soportes de trepadoras
+  tienen geometría de alzado propia; el modo natural suma masas translúcidas y
+  una paleta coherente sin perder el trazo manual.
+- Los iconos vegetales conservan ahora las proporciones adultas de cada
+  especie. El ciprés adopta una silueta fastigiada en llama y se refinan los
+  perfiles de copa, arbustos, aromáticas, corolas y órganos de las trepadoras
+  para que las 40 especies sean reconocibles aun con dibujo esquemático.
+- Los catálogos de Arbusto y Flor adoptan un repertorio mediterráneo prudente
+  ante la toxicidad: se retiran baladre, boj, durillo, laurel, amapola, iris y
+  gladiolo. Los sustituyen mirto, lentisco, alcaparra, olivo, romero, madroño,
+  jara, caléndula, rosa siempreverde, estátice y boca de dragón. Se conservan
+  los ids internos para mantener compatibles los proyectos previos.
+- Los modales botánicos reorganizan la vista previa y los controles en dos
+  columnas en escritorio y una en móvil. La ficha tiene ancho propio y
+  breakpoints a 700/520 px para que los selectores no recorten su contenido.
+- Versión visible, caché de recursos y documentación actualizadas a **2.7.0**.
+
+### Tests
+
+- **477 tests unitarios**: fichas y cotas, geometrías distintas en ambas
+  vistas, límites, persistencia, metadatos, edición reversible y exportación.
+- **36 tests end-to-end**: vista previa, catálogo, dibujo, edición, recarga,
+  ajuste móvil, medición del texto de los controles, comprobación visible del
+  repertorio sin especies descartadas y proporción del ciprés en Chromium.
+
 ## [2.6.0] — 2026-08-09
 
 ### Añadido

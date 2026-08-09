@@ -1,6 +1,6 @@
 /* ============================================================
-   garden.js — Geometría pura de la sección "Jardín", en VISTA DE PLANTA
-   (cenital, como un plano de paisajismo).
+   garden.js — Geometría pura de la sección "Jardín". Parcelas y caminos se
+   dibujan en planta; la vegetación admite PLANTA y ALZADO paisajístico.
 
    Mismo contrato que js/building.js: herramientas SOLO de creación, que
    producen elementos YA EXISTENTES —rect, line, circle, curveArrow (suelto o
@@ -45,6 +45,12 @@ const Garden = (function () {
      PATH_COLS solo mira una hilera—, y PATH_SPREAD deja sitio al canto de las
      hileras de los extremos para que no asomen por los bordes. */
   const PATH_ROWS = 6, PATH_ROW_H = 17, PATH_STONES = 96, PATH_SPREAD = 0.92;
+  const PLANT_PX_PER_M_MIN = 8, PLANT_PX_PER_M_MAX = 50;
+  const PLANT_SCALE_MIN = 50, PLANT_SCALE_MAX = 150;
+  const PLANT_TOOLS = Object.freeze([
+    TOOLS.GARDEN_TREE, TOOLS.GARDEN_SHRUB, TOOLS.GARDEN_FLOWER,
+    TOOLS.GARDEN_HERB, TOOLS.GARDEN_CLIMBER,
+  ]);
 
   /* Tamaño al hacer clic sin arrastrar. Ojo: aquí NO basta con una caja por
      herramienta como en Edificios —donde una Puerta mide igual sea del tipo
@@ -64,6 +70,7 @@ const Garden = (function () {
     [TOOLS.GARDEN_HERB]:   { w: 40, h: 40, byVariant: {
       thyme: { w: 52, h: 34 },        // el tomillo tapiza, no hace mata
       agave: { w: 70, h: 70 }, pricklypear: { w: 76, h: 66 } } },
+    [TOOLS.GARDEN_CLIMBER]: { w: 120, h: 90 },
     [TOOLS.GARDEN_FLOWER]: { w: 28, h: 28, byVariant: {
       bed: { w: 140, h: 90 }, sunflower: { w: 36, h: 36 } } },
     [TOOLS.GARDEN_DECOR]:  { w: 48, h: 48, byVariant: {
@@ -86,7 +93,57 @@ const Garden = (function () {
     [TOOLS.GARDEN_DECOR]:  { list: DECOR_TYPES,   key: 'decorType'   },
     [TOOLS.GARDEN_PATH]:   { list: PATH_TYPES,    key: 'pathType'    },
     [TOOLS.GARDEN_HERB]:   { list: HERB_TYPES,    key: 'herbType'    },
+    [TOOLS.GARDEN_CLIMBER]:{ list: CLIMBER_TYPES, key: 'climberType' },
   };
+
+  const _spec = (tool, id) => {
+    const cat = CATALOGS[tool];
+    return cat && cat.list.find(v => v.id === id) || null;
+  };
+
+  const _plantInk = (o, spec) => o.plantColorMode === 'natural' && spec ? {
+    ...o,
+    labelColor: o.color,
+    color: spec.foliage || '#4f7248',
+  } : o;
+
+  const _accentInk = (o, spec) => o.plantColorMode === 'natural' && spec && spec.accent
+    ? { ...o, color: spec.accent }
+    : _fine(o);
+
+  const _trunkInk = o => o.plantColorMode === 'natural'
+    ? { ...o, color: '#755642', fillColor: '#9a7658' }
+    : o;
+
+  function plantSize(tool, id, opts) {
+    const spec = _spec(tool, id);
+    if (!PLANT_TOOLS.includes(tool) || !spec ||
+        !Number.isFinite(spec.heightM) || !Number.isFinite(spec.spreadM)) return null;
+    const o = opts || {};
+    const stage = GARDEN_STAGES.find(v => v.id === o.plantStage) ||
+      GARDEN_STAGES.find(v => v.id === 'adult');
+    const pct = Math.max(PLANT_SCALE_MIN, Math.min(PLANT_SCALE_MAX,
+      Number.isFinite(o.plantScalePct) ? o.plantScalePct : 100));
+    const factor = stage.factor * pct / 100;
+    return {
+      spec, stage: stage.id,
+      heightM: spec.heightM * factor,
+      spreadM: spec.spreadM * factor,
+      depthM: (Number.isFinite(spec.depthM) ? spec.depthM : spec.spreadM) * factor,
+    };
+  }
+
+  function _plantDefault(tool, variant, o) {
+    const size = plantSize(tool, variant, o);
+    if (!size) return null;
+    const px = Math.max(PLANT_PX_PER_M_MIN, Math.min(PLANT_PX_PER_M_MAX,
+      Number.isFinite(o.plantPxPerM) ? o.plantPxPerM : 20));
+    const elevation = o.plantView === 'elevation';
+    return {
+      w: Math.max(5, size.spreadM * px),
+      h: Math.max(5, (elevation ? size.heightM : size.depthM) * px),
+    };
+  }
 
   /** Variante activa de una herramienta (la primera del catálogo por defecto). */
   function _variant(tool, o) {
@@ -104,9 +161,10 @@ const Garden = (function () {
   }
 
   function elements(tool, p1, p2, opts) {
-    const o = { color: '#000000', lineWidth: 2, ...(opts || {}) };
+    let o = { color: '#000000', lineWidth: 2, ...(opts || {}) };
     const variant = _variant(tool, o);
     if (variant === null) return [];     // no es una herramienta del jardín
+    o = _plantInk(o, _spec(tool, variant));
     // El camino se resuelve aparte porque de su arrastre salen DOS cosas —el
     // recorrido por el lado largo y el grosor por el corto—, y porque su caja
     // por defecto no es un tamaño sino un largo. La etiqueta va bajo la caja
@@ -118,7 +176,8 @@ const Garden = (function () {
     }
     const base = DEFAULTS[tool];
     if (!base) return [];
-    const def = (base.byVariant && base.byVariant[variant]) || base;
+    const def = _plantDefault(tool, variant, o) ||
+      (base.byVariant && base.byVariant[variant]) || base;
     const rawW = Math.abs(p2.x - p1.x), rawH = Math.abs(p2.y - p1.y);
     const b = {
       x: Math.min(p1.x, p2.x), y: Math.min(p1.y, p2.y),
@@ -135,6 +194,10 @@ const Garden = (function () {
       b.w = side; b.h = side;
     }
     let els;
+    if (PLANT_TOOLS.includes(tool) && o.plantView === 'elevation') {
+      els = _plantElevation(tool, b, o, variant);
+      return _labelled(els, b, tool, variant, o);
+    }
     switch (tool) {
       case TOOLS.GARDEN_PLOT:   els = _plotTool(b, o, variant);   break;
       case TOOLS.GARDEN_TREE:   els = _treeTool(b, o, variant);   break;
@@ -142,6 +205,7 @@ const Garden = (function () {
       case TOOLS.GARDEN_FLOWER: els = _flowerTool(b, o, variant); break;
       case TOOLS.GARDEN_DECOR:  els = _decorTool(b, o, variant);  break;
       case TOOLS.GARDEN_HERB:   els = _herbTool(b, o, variant);   break;
+      case TOOLS.GARDEN_CLIMBER:els = _climberPlan(b, o, variant); break;
       default: return [];
     }
     return _labelled(els, b, tool, variant, o);
@@ -151,22 +215,39 @@ const Garden = (function () {
   function _labelled(els, b, tool, variant, o) {
     const out = els.filter(Boolean);
     if (o.labels !== false) {
-      const label = _label(_variantName(tool, variant), b, o);
+      const spec = _spec(tool, variant);
+      const size = plantSize(tool, variant, o);
+      let text = _variantName(tool, variant);
+      if (spec && o.gardenLabelMode === 'botanical') {
+        text += ` · ${spec.botanical}`;
+      } else if (size && o.gardenLabelMode === 'dimensions') {
+        text += ` · H ${_metres(size.heightM)} m · Ø ${_metres(size.spreadM)} m`;
+      }
+      const label = _label(text, b, o);
       if (label) out.push(label);
     }
     return out;
   }
+
+  const _metres = n => Number(n.toFixed(n < 1 ? 2 : 1)).toLocaleString('es-ES');
 
   /* ── primitivas ── */
 
   const _line = (x1, y1, x2, y2, o) =>
     ({ type: 'line', x1, y1, x2, y2, color: o.color, lineWidth: o.lineWidth });
 
+  const _shapePaint = o => o.fill ? {
+    fill: true,
+    fillColor: o.fillColor || o.color,
+    fillTransparent: o.fillTransparent !== false,
+    fillOpacity: Number.isFinite(o.fillOpacity) ? o.fillOpacity : 0.18,
+  } : { fill: false };
+
   const _rectEl = (x, y, w, h, o) =>
-    ({ type: 'rect', x, y, w, h, color: o.color, lineWidth: o.lineWidth, fill: false });
+    ({ type: 'rect', x, y, w, h, color: o.color, lineWidth: o.lineWidth, ..._shapePaint(o) });
 
   const _circleEl = (x, y, w, h, o) =>
-    ({ type: 'circle', x, y, w, h, color: o.color, lineWidth: o.lineWidth, fill: false });
+    ({ type: 'circle', x, y, w, h, color: o.color, lineWidth: o.lineWidth, ..._shapePaint(o) });
 
   /** Círculo por centro y radio: en planta casi todo se piensa así. */
   const _dot = (cx, cy, r, o) => _circleEl(cx - r, cy - r, r * 2, r * 2, o);
@@ -301,7 +382,7 @@ const Garden = (function () {
       x: box.x + box.w / 2 - w / 2,
       y: box.y + box.h + LABEL_GAP,
       value: text,
-      color: o.color,
+      color: o.labelColor || o.color,
       fontSize: size,
       lineWidth: o.lineWidth,
     };
@@ -467,9 +548,42 @@ const Garden = (function () {
         }
         return [_circleEl(b.x, b.y, b.w, b.h, o), ...fruits, _trunk(cx, cy, r, f)];
       }
-      case 'cypress':   // columnar: copa estrecha, dos anillos apretados
+      case 'fig': {     // higuera: hojas grandes y copa ancha, algo abierta
+        const leaves = [];
+        for (let i = 0; i < 7; i++) {
+          const a = (i / 7) * Math.PI * 2 + 0.18;
+          leaves.push(_dot(cx + Math.cos(a) * rx * 0.55, cy + Math.sin(a) * ry * 0.55,
+            Math.max(1.4, r * 0.13), f));
+        }
+        return [_blob(cx, cy, rx, ry, LOBES.broadleaf, o), ...leaves,
+                ..._spokes(cx, cy, rx, ry, 3, 0.15, 0.58, f), _trunk(cx, cy, r, f)];
+      }
+      case 'pomegranate': { // granado: copa menor, abierta, con frutos periféricos
+        const a = _accentInk(o, _spec(TOOLS.GARDEN_TREE, type));
+        return [_blob(cx, cy, rx, ry, LOBES.olive, o),
+                _dot(cx - rx * 0.5, cy - ry * 0.35, Math.max(1.5, r * 0.1), a),
+                _dot(cx + rx * 0.52, cy + ry * 0.16, Math.max(1.5, r * 0.1), a),
+                _dot(cx - rx * 0.12, cy + ry * 0.55, Math.max(1.5, r * 0.1), a),
+                ..._spokes(cx, cy, rx, ry, 4, 0.18, 0.65, f), _trunk(cx, cy, r, f)];
+      }
+      case 'lemon': {   // limonero: copa densa con fruta oval sugerida por parejas
+        const a = _accentInk(o, _spec(TOOLS.GARDEN_TREE, type));
+        const fruit = [[-0.45,-0.25],[0.08,-0.52],[0.48,-0.1],[-0.2,0.42],[0.4,0.4],[-0.55,0.25]];
         return [_circleEl(b.x, b.y, b.w, b.h, o),
-                _dot(cx, cy, r * 0.58, f),
+          ...fruit.map(([sx, sy]) => _dot(cx + rx * sx, cy + ry * sy, Math.max(1.2, r * 0.075), a)),
+          _dot(cx, cy, r * 0.7, f), _trunk(cx, cy, r, f)];
+      }
+      case 'jacaranda': { // jacaranda: copa aparasolada con racimos florales
+        const a = _accentInk(o, _spec(TOOLS.GARDEN_TREE, type));
+        const blossom = [[-0.55,-0.3],[-0.12,-0.58],[0.42,-0.38],[0.58,0.16],[0.08,0.52],[-0.48,0.35]];
+        return [_blob(cx, cy, rx, ry, LOBES.bed, o),
+          ...blossom.map(([sx, sy]) => _dot(cx + rx * sx, cy + ry * sy, Math.max(1.5, r * 0.12), a)),
+          ..._spokes(cx, cy, rx, ry, 6, 0.16, 0.62, f), _trunk(cx, cy, r, f)];
+      }
+      case 'cypress':   // copa compacta de conífera: verticilos densos, no anillos de boj
+        return [_circleEl(b.x, b.y, b.w, b.h, o),
+                ..._spokes(cx, cy, rx, ry, 14, 0.18, 0.86, f),
+                _dot(cx, cy, r * 0.42, f),
                 _trunk(cx, cy, r, f)];
       default:          // frondoso: copa lobulada con ramas principales
         return [_blob(cx, cy, rx, ry, LOBES.broadleaf, o),
@@ -491,25 +605,30 @@ const Garden = (function () {
                 _wave(b.x + inset * 0.4, cy, b.x + b.w - inset * 0.4, cy,
                       Math.max(2, b.h * 0.16), 4, f)];
       }
-      case 'clump': {   // macizo: mata lobulada con dos matas menores dentro
+      case 'clump': {   // alcaparra: mata rastrera irregular con capullos claros
+        const a = _accentInk(o, _spec(TOOLS.GARDEN_SHRUB, type));
+        const buds = [[-.5,-.2],[-.12,-.48],[.42,-.25],[.28,.38],[-.4,.34]];
         return [_blob(cx, cy, rx, ry, LOBES.clump, o),
-                _dot(cx - rx * 0.28, cy + ry * 0.12, r * 0.3, f),
-                _dot(cx + rx * 0.3, cy - ry * 0.18, r * 0.26, f)];
+                ...buds.map(([sx, sy]) => _dot(cx + rx * sx, cy + ry * sy,
+                  Math.max(1.3, r * .12), a)),
+                ..._spokes(cx, cy, rx, ry, 6, .18, .72, f)];
       }
       case 'topiary':   // bola recortada: anillos concéntricos
         return [_circleEl(b.x, b.y, b.w, b.h, o),
                 _dot(cx, cy, r * 0.62, f),
                 _dot(cx, cy, r * 0.28, f)];
-      case 'oleander': { // adelfa: mata alta con la flor en lo alto
+      case 'oleander': { // romero arbustivo: ramas radiales y hoja lineal
+        const a = _accentInk(o, _spec(TOOLS.GARDEN_SHRUB, type));
         const flowers = [];
-        for (let i = 0; i < 5; i++) {
-          const a = (i / 5) * Math.PI * 2 + 0.7;
-          flowers.push(_dot(cx + Math.cos(a) * rx * 0.52, cy + Math.sin(a) * ry * 0.52,
-                            Math.max(1.4, r * 0.17), f));
+        for (let i = 0; i < 6; i++) {
+          const ang = (i / 6) * Math.PI * 2 + 0.35;
+          flowers.push(_dot(cx + Math.cos(ang) * rx * 0.55,
+            cy + Math.sin(ang) * ry * 0.55, Math.max(1.3, r * 0.1), a));
         }
-        return [_blob(cx, cy, rx, ry, LOBES.broadleaf, o), ...flowers];
+        return [_blob(cx, cy, rx, ry, LOBES.clump, o),
+                ..._spokes(cx, cy, rx, ry, 10, .16, .82, f), ...flowers];
       }
-      case 'box': {     // boj recortado: masa cúbica con el follaje apretado
+      case 'box': {     // olivo recortado: masa cúbica de hoja estrecha
         const texture = [];
         for (let i = 1; i <= 4; i++) {
           const x = b.x + (b.w * i) / 5;
@@ -525,6 +644,25 @@ const Garden = (function () {
                             cx + Math.cos(a) * rx * 0.72, cy + Math.sin(a) * ry * 0.72, f));
         }
         return [_blob(cx, cy, rx, ry, LOBES.stone, o), ...leaves];
+      }
+      case 'strawberryTree': { // madroño: bayas sobre una mata compacta
+        const a = _accentInk(o, _spec(TOOLS.GARDEN_SHRUB, type));
+        return [_blob(cx, cy, rx, ry, LOBES.broadleaf, o),
+                _dot(cx - rx * 0.44, cy - ry * 0.34, Math.max(1.3, r * 0.1), a),
+                _dot(cx + rx * 0.46, cy - ry * 0.05, Math.max(1.3, r * 0.1), a),
+                _dot(cx, cy + ry * 0.5, Math.max(1.3, r * 0.1), a),
+                ..._spokes(cx, cy, rx, ry, 5, 0.2, 0.7, f)];
+      }
+      case 'pittosporum': { // jara: mata grisácea con flores grandes de cinco pétalos
+        const a = _accentInk(o, _spec(TOOLS.GARDEN_SHRUB, type));
+        const flowers = [];
+        for (let i = 0; i < 5; i++) {
+          const ang = i / 5 * Math.PI * 2 - Math.PI / 2;
+          flowers.push(_dot(cx + Math.cos(ang) * rx * .52,
+            cy + Math.sin(ang) * ry * .52, Math.max(1.5, r * .12), a));
+        }
+        return [_blob(cx, cy, rx, ry, LOBES.clump, o), ...flowers,
+                _dot(cx, cy, Math.max(1.5, r * 0.1), f)];
       }
       default: {        // mata redonda: círculo con el follaje insinuado
         const arcs = [];
@@ -619,44 +757,505 @@ const Garden = (function () {
   /* ── Flor ── */
 
   function _flowerTool(b, o, type) {
-    const f = _fine(o);
+    const f = _fine(o), a = _accentInk(o, _spec(TOOLS.GARDEN_FLOWER, type));
     const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
     const rx = b.w / 2, ry = b.h / 2, r = Math.min(rx, ry);
     switch (type) {
-      case 'rose': {    // espiral: anillos desplazados hacia el corazón
-        return [_dot(cx, cy, r, o),
-                _dot(cx + rx * 0.12, cy, r * 0.62, f),
-                _dot(cx + rx * 0.2, cy, r * 0.3, f)];
-      }
-      case 'tulip': {   // tres pétalos abiertos
+      case 'rose': {    // rosa siempreverde: corola clásica de cinco pétalos
         const petals = [];
-        for (let i = 0; i < 3; i++) {
-          const a = (i / 3) * Math.PI * 2 - Math.PI / 2;
-          petals.push(_dot(cx + Math.cos(a) * rx * 0.5, cy + Math.sin(a) * ry * 0.5,
-                           r * 0.46, o));
+        for (let i = 0; i < 5; i++) {
+          const ang = i / 5 * Math.PI * 2 - Math.PI / 2;
+          petals.push(_dot(cx + Math.cos(ang) * rx * .4,
+            cy + Math.sin(ang) * ry * .4, r * .4, a));
         }
-        return [...petals, _dot(cx, cy, Math.max(1.5, r * 0.16), f)];
+        return [...petals, _dot(cx, cy, Math.max(1.5, r * .28), a),
+          _dot(cx, cy, Math.max(1.1, r * .1), f)];
+      }
+      case 'tulip': {   // estátice: nube ramificada de pequeñas flores papiráceas
+        const blooms = [[-.45,-.28],[-.16,-.52],[.16,-.42],[.46,-.18],
+          [-.34,.18],[0,.08],[.38,.28],[-.05,.46]];
+        return [_blob(cx, cy, rx * .82, ry * .78, LOBES.bed, o),
+          ...blooms.map(([sx, sy]) => _dot(cx + rx * sx, cy + ry * sy,
+            Math.max(1.2, r * .12), a)),
+          ..._spokes(cx, cy, rx, ry, 5, .08, .68, f)];
       }
       case 'bed': {     // parterre: masa de flores, no una flor suelta
         const dots = [];
         const spots = [[-0.5, -0.3], [0.1, -0.5], [0.5, -0.1], [-0.2, 0.1],
                        [0.3, 0.4], [-0.5, 0.4], [0, 0.6]];
         spots.forEach(([sx, sy]) =>
-          dots.push(_dot(cx + rx * sx * 0.8, cy + ry * sy * 0.8, Math.max(1.5, r * 0.13), f)));
+          dots.push(_dot(cx + rx * sx * 0.8, cy + ry * sy * 0.8, Math.max(1.5, r * 0.13), a)));
         return [_blob(cx, cy, rx, ry, LOBES.bed, o), ...dots];
       }
-      case 'sunflower': // corazón grande y muchos pétalos radiales
-        return [_dot(cx, cy, r * 0.42, o),
-                ..._spokes(cx, cy, rx, ry, 14, 0.5, 1, f)];
-      default: {        // margarita: corazón con corona de pétalos
+      case 'sunflower': { // boca de dragón: racimo compacto de flores bilabiadas
+        const blooms = [[-.28,-.42],[.28,-.3],[-.32,0],[.3,.12],[-.18,.38]];
+        return [..._spokes(cx, cy, rx, ry, 6, .12, .84, f),
+          ...blooms.map(([sx, sy]) => [
+            _dot(cx + rx * sx, cy + ry * sy, Math.max(1.3, r * .22), a),
+            _dot(cx + rx * sx + r * .13, cy + ry * sy + r * .08,
+              Math.max(1.1, r * .12), a),
+          ]).flat(), _dot(cx, cy, Math.max(1.2, r * .13), f)];
+      }
+      default: {        // caléndula: corazón con corona densa de pétalos
         const petals = [];
         for (let i = 0; i < 8; i++) {
           const a = (i / 8) * Math.PI * 2;
           petals.push(_dot(cx + Math.cos(a) * rx * 0.62, cy + Math.sin(a) * ry * 0.62,
-                           Math.max(1.5, r * 0.3), f));
+                           Math.max(1.5, r * 0.3), _accentInk(o, _spec(TOOLS.GARDEN_FLOWER, type))));
         }
         return [...petals, _dot(cx, cy, Math.max(1.5, r * 0.3), o)];
       }
+    }
+  }
+
+  /* ── Vegetación en alzado ── */
+
+  const _ground = (b, o) => _line(b.x, b.y + b.h, b.x + b.w, b.y + b.h, _fine(o));
+
+  const _massInk = (o, spec, opacity = 0.16) => o.plantColorMode === 'natural'
+    ? { ...o, color: spec.foliage, fill: true, fillColor: spec.foliage,
+        fillTransparent: true, fillOpacity: opacity }
+    : { ...o, fill: false };
+
+  function _taperedTrunk(cx, baseY, topY, width, o) {
+    const t = _trunkInk(o), half = Math.max(1, width / 2), top = half * 0.42;
+    return [
+      _line(cx - half, baseY, cx - top, topY, t),
+      _line(cx + half, baseY, cx + top, topY, t),
+      _line(cx - half, baseY, cx + half, baseY, t),
+    ];
+  }
+
+  function _treeElevation(b, o, type) {
+    const spec = _spec(TOOLS.GARDEN_TREE, type);
+    const f = _fine(o), a = _accentInk(o, spec), mass = _massInk(o, spec);
+    const cx = b.x + b.w / 2, baseY = b.y + b.h;
+    const out = [_ground(b, o)];
+
+    if (spec.habit === 'palm') {
+      const crownY = b.y + b.h * 0.22;
+      out.push(..._taperedTrunk(cx, baseY, crownY, b.w * 0.1, o));
+      for (let i = 1; i <= 7; i++) {
+        const y = crownY + (baseY - crownY) * i / 8;
+        out.push(_line(cx - b.w * 0.045, y, cx + b.w * 0.045, y - b.h * 0.015, f));
+      }
+      for (let i = 0; i < 11; i++) {
+        const t = i / 10, tx = b.x + b.w * (0.03 + t * 0.94);
+        const droop = Math.abs(t - 0.5) * b.h * 0.3;
+        out.push(_curve(cx, crownY, cx + (tx - cx) * 0.45, b.y - b.h * 0.04,
+          tx, crownY + droop, o));
+      }
+      out.push(_dot(cx, crownY, Math.max(2, b.w * 0.055), a));
+      return out;
+    }
+
+    if (spec.habit === 'columnar') {
+      /* Cupressus sempervirens: silueta fastigiada en llama. El ápice termina
+         en un punto real y el máximo diámetro queda en el tercio inferior;
+         una elipse, aunque fuese estrecha, seguía leyéndose como una bola. */
+      const foliageBase = b.y + b.h * 0.965;
+      out.push(..._taperedTrunk(cx, baseY, b.y + b.h * 0.78, b.w * 0.1, o));
+      // Un volumen interior muy estrecho da tono natural sin redondear el perfil.
+      out.push(_circleEl(b.x + b.w * 0.29, b.y + b.h * 0.12,
+        b.w * 0.42, b.h * 0.78, mass));
+      const flame = [
+        [0.50, 0], [0.39, 0.09], [0.31, 0.23], [0.25, 0.42],
+        [0.17, 0.64], [0.21, 0.82], [0.34, 0.96], [0.50, 0.985],
+        [0.66, 0.96], [0.79, 0.82], [0.83, 0.64], [0.75, 0.42],
+        [0.69, 0.23], [0.61, 0.09],
+      ].map(([x, y]) => ({ x: b.x + b.w * x, y: b.y + b.h * y }));
+      out.push(_chain(flame, o, true));
+      out.push(_line(cx, b.y + b.h * 0.055, cx, foliageBase, f));
+      for (let i = 0; i < 7; i++) {
+        const y = b.y + b.h * (0.18 + i * 0.105);
+        const half = b.w * (0.12 + i * 0.025);
+        out.push(_curve(cx, y + b.h * 0.055, cx - half * 0.55, y,
+          cx - half, y - b.h * 0.025, f));
+        out.push(_curve(cx, y + b.h * 0.055, cx + half * 0.55, y,
+          cx + half, y - b.h * 0.025, f));
+      }
+      return out;
+    }
+
+    if (type === 'conifer') {
+      /* El pino piñonero adulto no es una copa redonda: fuste limpio y copa
+         aparasolada, ancha y casi plana por arriba, en estratos horizontales. */
+      const crownH = b.h * 0.43, trunkTop = b.y + crownH * 0.76;
+      out.push(..._taperedTrunk(cx, baseY, trunkTop, b.w * 0.085, o));
+      for (const side of [-1, 1]) {
+        out.push(_curve(cx, trunkTop, cx + side * b.w * 0.14, b.y + crownH * 0.5,
+          cx + side * b.w * 0.38, b.y + crownH * 0.32, _trunkInk(f)));
+      }
+      out.push(_circleEl(b.x + b.w * 0.12, b.y + crownH * 0.1,
+        b.w * 0.76, crownH * 0.6, mass));
+      const umbrella = [
+        [0.03, .43], [.10, .24], [.30, .09], [.50, .03], [.70, .09], [.90, .24],
+        [.97, .43], [.83, .66], [.61, .73], [.50, .62], [.39, .73], [.17, .66],
+      ].map(([x, y]) => ({ x: b.x + b.w * x, y: b.y + crownH * y }));
+      out.push(_chain(umbrella, o, true));
+      out.push(_curve(b.x + b.w * .12, b.y + crownH * .43, cx, b.y + crownH * .3,
+        b.x + b.w * .88, b.y + crownH * .43, f));
+      return out;
+    }
+
+    const umbrella = spec.habit === 'umbrella';
+    const vase = spec.habit === 'vase';
+    const spreading = spec.habit === 'spreading';
+    const crownH = b.h * (umbrella ? 0.45 : 0.62);
+    const trunkTop = b.y + crownH * (umbrella ? 0.78 : 0.72);
+    out.push(..._taperedTrunk(cx, baseY, trunkTop, b.w * (type === 'carob' ? 0.13 : 0.09), o));
+
+    // Ramas estructurales: el porte en vaso se abre antes y deja el corazón
+    // visible; el aparasolado sostiene la copa sobre un fuste más limpio.
+    const branchY = trunkTop + crownH * 0.04;
+    const branchCount = vase ? 4 : type === 'olive' || type === 'fig' ? 5 : 3;
+    for (let i = 0; i < branchCount; i++) {
+      const t = branchCount === 1 ? 0.5 : i / (branchCount - 1);
+      const tx = b.x + b.w * (0.16 + t * 0.68);
+      out.push(_curve(cx, branchY, cx + (tx - cx) * 0.35, branchY - crownH * 0.22,
+        tx, b.y + crownH * (0.35 + Math.abs(t - 0.5) * 0.2), _trunkInk(f)));
+    }
+
+    // Volumen translúcido interior y contorno según el porte adulto real.
+    out.push(_circleEl(b.x + b.w * 0.08, b.y + crownH * 0.14, b.w * 0.5, crownH * 0.66, mass));
+    out.push(_circleEl(b.x + b.w * 0.42, b.y + crownH * 0.1, b.w * 0.5, crownH * 0.68, mass));
+    const profiles = {
+      umbrella: [[.03,.43],[.12,.22],[.32,.08],[.52,.03],[.73,.1],[.93,.27],[.97,.48],[.78,.73],[.55,.78],[.31,.74],[.08,.63]],
+      vase: [[.08,.34],[.16,.17],[.33,.05],[.5,.14],[.67,.05],[.84,.17],[.92,.34],[.82,.64],[.64,.84],[.5,.7],[.36,.84],[.18,.64]],
+      spreading: [[.02,.42],[.1,.23],[.29,.08],[.48,.15],[.66,.06],[.9,.2],[.98,.4],[.88,.68],[.66,.8],[.45,.72],[.24,.82],[.07,.66]],
+      rounded: [[.07,.45],[.12,.24],[.3,.08],[.5,.02],[.7,.08],[.88,.24],[.94,.46],[.86,.7],[.67,.86],[.46,.82],[.25,.88],[.1,.68]],
+    };
+    const profile = (umbrella ? profiles.umbrella : vase ? profiles.vase :
+      spreading ? profiles.spreading : profiles.rounded)
+      .map(([x, y]) => ({ x: b.x + b.w * x, y: b.y + crownH * y }));
+    out.push(_chain(profile, o, true));
+
+    const details = {
+      almond: 8, fruit: 6, lemon: 7, pomegranate: 4, jacaranda: 9,
+      fig: 5, olive: 4, carob: 2, broadleaf: 3, conifer: 6,
+    }[type] || 3;
+    for (let i = 0; i < details; i++) {
+      const t = (i + 0.7) / details;
+      const x = b.x + b.w * (0.12 + ((i * 0.618) % 1) * 0.76);
+      const y = b.y + crownH * (0.2 + (t % 0.55));
+      if (['almond','fruit','lemon','pomegranate','jacaranda'].includes(type)) {
+        out.push(_dot(x, y, Math.max(1.5, Math.min(b.w, crownH) * 0.035), a));
+      } else {
+        out.push(_curve(x - b.w * 0.04, y, x, y - crownH * 0.06,
+          x + b.w * 0.045, y + crownH * 0.01, f));
+      }
+    }
+    return out;
+  }
+
+  function _shrubElevation(b, o, type) {
+    const spec = _spec(TOOLS.GARDEN_SHRUB, type);
+    const f = _fine(o), a = _accentInk(o, spec), mass = _massInk(o, spec, 0.2);
+    const cx = b.x + b.w / 2, baseY = b.y + b.h;
+    const out = [_ground(b, o)];
+    if (type === 'hedge' || type === 'box') {
+      const top = type === 'hedge' ? b.y + b.h * 0.12 : b.y + b.h * 0.2;
+      out.push(_rectEl(b.x + b.w * 0.02, top, b.w * 0.96, baseY - top, mass));
+      out.push(_wave(b.x + b.w * 0.03, top, b.x + b.w * 0.97, top,
+        type === 'hedge' ? b.h * 0.035 : 0, 6, o));
+      for (let i = 1; i < 6; i++) {
+        const x = b.x + b.w * i / 6;
+        out.push(_line(x, top + b.h * 0.08, x, baseY - b.h * 0.06, f));
+      }
+      return out;
+    }
+    if (type === 'topiary') {
+      out.push(..._taperedTrunk(cx, baseY, b.y + b.h * 0.55, b.w * 0.08, o));
+      out.push(_circleEl(b.x + b.w * 0.12, b.y + b.h * 0.06, b.w * 0.76, b.h * 0.58, mass));
+      out.push(_circleEl(b.x + b.w * 0.22, b.y + b.h * 0.16, b.w * 0.56, b.h * 0.42, o));
+      return out;
+    }
+    if (type === 'strawberryTree') {
+      // El madroño adulto se lee como arbolito multirramificado, no como bola.
+      out.push(..._taperedTrunk(cx, baseY, b.y + b.h * 0.53, b.w * 0.09, o));
+      out.push(_curve(cx, b.y + b.h * .6, b.x + b.w * .34, b.y + b.h * .35,
+        b.x + b.w * .22, b.y + b.h * .25, _trunkInk(f)));
+      out.push(_curve(cx, b.y + b.h * .6, b.x + b.w * .66, b.y + b.h * .34,
+        b.x + b.w * .8, b.y + b.h * .24, _trunkInk(f)));
+    } else {
+      const stems = type === 'oleander' ? 7 : 5;
+      for (let i = 0; i < stems; i++) {
+        const t = i / (stems - 1), tx = b.x + b.w * (0.08 + t * 0.84);
+        const top = type === 'mastic' ? .24 : type === 'oleander' ? .08 : .15;
+        out.push(_curve(cx, baseY, cx + (tx - cx) * 0.45, b.y + b.h * 0.48,
+          tx, b.y + b.h * (top + Math.abs(t - 0.5) * 0.2), f));
+      }
+    }
+    const profiles = {
+      bush: [[.13,.56],[.2,.3],[.37,.08],[.5,.17],[.63,.06],[.8,.29],[.88,.56],[.78,.8],[.58,.94],[.38,.9],[.2,.8]],
+      clump: [[.01,.68],[.09,.48],[.27,.36],[.47,.43],[.68,.34],[.91,.46],[.99,.67],[.84,.82],[.61,.88],[.36,.84],[.1,.8]],
+      oleander: [[.06,.38],[.14,.18],[.32,.06],[.48,.14],[.64,.04],[.84,.16],[.94,.38],[.84,.7],[.66,.91],[.5,.78],[.32,.91],[.15,.7]],
+      mastic: [[.02,.5],[.1,.31],[.28,.2],[.46,.25],[.68,.18],[.9,.3],[.98,.49],[.87,.72],[.63,.82],[.4,.78],[.17,.84],[.05,.68]],
+      strawberryTree: [[.08,.34],[.16,.14],[.35,.04],[.52,.1],[.7,.03],[.9,.19],[.95,.39],[.83,.58],[.62,.67],[.43,.62],[.23,.68],[.08,.53]],
+      rounded: [[.04,.48],[.1,.27],[.28,.12],[.48,.16],[.68,.08],[.89,.25],[.97,.48],[.86,.72],[.65,.9],[.44,.84],[.22,.92],[.07,.72]],
+    };
+    const profileKey = profiles[type] ? type : 'rounded';
+    const profile = profiles[profileKey].map(([x, y]) => ({
+      x: b.x + b.w * x, y: b.y + b.h * y,
+    }));
+    const massTop = type === 'strawberryTree' ? .06 : type === 'mastic' ? .2 : .1;
+    const massHeight = type === 'strawberryTree' ? .58 : type === 'mastic' ? .62 : .78;
+    out.push(_circleEl(b.x + b.w * .09, b.y + b.h * massTop,
+      b.w * .82, b.h * massHeight, mass));
+    out.push(_chain(profile, o, true));
+    if (type === 'oleander') {
+      // El id histórico se mantiene, pero la especie visible es romero: hojas
+      // lineares pareadas sobre ramas leñosas, sin las corolas de la adelfa.
+      for (let i = 0; i < 7; i++) {
+        const x = b.x + b.w * (.14 + i * .12);
+        const y = b.y + b.h * (.25 + (i % 3) * .13);
+        out.push(_line(x - b.w * .035, y + b.h * .025,
+          x + b.w * .035, y - b.h * .025, f));
+      }
+    }
+    const flowers = { bush: 3, clump: 5, oleander: 7, strawberryTree: 4, pittosporum: 5 }[type] || 0;
+    for (let i = 0; i < flowers; i++) {
+      const x = b.x + b.w * (0.15 + ((i * 0.37) % 0.7));
+      const y = b.y + b.h * (0.22 + ((i * 0.23) % 0.48));
+      out.push(_dot(x, y, Math.max(1.4, Math.min(b.w, b.h) * 0.035), a));
+    }
+    return out;
+  }
+
+  function _herbElevation(b, o, type) {
+    const spec = _spec(TOOLS.GARDEN_HERB, type);
+    const f = _fine(o), a = _accentInk(o, spec), baseY = b.y + b.h;
+    const cx = b.x + b.w / 2, out = [_ground(b, o)];
+    if (type === 'agave' || type === 'aloe') {
+      const n = type === 'agave' ? 11 : 7;
+      for (let i = 0; i < n; i++) {
+        const t = i / (n - 1), tx = b.x + b.w * (0.04 + t * 0.92);
+        const peakY = b.y + b.h * (0.08 + Math.abs(t - 0.5) * 0.48);
+        out.push(_curve(cx, baseY, cx + (tx - cx) * 0.48, peakY, tx, baseY - b.h * 0.05, o));
+      }
+      if (type === 'aloe') out.push(_line(cx, baseY, cx, b.y + b.h * 0.02, a));
+      return out;
+    }
+    if (type === 'pricklypear') {
+      out.push(_circleEl(b.x + b.w * 0.08, b.y + b.h * 0.36, b.w * 0.38, b.h * 0.62, _massInk(o, spec, 0.22)));
+      out.push(_circleEl(b.x + b.w * 0.37, b.y + b.h * 0.08, b.w * 0.34, b.h * 0.62, _massInk(o, spec, 0.22)));
+      out.push(_circleEl(b.x + b.w * 0.62, b.y + b.h * 0.3, b.w * 0.3, b.h * 0.68, _massInk(o, spec, 0.22)));
+      out.push(_dot(b.x + b.w * 0.54, b.y + b.h * 0.08, Math.max(1.5, b.w * 0.035), a));
+      return out;
+    }
+    if (type === 'thyme') {
+      // Tapizante leñoso: perfil bajo continuo y pequeñas cabezuelas, sin abanico alto.
+      const dome = [[.02,.82],[.12,.55],[.32,.42],[.5,.5],[.68,.39],[.9,.55],[.98,.82]]
+        .map(([x, y]) => ({ x: b.x + b.w * x, y: b.y + b.h * y }));
+      out.push(_chain(dome, o, false));
+      for (const [x, y] of [[.18,.58],[.38,.47],[.61,.48],[.82,.59]]) {
+        out.push(_dot(b.x + b.w * x, b.y + b.h * y,
+          Math.max(1.1, b.w * .018), a));
+      }
+      return out;
+    }
+    if (type === 'santolina') {
+      // Cojín hemisférico plateado con botones florales por encima.
+      out.push(_curve(b.x + b.w * .04, baseY, cx, b.y + b.h * .38,
+        b.x + b.w * .96, baseY, o));
+      for (let i = 0; i < 5; i++) {
+        const x = b.x + b.w * (.18 + i * .16);
+        const top = b.y + b.h * (.08 + (i % 2) * .08);
+        out.push(_line(x, baseY - b.h * .18, x, top, f));
+        out.push(_dot(x, top, Math.max(1.3, b.w * .027), a));
+      }
+      return out;
+    }
+    if (type === 'rosemary') {
+      // Ramas leñosas ascendentes y arqueadas con hojas lineares pareadas.
+      for (let i = 0; i < 7; i++) {
+        const t = i / 6, x = b.x + b.w * (.08 + t * .84);
+        const top = b.y + b.h * (.08 + Math.abs(t - .5) * .35);
+        out.push(_curve(cx, baseY, x, b.y + b.h * .42, x, top, o));
+        for (let j = 1; j <= 3; j++) {
+          const y = top + (baseY - top) * j / 5;
+          out.push(_line(x - b.w * .035, y + b.h * .025,
+            x + b.w * .035, y - b.h * .025, f));
+        }
+      }
+      return out;
+    }
+    if (type === 'sage') {
+      // Hojas basales anchas y espigas florales separadas.
+      for (let i = 0; i < 6; i++) {
+        const t = i / 5, x = b.x + b.w * (.08 + t * .84);
+        out.push(_curve(cx, baseY, x, b.y + b.h * .58,
+          x, baseY - b.h * .08, f));
+      }
+      for (let i = 0; i < 4; i++) {
+        const x = b.x + b.w * (.25 + i * .17);
+        const top = b.y + b.h * (.07 + (i % 2) * .07);
+        out.push(_line(x, baseY - b.h * .2, x, top, f));
+        for (let j = 0; j < 3; j++) out.push(_dot(x, top + b.h * (.04 + j * .055),
+          Math.max(1.05, b.w * .017), a));
+      }
+      return out;
+    }
+    // Lavanda: mata basal compacta y espigas delgadas, verticales y escalonadas.
+    out.push(_curve(b.x + b.w * .06, baseY, cx, b.y + b.h * .45,
+      b.x + b.w * .94, baseY, f));
+    for (let i = 0; i < 9; i++) {
+      const t = i / 8, x = b.x + b.w * (.1 + t * .8);
+      const top = b.y + b.h * (.08 + Math.abs(t - .5) * .22);
+      out.push(_curve(cx, baseY, x, b.y + b.h * .5, x, top, f));
+      out.push(_line(x, top, x, top + b.h * .14, a));
+      out.push(_dot(x, top, Math.max(1.05, b.w * .016), a));
+    }
+    return out;
+  }
+
+  function _flowerElevation(b, o, type) {
+    const spec = _spec(TOOLS.GARDEN_FLOWER, type);
+    const f = _fine(o), a = _accentInk(o, spec), baseY = b.y + b.h;
+    const out = [_ground(b, o)];
+    if (type === 'sunflower') {
+      // Boca de dragón: tallo erguido y flores bilabiadas alternas en espiga.
+      const cx = b.x + b.w / 2;
+      out.push(_line(cx, baseY, cx, b.y + b.h * .06, f));
+      out.push(_curve(cx, baseY, b.x + b.w * .24, b.y + b.h * .62,
+        b.x + b.w * .12, b.y + b.h * .46, f));
+      out.push(_curve(cx, baseY, b.x + b.w * .76, b.y + b.h * .64,
+        b.x + b.w * .88, b.y + b.h * .48, f));
+      for (let i = 0; i < 6; i++) {
+        const side = i % 2 ? 1 : -1;
+        const y = b.y + b.h * (.1 + i * .095);
+        const x = cx + side * b.w * (.12 + i * .008);
+        out.push(_line(cx, y + b.h * .025, x, y, f));
+        out.push(_dot(x, y, Math.max(1.6, b.w * .07), a));
+        out.push(_dot(x + side * b.w * .06, y + b.h * .012,
+          Math.max(1.15, b.w * .042), a));
+      }
+      return out;
+    }
+    const stems = type === 'bed' ? 7 : 1;
+    for (let i = 0; i < stems; i++) {
+      const x = stems === 1 ? b.x + b.w / 2 : b.x + b.w * (0.1 + i * 0.8 / (stems - 1));
+      const top = b.y + b.h * (type === 'bed' ? 0.15 + (i % 3) * 0.12 : 0.08);
+      const bloomY = top + b.h * .09;
+      out.push(_line(x, baseY, x, bloomY, f));
+      const leafSide = i % 2 ? 1 : -1;
+      out.push(_curve(x, b.y + b.h * .62, x + leafSide * b.w * .1,
+        b.y + b.h * .55, x + leafSide * b.w * .18, b.y + b.h * .64, f));
+      const rr = Math.max(2.5, Math.min(b.w / Math.max(2.2, stems), b.h) * 0.15);
+      const kind = type === 'bed' ? ['daisy','tulip','rose'][i % 3] : type;
+      if (kind === 'tulip') {
+        // Estátice: ramificación aérea acabada en cabezuelas diminutas.
+        for (const [side, rise] of [[-1, 1.2], [1, 1.5], [-.45, 1.8], [.5, 2]]) {
+          const tx = x + rr * side, ty = bloomY - rr * rise;
+          out.push(_curve(x, bloomY, x + rr * side * .35,
+            bloomY - rr * rise * .55, tx, ty, f));
+          out.push(_dot(tx, ty, Math.max(1.1, rr * .28), a));
+          out.push(_dot(tx + rr * .3, ty + rr * .08, Math.max(1, rr * .2), a));
+        }
+      } else if (kind === 'rose') {
+        // Rosa siempreverde: cinco pétalos solapados y centro doble.
+        for (let p = 0; p < 5; p++) {
+          const ang = p / 5 * Math.PI * 2 - Math.PI / 2;
+          out.push(_dot(x + Math.cos(ang) * rr * .62,
+            bloomY + Math.sin(ang) * rr * .62, rr * .54, a));
+        }
+        out.push(_dot(x, bloomY, rr * .38, a));
+        out.push(_dot(x, bloomY, Math.max(1, rr * .14), f));
+      } else {
+        const petals = 8;
+        const reach = rr * 1.05;
+        for (let p = 0; p < petals; p++) {
+          const ang = p / petals * Math.PI * 2;
+          out.push(_dot(x + Math.cos(ang) * reach, bloomY + Math.sin(ang) * reach,
+            Math.max(1, rr * .36), a));
+        }
+        out.push(_dot(x, bloomY, rr * .43, f));
+      }
+    }
+    return out;
+  }
+
+  /** Marca esquemática propia de cada trepadora: bráctea, flor, racimo u hoja. */
+  function _climberMark(type, x, y, r, a, f) {
+    switch (type) {
+      case 'bougainvillea':
+        return [_dot(x - r * .7, y, r * .62, a), _dot(x + r * .65, y, r * .62, a),
+          _dot(x, y - r * .65, r * .62, a)];
+      case 'jasmine': {
+        const petals = [];
+        for (let p = 0; p < 5; p++) {
+          const ang = p / 5 * Math.PI * 2 - Math.PI / 2;
+          petals.push(_dot(x + Math.cos(ang) * r * .65,
+            y + Math.sin(ang) * r * .65, r * .38, a));
+        }
+        return [...petals, _dot(x, y, r * .22, f)];
+      }
+      case 'vine':
+        return [_dot(x, y, r * .55, a), _dot(x - r * .42, y + r * .65, r * .42, a),
+          _dot(x + r * .42, y + r * .65, r * .42, a), _dot(x, y + r * 1.2, r * .38, a)];
+      case 'wisteria':
+        return [_line(x, y, x, y + r * 2.1, a), _dot(x, y + r * .7, r * .42, a),
+          _dot(x, y + r * 1.35, r * .34, a), _dot(x, y + r * 1.95, r * .26, a)];
+      case 'ivy':
+        return [_line(x, y + r, x - r, y - r * .65, a),
+          _line(x, y + r, x + r, y - r * .65, a),
+          _line(x - r, y - r * .65, x, y - r * .15, f),
+          _line(x + r, y - r * .65, x, y - r * .15, f)];
+      default: // rosal trepador: flor estratificada
+        return [_dot(x, y, r, a), _dot(x + r * .12, y, r * .52, f)];
+    }
+  }
+
+  function _climberPlan(b, o, type) {
+    const spec = _spec(TOOLS.GARDEN_CLIMBER, type);
+    const f = _fine(o), a = _accentInk(o, spec), cy = b.y + b.h / 2;
+    const out = [_line(b.x, b.y, b.x + b.w, b.y, o),
+      _wave(b.x, cy, b.x + b.w, cy, b.h * 0.22, 5, f),
+      _wave(b.x, cy + b.h * 0.2, b.x + b.w, cy + b.h * 0.2, b.h * 0.16, 4, f)];
+    const n = { ivy: 8, vine: 6, wisteria: 7, jasmine: 5, climbingRose: 10, bougainvillea: 9 }[type] || 5;
+    for (let i = 0; i < n; i++) {
+      const x = b.x + b.w * (i + 0.5) / n;
+      out.push(..._climberMark(type, x, cy + (i % 2 ? -1 : 1) * b.h * 0.16,
+        Math.max(1.3, b.h * 0.045), a, f));
+    }
+    return out;
+  }
+
+  function _climberElevation(b, o, type) {
+    const spec = _spec(TOOLS.GARDEN_CLIMBER, type);
+    const f = _fine(o), a = _accentInk(o, spec), out = [_ground(b, o)];
+    // Soporte ligero: muestra el porte sin confundirse con una masa arbustiva.
+    out.push(_line(b.x + b.w * 0.04, b.y, b.x + b.w * 0.04, b.y + b.h, f));
+    out.push(_line(b.x + b.w * 0.96, b.y, b.x + b.w * 0.96, b.y + b.h, f));
+    for (let i = 1; i <= 4; i++) {
+      const y = b.y + b.h * i / 5;
+      out.push(_line(b.x + b.w * 0.04, y, b.x + b.w * 0.96, y, f));
+    }
+    const vines = type === 'ivy' ? 5 : 3;
+    for (let i = 0; i < vines; i++) {
+      const x1 = b.x + b.w * (0.12 + i * 0.76 / Math.max(1, vines - 1));
+      const x2 = b.x + b.w * (0.82 - i * 0.62 / Math.max(1, vines - 1));
+      out.push(_wave(x1, b.y + b.h, x2, b.y + b.h * 0.04,
+        b.w * (type === 'wisteria' ? 0.055 : 0.035), 5, o));
+    }
+    const flowers = { bougainvillea: 12, jasmine: 8, vine: 7, wisteria: 10,
+      ivy: 5, climbingRose: 9 }[type] || 6;
+    for (let i = 0; i < flowers; i++) {
+      const x = b.x + b.w * (0.1 + ((i * 0.37) % 0.8));
+      const y = b.y + b.h * (0.08 + ((i * 0.23) % 0.78));
+      out.push(..._climberMark(type, x, y, Math.max(1.3, b.w * 0.014), a, f));
+    }
+    return out;
+  }
+
+  function _plantElevation(tool, b, o, type) {
+    switch (tool) {
+      case TOOLS.GARDEN_TREE: return _treeElevation(b, o, type);
+      case TOOLS.GARDEN_SHRUB: return _shrubElevation(b, o, type);
+      case TOOLS.GARDEN_FLOWER: return _flowerElevation(b, o, type);
+      case TOOLS.GARDEN_HERB: return _herbElevation(b, o, type);
+      case TOOLS.GARDEN_CLIMBER: return _climberElevation(b, o, type);
+      default: return [];
     }
   }
 
@@ -935,5 +1534,8 @@ const Garden = (function () {
 
   // PATH_W_MIN/MAX salen fuera para que el rango del slider no se pueda
   // desincronizar en silencio: lo comprueba un test contra index.html.
-  return { elements, MIN_SPAN, LABEL_SIZE, LABEL_GAP, PATH_W_MIN, PATH_W_MAX };
+  return {
+    elements, plantSize, MIN_SPAN, LABEL_SIZE, LABEL_GAP, PATH_W_MIN, PATH_W_MAX,
+    PLANT_PX_PER_M_MIN, PLANT_PX_PER_M_MAX, PLANT_SCALE_MIN, PLANT_SCALE_MAX,
+  };
 })();

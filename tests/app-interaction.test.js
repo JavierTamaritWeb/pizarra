@@ -424,6 +424,24 @@ test('el modo libre del camino no se filtra a los iconos del catálogo', () => {
     'los iconos deben pintarse en modo caja, no en el diagonal del arrastre anterior');
 });
 
+test('los iconos de plantas usan la caja botánica, no un rectángulo genérico', () => {
+  const app = loadApp();
+  const seen = [];
+  const orig = app.context.Garden.elements;
+  app.context.Garden.elements = (tool, p1, p2, opts) => {
+    if (tool === TOOLS.GARDEN_TREE) seen.push({ p1: { ...p1 }, p2: { ...p2 }, opts });
+    return orig(tool, p1, p2, opts);
+  };
+  app.selectTool('arbol');
+  app.context.Garden.elements = orig;
+
+  const icons = seen.filter(c => c.opts.labels === false && c.p1.x === 0 && c.p1.y === 0);
+  assert.ok(icons.length >= app.context.TREE_TYPES.length,
+    'debe generar al menos un icono por especie del catálogo');
+  assert.ok(icons.every(c => c.p2.x === 0 && c.p2.y === 0),
+    'el icono debe simular un clic para obtener altura y diámetro de la especie');
+});
+
 /* ── Balcón: catálogo genérico, con la geometría real como icono ── */
 
 test('el catálogo de Balcón se llena desde BALCONY_TYPES y elegir un tipo lo aplica', () => {
@@ -716,8 +734,117 @@ test('un árbol se crea como grupo, con su etiqueta dentro', () => {
   assert.ok(els.every(e => e.buildingGroupId === gid));
   const label = els.find(e => e.type === 'text');
   assert.ok(label, 'debe llevar etiqueta');
-  assert.equal(label.value, 'Frondoso');
+  assert.equal(label.value, 'Encina · H 12 m · Ø 14 m');
   assert.equal(label.buildingGroupId, gid, 'la etiqueta va en el grupo');
+  assert.ok(els.every(e => e.gardenMeta && e.gardenMeta.variant === 'broadleaf'),
+    'cada pieza conserva la ficha editable del ejemplar');
+  assert.ok(els.every(e => e.gardenMeta.color === '#1a1a2e' && e.gardenMeta.lineWidth === 2),
+    'la ficha conserva también el acabado original');
+});
+
+test('una planta colocada se puede mover y editar como un único cambio reversible', () => {
+  const app = loadApp();
+  app.selectTool('arbol');
+  app.drag(200, 200, 300, 300);
+  const original = app.elements();
+  const gid = original[0].buildingGroupId;
+
+  app.selectTool('select');
+  app.drag(250, 250, 280, 270);
+  const moved = app.elements();
+  assert.equal(moved[0].gardenMeta.p1.x, 230, 'la ficha se desplaza con la geometría');
+  assert.equal(app.$('btn-edit-garden').hidden, false, 'aparece Editar planta para el grupo completo');
+
+  app.$('btn-edit-garden').__fire('click', { target: app.$('btn-edit-garden') });
+  app.flush();
+  assert.equal(app.$('modal-tree').open, true);
+  const view = app.$('tree-plant-view');
+  view.value = 'elevation'; view.__fire('change', { target: view });
+  const scale = app.$('tree-plant-scale');
+  scale.value = '125'; scale.__fire('input', { target: scale });
+  app.pickVariant('tree-catalog', 'modal__tree', 'cypress', 'tree');
+
+  const edited = app.elements();
+  assert.ok(edited.length > 2);
+  assert.ok(edited.every(e => e.buildingGroupId === gid), 'conserva la identidad del grupo');
+  assert.ok(edited.every(e => e.gardenMeta.variant === 'cypress'));
+  assert.ok(edited.every(e => e.gardenMeta.plantView === 'elevation'));
+  assert.ok(edited.every(e => e.gardenMeta.plantScalePct === 125));
+  assert.ok(edited.every(e => e.gardenMeta.p1.x === 230 && e.gardenMeta.p1.y === 220),
+    'la regeneración usa la posición ya desplazada');
+  assert.match(edited.find(e => e.type === 'text').value, /Ciprés/);
+
+  app.key('z', { ctrlKey: true });
+  assert.deepEqual(app.elements(), moved, 'Deshacer restaura la planta movida anterior en un paso');
+});
+
+test('Jardín botánico: alzado, etapa, escala, etiqueta y color se aplican y persisten', () => {
+  const app = loadApp();
+  app.selectTool('arbol');
+  const modal = app.$('modal-tree');
+  assert.equal(modal.open, true);
+  const view = app.$('tree-plant-view');
+  const stage = app.$('tree-plant-stage');
+  const scale = app.$('tree-plant-scale');
+  const px = app.$('tree-plant-px');
+  const labelMode = app.$('tree-plant-label-mode');
+  assert.ok(view && stage && scale && px && labelMode, 'faltan controles botánicos');
+
+  view.value = 'elevation'; view.__fire('change', { target: view });
+  stage.value = 'developing'; stage.__fire('change', { target: stage });
+  scale.value = '75'; scale.__fire('input', { target: scale });
+  px.value = '24'; px.__fire('input', { target: px });
+  labelMode.value = 'botanical'; labelMode.__fire('change', { target: labelMode });
+  app.pickVariant('tree-catalog', 'modal__tree', 'olive', 'tree');
+  app.click(180, 120);
+
+  const els = app.elements();
+  assert.ok(els.some(el => el.type === 'line' && el.y1 === el.y2), 'falta la rasante del alzado');
+  assert.ok(els.some(el => el.fill && el.fillTransparent), 'falta el volumen natural');
+  assert.match(els.find(el => el.type === 'text').value, /Olivo · Olea europaea/);
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.plantView, 'elevation');
+  assert.equal(prefs.plantStage, 'developing');
+  assert.equal(prefs.plantScalePct, 75);
+  assert.equal(prefs.plantPxPerM, 24);
+  assert.equal(prefs.gardenLabelMode, 'botanical');
+  assert.equal(prefs.treeType, 'olive');
+
+  const again = loadApp({ prefs });
+  again.selectTool('arbol');
+  assert.equal(again.$('tree-plant-view').value, 'elevation');
+  assert.equal(again.$('tree-plant-stage').value, 'developing');
+  assert.equal(Number(again.$('tree-plant-scale').value), 75);
+  assert.equal(Number(again.$('tree-plant-px').value), 24);
+});
+
+test('Jardín botánico acota preferencias inválidas y conserva defaults seguros', () => {
+  const app = loadApp({ prefs: {
+    plantView: 'perspectiva', plantStage: 'ancestral', plantScalePct: 999,
+    plantPxPerM: -20, plantColorMode: 'neon', gardenLabelMode: 'latín',
+    climberType: 'inexistente',
+  } });
+  app.selectTool('arbol');
+  assert.equal(app.$('tree-plant-view').value, 'plan');
+  assert.equal(app.$('tree-plant-stage').value, 'adult');
+  assert.equal(Number(app.$('tree-plant-scale').value), app.context.Garden.PLANT_SCALE_MAX);
+  assert.equal(Number(app.$('tree-plant-px').value), app.context.Garden.PLANT_PX_PER_M_MIN);
+  assert.equal(app.$('tree-plant-label-mode').value, 'dimensions');
+  assert.equal(app.$('tree-plant-natural').checked, true);
+});
+
+test('Trepadoras tiene botón, modal y seis especies en planta y alzado', () => {
+  const app = loadApp();
+  app.selectTool('trepadora');
+  assert.equal(app.$('modal-climber').open, true);
+  assert.equal(app.$('climber-catalog').querySelectorAll('.modal__climber').length, 6);
+  const view = app.$('climber-plant-view');
+  view.value = 'elevation'; view.__fire('change', { target: view });
+  app.pickVariant('climber-catalog', 'modal__climber', 'wisteria', 'climber');
+  app.drag(100, 100, 260, 280);
+  const els = app.elements();
+  assert.match(els.find(el => el.type === 'text').value, /Glicinia/);
+  assert.ok(els.filter(el => el.type === 'curveArrow').length >= 3, 'faltan tallos colgantes');
 });
 
 test('mover un árbol arrastra también su etiqueta', () => {
@@ -1306,4 +1433,90 @@ test('Cancela: preferencias inválidas se ignoran o se acotan al rango', () => {
   app.selectTool('cancela');
   const active = app.$('gate-catalog').querySelector('.modal__shape--active');
   assert.equal(active.dataset.gate, 'elevation');
+});
+
+/* ---------------- resize de grupo ---------------- */
+
+// Caja envolvente de una escena leída del autosave (los elementos son planos).
+function sceneBounds(els) {
+  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+  els.forEach(e => {
+    const xs = [e.x, e.x1, e.x2].filter(v => typeof v === 'number');
+    const ys = [e.y, e.y1, e.y2].filter(v => typeof v === 'number');
+    if (typeof e.x === 'number' && typeof e.w === 'number') xs.push(e.x + e.w);
+    if (typeof e.y === 'number' && typeof e.h === 'number') ys.push(e.y + e.h);
+    xs.forEach(v => { x1 = Math.min(x1, v); x2 = Math.max(x2, v); });
+    ys.forEach(v => { y1 = Math.min(y1, v); y2 = Math.max(y2, v); });
+  });
+  return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+}
+
+// Desde que Edificios y Jardín crean grupos, casi todo lo que se dibuja es una
+// multi-selección, y el resize solo existía para un elemento suelto: en la
+// práctica el redimensionado había desaparecido de la app.
+test('un grupo seleccionado se redimensiona arrastrando una esquina', () => {
+  const app = loadApp();
+  app.selectTool('muro');
+  app.drag(200, 200, 500, 320);
+  const before = sceneBounds(app.elements());
+
+  app.selectTool('select');
+  app.click(350, 260);                       // selecciona el grupo entero
+  // El handle vive en la esquina del marco de selección (bounds + 4)
+  app.drag(before.x + before.w + 4, before.y + before.h + 4,
+           before.x + before.w + 204, before.y + before.h + 204);
+
+  const after = sceneBounds(app.elements());
+  assert.ok(after.w > before.w + 20, `el grupo debe ensancharse (${before.w} -> ${after.w})`);
+  assert.ok(after.h > before.h + 20, `el grupo debe crecer en alto (${before.h} -> ${after.h})`);
+});
+
+// El escalado del grupo es UNIFORME a propósito: dentro viaja de todo, y un
+// estirón libre rompería invariantes ajenas —un polígono regular exige w === h
+// e isValidElement RECHAZA al importar los que no lo cumplen—, de modo que el
+// proyecto podría quedar imposible de volver a abrir.
+test('el resize de grupo conserva la proporción y no invalida las piezas', () => {
+  const app = loadApp();
+  app.selectTool('muro');
+  app.drag(200, 200, 500, 320);
+  const before = sceneBounds(app.elements());
+
+  app.selectTool('select');
+  app.click(350, 260);
+  // Arrastre deliberadamente desproporcionado: mucho en x, poco en y
+  app.drag(before.x + before.w + 4, before.y + before.h + 4,
+           before.x + before.w + 300, before.y + before.h + 20);
+
+  const after = sceneBounds(app.elements());
+  // Sin esta comprobación el test sería vacuo: si el grupo no se escalara en
+  // absoluto, la proporción «se conservaría» por no haber cambiado nada.
+  assert.ok(after.w > before.w + 20,
+    `el arrastre tiene que haber escalado de verdad (${before.w} -> ${after.w})`);
+  const r0 = before.w / before.h, r1 = after.w / after.h;
+  assert.ok(Math.abs(r1 - r0) < 0.01,
+    `la proporción debe mantenerse (${r0.toFixed(3)} -> ${r1.toFixed(3)})`);
+
+  const { Exporter } = require('./helpers/load.js').loadAll();
+  const bad = app.elements().filter(el => !Exporter.isValidElement(el));
+  assert.equal(bad.length, 0,
+    'toda pieza escalada debe seguir siendo válida para reimportar');
+});
+
+// Los handles caen justo sobre las esquinas del marco combinado, que es
+// también la zona desde la que se arrastra el grupo. Si el hit-test del
+// handle no fuera primero, agarrar una esquina movería en vez de escalar.
+test('arrastrar por dentro del marco sigue moviendo el grupo, no escalándolo', () => {
+  const app = loadApp();
+  app.selectTool('muro');
+  app.drag(200, 200, 500, 320);
+  const before = sceneBounds(app.elements());
+
+  app.selectTool('select');
+  app.click(350, 260);
+  app.drag(350, 260, 400, 300);              // por dentro, lejos de las esquinas
+
+  const after = sceneBounds(app.elements());
+  assert.ok(Math.abs(after.w - before.w) < 0.5 && Math.abs(after.h - before.h) < 0.5,
+    'mover no debe cambiar el tamaño');
+  assert.ok(Math.abs((after.x - before.x) - 50) < 0.5, 'debe haberse desplazado 50px en x');
 });

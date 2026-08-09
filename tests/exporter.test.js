@@ -431,6 +431,32 @@ test('Exporter: buildingGroupId (agrupación de edificios) se valida y sobrevive
   assert.equal(data.elements[0].buildingGroupId, 'ab12cd', 'el grupo sobrevive el export JSON');
 });
 
+test('Exporter: gardenMeta se valida estrictamente y sobrevive el round-trip', () => {
+  const ctx = freshCtx();
+  const gardenMeta = {
+    version: 1, tool: 'arbol', variant: 'olive',
+    p1: { x: 120, y: 80 }, p2: { x: 120, y: 80 },
+    color: '#1a1a2e', lineWidth: 2,
+    plantView: 'elevation', plantStage: 'adult',
+    plantScalePct: 100, plantPxPerM: 20,
+    plantColorMode: 'natural', gardenLabelMode: 'dimensions', labels: true,
+  };
+  const plant = { ...elLine, buildingGroupId: 'garden1', gardenMeta };
+  assert.ok(ctx.Exporter.isValidElement(plant));
+  assert.equal(ctx.Exporter.isValidElement({
+    ...plant, gardenMeta: { ...gardenMeta, plantView: 'perspective' },
+  }), false, 'rechaza una vista desconocida');
+  assert.equal(ctx.Exporter.isValidElement({
+    ...plant, gardenMeta: { ...gardenMeta, plantScalePct: 500 },
+  }), false, 'rechaza cotas fuera de rango');
+  assert.equal(ctx.Exporter.isValidElement({
+    ...plant, gardenMeta: { ...gardenMeta, injected: true },
+  }), false, 'rechaza propiedades no previstas');
+  ctx.Exporter.json([plant]);
+  const data = JSON.parse(lastBlob(ctx).content);
+  assert.deepEqual(data.elements[0].gardenMeta, gardenMeta);
+});
+
 /* ============================================================
    Imágenes pegadas (type: image)
    ============================================================ */

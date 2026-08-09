@@ -2,7 +2,7 @@
 /* ============================================================
    garden.test.js — Geometría de la sección "Jardín" (src/js/garden.js).
    Todas las herramientas son de creación: producen elementos ya existentes
-   (rect/line/circle/curveArrow/text) en vista de planta.
+   (rect/line/circle/curveArrow/text) en planta y alzado.
    Ejecutar: node --test tests/garden.test.js
    ============================================================ */
 const test = require('node:test');
@@ -12,7 +12,8 @@ const { loadAll, createCtxStub } = require('./helpers/load.js');
 const ctx = loadAll();
 const {
   Garden, TOOLS, GARDEN_TOOLS, PLOT_SHAPES, TREE_TYPES, SHRUB_TYPES,
-  FLOWER_TYPES, DECOR_TYPES, PATH_TYPES, HERB_TYPES, Renderer, Exporter, CurvePath,
+  FLOWER_TYPES, DECOR_TYPES, PATH_TYPES, HERB_TYPES, CLIMBER_TYPES,
+  GARDEN_PLANT_VIEWS, GARDEN_STAGES, Renderer, Exporter, CurvePath,
 } = ctx;
 
 const O = { color: '#123456', lineWidth: 3 };
@@ -27,6 +28,7 @@ const VARIANT_KEY = {
   [TOOLS.GARDEN_DECOR]:  'decorType',
   [TOOLS.GARDEN_PATH]:   'pathType',
   [TOOLS.GARDEN_HERB]:   'herbType',
+  [TOOLS.GARDEN_CLIMBER]:'climberType',
 };
 
 const CATALOG = {
@@ -37,6 +39,7 @@ const CATALOG = {
   [TOOLS.GARDEN_DECOR]:  DECOR_TYPES,
   [TOOLS.GARDEN_PATH]:   PATH_TYPES,
   [TOOLS.GARDEN_HERB]:   HERB_TYPES,
+  [TOOLS.GARDEN_CLIMBER]:CLIMBER_TYPES,
 };
 
 /** Todas las combinaciones herramienta × variante del catálogo. */
@@ -45,6 +48,10 @@ const ALL_VARIANTS = GARDEN_TOOLS.flatMap(tool =>
 
 const make = (tool, id, opts = {}, p1 = P1, p2 = P2) =>
   Garden.elements(tool, p1, p2, { ...O, [VARIANT_KEY[tool]]: id, ...opts });
+
+const PLANT_CATALOGS = [TREE_TYPES, SHRUB_TYPES, FLOWER_TYPES, HERB_TYPES, CLIMBER_TYPES];
+const PLANT_TOOLS = [TOOLS.GARDEN_TREE, TOOLS.GARDEN_SHRUB, TOOLS.GARDEN_FLOWER,
+  TOOLS.GARDEN_HERB, TOOLS.GARDEN_CLIMBER];
 
 /** Caja que envuelve a un grupo de piezas. app.js tiene getElementBounds, pero
     vive fuera del arnés node:vm: aquí basta con los cuatro tipos del jardín. */
@@ -140,6 +147,135 @@ test('es determinista: dos llamadas iguales dan el mismo resultado', () => {
     assert.equal(JSON.stringify(make(tool, id)), JSON.stringify(make(tool, id)),
       `${tool}/${id} no es determinista`);
   }
+});
+
+test('cada especie tiene ficha botánica y dimensiones adultas válidas', () => {
+  for (const catalog of PLANT_CATALOGS) {
+    for (const spec of catalog) {
+      assert.ok(spec.botanical, `${spec.name} no tiene nombre botánico`);
+      assert.ok(Number.isFinite(spec.heightM) && spec.heightM > 0, `${spec.name} sin altura`);
+      assert.ok(Number.isFinite(spec.spreadM) && spec.spreadM > 0, `${spec.name} sin diámetro`);
+      assert.ok(spec.habit, `${spec.name} sin porte`);
+      assert.match(spec.foliage, /^#[0-9a-f]{6}$/i, `${spec.name} sin color vegetal`);
+    }
+  }
+});
+
+test('los catálogos de Arbusto y Flor evitan especies de toxicidad conocida', () => {
+  assert.equal(SHRUB_TYPES.map(v => v.botanical).join('|'), [
+    'Myrtus communis', 'Myrtus communis + Pistacia lentiscus',
+    'Capparis spinosa', 'Olea europaea', 'Salvia rosmarinus', 'Olea europaea',
+    'Pistacia lentiscus', 'Arbutus unedo', 'Cistus albidus',
+  ].join('|'));
+  assert.equal(FLOWER_TYPES.map(v => v.botanical).join('|'), [
+    'Calendula officinalis', 'Rosa sempervirens', 'Limonium sinuatum',
+    'Calendula officinalis + Rosa sempervirens + Limonium sinuatum',
+    'Antirrhinum majus',
+  ].join('|'));
+  const forbidden = /Nerium|Buxus|Viburnum|Laurus|Papaver|Iris|Gladiolus/i;
+  for (const spec of [...SHRUB_TYPES, ...FLOWER_TYPES]) {
+    assert.doesNotMatch(`${spec.name} ${spec.botanical}`, forbidden,
+      `${spec.name} reintroduce una especie descartada por toxicidad`);
+  }
+});
+
+test('plantSize aplica etapa y porcentaje, con límites exactos', () => {
+  const adult = Garden.plantSize(TOOLS.GARDEN_TREE, 'olive', {
+    plantStage: 'adult', plantScalePct: 100,
+  });
+  assert.equal(adult.heightM, 7);
+  assert.equal(adult.spreadM, 8);
+  const young = Garden.plantSize(TOOLS.GARDEN_TREE, 'olive', {
+    plantStage: 'young', plantScalePct: 50,
+  });
+  assert.equal(young.heightM, 7 * GARDEN_STAGES[0].factor * 0.5);
+  const clamped = Garden.plantSize(TOOLS.GARDEN_TREE, 'olive', {
+    plantStage: 'adult', plantScalePct: 999,
+  });
+  assert.equal(clamped.heightM, 7 * 1.5);
+  assert.equal(Garden.plantSize(TOOLS.GARDEN_PATH, 'path', {}), null);
+});
+
+test('toda la vegetación ofrece planta y alzado distintos y válidos', () => {
+  for (const tool of PLANT_TOOLS) {
+    for (const spec of CATALOG[tool]) {
+      const plan = make(tool, spec.id, { plantView: 'plan', labels: false });
+      const elevation = make(tool, spec.id, { plantView: 'elevation', labels: false });
+      assert.notEqual(JSON.stringify(plan), JSON.stringify(elevation),
+        `${tool}/${spec.id} dibuja lo mismo en planta y alzado`);
+      assert.ok(elevation.some(el => el.type === 'line'), `${tool}/${spec.id} sin rasante/estructura`);
+      elevation.forEach(el => assert.ok(Exporter.isValidElement({ ...el, seed: 1 }),
+        `${tool}/${spec.id} emite una pieza inválida en alzado`));
+    }
+  }
+});
+
+test('un clic en alzado respeta altura, diámetro y escala botánicos', () => {
+  const p = { x: 80, y: 90 };
+  const els = make(TOOLS.GARDEN_TREE, 'olive', {
+    plantView: 'elevation', plantStage: 'adult', plantScalePct: 100,
+    plantPxPerM: 20, labels: false,
+  }, p, p);
+  const ground = els.find(el => el.type === 'line' && el.y1 === el.y2 && el.y1 > p.y);
+  assert.ok(ground, 'el alzado debe llevar rasante');
+  assert.equal(ground.x2 - ground.x1, 8 * 20, 'ancho = diámetro adulto × escala');
+  assert.equal(ground.y1 - p.y, 7 * 20, 'alto = altura adulta × escala');
+});
+
+test('las 40 especies conservan sus proporciones botánicas al hacer clic', () => {
+  const p = { x: 20, y: 30 }, px = 13;
+  for (const tool of PLANT_TOOLS) {
+    for (const spec of CATALOG[tool]) {
+      const els = make(tool, spec.id, {
+        plantView: 'elevation', plantStage: 'adult', plantScalePct: 100,
+        plantPxPerM: px, labels: false,
+      }, p, p);
+      const ground = els.find(el => el.type === 'line' && el.y1 === el.y2 && el.y1 > p.y);
+      assert.ok(ground, `${tool}/${spec.id} no tiene rasante`);
+      assert.ok(Math.abs((ground.x2 - ground.x1) - Math.max(5, spec.spreadM * px)) < 1e-9,
+        `${tool}/${spec.id} perdió su diámetro botánico`);
+      assert.ok(Math.abs((ground.y1 - p.y) - Math.max(5, spec.heightM * px)) < 1e-9,
+        `${tool}/${spec.id} perdió su altura botánica`);
+    }
+  }
+});
+
+test('el ciprés en alzado es una llama alta, estrecha y con ápice centrado', () => {
+  const p = { x: 0, y: 0 };
+  const els = make(TOOLS.GARDEN_TREE, 'cypress', {
+    plantView: 'elevation', plantStage: 'adult', plantScalePct: 100,
+    plantPxPerM: 20, labels: false,
+  }, p, p);
+  const flame = els.find(el => el.type === 'curveArrow' && CurvePath.isChain(el) &&
+    el.x1 === el.x2 && el.y1 === el.y2);
+  assert.ok(flame, 'falta el contorno cerrado fastigiado');
+  const b = CurvePath.bounds(flame);
+  assert.ok(b.h > b.w * 5, `el ciprés sigue pareciendo una bola (${b.w}×${b.h})`);
+  const vertices = flame.segments.map(s => ({ x: s.x1, y: s.y1 }));
+  const apex = vertices.reduce((best, v) => v.y < best.y ? v : best, vertices[0]);
+  assert.ok(Math.abs(apex.x - 40) < 0.01, 'el ápice debe caer sobre el eje del tronco');
+  assert.equal(apex.y, 0, 'la silueta debe terminar en punta desde su cota máxima');
+});
+
+test('el acabado natural añade color y volumen translúcido sin afectar al modo tinta', () => {
+  const natural = make(TOOLS.GARDEN_TREE, 'olive', {
+    plantView: 'elevation', plantColorMode: 'natural', labels: false,
+  });
+  assert.ok(natural.some(el => el.fill && el.fillTransparent), 'falta volumen vegetal');
+  assert.ok(natural.some(el => el.color !== O.color), 'falta la paleta de especie');
+  const ink = make(TOOLS.GARDEN_TREE, 'olive', {
+    plantView: 'elevation', plantColorMode: 'ink', labels: false,
+  });
+  assert.ok(ink.every(el => el.color === O.color), 'el modo tinta debe respetar el color global');
+});
+
+test('las etiquetas pueden mostrar nombre botánico o dimensiones', () => {
+  const botanical = make(TOOLS.GARDEN_TREE, 'olive', { gardenLabelMode: 'botanical' })
+    .find(el => el.type === 'text');
+  assert.match(botanical.value, /Olea europaea/);
+  const dimensions = make(TOOLS.GARDEN_TREE, 'olive', { gardenLabelMode: 'dimensions' })
+    .find(el => el.type === 'text');
+  assert.match(dimensions.value, /H 7 m · Ø 8 m/);
 });
 
 // Detectado mirando el catálogo en el navegador: "Frondoso" y "Olivo" eran una
