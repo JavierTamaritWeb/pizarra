@@ -4,11 +4,11 @@
 
 **Wireframes, diagramas y bocetos con estética dibujada a mano — en el navegador y sin instalar nada.**
 
-[![Versión](https://img.shields.io/badge/versión-2.2.0-blueviolet?style=flat-square)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-2.4.5-blueviolet?style=flat-square)](CHANGELOG.md)
 [![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?style=flat-square&logo=javascript&logoColor=000)](src/js/)
 [![Estilos](https://img.shields.io/badge/estilos-SCSS%20·%20BEM%20·%20Gulp%205-cf649a?style=flat-square&logo=sass&logoColor=fff)](src/scss/)
 [![Dependencias](https://img.shields.io/badge/dependencias%20en%20runtime-0-brightgreen?style=flat-square)](#arquitectura)
-[![Tests](https://img.shields.io/badge/tests-416%20unitarios%20%2B%2028%20e2e-brightgreen?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-441%20unitarios%20%2B%2029%20e2e-brightgreen?style=flat-square)](#tests)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue?style=flat-square)](LICENSE)
 
 <img src="src/img/screenshot-pizarra.png" alt="La interfaz de Pizarra: barra de herramientas a la izquierda, lienzo con un wireframe de landing page dibujado a mano en el centro y panel de ajustes a la derecha" width="900">
@@ -90,7 +90,7 @@ Dos secciones para bocetar arquitectura y entorno con la misma estética. Ningun
 
 <img src="src/img/screenshot-edificios-jardin.png" alt="Un alzado de edificio de tres plantas con tejado a dos aguas, rodeado de una parcela con árboles, parterre, fuente y seto, todos etiquetados" width="820">
 
-**Edificios** (alzado) — planta, fachada, tejado, puerta, ventana y balcón. La fachada abre un modal con **miniatura en vivo**, tres vistas y los ajustes de plantas, ventanas por planta, pendiente y cubierta, todos sincronizados con el panel lateral. El balcón trae **8 tipos** y su catálogo, como los del jardín, usa **el dibujo real como icono**.
+**Edificios** — planta, fachada, tejado, puerta, ventana, balcón y muro. La fachada abre un modal con **miniatura en vivo**, tres vistas y los ajustes de plantas, ventanas por planta, pendiente y cubierta, todos sincronizados con el panel lateral. El balcón trae **8 tipos** y su catálogo, como los del jardín, usa **el dibujo real como icono**. El muro se dibuja en **vista de planta o de alzado**, en mampostería de piedra u hormigón encofrado, con verja de forja opcional arriba y **doce cancelas** a elegir —de barrotes rectos a cóncavas de forja con volutas, lira, abanico o palmetas—. La altura del muro, la de la cancela y la de la verja van **en metros**, sobre una escala común.
 
 **Jardín** (vista de planta) — parcela, árboles, arbustos, flores, decoración, caminos y aromáticas: **46 variantes** en siete catálogos. En los catálogos **el icono es el dibujo real**, porque lo pinta la misma geometría que crea la herramienta: no puede engañar.
 
@@ -158,7 +158,7 @@ Cada pieza de jardín nace con una **etiqueta** que la nombra, dentro del mismo 
 | `3` `4` `5` `6` `7` | Triángulo · Cuadrado · Pentágono · Hexágono · Trapecio |
 | `T` `J` `B` `I` `M` `N` `K` | Texto · Emoji · Botón · Input · Imagen · Navbar · Tarjeta |
 | `V` | Mover / seleccionar |
-| `W` `1` `2` `0` `Y` | Edificios: Planta · Fachada · Tejado · Puerta · Ventana (Balcón no tiene atajo) |
+| `W` `1` `2` `0` `Y` | Edificios: Planta · Fachada · Tejado · Puerta · Ventana (Balcón y Muro no tienen atajo) |
 | `8` `9` `H` `X` `Z` | Jardín: Jardín · Árbol · Arbusto · Flor · Decoración (Caminos y Aromáticas van sin atajo) |
 | `Ctrl/Cmd+Z` · `Ctrl+Y` o `Cmd+Shift+Z` | Deshacer · rehacer |
 | `Ctrl/Cmd+D` · `Ctrl/Cmd+A` | Duplicar · seleccionar todo |
@@ -171,7 +171,7 @@ Cada pieza de jardín nace con una **etiqueta** que la nombra, dentro del mismo 
 | `+` · `−` (+`Shift`) | Ajustar curvatura — en semicírculos, el radio (fino) |
 | `?` | Abrir la ayuda con todos los atajos |
 
-Las herramientas que abren catálogo (Edificios y Jardín) muestran su modal de tipos al pulsar el atajo. **Balcón**, **Caminos** y **Aromáticas** son las únicas sin atajo: ya no queda ninguna tecla suelta libre.
+Las herramientas que abren catálogo (Edificios y Jardín) muestran su modal de tipos al pulsar el atajo. **Balcón**, **Muro**, **Caminos** y **Aromáticas** son las únicas sin atajo: ya no queda ninguna tecla suelta libre.
 
 ## Arquitectura
 
@@ -249,7 +249,7 @@ node --test tests/exporter.test.js    # un archivo
 
 Los módulos se cargan en un contexto `node:vm` con stubs de canvas y DOM, incluido `src/js/app.js` completo: los tests lanzan gestos reales —puntero, teclado, modales— y leen el resultado del autoguardado, sin ningún hook de test en el código de producción.
 
-**26 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco y acciones por defecto del navegador.
+**29 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco y acciones por defecto del navegador.
 
 ```bash
 npm install && npm run e2e:install    # una vez (descarga Chromium)

@@ -27,6 +27,15 @@
     roofShape: 'gable',   // tipo elegido en el modal de Tejado: gable|mono|flat|hip|mansard
     facadeShape: 'flat',  // tipo elegido en el modal de Fachada: flat|gable|profile
     balconyType: 'balcony', // tipo elegido en el modal de Balcón (ver BALCONY_TYPES)
+    // Muro: vista elegida en el catálogo (ver WALL_VIEWS) + sus 4 ajustes
+    // propios del modal (sin gemelo en el panel, como balconyType).
+    wallView: 'elevation',
+    wallMaterial: 'stone',
+    wallHeight: 1,
+    wallRailing: false,
+    wallRailingHeight: 0.7,
+    wallGateType: 'concave',
+    wallGateHeight: 2,   // alto de la cancela en metros (Building.WALL_GATE_H_MIN/MAX)
     buildFloors: 'auto', // nº de plantas de Fachada/Alzado/Perfil ('auto' = según la altura)
     buildBays: 'auto',   // ventanas por planta ('auto' = según el ancho)
     roofPitch: 0.36,     // fracción de altura del tejado en Alzado/Perfil (0.20–0.50)
@@ -118,6 +127,7 @@
   // estas claves, dejarían huérfanos el lienzo y las preferencias ya guardados
   const AUTOSAVE_KEY = 'sketchwire.autosave';
   const PREFS_KEY = 'sketchwire.prefs';
+  const WALL_DESIGN_VERSION = 1;
   const GRID_STEP = 20;
 
   function snapVal(v) {
@@ -794,6 +804,15 @@
         doorType: state.doorType,
         windowType: state.windowType,
         balconyType: state.balconyType,
+        // Muro: vista del catálogo + sus 4 ajustes propios, mismo motivo.
+        wallDesignVersion: WALL_DESIGN_VERSION,
+        wallView: state.wallView,
+        wallMaterial: state.wallMaterial,
+        wallHeight: state.wallHeight,
+        wallRailing: state.wallRailing,
+        wallRailingHeight: state.wallRailingHeight,
+        wallGateType: state.wallGateType,
+        wallGateHeight: state.wallGateHeight,
         // Variantes de Jardín, por el mismo motivo.
         plotShape: state.plotShape,
         treeType: state.treeType,
@@ -849,6 +868,33 @@
       restoreVariant(prefs.doorType,    DOOR_TYPES,    'doorType');
       restoreVariant(prefs.windowType,  WINDOW_TYPES,  'windowType');
       restoreVariant(prefs.balconyType, BALCONY_TYPES, 'balconyType');
+      // Las preferencias anteriores a la cancela cóncava guardaban siempre
+      // planta + «sin puerta», aunque la persona nunca hubiera tocado Muro.
+      // No dejamos que ese default histórico oculte silenciosamente el nuevo
+      // diseño. Tras la primera elección/guardado, se respeta con normalidad.
+      if (prefs.wallDesignVersion === WALL_DESIGN_VERSION) {
+        restoreVariant(prefs.wallView, WALL_VIEWS, 'wallView');
+      }
+      // Los 3 ajustes de Muro sin catálogo propio se validan contra su lista
+      // fija (mismas opciones que el <select>/checkbox de #modal-wall).
+      if (['stone', 'concrete'].includes(prefs.wallMaterial)) state.wallMaterial = prefs.wallMaterial;
+      if (prefs.wallHeight === 1 || prefs.wallHeight === 2) state.wallHeight = prefs.wallHeight;
+      if (typeof prefs.wallRailing === 'boolean') state.wallRailing = prefs.wallRailing;
+      if (Number.isFinite(prefs.wallRailingHeight)) {
+        state.wallRailingHeight = Math.min(Building.WALL_RAIL_H_MAX,
+          Math.max(Building.WALL_RAIL_H_MIN, prefs.wallRailingHeight));
+      }
+      if (prefs.wallDesignVersion === WALL_DESIGN_VERSION &&
+          ['none', 'single', 'double', 'concave', 'concaveSwan',
+            'concavePanel', 'concaveOrnate', 'concaveFan', 'concaveLyre',
+            'concaveDiamond', 'concaveRings', 'concavePalmette',
+            'convexPanel'].includes(prefs.wallGateType)) {
+        state.wallGateType = prefs.wallGateType;
+      }
+      if (Number.isFinite(prefs.wallGateHeight)) {
+        state.wallGateHeight = Math.min(Building.WALL_GATE_H_MAX,
+          Math.max(Building.WALL_GATE_H_MIN, prefs.wallGateHeight));
+      }
       restoreVariant(prefs.plotShape,   PLOT_SHAPES,   'plotShape');
       restoreVariant(prefs.treeType,    TREE_TYPES,    'treeType');
       restoreVariant(prefs.shrubType,   SHRUB_TYPES,   'shrubType');
@@ -1497,6 +1543,10 @@
       windowType: state.windowType, balconyType: state.balconyType,
       floors: state.buildFloors, bays: state.buildBays, roofPitch: state.roofPitch,
       roofType: state.roofType, roofShape: state.roofShape, facadeShape: state.facadeShape,
+      wallView: state.wallView, wallMaterial: state.wallMaterial,
+      wallHeight: state.wallHeight, wallRailing: state.wallRailing,
+      wallRailingHeight: state.wallRailingHeight,
+      wallGateType: state.wallGateType, wallGateHeight: state.wallGateHeight,
     };
   }
 
@@ -2523,6 +2573,11 @@
     // proporción —el corrido nace largo y el mirador alto—, que es justo lo
     // que distingue a la mitad del catálogo.
     { tool: TOOLS.BUILD_BALCONY, modal: 'modal-balcony', root: 'balcony-catalog', cls: 'modal__balcony', data: 'balcony', catalog: BALCONY_TYPES, key: 'balconyType', gen: () => Building, opts: () => buildOpts(),  box: { x: 0, y: 0 } },
+    // Muro: mismo arrastre nulo que Balcón —la caja la pone byVariant (aquí,
+    // por wallSizeKey)—. Material/altura/verja/puerta son ejes ortogonales a
+    // la vista (no caben en este catálogo de 2 entradas): viven como ajustes
+    // propios de #modal-wall, sincronizados por syncWallControls() al abrir.
+    { tool: TOOLS.BUILD_WALL, modal: 'modal-wall', root: 'wall-catalog', cls: 'modal__wall', data: 'wall', catalog: WALL_VIEWS, key: 'wallView', gen: () => Building, opts: () => buildOpts(), box: { x: 0, y: 0 } },
     { tool: TOOLS.GARDEN_PLOT,   modal: 'modal-plot',   root: 'plot-catalog',   cls: 'modal__plot',   data: 'plot',   catalog: PLOT_SHAPES,   key: 'plotShape'  },
     { tool: TOOLS.GARDEN_TREE,   modal: 'modal-tree',   root: 'tree-catalog',   cls: 'modal__tree',   data: 'tree',   catalog: TREE_TYPES,    key: 'treeType'   },
     { tool: TOOLS.GARDEN_SHRUB,  modal: 'modal-shrub',  root: 'shrub-catalog',  cls: 'modal__shrub',  data: 'shrub',  catalog: SHRUB_TYPES,   key: 'shrubType'  },
@@ -2594,6 +2649,9 @@
       // los dos juegos de controles y repintar la miniatura antes de enseñarlo,
       // igual que hace Fachada con syncBuildControls().
       if (id === TOOLS.GARDEN_PATH) syncPathControls();
+      // Muro también lleva ajustes propios (material/altura/verja/puerta)
+      // fuera del catálogo genérico, mismo motivo que Camino.
+      if (id === TOOLS.BUILD_WALL) syncWallControls();
       $(variant.modal).showModal();
     }
   }
@@ -3131,6 +3189,50 @@
       $(id).addEventListener('change', savePrefs);
     });
     syncPathControls();   // valores iniciales (tras restorePrefs) en ambos sitios
+    // Muro: 4 ajustes propios del modal, sin gemelo en el panel —igual que
+    // balconyType, exclusivos de esta herramienta—, así que basta un listener
+    // por campo en vez del cableado por pares de Fachada/Camino.
+    $('wall-material').addEventListener('change', e => {
+      state.wallMaterial = e.target.value;
+      syncWallControls();
+      savePrefs();
+    });
+    $('wall-height').addEventListener('change', e => {
+      state.wallHeight = Number(e.target.value);
+      syncWallControls();
+      savePrefs();
+    });
+    $('wall-railing').addEventListener('change', e => {
+      state.wallRailing = e.target.checked;
+      syncWallControls();
+      savePrefs();
+    });
+    $('wall-railing-height').addEventListener('input', e => {
+      const v = Number(e.target.value);
+      if (!Number.isFinite(v)) return;
+      state.wallRailingHeight = Math.min(Building.WALL_RAIL_H_MAX,
+        Math.max(Building.WALL_RAIL_H_MIN, v));
+      syncWallControls();
+      scheduleOverlay();
+    });
+    $('wall-railing-height').addEventListener('change', savePrefs);
+    $('wall-gate-type').addEventListener('change', e => {
+      state.wallGateType = e.target.value;
+      syncWallControls();
+      savePrefs();
+    });
+    // El alto de la cancela va al dedo (`input`) y se guarda al soltar
+    // (`change`), como el ancho del camino.
+    $('wall-gate-height').addEventListener('input', e => {
+      const v = Number(e.target.value);
+      if (!Number.isFinite(v)) return;
+      state.wallGateHeight = Math.min(Building.WALL_GATE_H_MAX,
+        Math.max(Building.WALL_GATE_H_MIN, v));
+      syncWallControls();
+      scheduleOverlay();
+    });
+    $('wall-gate-height').addEventListener('change', savePrefs);
+    syncWallControls();   // valores iniciales (tras restorePrefs)
     // Doble punta — semántica dual: con selección aplica/quita heads:'both'
     // a las flechas seleccionadas (los no-flecha se ignoran); sin selección
     // fija el default para las nuevas flechas.
@@ -3205,6 +3307,7 @@
       Object.assign(state, CREATION_DEFAULTS);
       syncBuildControls();
       syncPathControls();
+      syncWallControls();
       $('check-garden-labels').checked = state.gardenLabels;
       // El zoom vuelve al ajuste automático, no a un 100% fijo: «Limpiar todo»
       // debe dejar la app igual que recién abierta, y ahí el lienzo aprovecha
@@ -4273,6 +4376,66 @@
     drawPiecesPreview(pctx, els.map(el => ({
       ...el, lineWidth: Math.max(el.lineWidth, 0.9 / s),
     })));
+    pctx.restore();
+  }
+
+  /**
+   * Sincroniza los 4 ajustes propios de Muro (material/altura/verja/puerta,
+   * sin gemelo en el panel) y repinta la miniatura. Se llama al abrir el
+   * modal y tras cada cambio de campo — mismo papel que syncPathControls.
+   */
+  function syncWallControls() {
+    $('wall-material').value = state.wallMaterial;
+    $('wall-height').value = String(state.wallHeight);
+    $('wall-railing').checked = state.wallRailing;
+    $('wall-railing-height').value = String(state.wallRailingHeight);
+    $('wall-railing-height-val').textContent = state.wallRailingHeight.toFixed(1).replace('.', ',');
+    $('wall-gate-type').value = state.wallGateType;
+    $('wall-gate-height').value = String(state.wallGateHeight);
+    $('wall-gate-height-val').textContent = state.wallGateHeight.toFixed(1).replace('.', ',');
+    renderWallPreview();
+  }
+
+  const WALL_PREVIEW_W = 176, WALL_PREVIEW_H = 168;  // los de .modal__preview
+  const WALL_SAMPLE_LEN = 160;
+
+  /** Miniatura del muro: mismo patrón que renderFacadePreview/renderPathPreview
+      —geometría real vía Building.elements + drawPiecesPreview, encajada por
+      bounds reales, papel del color real del lienzo—. */
+  function renderWallPreview() {
+    const cv = $('wall-preview');
+    if (!cv) return;
+    const pctx = cv.getContext('2d');
+    if (!pctx) return;
+    const dpr = window.devicePixelRatio || 1;
+    if (cv.width !== Math.round(WALL_PREVIEW_W * dpr)) {
+      cv.width = Math.round(WALL_PREVIEW_W * dpr);
+      cv.height = Math.round(WALL_PREVIEW_H * dpr);
+    }
+    pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    pctx.fillStyle = state.canvasBg;
+    pctx.fillRect(0, 0, WALL_PREVIEW_W, WALL_PREVIEW_H);
+
+    const els = Building.elements(
+      TOOLS.BUILD_WALL, { x: 0, y: 0 }, { x: WALL_SAMPLE_LEN, y: 0 }, buildOpts(),
+    );
+    if (!els.length) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    els.forEach(el => {
+      const b = getElementBounds(el);
+      minX = Math.min(minX, b.x); minY = Math.min(minY, b.y);
+      maxX = Math.max(maxX, b.x + b.w); maxY = Math.max(maxY, b.y + b.h);
+    });
+    const pad = 12;
+    const bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY);
+    const s = Math.min((WALL_PREVIEW_W - 2 * pad) / bw, (WALL_PREVIEW_H - 2 * pad) / bh);
+    pctx.save();
+    pctx.translate(
+      (WALL_PREVIEW_W - bw * s) / 2 - minX * s,
+      (WALL_PREVIEW_H - bh * s) / 2 - minY * s,
+    );
+    pctx.scale(s, s);
+    drawPiecesPreview(pctx, els.map(el => ({ ...el, lineWidth: Math.max(el.lineWidth, 0.9 / s) })));
     pctx.restore();
   }
 

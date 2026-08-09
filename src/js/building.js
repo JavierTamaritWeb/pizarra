@@ -25,6 +25,24 @@ const Building = (function () {
   const FLOOR_MAX = 20;
   const BAY_W     = 74;     // ancho objetivo por vano (columna de huecos en fachada)
 
+  // Muro: px por metro (una puerta mide ≈2 m ≈140 px con marco ⇒ ~65-70 px/m,
+  // de ahí sale la escala) y tamaños de detalle de su textura/hueco. Los de la
+  // piedra van EN METROS: la altura declarada fija la escala del dibujo, así
+  // que el mampuesto de un muro de 2 m sale a la mitad de tamaño que el de uno
+  // de 1 m dibujado igual de grande (ver _wallPxPerM).
+  const WALL_M_PX          = 65;
+  const WALL_COURSE_M      = 0.26; // alto de hilada, alzado (mampuesto corriente)
+  const WALL_BLOCK_M       = 0.5;  // ancho medio de mampuesto, alzado
+  const WALL_RAIL_H_MIN    = 0.3;  // alto de la verja sobre el remate (m)
+  const WALL_RAIL_H_MAX    = 1.5;
+  const WALL_RAIL_H_DEF    = 0.7;
+  const STONE_TICK_GAP     = 26;  // separación del achurado, planta
+  const WALL_GATE_W_SINGLE = 60;  // ancho de hueco, puerta de una hoja
+  const WALL_GATE_W_DOUBLE = 100; // ancho de hueco, puerta de dos hojas
+  const WALL_GATE_H_MIN    = 0.8; // alto de cancela, en metros (rango del deslizador)
+  const WALL_GATE_H_MAX    = 3;
+  const WALL_GATE_H_DEF    = 2;
+
   /* Tamaño al hacer clic sin arrastrar. Una puerta o una ventana miden lo mismo
      sea cual sea su tipo, así que les basta una caja por herramienta; el balcón
      no —un mirador es alto y un balcón corrido es una franja—, y por eso es el
@@ -43,12 +61,27 @@ const Building = (function () {
       terrace:    { w: 180, h: 58 },
       mirador:    { w: 130, h: 100 },  // cuerpo cerrado y acristalado
     } },
+    // Muro: la caja por defecto depende de DOS ejes (vista y altura), que
+    // `variantKey`/`byVariant` solo resuelven por uno —de ahí `wallSizeKey`,
+    // una clave sintética que se deriva AQUÍ (_wallSizeKey), no en app.js: el
+    // icono de cada vista del catálogo debe nacer con SU caja aunque la vista
+    // activa sea la otra.
+    [TOOLS.BUILD_WALL]: { w: 200, h: 24, variantKey: 'wallSizeKey', byVariant: {
+      plan1: { w: 200, h: 24 },
+      plan2: { w: 200, h: 34 },   // un muro de 2 m tiene más canto también en planta
+      h1: { w: 200, h: WALL_M_PX },
+      h2: { w: 200, h: WALL_M_PX * 2 },
+    } },
   };
+
+  const _wallHeightM = o => (Number(o.wallHeight) === 2 ? 2 : 1);
+  const _wallSizeKey = o => (o.wallView === 'elevation' ? 'h' : 'plan') + _wallHeightM(o);
 
   function elements(tool, p1, p2, opts) {
     const o = { color: '#000000', lineWidth: 2, ...(opts || {}) };
     const base = DEFAULTS[tool];
     if (!base) return [];
+    if (tool === TOOLS.BUILD_WALL) o.wallSizeKey = _wallSizeKey(o);
     const def = (base.byVariant && base.byVariant[o[base.variantKey]]) || base;
     const rawW = Math.abs(p2.x - p1.x), rawH = Math.abs(p2.y - p1.y);
     const b = {
@@ -63,6 +96,7 @@ const Building = (function () {
       case TOOLS.BUILD_DOOR:   return _doorTool(b, o);
       case TOOLS.BUILD_WINDOW: return _windowTool(b, o);
       case TOOLS.BUILD_BALCONY: return _balconyTool(b, o);
+      case TOOLS.BUILD_WALL:   return _wallTool(b, o);
       default: return [];
     }
   }
@@ -88,6 +122,10 @@ const Building = (function () {
   // Círculo/óculo (tipo 'circle' ya existente → elipse inscrita en la caja).
   const _circleEl = (x, y, w, h, o) =>
     ({ type: 'circle', x, y, w, h, color: o.color, lineWidth: o.lineWidth, fill: false });
+
+  // Círculo de detalle (rosetas de la forja): trazo fino, como _lineT.
+  const _circleT = (x, y, w, h, o) =>
+    ({ type: 'circle', x, y, w, h, color: o.color, lineWidth: _thinW(o), fill: false });
 
   // Alféizar: repisa fina que sobresale un poco bajo la base del hueco (y+h).
   const _sill = (x, y, w, h, o) =>
@@ -704,5 +742,670 @@ const Building = (function () {
     return els;
   }
 
-  return { elements, MIN_SPAN, ROOF_FRAC, FLOOR_H };
+  /* ── muros perimetrales (planta + alzado) ──────────────────────────
+     Único tool de Edificios con dos vistas propias (como Fachada, pero aquí
+     una es en planta): `o.wallView` despacha entre el contorno visto desde
+     arriba y el paño visto de frente. Material, verja y puerta son ejes
+     ortogonales a la vista, no variantes de silueta —viven en o.wallMaterial/
+     wallRailing/wallGateType, ajustes propios del modal, no en un catálogo—.
+     Los CUATRO se ven en las dos vistas: un ajuste que solo pinta en una mitad
+     del catálogo acaba deshabilitado justo cuando se quiere tocar. */
+
+  function _wallTool(b, o) {
+    return o.wallView === 'elevation' ? _wallElevation(b, o) : _wallPlan(b, o);
+  }
+
+  /* Escala del dibujo: la altura declarada repartida sobre lo que el muro mide
+     en pantalla. Es lo que hace que "2 m" se note SIEMPRE y no solo al hacer
+     clic sin arrastrar: a igual tamaño dibujado, el doble de altura son
+     hiladas y mampuestos la mitad de grandes. Solo tiene sentido en alzado
+     (en planta no hay eje vertical que repartir). */
+  const _wallPxPerM = (b, o) => Math.max(6, b.h / _wallHeightM(o));
+
+  /* Ruido determinista en [0,1): building.js no usa Math.random —el temblor lo
+     pone Sketchy con el seed del elemento— pero la piedra necesita ser
+     irregular, y esa irregularidad debe salir idéntica en el icono, la
+     miniatura, la previsualización del arrastre y el trazo comprometido. */
+  function _noise(i, j) {
+    const n = Math.sin(i * 127.1 + j * 311.7) * 43758.5453;
+    return n - Math.floor(n);
+  }
+
+  // Hueco de la entrada, centrado en la caja: el vano libre (gx, gw) más el
+  // ancho de pilastra (pw) y el tramo completo que el paso ocupa en el muro
+  // (x1..x2, pilastras incluidas) —de él se apartan la textura, la verja y el
+  // propio paño—. null si no hay puerta o si no cabe con un margen mínimo.
+  function _wallGateRange(b, o) {
+    if (!['single', 'double', 'concave', 'concaveSwan',
+      'concavePanel', 'concaveOrnate', 'concaveFan', 'concaveLyre',
+      'concaveDiamond', 'concaveRings', 'concavePalmette',
+      'convexPanel'].includes(o.wallGateType)) return null;
+    const gw = Math.min(b.w * 0.5, o.wallGateType === 'single' ? WALL_GATE_W_SINGLE : WALL_GATE_W_DOUBLE);
+    const pw = Math.max(3, Math.min(14, gw * 0.14));
+    if (gw < 16 || b.w - gw - 2 * pw < 20) return null;
+    const gx = b.x + (b.w - gw) / 2;
+    return { gx, gw, pw, x1: gx - pw, x2: gx + gw + pw };
+  }
+
+  // Alto de la cancela en metros: ajuste propio, acotado al rango del
+  // deslizador (el módulo exporta los límites para que no puedan divergir).
+  const _wallGateH = o => {
+    const v = Number(o.wallGateHeight);
+    return Math.min(WALL_GATE_H_MAX, Math.max(WALL_GATE_H_MIN, v > 0 ? v : WALL_GATE_H_DEF));
+  };
+
+  const _wallRailingH = o => {
+    const v = Number(o.wallRailingHeight);
+    return Math.min(WALL_RAIL_H_MAX,
+      Math.max(WALL_RAIL_H_MIN, v > 0 ? v : WALL_RAIL_H_DEF));
+  };
+
+  // El paño se PARTE en la entrada en vez de pasar por detrás: si no, el
+  // remate del muro cruza la cancela y el hueco deja de leerse como un paso.
+  function _wallBody(b, o, gate) {
+    return _wallSpans(b, gate).map(s => _rectEl(s[0], b.y, s[1] - s[0], b.h, o));
+  }
+
+  // ¿Cae x dentro del paso (pilastras incluidas)?
+  const _inGate = (gate, x) => !!gate && x > gate.x1 - 2 && x < gate.x2 + 2;
+
+  /* ── planta: contorno visto desde arriba ── */
+  function _wallPlan(b, o) {
+    const gate = _wallGateRange(b, o);
+    return [
+      ..._wallBody(b, o, gate),
+      ..._wallTexturePlan(b, o, gate),
+      ...(o.wallRailing ? _wallRailingPlan(b, o, gate) : []),
+      ...(gate ? _wallGatePlan(b, o, gate) : []),
+    ];
+  }
+
+  // Piedra: achurado de mampuestos con separación y ligera inclinación
+  // IRREGULARES (con paso exacto parecía la junta de un panel prefabricado),
+  // salvo en el paso. Hormigón: liso —la ausencia de achurado ES la textura—.
+  function _wallTexturePlan(b, o, gate) {
+    if (o.wallMaterial !== 'stone') return [];
+    const ty1 = b.y + b.h * 0.22, ty2 = b.y + b.h * 0.78;
+    if (ty2 - ty1 < 2) return [];
+    const gap = Math.max(9, Math.min(STONE_TICK_GAP, b.w / 3));
+    const els = [];
+    let tx = b.x + gap * (0.5 + 0.5 * _noise(0, 5));
+    for (let i = 0; i < 60 && tx < b.x + b.w - 2; i++) {
+      if (!_inGate(gate, tx)) els.push(_lineT(tx, ty1, tx + (_noise(i, 9) - 0.5) * gap * 0.25, ty2, o));
+      tx += gap * (0.6 + 0.85 * _noise(i, 7));
+    }
+    return els;
+  }
+
+  // Verja en planta: el pasamanos visto desde arriba, dos finas líneas
+  // longitudinales sobre el paño (interrumpidas en el paso, que no tiene muro
+  // debajo). Existe para que la verja se pueda ver —y por tanto elegir—
+  // también en planta: un campo sin efecto acaba deshabilitado.
+  function _wallRailingPlan(b, o, gate) {
+    const ratio = (_wallRailingH(o) - WALL_RAIL_H_MIN) /
+      (WALL_RAIL_H_MAX - WALL_RAIL_H_MIN);
+    const inset = Math.max(1.2, b.h * (0.36 - ratio * 0.16));
+    if (b.h - 2 * inset < 2) return [];
+    const els = [];
+    [b.y + inset, b.y + b.h - inset].forEach(y => {
+      if (!gate) { els.push(_lineT(b.x, y, b.x + b.w, y, o)); return; }
+      if (gate.x1 - b.x > 1) els.push(_lineT(b.x, y, gate.x1, y, o));
+      if (b.x + b.w - gate.x2 > 1) els.push(_lineT(gate.x2, y, b.x + b.w, y, o));
+    });
+    return els;
+  }
+
+  // En planta la cancela son sus dos pilastras —sobresalen del paño, como en
+  // alzado, con la basa dibujada dentro, y engordan con el alto declarado— y la
+  // hoja (o las dos) cerrando el vano. Sin arco de barrido: es boceto, no un
+  // símbolo CAD de puerta.
+  function _wallGatePlan(b, o, gate) {
+    const out = Math.max(1.5, b.h * 0.2) * (0.7 + 0.2 * _wallGateH(o));
+    const els = [];
+    [gate.x1, gate.gx + gate.gw].forEach(px => {
+      els.push(_rectEl(px, b.y - out, gate.pw, b.h + 2 * out, o));
+      const i = Math.min(out * 0.5, gate.pw * 0.28);
+      if (i > 1) els.push(_rectT(px + i, b.y - out + i, gate.pw - 2 * i, b.h + 2 * out - 2 * i, o));
+    });
+    const my = b.y + b.h / 2;
+    const leaves = o.wallGateType === 'single' ? 1 : 2;
+    const leafW = gate.gw / leaves;
+    for (let i = 0; i < leaves; i++) {
+      els.push(_lineT(gate.gx + i * leafW + 1, my, gate.gx + (i + 1) * leafW - 1, my, o));
+    }
+    return els;
+  }
+
+  /* ── alzado: paño visto de frente ── */
+  function _wallElevation(b, o) {
+    const gate = _wallGateRange(b, o);
+    const pxM = _wallPxPerM(b, o);
+    const trim = _wallTrim(b, o, pxM);
+    const els = [];
+    _wallSpans(b, gate).forEach(s => els.push(..._wallPanelElevation(b, o, s, pxM, trim)));
+    if (o.wallRailing) els.push(..._wallRailingTop(b, o, gate, trim));
+    if (gate) els.push(..._wallGateElevation(b, o, gate));
+    els.push(_line(b.x - 10, b.y + b.h, b.x + b.w + 10, b.y + b.h, o));  // rasante
+    return els;
+  }
+
+  // Tramos de paño que quedan a cada lado del paso (uno solo si no hay puerta).
+  function _wallSpans(b, gate) {
+    if (!gate) return [[b.x, b.x + b.w]];
+    return [[b.x, gate.x1], [gate.x2, b.x + b.w]].filter(s => s[1] - s[0] > 2);
+  }
+
+  /* Albardilla y zócalo: el remate y la basa que tiene cualquier muro viejo.
+     Van DENTRO de la caja (la albardilla vuela solo de lado): un remate que
+     creciera hacia arriba cambiaría el alto que el arrastre promete. */
+  function _wallTrim(b, o, pxM) {
+    return {
+      cap:    b.h > 26 ? Math.min(9, Math.max(3, pxM * 0.1)) : 0,
+      plinth: b.h > 44 && o.wallMaterial === 'stone' ? Math.min(13, Math.max(5, pxM * 0.16)) : 0,
+    };
+  }
+
+  // Un tramo de paño completo: cuerpo, albardilla volada, zócalo, aparejo y
+  // esquinas de sillería (la cadena de sillares alternos que remata cualquier
+  // muro de fábrica antiguo).
+  function _wallPanelElevation(b, o, span, pxM, trim) {
+    const x1 = span[0], x2 = span[1], w = x2 - x1;
+    const ground = b.y + b.h;
+    const els = [_rectEl(x1, b.y, w, b.h, o)];
+    if (trim.cap) {
+      const ov = Math.min(3, w * 0.03);
+      els.push(_rectEl(x1 - ov, b.y, w + 2 * ov, trim.cap, o));
+      els.push(_lineT(x1, b.y + trim.cap * 0.55, x2, b.y + trim.cap * 0.55, o));  // moldura
+    }
+    els.push(..._wallTextureElevation(b, o, span, pxM, trim));
+    if (trim.plinth) els.push(_lineT(x1, ground - trim.plinth, x2, ground - trim.plinth, o));
+    return els;
+  }
+
+  // Piedra: mampostería de hiladas y piezas IRREGULARES, con cadena de sillares
+  // en las esquinas. El alto de hilada y el ancho de mampuesto salen de la
+  // escala (px/m, o sea de la altura en metros) y varían pieza a pieza con
+  // _noise; las llagas van algo inclinadas. Con la retícula exacta anterior
+  // —hilada fija de 22 px y junta siempre a media pieza— el muro parecía de
+  // bloques prefabricados. Hormigón: una junta de hormigonado por tongada
+  // (~0,5 m), que es lo que delata su altura.
+  function _wallTextureElevation(b, o, span, pxM, trim) {
+    const x1 = span[0], x2 = span[1];
+    const top = b.y + trim.cap, bot = b.y + b.h - trim.plinth;
+    const els = [];
+    if (bot - top < 6 || x2 - x1 < 6) return els;
+    if (o.wallMaterial !== 'stone') {
+      const lifts = Math.max(2, Math.min(6, Math.round(_wallHeightM(o) / 0.5)));
+      for (let i = 1; i < lifts; i++) els.push(_lineT(x1, top + (bot - top) * i / lifts, x2, top + (bot - top) * i / lifts, o));
+      return els;
+    }
+    const box = { x: x1, y: top, w: x2 - x1, h: bot - top };
+    const ys = _wallCourseYs(box, pxM);
+    for (let r = 1; r < ys.length - 1; r++) els.push(_lineT(x1, ys[r], x2, ys[r], o));
+    const blockW = Math.max(8, WALL_BLOCK_M * pxM);
+    // Sillares de esquina, alternos hilada a hilada: la cadena de cantería que
+    // remata cualquier muro de fábrica antiguo.
+    const q = box.w > 46 ? Math.min(26, Math.max(8, pxM * 0.3)) : 0;
+    for (let r = 0; r < ys.length - 1; r++) {
+      const y1 = ys[r], y2 = ys[r + 1];
+      if (q) {
+        const d = q * (r % 2 ? 1 : 0.62);
+        els.push(_lineT(x1 + d, y1, x1 + d, y2, o), _lineT(x2 - d, y1, x2 - d, y2, o));
+      }
+      // Cada hilada tiene su propio calibre de piedra: unas de mampuesto
+      // menudo y otras de perpiaño largo. Sin esto el paño lee como ladrillo.
+      const rowW = blockW * (0.75 + 0.75 * _noise(r, 31));
+      let x = x1 + q * 1.2 + rowW * (0.3 + 0.55 * _noise(r, 11));
+      for (let k = 0; k < 60 && x < x2 - q * 1.2 - 3; k++) {
+        els.push(_lineT(x, y1, x + (_noise(r, k + 23) - 0.5) * (y2 - y1) * 0.3, y2, o));
+        x += rowW * (0.6 + 0.9 * _noise(r, k));
+      }
+    }
+    // Zócalo: una sola hilada de piezas grandes, sin llagas menudas.
+    if (trim.plinth > 4) {
+      const pw2 = blockW * 1.8;
+      for (let x = x1 + pw2; x < x2 - 4; x += pw2) {
+        els.push(_lineT(x, bot, x, b.y + b.h, o));
+      }
+    }
+    return els;
+  }
+
+  // Alturas de hilada: nominales por escala (WALL_COURSE_M) y luego repartidas
+  // con pesos irregulares que suman b.h exacto —una hilada de alto constante es
+  // justo lo que delata al bloque de hormigón—.
+  function _wallCourseYs(b, pxM) {
+    const rows = Math.max(2, Math.min(16, Math.round(b.h / Math.max(7, WALL_COURSE_M * pxM))));
+    const weights = [];
+    let sum = 0;
+    for (let r = 0; r < rows; r++) {
+      const v = 0.75 + 0.5 * _noise(r, 3);
+      weights.push(v);
+      sum += v;
+    }
+    const ys = [b.y];
+    let acc = 0;
+    for (let r = 0; r < rows; r++) { acc += weights[r]; ys.push(b.y + b.h * acc / sum); }
+    return ys;
+  }
+
+  // Barrote abombado: el gesto de la forja. Cae a línea recta si el arco no se
+  // puede resolver (comba nula o chorda degenerada).
+  function _bowBar(x, y1, y2, sag, o) {
+    const arc = ArcMath.arcCtrls(x, y1, x, y2, sag);
+    return arc
+      ? { type: 'curveArrow', x1: x, y1, x2: x, y2,
+          cx: arc.cx, cy: arc.cy, cx2: arc.cx2, cy2: arc.cy2,
+          arc: true, heads: 'none', color: o.color, lineWidth: _thinW(o) }
+      : _lineT(x, y1, x, y2, o);
+  }
+
+  /**
+   * Panel de reja de forja antigua: puntas de lanza, pasamanos, banda de
+   * roleos (dos travesaños con rosetas), barrotes abombados a lados alternos y
+   * zócalo de chapa al pie. Es el motivo compartido por la verja del remate y
+   * por las hojas de la cancela, y NO reutiliza `_railing` (el balcón) a
+   * propósito: allí la comba crece con la posición del barrote, que en un paño
+   * largo dibuja una lente de lado a lado; y sin puntas, roleos ni zócalo una
+   * hoja de barrotes parece una valla de tablas.
+   * Cada remate aparece solo si hay sitio: por debajo, el panel degrada a
+   * pasamanos + barrotes + travesaño, que es lo que se lee a ese tamaño.
+   */
+  function _railPanel(x, y, w, h, o, gap) {
+    if (w < 10 || h < 12) return [];
+    const tip = Math.min(10, Math.max(3, h * 0.14));   // punta de lanza
+    const hr  = Math.min(6, Math.max(2, h * 0.07));    // canto del pasamanos
+    const top = y + tip, bot = y + h;
+    const els = [_rectEl(x, top, w, hr, o)];
+    const n = _barCount(w, gap), step = w / n;
+
+    const plinth = h >= 56 ? Math.min(18, Math.max(6, h * 0.13)) : 0;   // zócalo de chapa
+    const base = bot - plinth;
+    const band = base - top - hr > 26 ? Math.min(24, Math.max(9, h * 0.17)) : 0;
+    const mid = top + hr + band;
+
+    const amp = Math.min(step * 0.18, (base - top) * 0.05);
+    for (let i = 1; i < n; i++) {
+      const bx = x + step * i;
+      els.push(_bowBar(bx, top, base, i % 2 ? amp : -amp, o));
+      if (tip >= 4) {
+        els.push(_lineT(bx - step * 0.22, top, bx, y, o),
+                 _lineT(bx + step * 0.22, top, bx, y, o));
+      }
+    }
+    if (band) {
+      els.push(_lineT(x, mid, x + w, mid, o));
+      const d = Math.min(step * 0.62, band * 0.7);
+      const cy = (top + hr + mid) / 2;
+      if (d >= 4) for (let i = 0; i < n; i++) {
+        els.push(_circleT(x + step * (i + 0.5) - d / 2, cy - d / 2, d, d, o));
+      }
+    }
+    if (plinth) {
+      els.push(_rectT(x, base, w, plinth, o));
+      els.push(_lineT(x, base + plinth * 0.45, x + w, base + plinth * 0.45, o));
+    } else {
+      const low = bot - (bot - top) * 0.18;
+      if (low > top + hr + 3) els.push(_lineT(x, low, x + w, low, o));
+    }
+    return els;
+  }
+
+  // Verja de forja sobre el remate: el mismo panel de reja, partido en los dos
+  // tramos que deja el paso —una verja cruzando por encima de la cancela sería
+  // forja flotando en el aire— y apoyada sobre la albardilla. Alto y ritmo van
+  // en metros, para que no crezcan con el arrastre.
+  function _wallRailingTop(b, o, gate, trim) {
+    const pxM = _wallPxPerM(b, o);
+    const railH = Math.max(12, Math.min(140, _wallRailingH(o) * pxM));
+    const gap = Math.max(9, Math.min(18, pxM * 0.17));
+    const y = b.y - railH + (trim ? trim.cap * 0.4 : 0);
+    const els = [];
+    _wallSpans(b, gate).forEach(s => els.push(..._railPanel(s[0], y, s[1] - s[0], railH, o, gap)));
+    return els;
+  }
+
+  /**
+   * Pilastra de portada: basa, fuste con despiece de sillería, cornisa
+   * moldurada de dos vuelos y bola de remate sobre su cuello. Es la pieza que
+   * más "antiguo" aporta, así que cada remate aparece solo si hay sitio; por
+   * debajo se queda en fuste + cornisa.
+   */
+  function _wallPier(px, pTop, pw, ground, o, pxM) {
+    const els = [_rectEl(px, pTop, pw, ground - pTop, o)];
+    const baseH = Math.min(14, Math.max(4, pxM * 0.12));
+    if (ground - pTop > baseH * 4) {
+      els.push(_rectEl(px - pw * 0.18, ground - baseH, pw * 1.36, baseH, o));   // basa
+      const course = Math.max(8, pxM * 0.32);                                   // despiece
+      for (let y = pTop + course; y < ground - baseH - 4; y += course) {
+        els.push(_lineT(px, y, px + pw, y, o));
+      }
+    }
+    const capH = Math.min(9, Math.max(3, pxM * 0.09));
+    els.push(_rectEl(px - pw * 0.16, pTop - capH, pw * 1.32, capH, o),          // cornisa
+             _rectEl(px - pw * 0.36, pTop - capH * 2, pw * 1.72, capH, o));
+    const d = Math.min(pw * 1.15, Math.max(4, pxM * 0.24));
+    if (d >= 5) {
+      const cy = pTop - capH * 2;
+      els.push(_rectT(px + pw / 2 - d * 0.2, cy - d * 0.3, d * 0.4, d * 0.3, o),  // cuello
+               _circleEl(px + pw / 2 - d / 2, cy - d * 0.3 - d, d, d, o));        // bola
+    }
+    return els;
+  }
+
+  /**
+   * Arco rebajado de la portada, con rosca de dovelas y clave: dos arcos
+   * concéntricos y las juntas radiales entre ellos. Solo si el vano es lo
+   * bastante ancho para que la rosca se lea; por debajo, la cancela va a dintel.
+   */
+  function _wallGateArch(gate, springY, o, pxM) {
+    const s = gate.gw * 0.28;
+    const t = Math.min(11, Math.max(3, pxM * 0.13));    // canto de la rosca
+    if (gate.gw < 34 || s < 6) return [];
+    // Sagitta NEGATIVA: con cuerda horizontal es la que comba hacia arriba.
+    const inner = ArcMath.arcCtrls(gate.gx, springY, gate.gx + gate.gw, springY, -s);
+    const outer = ArcMath.arcCtrls(gate.gx - t, springY, gate.gx + gate.gw + t, springY, -(s + t));
+    if (!inner || !outer) return [];
+    const arcEl = (a, x1, x2) => ({
+      type: 'curveArrow', x1, y1: springY, x2, y2: springY,
+      cx: a.cx, cy: a.cy, cx2: a.cx2, cy2: a.cy2,
+      arc: true, heads: 'none', color: o.color, lineWidth: o.lineWidth,
+    });
+    const els = [arcEl(inner, gate.gx, gate.gx + gate.gw),
+                 arcEl(outer, gate.gx - t, gate.gx + gate.gw + t)];
+    // Dovelas radiales desde el centro real del arco, para que no se abran.
+    const R = (gate.gw * gate.gw / 4 + s * s) / (2 * s);
+    const cx = gate.gx + gate.gw / 2, cy = springY - s + R;
+    const half = Math.asin(Math.min(1, gate.gw / 2 / R));
+    const n = Math.max(2, Math.min(7, Math.round(gate.gw / 26)));
+    for (let i = -n; i <= n; i++) {
+      if (i === 0) continue;                       // el centro lo ocupa la clave
+      const a = half * i / n, ux = Math.sin(a), uy = -Math.cos(a);
+      els.push(_lineT(cx + R * ux, cy + R * uy, cx + (R + t) * ux, cy + (R + t) * uy, o));
+    }
+    const kw = Math.min(gate.gw * 0.16, t * 1.9);
+    els.push(_rectEl(cx - kw / 2, springY - s - t * 1.15, kw, t * 1.9, o));   // clave
+    return els;
+  }
+
+  // Hoja de forja con perfil en seno. La parábola tiene tangente casi
+  // horizontal en el encuentro central: así la caída se lee serena, no como
+  // dos diagonales. Cada barrote nace en la propia curva y conserva la base
+  // recta; las puntas graduadas hacen visible el perfil incluso a escala de
+  // miniatura.
+  function _concaveLeaf(x, centerX, outerTop, centerTop, ground, o, gap, style, barBottom) {
+    const left = x < centerX;
+    const x1 = left ? x : centerX;
+    const x2 = left ? centerX : x;
+    const w = x2 - x1;
+    if (w < 10) return [];
+    const swan = style === 'concaveSwan';
+    const lift = swan ? Math.max(4, (centerTop - outerTop) * 0.2) : 0;
+    const meetingTop = centerTop - lift;
+    const curve = swan ? {
+      type: 'curveArrow', x1, y1: left ? outerTop : meetingTop,
+      x2, y2: left ? meetingTop : outerTop,
+      cx: left ? x1 + w * 0.44 : x1 + w * 0.22,
+      cy: centerTop,
+      cx2: left ? x1 + w * 0.78 : x1 + w * 0.56,
+      cy2: centerTop + lift,
+      heads: 'none', color: o.color, lineWidth: o.lineWidth,
+    } : {
+      type: 'curveArrow', x1, y1: left ? outerTop : centerTop,
+      x2, y2: left ? centerTop : outerTop,
+      cx: left ? x1 + w * 0.58 : x1 + w * 0.42,
+      cy: centerTop, heads: 'none', color: o.color, lineWidth: o.lineWidth,
+    };
+    const els = [curve];
+    if (style === 'concaveOrnate') {
+      const inner = { ...curve, y1: curve.y1 + 6, y2: curve.y2 + 6,
+        cy: curve.cy + 6, lineWidth: _thinW(o) };
+      if (inner.cy2 !== undefined) inner.cy2 += 6;
+      els.push(inner);
+    }
+    const n = _barCount(w, gap), step = w / n;
+    const tip = Math.min(10, Math.max(4, (ground - outerTop) * 0.08));
+    const bottom = barBottom || ground;
+    const low = barBottom ? bottom : ground - Math.max(7, (ground - outerTop) * 0.12);
+    els.push(_lineT(x1, low, x2, low, o));
+    for (let i = 1; i < n; i++) {
+      const bx = x1 + step * i;
+      const t = (bx - x1) / w;
+      const u = left ? t : 1 - t;
+      let by;
+      if (swan) {
+        const v = 1 - u;
+        by = v * v * v * outerTop + 3 * v * v * u * centerTop +
+          3 * v * u * u * (centerTop + lift) + u * u * u * meetingTop;
+      } else {
+        by = outerTop + (centerTop - outerTop) * (1 - (1 - u) * (1 - u));
+      }
+      els.push(_lineT(bx, by, bx, bottom, o),
+               _lineT(bx - step * 0.22, by, bx, by - tip, o),
+               _lineT(bx + step * 0.22, by, bx, by - tip, o));
+    }
+    return els;
+  }
+
+  function _wallGateConcave(gate, top, ground, o, pxM) {
+    const style = o.wallGateType;
+    const centerX = gate.gx + gate.gw / 2;
+    const drop = Math.min((ground - top) * 0.25, Math.max(10, gate.gw * 0.16));
+    const centerTop = Math.min(ground - 20, top + drop);
+    const meetingTop = style === 'concaveSwan'
+      ? centerTop - Math.max(4, drop * 0.2) : centerTop;
+    const gap = Math.max(8, Math.min(16, pxM * 0.15));
+    const panelTop = style === 'concavePanel'
+      ? ground - Math.max(16, Math.min(34, (ground - top) * 0.3)) : null;
+    const els = [
+      ..._concaveLeaf(gate.gx, centerX, top, centerTop, ground, o, gap, style, panelTop),
+      ..._concaveLeaf(gate.gx + gate.gw, centerX, top, centerTop, ground, o, gap, style, panelTop),
+      _line(centerX, meetingTop, centerX, ground, o),
+    ];
+    if (panelTop) {
+      els.push(_rectT(gate.gx, panelTop, gate.gw, ground - panelTop, o),
+        _lineT(gate.gx, panelTop, centerX, ground, o),
+        _lineT(centerX, ground, gate.gx + gate.gw, panelTop, o));
+    }
+    // Rosetón partido en el cierre y dos roleos contrapuestos: además de
+    // ornamentar, disimulan la junta vertical entre las hojas.
+    const d = Math.min(16, Math.max(7, gate.gw * 0.11));
+    const cy = meetingTop + Math.max(d, (ground - meetingTop) * 0.24);
+    els.push(_circleT(centerX - d / 2, cy - d / 2, d, d, o));
+    const scroll = Math.min(gate.gw * 0.16, 18);
+    els.push({ type: 'curveArrow', x1: centerX, y1: cy, x2: centerX - scroll, y2: cy + d * 0.2,
+      cx: centerX - scroll * 0.35, cy: cy - d, heads: 'none', color: o.color, lineWidth: _thinW(o) },
+    { type: 'curveArrow', x1: centerX, y1: cy, x2: centerX + scroll, y2: cy + d * 0.2,
+      cx: centerX + scroll * 0.35, cy: cy - d, heads: 'none', color: o.color, lineWidth: _thinW(o) });
+    if (style === 'concaveOrnate') {
+      const side = Math.min(22, gate.gw * 0.2);
+      [gate.gx + gate.gw * 0.25, gate.gx + gate.gw * 0.75].forEach((sx, i) => {
+        els.push(_circleT(sx - d * 0.32, cy + d * 0.9, d * 0.64, d * 0.64, o),
+          { type: 'curveArrow', x1: sx, y1: cy + d, x2: sx + (i ? side : -side), y2: cy + d * 1.8,
+            cx: sx + (i ? side : -side) * 0.55, cy: cy - d * 0.2,
+            heads: 'none', color: o.color, lineWidth: _thinW(o) });
+      });
+    }
+    if (style === 'concaveFan') {
+      const hubY = cy + d * 1.5;
+      for (let i = -3; i <= 3; i++) {
+        if (i === 0) continue;
+        const ex = centerX + i * gate.gw * 0.065;
+        const ey = meetingTop + Math.abs(i) * d * 0.22;
+        els.push(_lineT(centerX, hubY, ex, ey, o));
+      }
+      els.push(_circleT(centerX - d * 0.28, hubY - d * 0.28, d * 0.56, d * 0.56, o));
+    }
+    if (style === 'concaveLyre') {
+      const lyreBottom = Math.min(ground - 8, cy + d * 2.7);
+      const arm = Math.min(24, gate.gw * 0.2);
+      els.push(
+        { type: 'curveArrow', x1: centerX, y1: lyreBottom, x2: centerX - arm, y2: cy,
+          cx: centerX - arm * 1.05, cy: cy + d * 1.35,
+          heads: 'none', color: o.color, lineWidth: _thinW(o) },
+        { type: 'curveArrow', x1: centerX, y1: lyreBottom, x2: centerX + arm, y2: cy,
+          cx: centerX + arm * 1.05, cy: cy + d * 1.35,
+          heads: 'none', color: o.color, lineWidth: _thinW(o) },
+        _lineT(centerX, cy, centerX, lyreBottom, o),
+        _lineT(centerX - arm, cy, centerX + arm, cy, o),
+      );
+    }
+    if (style === 'concaveDiamond') {
+      const y1 = cy + d * 0.8, y2 = Math.min(ground - 8, y1 + d * 2.2);
+      const cells = 6, step = gate.gw / cells;
+      for (let i = 0; i < cells; i++) {
+        const ax = gate.gx + i * step, bx = ax + step;
+        els.push(_lineT(ax, (i % 2 ? y2 : y1), bx, (i % 2 ? y1 : y2), o),
+          _lineT(ax, (i % 2 ? y1 : y2), bx, (i % 2 ? y2 : y1), o));
+      }
+    }
+    if (style === 'concaveRings') {
+      const ringD = Math.min(13, Math.max(7, gate.gw / 9));
+      const rings = Math.max(3, Math.min(7, Math.floor(gate.gw / (ringD * 1.25))));
+      const ringY = Math.min(ground - ringD - 7, cy + d * 1.25);
+      for (let i = 0; i < rings; i++) {
+        const rx = gate.gx + gate.gw * (i + 0.5) / rings;
+        els.push(_circleT(rx - ringD / 2, ringY, ringD, ringD, o));
+      }
+      els.push(_lineT(gate.gx, ringY + ringD / 2, gate.gx + gate.gw, ringY + ringD / 2, o));
+    }
+    if (style === 'concavePalmette') {
+      const palY = Math.min(ground - d * 2.2, cy + d * 0.9);
+      [0.25, 0.75].forEach(pos => {
+        const px = gate.gx + gate.gw * pos;
+        els.push(_lineT(px, palY, px, palY + d * 2, o),
+          _lineT(px, palY + d * 0.45, px - d, palY - d * 0.35, o),
+          _lineT(px, palY + d * 0.45, px + d, palY - d * 0.35, o),
+          _lineT(px, palY + d * 0.85, px - d * 1.25, palY + d * 0.2, o),
+          _lineT(px, palY + d * 0.85, px + d * 1.25, palY + d * 0.2, o),
+          _circleT(px - d * 0.32, palY + d * 0.75, d * 0.64, d * 0.64, o));
+      });
+    }
+    return els;
+  }
+
+  // Cancela monumental de perfil convexo inspirada en portadas urbanas de
+  // hierro: barrotera muy tupida arriba, cenefa calada en el centro y zócalo
+  // ciego de paneles moldurados. El punto más alto está en el encuentro de
+  // las dos hojas, a diferencia del seno de las variantes cóncavas.
+  function _wallGateConvexPanel(gate, top, ground, o, pxM) {
+    const centerX = gate.gx + gate.gw / 2;
+    const totalH = ground - top;
+    const rise = Math.min(totalH * 0.22, Math.max(10, gate.gw * 0.15));
+    const edgeTop = top + rise;
+    const panelTop = ground - Math.max(24, totalH * 0.43);
+    const bandH = Math.max(8, Math.min(15, totalH * 0.1));
+    const bandTop = panelTop - bandH;
+    const els = [];
+
+    // Dos pletinas curvas, una por hoja, con tangente suave en la coronación.
+    const profiles = [
+      { x1: gate.gx, y1: edgeTop, x2: centerX, y2: top,
+        cx: gate.gx + gate.gw * 0.34, cy: top },
+      { x1: centerX, y1: top, x2: gate.gx + gate.gw, y2: edgeTop,
+        cx: gate.gx + gate.gw * 0.66, cy: top },
+    ];
+    profiles.forEach(p => els.push({ type: 'curveArrow', ...p, heads: 'none',
+      color: o.color, lineWidth: o.lineWidth }));
+
+    // Barrotes densos: el perfil superior se evalúa como parábola para que
+    // cada lanza nazca exactamente sobre la pletina curva.
+    const bars = Math.max(12, Math.min(30, Math.round(gate.gw / Math.max(5, pxM * 0.075))));
+    const step = gate.gw / bars;
+    const tip = Math.max(4, Math.min(10, totalH * 0.06));
+    for (let i = 1; i < bars; i++) {
+      const x = gate.gx + step * i;
+      const u = Math.abs(x - centerX) / (gate.gw / 2);
+      const y = top + rise * u * u;
+      els.push(_lineT(x, y, x, bandTop, o),
+        _lineT(x - step * 0.24, y, x, y - tip, o),
+        _lineT(x + step * 0.24, y, x, y - tip, o));
+    }
+
+    // Cenefa central: marco doble y sucesión de rombos con rosetas, como la
+    // banda calada de la referencia.
+    els.push(_rectEl(gate.gx, bandTop, gate.gw, bandH, o));
+    const cells = 8, cellW = gate.gw / cells, midY = bandTop + bandH / 2;
+    for (let i = 0; i < cells; i++) {
+      const x1 = gate.gx + i * cellW, x2 = x1 + cellW;
+      els.push(_lineT(x1, midY, (x1 + x2) / 2, bandTop + 1, o),
+        _lineT((x1 + x2) / 2, bandTop + 1, x2, midY, o),
+        _lineT(x2, midY, (x1 + x2) / 2, bandTop + bandH - 1, o),
+        _lineT((x1 + x2) / 2, bandTop + bandH - 1, x1, midY, o));
+      if (i % 2 === 0) {
+        const d = Math.min(6, bandH * 0.42);
+        els.push(_circleT((x1 + x2 - d) / 2, midY - d / 2, d, d, o));
+      }
+    }
+
+    // Cuatro casetones inferiores, con doble moldura y pequeño florón.
+    const leafW = gate.gw / 2;
+    for (let leaf = 0; leaf < 2; leaf++) {
+      const lx = gate.gx + leaf * leafW;
+      const split = leafW * 0.28;
+      const panels = leaf === 0
+        ? [[lx + 3, split - 5], [lx + split + 2, leafW - split - 5]]
+        : [[lx + 3, leafW - split - 5], [lx + leafW - split + 2, split - 5]];
+      panels.forEach(([px, pw]) => {
+        const py = panelTop + 4, ph = ground - py - 3;
+        if (pw <= 8 || ph <= 10) return;
+        els.push(_rectEl(px, py, pw, ph, o));
+        const inset = Math.min(6, pw * 0.16, ph * 0.12);
+        els.push(_rectT(px + inset, py + inset, pw - 2 * inset, ph - 2 * inset, o));
+        const d = Math.min(9, pw * 0.24, ph * 0.16);
+        const cx = px + pw / 2, cy = py + ph / 2;
+        els.push(_circleT(cx - d / 2, cy - d / 2, d, d, o),
+          _lineT(cx, cy - d * 1.25, cx, cy + d * 1.25, o),
+          _lineT(cx - d * 0.75, cy, cx + d * 0.75, cy, o));
+      });
+    }
+    els.push(_line(centerX, top, centerX, ground, o));
+    return els;
+  }
+
+  /**
+   * Cancela de portada: dos pilastras rematadas en cornisa y bola —lo que
+   * convierte un hueco en una ENTRADA—, arco de dovelas sobre el vano y una o
+   * dos hojas de reja con puntas. Su alto es un ajuste propio en metros
+   * (`o.wallGateHeight`) medido sobre la misma escala que el muro, así que una
+   * cancela de 2 m sobre un muro de 1 m asoma por encima con las pilastras
+   * acompañándola.
+   */
+  function _wallGateElevation(b, o, gate) {
+    const pxM = _wallPxPerM(b, o);
+    const ground = b.y + b.h;
+    const gh = Math.min(pxM * WALL_GATE_H_MAX, Math.max(14, _wallGateH(o) * pxM));
+    const top = ground - gh;
+    const convexPanel = o.wallGateType === 'convexPanel';
+    const concave = ['concave', 'concaveSwan', 'concavePanel',
+      'concaveOrnate', 'concaveFan', 'concaveLyre', 'concaveDiamond',
+      'concaveRings', 'concavePalmette'].includes(o.wallGateType);
+    const arch = concave || convexPanel ? [] : _wallGateArch(gate, top, o, pxM);
+    const rise = Math.max(4, Math.min(30, pxM * 0.18));
+    // El fuste sube hasta la clave del arco: una pilastra más baja que su
+    // propio arco no sostiene nada.
+    const pTop = Math.min(top - (arch.length ? gate.gw * 0.28 + rise * 0.5 : rise), b.y - 2);
+    const els = [];
+    [gate.x1, gate.gx + gate.gw].forEach(px => els.push(..._wallPier(px, pTop, gate.pw, ground, o, pxM)));
+    els.push(...arch);
+    if (concave) {
+      els.push(..._wallGateConcave(gate, top, ground, o, pxM));
+      return els;
+    }
+    if (convexPanel) {
+      els.push(..._wallGateConvexPanel(gate, top, ground, o, pxM));
+      return els;
+    }
+    const leaves = o.wallGateType === 'double' ? 2 : 1;
+    const leafW = gate.gw / leaves;
+    const gap = Math.max(8, Math.min(16, pxM * 0.15));
+    for (let i = 0; i < leaves; i++) {
+      els.push(..._railPanel(gate.gx + i * leafW, top, leafW, gh, o, gap));
+    }
+    if (leaves === 2) els.push(_line(gate.gx + leafW, top, gate.gx + leafW, ground, o));
+    return els;
+  }
+
+  return { elements, MIN_SPAN, ROOF_FRAC, FLOOR_H,
+    WALL_GATE_H_MIN, WALL_GATE_H_MAX, WALL_RAIL_H_MIN, WALL_RAIL_H_MAX };
 })();

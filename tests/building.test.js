@@ -442,6 +442,271 @@ test('balcones diminutos: ningún rect ni círculo degenerado', () => {
   }
 });
 
+/* ---------------- muros ---------------- */
+
+const muro = (view, o2 = {}, p1 = { x: 0, y: 0 }, p2 = { x: 200, y: 24 }) =>
+  Building.elements(TOOLS.BUILD_WALL, p1, p2, { ...O, wallView: view, ...o2 });
+
+test('muro: solo tipos ya existentes, sin seed', () => {
+  const els = muro('elevation', { wallMaterial: 'stone', wallRailing: true, wallGateType: 'double' }, { x: 0, y: 0 }, { x: 200, y: 90 });
+  assert.ok(els.length > 10, 'un muro de piedra con verja y puerta doble genera bastantes piezas');
+  assert.ok(els.every(e => ['rect', 'line', 'circle', 'curveArrow'].includes(e.type)),
+    'solo tipos de elemento ya existentes');
+  assert.ok(els.every(e => e.seed === undefined), 'el seed lo pone app.js');
+});
+
+test('muro en planta: piedra lleva achurado, hormigón liso', () => {
+  const stone = muro('plan', { wallMaterial: 'stone' });
+  const concrete = muro('plan', { wallMaterial: 'concrete' });
+  // El achurado va inclinado al azar (mampostería, no panel prefabricado), así
+  // que se cuenta por trazo fino, no por "vertical exacta".
+  const ticksOf = els => els.filter(e => e.type === 'line' && e.lineWidth < O.lineWidth).length;
+  assert.ok(ticksOf(stone) >= 4, 'la piedra lleva tics de achurado');
+  assert.equal(ticksOf(concrete), 0, 'el hormigón es liso: sin achurado');
+});
+
+// El muro salía de una retícula exacta (hilada de 22 px, junta siempre a media
+// pieza) y parecía de bloques prefabricados. La irregularidad es determinista
+// (_noise, nunca Math.random): el icono, la miniatura y el trazo comprometido
+// tienen que salir idénticos.
+test('muro de piedra: mampostería irregular y determinista, no una retícula de bloques', () => {
+  const box = [{ x: 0, y: 0 }, { x: 240, y: 120 }];
+  const els = muro('elevation', { wallMaterial: 'stone' }, ...box);
+  const beds = els.filter(e => e.type === 'line' && e.y1 === e.y2 && e.lineWidth < O.lineWidth)
+    .map(e => e.y1).sort((a, b) => a - b);
+  assert.ok(beds.length >= 3, 'varias hiladas');
+  const gaps = beds.slice(1).map((y, i) => y - beds[i]);
+  assert.ok(Math.max(...gaps) - Math.min(...gaps) > 1.5, 'las hiladas no miden todas lo mismo');
+
+  const joints = els.filter(e => e.type === 'line' && e.y1 !== e.y2);
+  assert.ok(joints.length >= 8, 'llagas verticales de mampuesto');
+  assert.ok(joints.some(e => Math.abs(e.x2 - e.x1) > 0.5), 'las llagas no son todas verticales exactas');
+  const xs = [...new Set(joints.map(e => Math.round(e.x1)))];
+  assert.ok(xs.length > joints.length * 0.6, 'las llagas no se alinean en columnas');
+
+  const again = muro('elevation', { wallMaterial: 'stone' }, ...box);
+  assert.deepEqual(again.map(e => JSON.stringify(e)), els.map(e => JSON.stringify(e)),
+    'determinista: dos llamadas iguales dan el mismo muro');
+});
+
+// La altura en metros es la ESCALA del dibujo, no solo la caja por defecto:
+// con el mismo arrastre, 2 m son hiladas y mampuestos la mitad de grandes.
+// Antes solo se notaba al hacer clic sin arrastrar —es decir, casi nunca—.
+test('la altura en metros cambia la textura aunque el arrastre sea el mismo', () => {
+  const box = [{ x: 0, y: 0 }, { x: 240, y: 120 }];
+  const bedsOf = els => els.filter(e => e.type === 'line' && e.y1 === e.y2).length;
+  const oneM = muro('elevation', { wallMaterial: 'stone', wallHeight: 1 }, ...box);
+  const twoM = muro('elevation', { wallMaterial: 'stone', wallHeight: 2 }, ...box);
+  assert.ok(bedsOf(twoM) > bedsOf(oneM) + 1, 'a 2 m caben más hiladas en el mismo paño');
+  const concrete1 = muro('elevation', { wallMaterial: 'concrete', wallHeight: 1 }, ...box);
+  const concrete2 = muro('elevation', { wallMaterial: 'concrete', wallHeight: 2 }, ...box);
+  assert.ok(bedsOf(concrete2) > bedsOf(concrete1), 'el hormigón de 2 m lleva más tongadas');
+});
+
+test('muro en alzado: piedra con hiladas y juntas de sillar, hormigón con una sola junta', () => {
+  const stone = muro('elevation', { wallMaterial: 'stone' }, { x: 0, y: 0 }, { x: 200, y: 90 });
+  const concrete = muro('elevation', { wallMaterial: 'concrete' }, { x: 0, y: 0 }, { x: 200, y: 90 });
+  const stoneLines = stone.filter(e => e.type === 'line').length;
+  const concreteLines = concrete.filter(e => e.type === 'line').length;
+  // Lo que separa los dos materiales no es el número de líneas —el hormigón
+  // encofrado lleva una tongada por altura de vertido, ver el test de arriba—
+  // sino las LLAGAS: la piedra tiene juntas verticales entre mampuestos y el
+  // hormigón no tiene ninguna, solo tongadas horizontales.
+  const llagasOf = els => els.filter(e => e.type === 'line' && e.y1 !== e.y2).length;
+  assert.equal(llagasOf(concrete), 0, 'el hormigón no tiene llagas: solo tongadas horizontales');
+  assert.ok(llagasOf(stone) >= 4, 'la piedra lleva juntas verticales entre mampuestos');
+  assert.ok(stoneLines > concreteLines + 3, 'la piedra lleva mucho más detalle que el hormigón');
+});
+
+test('verja de forja arriba: solo aparece con wallRailing activado, combada con ArcMath', () => {
+  const withRailing = muro('elevation', { wallRailing: true }, { x: 0, y: 0 }, { x: 200, y: 90 });
+  const without = muro('elevation', { wallRailing: false }, { x: 0, y: 0 }, { x: 200, y: 90 });
+  const bows = els => els.filter(e => e.type === 'curveArrow');
+  assert.equal(bows(without).length, 0, 'sin verja: ningún arco de forja');
+  assert.ok(bows(withRailing).length >= 2, 'con verja: barrotes combados');
+  assert.ok(bows(withRailing).every(e => e.arc === true && e.heads === 'none'),
+    'son arcos sin punta, como los del balcón de forja');
+  const b = unionBounds(withRailing);
+  assert.ok(b.y < 0, 'la verja sobresale por encima del remate del muro');
+});
+
+test('la altura de la verja superior se regula en metros y se acota', () => {
+  const box = [{ x: 0, y: 0 }, { x: 240, y: 100 }];
+  const hOf = height => unionBounds(muro('elevation', {
+    wallRailing: true, wallRailingHeight: height, wallGateType: 'none',
+  }, ...box)).h;
+  assert.ok(hOf(1.5) > hOf(0.3) + 80, 'la verja alta sobresale claramente más que la baja');
+  assert.equal(hOf(99), hOf(Building.WALL_RAIL_H_MAX), 'los valores altos se recortan');
+  assert.equal(hOf(0), hOf(0.7), 'un valor imposible cae al alto por defecto');
+});
+
+test('cancela en planta: dos pilastras flanqueando el paso y una hoja por batiente', () => {
+  // Solo el CONTORNO cuenta como pilastra: cada una lleva su basa dibujada
+  // dentro con trazo fino, y contarlas juntas daría cuatro.
+  const piersOf = els => els.filter(e =>
+    e.type === 'rect' && e.w < 20 && e.lineWidth === O.lineWidth).length;
+  const leavesOf = els => els.filter(e => e.type === 'line' && e.lineWidth < O.lineWidth && e.y1 === e.y2).length;
+  const single = muro('plan', { wallGateType: 'single' });
+  const double = muro('plan', { wallGateType: 'double' });
+  assert.equal(piersOf(single), 2, 'el paso va flanqueado por dos pilastras');
+  assert.equal(piersOf(double), 2);
+  assert.equal(leavesOf(single), 1, 'una hoja cerrando el vano');
+  assert.equal(leavesOf(double), 2, 'dos hojas');
+});
+
+// El paño se parte en la entrada: si el muro pasara por detrás, su remate
+// cruzaría la cancela y el hueco dejaría de leerse como un paso.
+test('el paño del muro se interrumpe en la entrada', () => {
+  const box = [{ x: 0, y: 0 }, { x: 240, y: 100 }];
+  const sin = muro('elevation', { wallGateType: 'none' }, ...box);
+  const con = muro('elevation', { wallGateType: 'double' }, ...box);
+  const wide = els => els.filter(e => e.type === 'rect' && e.w > 40 && e.h > 40);
+  assert.equal(wide(sin).length, 1, 'sin puerta, el paño es una sola pieza');
+  assert.equal(wide(con).length, 2, 'con puerta, dos paños flanqueando el paso');
+  assert.ok(wide(con).every(r => r.x + r.w <= 240));
+});
+
+// El alto de la cancela es un ajuste propio en metros, sobre la misma escala
+// que el muro: no lo decide el arrastre, y por eso se puede modular.
+test('el alto de la cancela se modula en metros y se acota al rango del deslizador', () => {
+  const box = [{ x: 0, y: 0 }, { x: 240, y: 100 }];
+  const hOf = m => unionBounds(muro('elevation', { wallGateType: 'single', wallGateHeight: m }, ...box)).h;
+  assert.ok(hOf(3) > hOf(1) + 40, 'una cancela de 3 m asoma muy por encima de una de 1 m');
+  assert.ok(hOf(Building.WALL_GATE_H_MIN) < hOf(2), 'y la más baja no llega a la de 2 m');
+  assert.equal(hOf(99), hOf(Building.WALL_GATE_H_MAX), 'por encima del tope, se recorta');
+  assert.equal(hOf(0), hOf(2), 'un valor imposible cae al alto por defecto');
+});
+
+test('puerta de barrotes en alzado: una hoja sin montante, dos hojas con montante central de contorno', () => {
+  const single = muro('elevation', { wallGateType: 'single' }, { x: 0, y: 0 }, { x: 200, y: 90 });
+  const double = muro('elevation', { wallGateType: 'double' }, { x: 0, y: 0 }, { x: 200, y: 90 });
+  const mullion = els => els.find(e => e.type === 'line' && e.lineWidth === O.lineWidth && e.x1 === e.x2);
+  assert.equal(mullion(single), undefined, 'una hoja: sin montante');
+  assert.ok(mullion(double), 'dos hojas: montante central de contorno, como en _doubleDoor');
+  const bows = els => els.filter(e => e.type === 'curveArrow');
+  assert.ok(bows(single).length >= 2 && bows(double).length >= 2, 'ambas llevan barrotes combados');
+});
+
+test('cancela cóncava: dos hojas, caída central, lanzas graduadas y sin arco de fábrica', () => {
+  const els = muro('elevation', { wallGateType: 'concave', wallGateHeight: 2 }, { x: 0, y: 0 }, { x: 240, y: 100 });
+  const curves = els.filter(e => e.type === 'curveArrow');
+  const topProfiles = curves.filter(e => e.lineWidth === O.lineWidth && e.y1 !== e.y2);
+  assert.equal(topProfiles.length, 2, 'una curva superior por hoja');
+  const meetingY = topProfiles.map(e => e.x1 < 120 ? e.y2 : e.y1);
+  const outerY = topProfiles.map(e => e.x1 < 120 ? e.y1 : e.y2);
+  assert.ok(meetingY.every((y, i) => y > outerY[i] + 8), 'el perfil cae hacia el centro');
+  assert.ok(els.some(e => e.type === 'circle'), 'rosetón central que disimula el encuentro');
+  assert.ok(els.filter(e => e.type === 'line' && e.lineWidth < O.lineWidth).length >= 12,
+    'barrotes y puntas de lanza graduados');
+  const horizontalArcs = curves.filter(e => e.arc === true && e.y1 === e.y2);
+  assert.equal(horizontalArcs.length, 0, 'el seno abierto no queda encerrado por un arco de dovelas');
+});
+
+test('las nueve cancelas cóncavas tienen siluetas y detalles propios', () => {
+  const box = [{ x: 0, y: 0 }, { x: 240, y: 100 }];
+  const draw = type => muro('elevation', { wallGateType: type, wallGateHeight: 2 }, ...box);
+  const pure = draw('concave');
+  const swan = draw('concaveSwan');
+  const panel = draw('concavePanel');
+  const ornate = draw('concaveOrnate');
+  const fan = draw('concaveFan');
+  const lyre = draw('concaveLyre');
+  const diamond = draw('concaveDiamond');
+  const rings = draw('concaveRings');
+  const palmette = draw('concavePalmette');
+
+  assert.ok(swan.some(e => e.type === 'curveArrow' && e.cx2 !== undefined && e.y1 !== e.y2),
+    'el cuello de cisne usa curvas cúbicas para bajar y volver a subir');
+  assert.ok(panel.some(e => e.type === 'rect' && e.lineWidth < O.lineWidth && e.w >= 90 && e.h >= 16),
+    'la variante con zócalo lleva una chapa ciega a todo el ancho del vano');
+  assert.ok(ornate.filter(e => e.type === 'curveArrow').length > pure.filter(e => e.type === 'curveArrow').length + 2,
+    'la ornamental suma doble pletina y roleos laterales');
+  assert.ok(fan.filter(e => e.type === 'line').length > pure.filter(e => e.type === 'line').length + 4,
+    'el abanico suma varios radios desde su cubo central');
+  assert.ok(lyre.filter(e => e.type === 'curveArrow').length >= pure.filter(e => e.type === 'curveArrow').length + 2,
+    'la lira añade dos brazos curvos');
+  assert.ok(diamond.filter(e => e.type === 'line').length > pure.filter(e => e.type === 'line').length + 8,
+    'el diseño inglés añade una banda cruzada de rombos');
+  assert.ok(rings.filter(e => e.type === 'circle').length >= pure.filter(e => e.type === 'circle').length + 3,
+    'el neoclásico añade una secuencia de anillas');
+  assert.ok(palmette.filter(e => e.type === 'circle').length >= pure.filter(e => e.type === 'circle').length + 2,
+    'el barroco añade dos palmetas con corazón circular');
+  const signatures = [pure, swan, panel, ornate, fan, lyre, diamond, rings, palmette]
+    .map(els => JSON.stringify(els));
+  assert.equal(new Set(signatures).size, 9, 'ningún diseño se reduce a la misma geometría que otro');
+});
+
+test('cancela convexa monumental: coronación central, barrotes densos, cenefa y paneles', () => {
+  const els = muro('elevation', { wallGateType: 'convexPanel', wallGateHeight: 2.4 },
+    { x: 0, y: 0 }, { x: 280, y: 110 });
+  const profiles = els.filter(e => e.type === 'curveArrow' && e.lineWidth === O.lineWidth && e.y1 !== e.y2);
+  assert.equal(profiles.length, 2, 'una curva convexa por hoja');
+  assert.ok(profiles[0].y2 < profiles[0].y1 && profiles[1].y1 < profiles[1].y2,
+    'el cierre central es el punto más alto');
+  const bars = els.filter(e => e.type === 'line' && e.lineWidth < O.lineWidth && e.x1 === e.x2);
+  assert.ok(bars.length >= 12, 'barrotera superior densa');
+  const moulded = els.filter(e => e.type === 'rect' && e.lineWidth < O.lineWidth && e.h > 20);
+  assert.ok(moulded.length >= 4, 'cuatro casetones inferiores moldurados');
+  assert.ok(els.some(e => e.type === 'rect' && e.w >= 95 && e.h <= 18), 'cenefa calada horizontal');
+  assert.equal(els.filter(e => e.type === 'curveArrow' && e.arc === true).length, 0,
+    'sin arco de fábrica sobre la cancela');
+});
+
+// La altura manda en la caja por defecto (clic sin arrastrar) —igual que
+// byVariant en Balcón: un arrastre de verdad siempre gana— y además fija la
+// escala de la textura (ver el test de arriba). La clave de tamaño la deriva
+// building.js de la vista + la altura, no app.js: así el icono de cada vista
+// del catálogo nace con SU caja aunque la vista activa sea la otra.
+test('el clic sin arrastrar da la caja propia de cada vista/altura de Muro', () => {
+  const boxOf = (view, wallHeight) => {
+    const els = muro(view, { wallHeight }, { x: 0, y: 0 }, { x: 0, y: 0 });
+    return unionBounds(els);
+  };
+  const plan = boxOf('plan', 1), h1 = boxOf('elevation', 1), h2 = boxOf('elevation', 2);
+  assert.ok(plan.h < h1.h, 'la tira de planta nace mucho más fina que un alzado de 1 m');
+  assert.ok(h2.h > h1.h, 'el alzado de 2 m nace más alto que el de 1 m');
+  assert.ok(Math.abs(h2.h - 2 * h1.h) < 1, 'la altura escala linealmente con los metros');
+  assert.ok(boxOf('plan', 2).h > plan.h, 'en planta, un muro de 2 m nace con más canto');
+  // Y un arrastre de verdad manda sobre el default (MIN_SPAN hacia arriba).
+  const dragged = muro('elevation', { wallHeight: 2 }, { x: 0, y: 0 }, { x: 90, y: 40 });
+  assert.ok(unionBounds(dragged).h < 60, 'arrastrando, la caja la pone el gesto');
+});
+
+// La verja también se ve en planta (el pasamanos desde arriba). No es adorno:
+// un ajuste sin efecto en una vista acaba deshabilitado justo cuando se quiere
+// elegir, y elegir vista cierra el modal.
+test('la verja se ve en las dos vistas del muro', () => {
+  const fineRuns = els => els.filter(e => e.type === 'line' && e.y1 === e.y2 && e.lineWidth < O.lineWidth).length;
+  const withRail = muro('plan', { wallMaterial: 'concrete', wallRailing: true });
+  const without = muro('plan', { wallMaterial: 'concrete', wallRailing: false });
+  assert.equal(fineRuns(without), 0, 'sin verja, el hormigón en planta va liso');
+  assert.equal(fineRuns(withRail), 2, 'con verja, las dos líneas del pasamanos');
+});
+
+// Guarda de regresión: mismo motivo que en Balcón — la validación de
+// importación rechaza rect/circle con w o h ≤ 0.
+test('muros diminutos: ningún rect degenerado', () => {
+  const smalls = [{ x: 8, y: 7 }, { x: 40, y: 9 }, { x: 9, y: 40 }, { x: 6, y: 6 }];
+  const combos = [
+    { wallView: 'plan', wallMaterial: 'stone', wallGateType: 'double' },
+    { wallView: 'plan', wallMaterial: 'concrete', wallGateType: 'none' },
+    { wallView: 'elevation', wallMaterial: 'stone', wallRailing: true, wallGateType: 'single' },
+    { wallView: 'elevation', wallMaterial: 'concrete', wallRailing: false, wallGateType: 'double' },
+  ];
+  for (const opts of combos) {
+    for (const p2 of smalls) {
+      const els = Building.elements(TOOLS.BUILD_WALL, { x: 0, y: 0 }, p2, { ...O, ...opts });
+      assert.ok(els.length > 0, `${JSON.stringify(opts)} en ${p2.x}x${p2.y}: no generó nada`);
+      for (const el of els) {
+        if (el.type === 'rect' || el.type === 'circle') {
+          assert.ok(el.w > 0 && el.h > 0,
+            `${JSON.stringify(opts)} en ${p2.x}x${p2.y}: ${el.type} degenerado ${el.w}x${el.h}`);
+        }
+      }
+    }
+  }
+});
+
 test('tejados 2 aguas / 1 agua → contorno + tejas; plano → 1 rect', () => {
   const g = Building.elements(TOOLS.BUILD_ROOF, P1, P2, { ...O, roofShape: 'gable' }).filter(e => e.type === 'line');
   const m = Building.elements(TOOLS.BUILD_ROOF, P1, P2, { ...O, roofShape: 'mono' }).filter(e => e.type === 'line');
@@ -544,6 +809,21 @@ test('todos los elementos generados se renderizan sin lanzar', () => {
   }
   for (const bt of BALCONY_TYPES.map(v => v.id)) {
     for (const el of balcon(bt)) {
+      assert.doesNotThrow(() => Renderer.renderElement(stub, { ...el, seed: 1 }));
+    }
+  }
+  const wallCombos = [
+    { wallView: 'plan', wallMaterial: 'stone', wallGateType: 'none' },
+    { wallView: 'plan', wallMaterial: 'concrete', wallGateType: 'single' },
+    { wallView: 'plan', wallMaterial: 'stone', wallGateType: 'double' },
+    { wallView: 'elevation', wallMaterial: 'stone', wallRailing: true, wallGateType: 'none' },
+    { wallView: 'elevation', wallMaterial: 'concrete', wallRailing: false, wallGateType: 'single' },
+    { wallView: 'elevation', wallMaterial: 'stone', wallRailing: true, wallGateType: 'double' },
+  ];
+  for (const opts of wallCombos) {
+    const els = Building.elements(TOOLS.BUILD_WALL, { x: 0, y: 0 }, { x: 200, y: 90 }, { ...O, ...opts });
+    assert.ok(els.length > 0, `${JSON.stringify(opts)}: no generó nada`);
+    for (const el of els) {
       assert.doesNotThrow(() => Renderer.renderElement(stub, { ...el, seed: 1 }));
     }
   }

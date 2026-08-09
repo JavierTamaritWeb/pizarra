@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=2.2.0" />
+  <link rel="stylesheet" href="css/styles.css?v=2.4.5" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.2.0" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.4.5" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v2.2.0</span>
+        <span class="topbar__badge">v2.4.5</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes" aria-expanded="false" aria-controls="side-panel">
@@ -574,6 +574,72 @@
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
   </dialog>
 
+  <!-- ===== MODAL: MURO ===== -->
+  <dialog class="modal" id="modal-wall" aria-labelledby="modal-wall-title">
+      <h3 class="modal__heading" id="modal-wall-title">Muro y cancela señorial</h3>
+      <p class="modal__sub">Elige el diseño de cancela, ajusta sus medidas y pulsa la vista para dibujar.</p>
+
+      <!-- Miniatura en vivo + los ajustes propios del muro (sin gemelo en el
+           panel: son exclusivos de esta herramienta, como el tipo de balcón). -->
+      <div class="modal__build">
+        <canvas class="modal__preview" id="wall-preview" width="176" height="168"
+                role="img" aria-label="Vista previa del muro con los ajustes actuales"></canvas>
+        <div class="modal__build-fields">
+          <label class="panel__field" for="wall-material">
+            <span class="modal__field-label">Material</span>
+            <select class="panel__select" id="wall-material">
+              <option value="stone">Piedra</option>
+              <option value="concrete">Hormigón</option>
+            </select>
+          </label>
+          <label class="panel__field" for="wall-height">
+            <span class="modal__field-label">Altura</span>
+            <select class="panel__select" id="wall-height">
+              <option value="1">1 m</option>
+              <option value="2">2 m</option>
+            </select>
+          </label>
+          <label class="panel__field" for="wall-gate-type">
+            <span class="modal__field-label">Puerta</span>
+            <select class="panel__select" id="wall-gate-type">
+              <option value="none">Sin puerta</option>
+              <option value="single">Barrotes, una hoja</option>
+              <option value="double">Barrotes, dos hojas</option>
+              <option value="concave">Cóncava pura, barrotes graduados</option>
+              <option value="concaveSwan">Cuello de cisne, doble curva</option>
+              <option value="concavePanel">Cóncava con zócalo ciego</option>
+              <option value="concaveOrnate">Cóncava ornamental y volutas</option>
+              <option value="concaveFan">Cóncava con abanico radial</option>
+              <option value="concaveLyre">Cóncava con lira central</option>
+              <option value="concaveDiamond">Cóncava con rombos ingleses</option>
+              <option value="concaveRings">Cóncava de anillas neoclásicas</option>
+              <option value="concavePalmette">Cóncava de palmetas barrocas</option>
+              <option value="convexPanel">Convexa monumental con paneles</option>
+            </select>
+          </label>
+          <label class="panel__field" for="wall-gate-height">
+            <span class="modal__field-label">Alto de la puerta: <span id="wall-gate-height-val">2,0</span> m</span>
+            <input class="panel__slider" type="range" id="wall-gate-height"
+                   min="0.8" max="3" step="0.1" value="2"
+                   aria-label="Alto de la puerta del muro, en metros" />
+          </label>
+          <label class="panel__check">
+            <input type="checkbox" id="wall-railing" /> Verja de forja arriba
+          </label>
+          <label class="panel__field" for="wall-railing-height">
+            <span class="modal__field-label">Alto de la verja: <span id="wall-railing-height-val">0,7</span> m</span>
+            <input class="panel__slider" type="range" id="wall-railing-height"
+                   min="0.3" max="1.5" step="0.1" value="0.7"
+                   aria-label="Alto de la verja superior, en metros" />
+          </label>
+        </div>
+      </div>
+
+      <p class="modal__legend">Vista</p>
+      <div id="wall-catalog"></div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
   <!-- ===== MODAL: TEJADO ===== -->
   <dialog class="modal" id="modal-roof" aria-labelledby="modal-roof-title">
       <h3 class="modal__heading" id="modal-roof-title">Tipo de tejado</h3>
@@ -687,19 +753,19 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=2.2.0"></script>
-  <script src="src/js/sketchy.js?v=2.2.0"></script>
-  <script src="src/js/arc.js?v=2.2.0"></script>
-  <script src="src/js/curve-path.js?v=2.2.0"></script>
-  <script src="src/js/shape-rotation.js?v=2.2.0"></script>
-  <script src="src/js/regular-polygon.js?v=2.2.0"></script>
-  <script src="src/js/trapezoid.js?v=2.2.0"></script>
-  <script src="src/js/eraser.js?v=2.2.0"></script>
-  <script src="src/js/building.js?v=2.2.0"></script>
-  <script src="src/js/garden.js?v=2.2.0"></script>
-  <script src="src/js/renderer.js?v=2.2.0"></script>
-  <script src="src/js/exporter.js?v=2.2.0"></script>
-  <script src="src/js/templates.js?v=2.2.0"></script>
-  <script src="src/js/app.js?v=2.2.0"></script>
+  <script src="src/js/config.js?v=2.4.5"></script>
+  <script src="src/js/sketchy.js?v=2.4.5"></script>
+  <script src="src/js/arc.js?v=2.4.5"></script>
+  <script src="src/js/curve-path.js?v=2.4.5"></script>
+  <script src="src/js/shape-rotation.js?v=2.4.5"></script>
+  <script src="src/js/regular-polygon.js?v=2.4.5"></script>
+  <script src="src/js/trapezoid.js?v=2.4.5"></script>
+  <script src="src/js/eraser.js?v=2.4.5"></script>
+  <script src="src/js/building.js?v=2.4.5"></script>
+  <script src="src/js/garden.js?v=2.4.5"></script>
+  <script src="src/js/renderer.js?v=2.4.5"></script>
+  <script src="src/js/exporter.js?v=2.4.5"></script>
+  <script src="src/js/templates.js?v=2.4.5"></script>
+  <script src="src/js/app.js?v=2.4.5"></script>
 </body>
 </html>

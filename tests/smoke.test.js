@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.2.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.4.5 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.2\.0</);
-  assert.match(html, /css\/styles\.css\?v=2\.2\.0/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.2\.0/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.2\.0/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.2\.0/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.2\.0/);
+  assert.match(html, /class="topbar__badge">v2\.4\.5</);
+  assert.match(html, /css\/styles\.css\?v=2\.4\.5/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.4\.5/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.4\.5/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.4\.5/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.4\.5/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -181,6 +181,31 @@ test('el slider de ancho de camino cubre justo el rango que acota garden.js', ()
   assert.equal(attr('max'), Garden.PATH_W_MAX);
   // Y su valor inicial cae dentro, o el panel arrancaría mintiendo.
   assert.ok(attr('value') >= Garden.PATH_W_MIN && attr('value') <= Garden.PATH_W_MAX);
+});
+
+// Mismo contrato para el alto de la cancela: el rango del deslizador y los
+// topes con los que building.js lo acota son el mismo dato en dos sitios.
+test('el slider de alto de cancela cubre justo el rango que acota building.js', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const tag = html.match(/<input[^>]*id="wall-gate-height"[\s\S]*?\/>/);
+  assert.ok(tag, 'no existe el slider #wall-gate-height');
+  const attrs = tag[0].replace(/\s+/g, ' ');
+  const attr = a => Number(attrs.match(new RegExp(`${a}="([^"]+)"`))[1]);
+  const { Building } = loadAll();
+  assert.equal(attr('min'), Building.WALL_GATE_H_MIN);
+  assert.equal(attr('max'), Building.WALL_GATE_H_MAX);
+  assert.ok(attr('value') >= Building.WALL_GATE_H_MIN && attr('value') <= Building.WALL_GATE_H_MAX);
+});
+
+test('el slider de alto de verja cubre justo el rango que acota building.js', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const tag = html.match(/<input[^>]*id="wall-railing-height"[\s\S]*?\/>/);
+  assert.ok(tag, 'no existe el slider #wall-railing-height');
+  const attrs = tag[0].replace(/\s+/g, ' ');
+  const attr = a => Number(attrs.match(new RegExp(`${a}="([^"]+)"`))[1]);
+  const { Building } = loadAll();
+  assert.equal(attr('min'), Building.WALL_RAIL_H_MIN);
+  assert.equal(attr('max'), Building.WALL_RAIL_H_MAX);
 });
 
 // Los ajustes de Edificios existen DOS veces (panel + modal de Fachada) y

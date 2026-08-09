@@ -4,6 +4,110 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.4.5] — 2026-08-09
+
+### Añadido
+
+- **Diez cancelas de forja para el muro**, además de las dos de barrotes rectos:
+  cóncava pura de barrotes graduados, cuello de cisne (doble curva), cóncava con
+  zócalo ciego, ornamental con volutas, con abanico radial, con lira central, con
+  rombos ingleses, de anillas neoclásicas, de palmetas barrocas y convexa
+  monumental con paneles. Todas se dibujan con tipos de elemento ya existentes,
+  así que exportación, undo y JSON siguen sin necesitar código propio.
+- **Alto de la verja superior, modulable** (`#wall-railing-height`, 0,3–1,5 m):
+  igual que el alto de la cancela, va en metros sobre la escala del muro y se
+  acota al rango que exporta `building.js` (`WALL_RAIL_H_MIN/MAX`). En planta
+  el pasamanos se separa del borde según ese alto, así que el ajuste también se
+  ve desde arriba.
+
+### Cambiado
+
+- **El muro nace en alzado y con cancela cóncava**, en vez de en planta y sin
+  puerta: la vista de alzado es la que enseña de una vez el material, la altura,
+  la verja y la puerta, y con «sin puerta» por defecto la mitad del catálogo
+  quedaba invisible hasta que alguien lo buscaba.
+- **Las preferencias guardadas llevan versión de diseño** (`wallDesignVersion`).
+  Unas preferencias escritas antes de este rediseño traían «planta» y «sin
+  puerta» aunque nadie hubiera tocado nunca la herramienta, y ese default
+  histórico tapaba el diseño nuevo en silencio. Solo se restaura la vista
+  guardada si la versión coincide; a partir de la primera elección propia, se
+  respeta con normalidad.
+
+### Tests
+
+- Nuevo `e2e/wall-concave.spec.js`: la cancela cóncava se ve en el modal, se
+  dibuja en el lienzo y sobrevive a una recarga.
+- Actualizadas tres aserciones de `building.test.js` que habían quedado ancladas
+  a la geometría anterior del muro: la lista de tipos admitidos (el muro emite
+  también `circle`, que es un tipo ya existente), la distinción piedra/hormigón
+  —que ahora está en las **llagas**, no en el número de líneas, porque el
+  hormigón lleva una tongada por altura de vertido— y el recuento de pilastras,
+  que contaba también la basa dibujada dentro de cada una.
+
+## [2.4.0] — 2026-08-08
+
+### Añadido
+
+- **Alto de la puerta del muro, modulable** (`#wall-gate-height`, 0,8–3 m):
+  un deslizador en el modal de Muro que fija el alto de la cancela en metros,
+  sobre la misma escala que el muro. Una cancela de 2,5 m sobre un muro de 1 m
+  asoma por encima, con las pilastras acompañándola. Persiste en preferencias
+  y se acota al rango que exporta `building.js` (`WALL_GATE_H_MIN/MAX`).
+
+### Cambiado
+
+- **La entrada del muro es ahora una cancela, no una valla de tablas.** El
+  hueco se dibujaba como un rectángulo lleno de barrotes de suelo a techo, sin
+  jerarquía ninguna. Ahora lleva **dos pilastras rematadas en albardilla** —lo
+  que convierte un hueco en una entrada—, hojas de reja con **puntas de
+  lanza**, pasamanos y travesaño bajo, y el paño del muro se **parte** en el
+  paso en vez de cruzarlo por detrás. La verja del remate se interrumpe en las
+  pilastras (antes cruzaba por encima de la puerta, forja flotando en el aire).
+- El motivo de reja vive en un solo sitio (`_railPanel`), compartido por la
+  verja y por las hojas: los barrotes se abomban a lados alternos, en vez de
+  con una comba que crecía con la posición y dibujaba una lente de lado a lado
+  en los paños largos.
+
+### Corregido
+
+- **El muro de piedra parecía de bloques prefabricados.** El alzado se dibujaba
+  con una retícula exacta (hilada fija de 22 px, junta siempre a media pieza),
+  que es justo el aparejo de un bloque de hormigón. Ahora es mampostería:
+  altura de hilada y ancho de mampuesto variables pieza a pieza, con las llagas
+  algo inclinadas y sin alinearse en columnas. La irregularidad es determinista
+  (no usa `Math.random`), así que el icono, la miniatura, la previsualización
+  del arrastre y el trazo comprometido salen idénticos.
+- **La altura de 2 m no se notaba.** Solo decidía la caja al hacer clic sin
+  arrastrar —es decir, casi nunca—: cualquier arrastre la anulaba. Ahora la
+  altura declarada fija la **escala** del dibujo (px por metro), así que a igual
+  tamaño dibujado un muro de 2 m sale con hiladas y mampuestos la mitad de
+  grandes, la verja proporcionada y el hormigón con más tongadas. En planta,
+  además, un muro de 2 m nace con más canto.
+- **La verja de forja no se podía elegir.** El modal de Muro atenuaba altura y
+  verja en vista de planta —la vista por defecto— y elegir vista cierra el
+  modal: los dos ajustes quedaban fuera de alcance en la única visita en la que
+  se podían tocar. Los cuatro ajustes están ahora siempre disponibles, y la
+  verja se dibuja también en planta (el pasamanos visto desde arriba).
+## [2.3.0] — 2026-08-08
+
+### Añadido
+
+- **Herramienta «Muro» en Edificios**: dibuja muros perimetrales en **vista de
+  planta** (contorno visto desde arriba) o **de alzado** (visto de frente),
+  elegible en su propio catálogo de dos vistas.
+  - **Material**: piedra (achurado en planta, hiladas y juntas de sillar a
+    matacán en alzado) u hormigón (liso, con una sola junta de hormigonado).
+  - **Altura**: 1 m o 2 m — fija la caja por defecto al hacer clic sin
+    arrastrar; un arrastre real siempre manda, como en el resto de Edificios.
+  - **Verja de forja arriba** (opcional, solo en alzado): reutiliza la misma
+    geometría combada del balcón de forja (`_railing` + `ArcMath`).
+  - **Puerta de barrotes de forja** (opcional, una o dos hojas): un hueco
+    barrado que ambas vistas y sus texturas dejan sin atravesar, igual que la
+    fachada deja sitio a la puerta principal.
+  - Sin tipo de elemento nuevo: produce `rect`/`line`/`curveArrow` ya
+    existentes, así que export, undo y JSON funcionan sin cambios.
+  - Sin atajo de teclado: no queda ninguna tecla suelta libre (como Balcón).
+
 ## [2.2.0] — 2026-08-08
 
 Correcciones de la segunda auditoría severa (cuatro frentes: lógica JS,

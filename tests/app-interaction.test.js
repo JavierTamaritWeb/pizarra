@@ -1099,3 +1099,94 @@ test('unas prefs con un hex inválido de 5 dígitos no cuelan; el válido sí', 
   assert.equal(app.$('canvas-bg-picker').value, '#ffffff', 'el hex de 5 dígitos se rechaza');
   assert.equal(app.$('grid-color-picker').value, '#123456', 'el hex válido sí entra');
 });
+
+test('Muro: elegir la herramienta abre su modal con los cuatro ajustes utilizables', () => {
+  const app = loadApp();
+  app.selectTool('muro');
+  assert.equal(app.$('modal-wall').open, true, 'debe abrirse #modal-wall');
+  // Ninguno se deshabilita según la vista: elegir vista CIERRA el modal, así
+  // que atenuar la altura y la verja en planta —la vista por defecto— las
+  // dejaba fuera de alcance en la única visita en la que se podían tocar.
+  assert.equal(app.$('wall-height').disabled, false, 'la altura debe poder elegirse ya');
+  assert.equal(app.$('wall-railing').disabled, false, 'la verja debe poder elegirse ya');
+  assert.equal(app.$('wall-material').disabled, false);
+  assert.equal(app.$('wall-gate-type').disabled, false);
+});
+
+test('Muro: cambiar material/altura/verja/puerta se refleja al dibujar y persiste en prefs', () => {
+  const app = loadApp();
+  app.selectTool('muro');
+  app.pickVariant('wall-catalog', 'modal__wall', 'elevation', 'wall');
+  // El catálogo cierra el modal al elegir (como en Fachada); reabrir para
+  // seguir ajustando el muro recién elegido.
+  app.selectTool('muro');
+
+  const set = (id, prop, value) => {
+    const el = app.$(id);
+    el[prop] = value;
+    el.__fire('change', { target: el });
+  };
+  set('wall-material', 'value', 'concrete');
+  set('wall-height', 'value', '2');
+  set('wall-railing', 'checked', true);
+  const railingHeight = app.$('wall-railing-height');
+  railingHeight.value = '1.2';
+  railingHeight.__fire('input', { target: railingHeight });
+  railingHeight.__fire('change', { target: railingHeight });
+  set('wall-gate-type', 'value', 'double');
+  app.flush();
+  app.$('modal-wall').close();
+
+  app.drag(100, 100, 300, 190);
+  const els = app.elements();
+  assert.ok(els.some(e => e.type === 'curveArrow' && e.arc === true),
+    'la verja de forja aparece combada');
+  assert.ok(els.filter(e => e.type === 'rect' && e.w < 25).length >= 4,
+    'la cancela trae sus dos pilastras rematadas en albardilla');
+
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.wallView, 'elevation');
+  assert.equal(prefs.wallMaterial, 'concrete');
+  assert.equal(prefs.wallHeight, 2);
+  assert.equal(prefs.wallRailing, true);
+  assert.equal(prefs.wallRailingHeight, 1.2);
+  assert.equal(prefs.wallGateType, 'double');
+});
+
+test('Muro: prefs con valores fuera de catálogo no cuelan', () => {
+  const app = loadApp({ prefs: {
+    wallView: 'elevation', wallMaterial: 'wood', wallHeight: 3,
+    wallRailing: 'yes', wallGateType: 'triple',
+  } });
+  assert.equal(app.$('wall-material').value, 'stone', 'material desconocido: cae al default');
+  assert.equal(app.$('wall-height').value, '1', 'altura fuera de {1,2}: cae al default');
+  assert.equal(app.$('wall-railing').checked, false, 'verja no booleana: cae al default');
+  assert.equal(app.$('wall-railing-height').value, '0.7', 'sin valor válido usa 0,7 m');
+  assert.equal(app.$('wall-gate-type').value, 'concave', 'puerta desconocida: cae al nuevo default visible');
+});
+
+test('Muro: la cancela cóncava está disponible y se restaura desde prefs', () => {
+  const app = loadApp({ prefs: { wallDesignVersion: 1, wallGateType: 'concave' } });
+  assert.equal(app.$('wall-gate-type').value, 'concave');
+  const options = app.$('wall-gate-type').children.map(o => o.value);
+  assert.ok(options.includes('concave'), 'la variante señorial figura en el selector');
+});
+
+test('Muro: los nueve diseños cóncavos y el convexo están disponibles y persisten', () => {
+  const types = ['concave', 'concaveSwan', 'concavePanel', 'concaveOrnate',
+    'concaveFan', 'concaveLyre', 'concaveDiamond', 'concaveRings', 'concavePalmette',
+    'convexPanel'];
+  for (const type of types) {
+    const app = loadApp({ prefs: { wallDesignVersion: 1, wallGateType: type } });
+    assert.equal(app.$('wall-gate-type').value, type);
+  }
+});
+
+test('Muro: la cancela cóncava en alzado es el inicio visible y migra defaults antiguos', () => {
+  const fresh = loadApp();
+  fresh.selectTool('muro');
+  assert.equal(fresh.$('wall-gate-type').value, 'concave');
+
+  const legacy = loadApp({ prefs: { wallView: 'plan', wallGateType: 'none' } });
+  assert.equal(legacy.$('wall-gate-type').value, 'concave', 'el default histórico no oculta el diseño nuevo');
+});

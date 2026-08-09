@@ -28,6 +28,39 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### El muro de piedra salía de bloques prefabricados, la altura no se notaba y la verja no se podía elegir
+
+- **Síntoma:** tres defectos de la herramienta Muro reportados juntos. (1) El
+  paramento de piedra en alzado parecía de bloques prefabricados. (2) Elegir
+  «2 m» no cambiaba nada visible. (3) La casilla «Verja de forja arriba» no se
+  podía marcar.
+- **Causa:** (1) `_wallTextureElevation` dibujaba una retícula exacta —hilada
+  fija de 22 px y junta siempre a media pieza—, que es literalmente el aparejo
+  de un bloque de hormigón. (2) `wallHeight` solo alimentaba la caja por
+  defecto (`byVariant`), y un arrastre de verdad siempre gana, así que el
+  ajuste solo se veía al hacer clic sin arrastrar. (3) `updateWallFieldsEnabled`
+  atenuaba altura y verja mientras la vista fuera `plan` —la vista por
+  defecto—, pero elegir vista **cierra** el modal: en la única visita en la que
+  esos campos existían, estaban deshabilitados. Callejón sin salida.
+- **Arreglo:** en `src/js/building.js`, la piedra pasa a ser mampostería con
+  hiladas y mampuestos irregulares y llagas inclinadas, generada con `_noise`
+  (determinista: nada de `Math.random`, que rompería la coincidencia entre
+  icono, miniatura, previsualización y trazo). La altura pasa a ser la
+  **escala** del dibujo (`_wallPxPerM`), de la que cuelgan hilada, mampuesto,
+  tongadas del hormigón y verja; en planta manda además el canto por defecto.
+  Se elimina `updateWallFieldsEnabled` (app.js) y la verja se dibuja también en
+  planta (`_wallRailingPlan`), para que ningún ajuste del modal quede sin
+  efecto. La clave sintética `wallSizeKey` se deriva ahora dentro de
+  building.js (`_wallSizeKey`) en vez de en `buildOpts()`, con lo que el icono
+  de cada vista del catálogo nace con SU caja aunque la vista activa sea la
+  otra.
+- **Guardia:** `tests/building.test.js` — «muro de piedra: mampostería
+  irregular y determinista, no una retícula de bloques», «la altura en metros
+  cambia la textura aunque el arrastre sea el mismo», «la verja se ve en las
+  dos vistas del muro» y «el clic sin arrastrar da la caja propia de cada
+  vista/altura de Muro»; y `tests/app-interaction.test.js` — «Muro: elegir la
+  herramienta abre su modal con los cuatro ajustes utilizables».
+
 ### Alt+clic era la única vía para aislar una pieza de un grupo
 
 - **Síntoma:** mover, recolorear o redimensionar una pieza suelta de un

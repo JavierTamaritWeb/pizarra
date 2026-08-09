@@ -31,6 +31,7 @@ const TOOLS = Object.freeze({
   BUILD_PLANTA: 'planta',         BUILD_FACADE: 'fachada',
   BUILD_ROOF:   'tejado',         BUILD_DOOR:   'puerta',
   BUILD_WINDOW: 'ventana',        BUILD_BALCONY:'balcon',
+  BUILD_WALL:   'muro',
   // Jardín — herramientas de creación (NO tipos de elemento): producen
   // rect/line/circle/curveArrow/text. Todo en vista de planta. Ver js/garden.js.
   GARDEN_PLOT:   'jardin',        GARDEN_TREE:   'arbol',
@@ -43,7 +44,7 @@ const TOOLS = Object.freeze({
     (producen rect/line), nunca valores de `el.type`. */
 const BUILDING_TOOLS = Object.freeze([
   TOOLS.BUILD_PLANTA, TOOLS.BUILD_FACADE, TOOLS.BUILD_ROOF,
-  TOOLS.BUILD_DOOR, TOOLS.BUILD_WINDOW, TOOLS.BUILD_BALCONY,
+  TOOLS.BUILD_DOOR, TOOLS.BUILD_WINDOW, TOOLS.BUILD_BALCONY, TOOLS.BUILD_WALL,
 ]);
 
 /** Formas de huella del botón Planta (catálogo del modal). Ampliable.
@@ -127,6 +128,15 @@ const FACADE_TYPES = Object.freeze([
   { id: 'flat',    name: 'De frente',  hint: 'Fachada plana' },
   { id: 'gable',   name: 'Con tejado', hint: 'Alzado' },
   { id: 'profile', name: 'De lado',    hint: 'Perfil' },
+]);
+
+/** Vistas del botón Muro (catálogo del modal). El icono NO se dibuja a mano:
+    lo pinta la geometría real de js/building.js, como el de Balcón. Material,
+    altura, verja y puerta son ejes independientes de la vista —no caben como
+    variantes de este catálogo— y viven como controles propios en #modal-wall. */
+const WALL_VIEWS = Object.freeze([
+  { id: 'plan',      name: 'Vista de planta' },
+  { id: 'elevation', name: 'Vista de alzado' },
 ]);
 
 /** Herramientas de la sección "Jardín": como las de Edificios, todas son SOLO
@@ -288,6 +298,7 @@ const TOOL_GROUPS = [
       // curva—, así que entra igual que Caminos y Aromáticas. `key` es
       // opcional; mejor sin atajo que pisando una acción existente.
       { id: TOOLS.BUILD_BALCONY, icon: '▥', name: 'Balcón' },
+      { id: TOOLS.BUILD_WALL,    icon: '🧱', name: 'Muro y cancela' },
     ],
   },
   {
