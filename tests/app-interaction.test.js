@@ -438,8 +438,21 @@ test('los iconos de plantas usan la caja botánica, no un rectángulo genérico'
   const icons = seen.filter(c => c.opts.labels === false && c.p1.x === 0 && c.p1.y === 0);
   assert.ok(icons.length >= app.context.TREE_TYPES.length,
     'debe generar al menos un icono por especie del catálogo');
-  assert.ok(icons.every(c => c.p2.x === 0 && c.p2.y === 0),
-    'el icono debe simular un clic para obtener altura y diámetro de la especie');
+
+  // Cada especie tiene su icono, y su caja lleva la PROPORCIÓN botánica —no la
+  // 100 × 84 genérica del resto de catálogos—: es lo que mantiene el ciprés
+  // fastigiado. Se amplía a un lado mayor fijo porque en píxeles reales una
+  // especie de 0,25 m cabía en 5 px, y ahí todo el detalle se iguala a su
+  // mínimo, se solapa y el icono sale convertido en un borrón.
+  for (const spec of app.context.TREE_TYPES) {
+    const alto = spec.depthM || spec.spreadM;   // el catálogo se abre en planta
+    const ratio = spec.spreadM / alto;
+    const icon = icons.find(c => c.opts.treeType === spec.id &&
+      c.opts.plantView === 'plan' &&
+      Math.abs(Math.max(c.p2.x, c.p2.y) - 64) < 1e-6 &&
+      Math.abs(c.p2.x / c.p2.y - ratio) < 1e-6);
+    assert.ok(icon, `el icono de ${spec.name} no usa su caja botánica ampliada`);
+  }
 });
 
 /* ── Balcón: catálogo genérico, con la geometría real como icono ── */

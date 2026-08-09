@@ -161,18 +161,14 @@ test('cada especie tiene ficha botánica y dimensiones adultas válidas', () => 
   }
 });
 
-test('los catálogos de Arbusto y Flor evitan especies de toxicidad conocida', () => {
-  assert.equal(SHRUB_TYPES.map(v => v.botanical).join('|'), [
-    'Myrtus communis', 'Myrtus communis + Pistacia lentiscus',
-    'Capparis spinosa', 'Olea europaea', 'Salvia rosmarinus', 'Olea europaea',
-    'Pistacia lentiscus', 'Arbutus unedo', 'Cistus albidus',
-  ].join('|'));
-  assert.equal(FLOWER_TYPES.map(v => v.botanical).join('|'), [
-    'Calendula officinalis', 'Rosa sempervirens', 'Limonium sinuatum',
-    'Calendula officinalis + Rosa sempervirens + Limonium sinuatum',
-    'Antirrhinum majus',
-  ].join('|'));
-  const forbidden = /Nerium|Buxus|Viburnum|Laurus|Papaver|Iris|Gladiolus/i;
+// La 2.7.0 retiró siete especies de Arbusto y Flor por toxicidad (baladre,
+// boj, durillo, laurel, amapola, iris y gladiolo). La guarda vigila EXACTAMENTE
+// esa lista y no la composición del catálogo: fijar los nombres botánicos uno a
+// uno convertía cualquier alta —incluidas las endémicas valencianas de la
+// 2.8.0, que sí son bulbos tóxicos y entran por decisión expresa— en un fallo
+// que no dice nada sobre toxicidad.
+test('Arbusto y Flor no reintroducen las especies retiradas por toxicidad', () => {
+  const forbidden = /Nerium|Buxus|Viburnum|Laurus|Papaver\b|Iris\b|Gladiolus/i;
   for (const spec of [...SHRUB_TYPES, ...FLOWER_TYPES]) {
     assert.doesNotMatch(`${spec.name} ${spec.botanical}`, forbidden,
       `${spec.name} reintroduce una especie descartada por toxicidad`);

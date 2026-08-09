@@ -4168,6 +4168,31 @@
    * muestra el nombre debajo (`labels` solo lo entiende el jardín; Building lo
    * ignora sin más).
    */
+  /* Caja del icono de una especie: su proporción botánica, pero nunca por
+     debajo de ICON_MIN_SPAN px de lado mayor.
+
+     El clic sin arrastre daba la caja en píxeles reales (diámetro × escala), y
+     a 20 px/m una campanilla de 0,25 m salía en 5 px. A ese tamaño mandan los
+     `Math.max(1.2, …)` con que la geometría evita pétalos invisibles: todos los
+     detalles se igualan al suelo, se solapan, y el ajuste a bounds amplía esa
+     mancha hasta llenar el icono. Dos especies distintas acababan siendo el
+     mismo borrón —y no es un problema de las nuevas: la caléndula, el tomillo o
+     la boca de dragón llevaban el mismo borrón desde la 2.7.0—.
+
+     Se amplía manteniendo la relación alto/ancho, que es lo que el icono
+     promete: el ciprés sigue saliendo fastigiado y el tomillo tapizante. */
+  const ICON_MIN_SPAN = 64;
+
+  function plantIconBox(cfg, variantId, opts) {
+    const size = Garden.plantSize(cfg.tool, variantId, opts);
+    if (!size) return { x: 0, y: 0 };
+    const w = size.spreadM;
+    const h = opts.plantView === 'elevation' ? size.heightM : size.depthM;
+    if (!(w > 0) || !(h > 0)) return { x: 0, y: 0 };
+    const k = ICON_MIN_SPAN / Math.max(w, h);
+    return { x: w * k, y: h * k };
+  }
+
   function variantIcon(cfg, variantId) {
     const canvas = document.createElement('canvas');
     canvas.className = 'modal__shape-icon';
@@ -4192,7 +4217,7 @@
        diámetro, etapa y escala botánicos. El ajuste a los bounds de abajo ya
        se encarga de meter después cada proporción en los 56 × 48 px. */
     const origin = { x: 0, y: 0 };
-    const end = cfg.plant ? origin : cfg.box;
+    const end = cfg.plant ? plantIconBox(cfg, variantId, opts) : cfg.box;
     const els = cfg.gen().elements(cfg.tool, origin, end, opts);
     if (!els.length) return canvas;
     // Ajuste por los bounds REALES: las frondas y las ondas se salen de la caja

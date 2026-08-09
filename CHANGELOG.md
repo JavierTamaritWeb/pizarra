@@ -4,6 +4,76 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.8.0] — 2026-08-09
+
+### Añadido
+
+- **Dos aromáticas nuevas en el catálogo de Jardín: María Luisa (*Aloysia
+  citriodora*) e Hierbabuena (*Mentha spicata*)**, documentadas como el resto
+  con nombre botánico, altura y diámetro adultos, y dibujadas en planta y en
+  alzado. El catálogo de Aromáticas pasa a **10 especies**.
+
+  - La **María Luisa** es la única aromática con porte de arbusto (2,5 m): en
+    alzado son varas leñosas arqueadas con panícula terminal clara, y en planta
+    la mata lleva verticilos de tres hojas a 120°, que es su rasgo de
+    identificación en campo.
+  - La **hierbabuena** se dibuja como lo que es, una herbácea estolonífera: en
+    planta el tapiz deja escapar cuatro estolones con su brote enraizado en la
+    punta, y en alzado son tallos rectos con hoja opuesta y espiga terminal.
+
+  Romero y lavanda ya estaban en el catálogo desde la 2.7.0 y no cambian.
+
+- **Seis autóctonas y endémicas valencianas en el catálogo de Flor**: lirio de
+  mar (*Pancratium maritimum*), campanilla valenciana (*Acis valentina*), boca
+  de dragón de roca (*Antirrhinum valentinum*), silene de Ifach (*Silene
+  hifacensis*), limonio de Dufour (*Limonium dufourii*) y narciso trompón
+  (*Narcissus radinganorum*). Flor pasa de 5 a **11 especies**, cada una con su
+  planta y su alzado propios: las umbelas y trompetas de los bulbos, el porte
+  tendido de las rupícolas y la roseta basal con panícula alta del limonio, que
+  es justo lo que lo separa del estátice de jardín.
+
+  Tres de ellas son bulbos con licorina. **Entran por decisión expresa**, y la
+  guarda de toxicidad pasa a vigilar solo lo que decidió la 2.7.0 —que no
+  vuelvan baladre, boj, durillo, laurel, amapola, iris ni gladiolo— en vez de
+  fijar el catálogo entero especie a especie, que convertía cualquier alta en
+  un fallo que no decía nada sobre toxicidad.
+
+- **Caqui** (*Diospyros kaki*) en el catálogo de Árbol, que pasa a **13
+  especies**. Copa ancha y fruto grande y anaranjado, que es lo único que lo
+  distingue del naranjo cuando la copa va sin hoja. Granado y algarrobo ya
+  estaban desde la 2.7.0.
+
+  Con las nueve altas, el jardín pasa a **67 variantes** en ocho catálogos, con
+  **49 especies vegetales** documentadas.
+
+### Cambiado
+
+- **«Mover» abre el sidebar.** El grupo «Edición» pasa por delante de «Dibujo»:
+  es la herramienta a la que se vuelve entre gesto y gesto —seleccionar,
+  arrastrar, redimensionar— y estaba al final, después de tres grupos de
+  creación.
+
+### Corregido
+
+- **Los iconos de las plantas pequeñas eran un borrón.** El icono simulaba un
+  clic para heredar la proporción botánica de la especie, pero eso daba la caja
+  en píxeles reales: a 20 px/m una campanilla de 0,25 m salía de 5 px. A ese
+  tamaño manda el mínimo con el que la geometría evita pétalos invisibles, todo
+  el detalle se iguala y se solapa, y el ajuste a los bordes amplía esa mancha
+  hasta llenar la casilla. La caja se amplía ahora a 64 px de lado mayor
+  **conservando la proporción**, que es lo que el icono promete. Se nota
+  también en la caléndula, el tomillo y la boca de dragón, que arrastraban el
+  mismo borrón desde la 2.7.0.
+
+### Tests
+
+- **480 tests unitarios** y **36 end-to-end**. Las guardas genéricas del jardín
+  cubren las nueve especies nuevas sin tocarlas: ficha botánica completa,
+  planta y alzado distintos, geometría irrepetible dentro de cada catálogo,
+  determinismo y supervivencia al viaje de ida y vuelta por JSON.
+- Nueva guarda de la caja del icono botánico: proporción de la especie y lado
+  mayor mínimo.
+
 ## [2.7.1] — 2026-08-09
 
 ### Corregido

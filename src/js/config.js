@@ -250,6 +250,7 @@ const TREE_TYPES = Object.freeze([
   { id: 'pomegranate', name: 'Granado', botanical: 'Punica granatum', heightM: 5, spreadM: 4, habit: 'vase', foliage: '#537b3d', accent: '#b93632' },
   { id: 'lemon',     name: 'Limonero', botanical: 'Citrus limon', heightM: 5, spreadM: 5, habit: 'rounded', foliage: '#4d8240', accent: '#e1c83e' },
   { id: 'jacaranda', name: 'Jacaranda', botanical: 'Jacaranda mimosifolia', heightM: 12, spreadM: 10, habit: 'umbrella', foliage: '#557d55', accent: '#7655a6' },
+  { id: 'persimmon', name: 'Caqui', botanical: 'Diospyros kaki', heightM: 8, spreadM: 7, habit: 'spreading', foliage: '#3f6b3c', accent: '#e0721f' },
 ]);
 
 /** Tipos del botón Arbusto: primero las formas genéricas, luego los arbustos
@@ -276,6 +277,8 @@ const HERB_TYPES = Object.freeze([
   { id: 'rosemary',  name: 'Romero', botanical: 'Salvia rosmarinus', heightM: 1.5, spreadM: 1.5, habit: 'tuft', foliage: '#54715f', accent: '#6b76a8' },
   { id: 'thyme',     name: 'Tomillo', botanical: 'Thymus vulgaris', heightM: 0.35, spreadM: 0.6, habit: 'groundcover', foliage: '#70805d', accent: '#a783a8' },
   { id: 'sage',      name: 'Salvia', botanical: 'Salvia officinalis', heightM: 0.7, spreadM: 0.8, habit: 'tuft', foliage: '#77816f', accent: '#8068a5' },
+  { id: 'lemonverbena', name: 'María Luisa', botanical: 'Aloysia citriodora', heightM: 2.5, spreadM: 2, habit: 'shrubby', foliage: '#7d9550', accent: '#e7e3ce' },
+  { id: 'mint',      name: 'Hierbabuena', botanical: 'Mentha spicata', heightM: 0.6, spreadM: 1, habit: 'spreading', foliage: '#4f8347', accent: '#b6a3cd' },
   { id: 'santolina', name: 'Santolina', botanical: 'Santolina chamaecyparissus', heightM: 0.6, spreadM: 0.8, habit: 'rounded', foliage: '#8a9170', accent: '#d2b93c' },
   { id: 'agave',     name: 'Agave', botanical: 'Agave americana', heightM: 1.8, spreadM: 2.4, habit: 'rosette', foliage: '#5e8377' },
   { id: 'aloe',      name: 'Aloe', botanical: 'Aloe vera', heightM: 0.8, spreadM: 0.9, habit: 'rosette', foliage: '#5f8a62', accent: '#d66f32' },
@@ -291,6 +294,15 @@ const FLOWER_TYPES = Object.freeze([
   { id: 'tulip',     name: 'Estátice mediterráneo', botanical: 'Limonium sinuatum', heightM: 0.6, spreadM: 0.5, habit: 'flower', foliage: '#667956', accent: '#7c69a7' },
   { id: 'bed',       name: 'Macizo mediterráneo', botanical: 'Calendula officinalis + Rosa sempervirens + Limonium sinuatum', heightM: 0.7, spreadM: 4, depthM: 2.4, habit: 'bed', foliage: '#668052', accent: '#b56b8d' },
   { id: 'sunflower', name: 'Boca de dragón', botanical: 'Antirrhinum majus', heightM: 1, spreadM: 0.4, habit: 'flower', foliage: '#5f7c41', accent: '#c65c78' },
+  /* Autóctonas y endémicas valencianas. Van juntas y al final para no alterar
+     el orden que ya tenía el catálogo; la primera entrada de la lista sigue
+     siendo la variante por defecto. */
+  { id: 'seadaffodil', name: 'Lirio de mar', botanical: 'Pancratium maritimum', heightM: 0.5, spreadM: 0.45, habit: 'bulb', foliage: '#7d9a8e', accent: '#d8d1b8' },
+  { id: 'snowbell', name: 'Campanilla valenciana', botanical: 'Acis valentina', heightM: 0.25, spreadM: 0.25, habit: 'bulb', foliage: '#5d7f4e', accent: '#dcd8c4' },
+  { id: 'rockdragon', name: 'Boca de dragón de roca', botanical: 'Antirrhinum valentinum', heightM: 0.4, spreadM: 0.6, habit: 'rupicolous', foliage: '#6c7f5c', accent: '#e8dca0' },
+  { id: 'silene', name: 'Silene de Ifach', botanical: 'Silene hifacensis', heightM: 0.45, spreadM: 0.4, habit: 'rupicolous', foliage: '#6e8168', accent: '#d99ab5' },
+  { id: 'saladina', name: 'Limonio de Dufour', botanical: 'Limonium dufourii', heightM: 0.5, spreadM: 0.35, habit: 'rosette', foliage: '#7d8a6a', accent: '#9b86bd' },
+  { id: 'trumpetdaffodil', name: 'Narciso trompón', botanical: 'Narcissus radinganorum', heightM: 0.3, spreadM: 0.25, habit: 'bulb', foliage: '#5f7f4c', accent: '#e0c23c' },
 ]);
 
 /** Trepadoras: en planta se dibuja su banda de ocupación; el alzado enseña el
@@ -337,6 +349,15 @@ const PATH_TYPES = Object.freeze([
 ]);
 
 const TOOL_GROUPS = [
+  /* «Mover» abre el sidebar: es la herramienta a la que se vuelve entre gesto y
+     gesto —seleccionar, arrastrar, redimensionar— y estaba al final, después de
+     tres grupos de creación. Este array es el orden que se pinta. */
+  {
+    label: 'Edición',
+    tools: [
+      { id: TOOLS.SELECT, icon: '👆', name: 'Mover', key: 'v' },
+    ],
+  },
   {
     label: 'Dibujo',
     tools: [
@@ -371,12 +392,6 @@ const TOOL_GROUPS = [
       { id: TOOLS.IMAGE_PLACEHOLDER,icon: '🖼️', name: 'Imagen', key: 'm' },
       { id: TOOLS.NAV,              icon: '☰',  name: 'Navbar', key: 'n' },
       { id: TOOLS.CARD,             icon: '🃏', name: 'Tarjeta', key: 'k' },
-    ],
-  },
-  {
-    label: 'Edición',
-    tools: [
-      { id: TOOLS.SELECT, icon: '👆', name: 'Mover', key: 'v' },
     ],
   },
   {

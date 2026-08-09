@@ -580,6 +580,14 @@ const Garden = (function () {
           ...blossom.map(([sx, sy]) => _dot(cx + rx * sx, cy + ry * sy, Math.max(1.5, r * 0.12), a)),
           ..._spokes(cx, cy, rx, ry, 6, 0.16, 0.62, f), _trunk(cx, cy, r, f)];
       }
+      case 'persimmon': { // caqui: copa ancha y el fruto grande, que es su seña
+        const a = _accentInk(o, _spec(TOOLS.GARDEN_TREE, type));
+        const fruit = [[-0.46, -0.28], [0.34, -0.44], [0.5, 0.22], [-0.24, 0.5]];
+        return [_blob(cx, cy, rx, ry, LOBES.broadleaf, o),
+          ...fruit.map(([sx, sy]) => _dot(cx + rx * sx, cy + ry * sy,
+            Math.max(1.8, r * 0.16), a)),
+          ..._spokes(cx, cy, rx, ry, 6, 0.18, 0.66, f), _trunk(cx, cy, r, f)];
+      }
       case 'cypress':   // copa compacta de conífera: verticilos densos, no anillos de boj
         return [_circleEl(b.x, b.y, b.w, b.h, o),
                 ..._spokes(cx, cy, rx, ry, 14, 0.18, 0.86, f),
@@ -725,6 +733,54 @@ const Garden = (function () {
       case 'sage':        // salvia: mata con la hoja ancha
         return [_circleEl(b.x, b.y, b.w, b.h, o),
                 ..._rosette(cx, cy, rx * 0.72, ry * 0.72, 5, f, true)];
+      case 'lemonverbena': { // maría luisa: mata abierta, hoja de tres en tres
+        const a = _accentInk(o, _spec(TOOLS.GARDEN_HERB, type));
+        const whorls = [];
+        // El verticilo de tres hojas es su rasgo de identificación en campo. Van
+        // cortos y repetidos: abiertos y escasos se leen como flechas sueltas.
+        for (let i = 0; i < 7; i++) {
+          const ang = (i / 7) * Math.PI * 2 + 0.25;
+          const d = 0.42 + (i % 3) * 0.15;
+          const hx = cx + Math.cos(ang) * rx * d, hy = cy + Math.sin(ang) * ry * d;
+          for (let j = -1; j <= 1; j++) {
+            // 120° entre hojas: es el verticilo real, y además evita que las
+            // tres juntas se lean como una punta de flecha hacia afuera.
+            const la = ang + j * (Math.PI * 2 / 3);
+            whorls.push(_line(hx, hy, hx + Math.cos(la) * rx * 0.22,
+                                     hy + Math.sin(la) * ry * 0.22, f));
+          }
+        }
+        const panicles = [[-0.3, -0.52], [0.5, -0.16], [-0.06, 0.55]].map(([sx, sy]) =>
+          _dot(cx + rx * sx, cy + ry * sy, Math.max(1.2, r * 0.085), a));
+        return [_blob(cx, cy, rx, ry, LOBES.broadleaf, o), ...whorls, ...panicles];
+      }
+      case 'mint': {      // hierbabuena: mata baja con estolones que se escapan
+        const a = _accentInk(o, _spec(TOOLS.GARDEN_HERB, type));
+        const runners = [], tips = [];
+        for (let i = 0; i < 4; i++) {
+          const ang = (i / 4) * Math.PI * 2 + 0.6;
+          const ex = cx + Math.cos(ang) * rx * 1.14, ey = cy + Math.sin(ang) * ry * 1.14;
+          runners.push(_curve(cx + Math.cos(ang) * rx * 0.3, cy + Math.sin(ang) * ry * 0.3,
+                              cx + Math.cos(ang + 0.55) * rx * 0.82,
+                              cy + Math.sin(ang + 0.55) * ry * 0.82, ex, ey, f));
+          tips.push(_dot(ex, ey, Math.max(1.2, r * 0.09), a));   // brote enraizado
+        }
+        // Hoja opuesta: dos trazos enfrentados en cada nudo, no una raya suelta.
+        const pairs = [];
+        for (let i = 0; i < 5; i++) {
+          const ang = (i / 5) * Math.PI * 2 + 0.2;
+          const px = cx + Math.cos(ang) * rx * 0.44, py = cy + Math.sin(ang) * ry * 0.44;
+          // Enfrentadas pero no alineadas: a 180° exactos las dos se leerían
+          // como un solo trazo recto atravesando la mata.
+          for (const la of [ang + 1.15, ang - 1.15]) {
+            pairs.push(_line(px, py, px + Math.cos(la) * rx * 0.19,
+                                     py + Math.sin(la) * ry * 0.19, f));
+          }
+        }
+        // `plot` tiene 12 lóbulos suaves: con 8 el tapiz salía con esquinas.
+        return [_blob(cx, cy, rx * 0.8, ry * 0.8, LOBES.plot, o),
+                ...runners, ...tips, ...pairs];
+      }
       case 'santolina':   // santolina: bola apretada con sus botones
         return [_circleEl(b.x, b.y, b.w, b.h, o),
                 _dot(cx, cy, r * 0.55, f),
@@ -795,6 +851,62 @@ const Garden = (function () {
             _dot(cx + rx * sx + r * .13, cy + ry * sy + r * .08,
               Math.max(1.1, r * .12), a),
           ]).flat(), _dot(cx, cy, Math.max(1.2, r * .13), f)];
+      }
+      case 'seadaffodil': {  // lirio de mar: roseta de hoja acintada + umbela
+        const umbel = [];
+        for (let i = 0; i < 5; i++) {
+          const ang = (i / 5) * Math.PI * 2 - Math.PI / 2;
+          umbel.push(_dot(cx + Math.cos(ang) * rx * .34, cy + Math.sin(ang) * ry * .34,
+            Math.max(1.3, r * .13), a));
+        }
+        return [..._rosette(cx, cy, rx, ry, 6, f, true), ...umbel,
+          _dot(cx, cy, Math.max(1.2, r * .12), f)];
+      }
+      case 'snowbell': {     // campanilla valenciana: mata menuda de hoja linear
+        const bells = [[-.44, -.38], [.44, -.3], [.03, .46]].map(([sx, sy]) =>
+          _dot(cx + rx * sx, cy + ry * sy, Math.max(1.2, r * .13), a));
+        return [..._spokes(cx, cy, rx, ry, 5, .1, .92, f), ...bells,
+          _dot(cx, cy, Math.max(1.1, r * .1), f)];
+      }
+      case 'rockdragon': {   // boca de dragón de roca: tallos tendidos y flores
+        const out = [];
+        for (let i = 0; i < 5; i++) {
+          const ang = (i / 5) * Math.PI * 2 + .4;
+          const ex = cx + Math.cos(ang) * rx * .92, ey = cy + Math.sin(ang) * ry * .92;
+          out.push(_curve(cx, cy, cx + Math.cos(ang + .5) * rx * .5,
+            cy + Math.sin(ang + .5) * ry * .5, ex, ey, f));
+          // Corola bilabiada: dos lóbulos, como en la boca de dragón de jardín.
+          out.push(_dot(ex, ey, Math.max(1.3, r * .17), a));
+          out.push(_dot(ex + Math.cos(ang) * r * .13, ey + Math.sin(ang) * r * .13,
+            Math.max(1.1, r * .1), a));
+        }
+        return out;
+      }
+      case 'silene': {       // silene de Ifach: cojín rupícola con flor rosada
+        const blooms = [[-.4, -.34], [.42, -.26], [-.14, .42], [.34, .36]].map(([sx, sy]) =>
+          _dot(cx + rx * sx, cy + ry * sy, Math.max(1.2, r * .1), a));
+        return [_blob(cx, cy, rx * .84, ry * .84, LOBES.stone, o),
+          ..._spokes(cx, cy, rx, ry, 7, .3, .78, f), ...blooms];
+      }
+      case 'saladina': {     // limonio: roseta basal y panícula muy ramificada
+        const panicle = [[-.42, -.34], [.1, -.5], [.48, -.16],
+          [-.28, .28], [.24, .42], [-.02, .04]];
+        const branches = [[-.42, -.34], [.48, -.16], [.24, .42]].map(([sx, sy]) =>
+          _line(cx, cy, cx + rx * sx, cy + ry * sy, f));
+        return [..._rosette(cx, cy, rx * .92, ry * .92, 7, f, true), ...branches,
+          ...panicle.map(([sx, sy]) => _dot(cx + rx * sx, cy + ry * sy,
+            Math.max(1, r * .075), a))];
+      }
+      case 'trumpetdaffodil': {  // narciso: seis tépalos y la trompa en el centro
+        const tepals = [];
+        for (let i = 0; i < 6; i++) {
+          const ang = (i / 6) * Math.PI * 2 - Math.PI / 2;
+          tepals.push(_dot(cx + Math.cos(ang) * rx * .44, cy + Math.sin(ang) * ry * .44,
+            Math.max(1.4, r * .26), a));
+        }
+        return [..._spokes(cx, cy, rx, ry, 4, .74, 1, f), ...tepals,
+          _dot(cx, cy, Math.max(1.5, r * .26), a),
+          _dot(cx, cy, Math.max(1.1, r * .12), f)];
       }
       default: {        // caléndula: corazón con corona densa de pétalos
         const petals = [];
@@ -932,14 +1044,17 @@ const Garden = (function () {
 
     const details = {
       almond: 8, fruit: 6, lemon: 7, pomegranate: 4, jacaranda: 9,
-      fig: 5, olive: 4, carob: 2, broadleaf: 3, conifer: 6,
+      fig: 5, olive: 4, carob: 2, broadleaf: 3, conifer: 6, persimmon: 5,
     }[type] || 3;
     for (let i = 0; i < details; i++) {
       const t = (i + 0.7) / details;
       const x = b.x + b.w * (0.12 + ((i * 0.618) % 1) * 0.76);
       const y = b.y + crownH * (0.2 + (t % 0.55));
-      if (['almond','fruit','lemon','pomegranate','jacaranda'].includes(type)) {
-        out.push(_dot(x, y, Math.max(1.5, Math.min(b.w, crownH) * 0.035), a));
+      if (['almond','fruit','lemon','pomegranate','jacaranda','persimmon'].includes(type)) {
+        // El caqui carga un fruto mucho mayor que un cítrico, y es lo único
+        // que lo separa del naranjo cuando la copa va sin hoja.
+        out.push(_dot(x, y, Math.max(1.5, Math.min(b.w, crownH) *
+          (type === 'persimmon' ? 0.062 : 0.035)), a));
       } else {
         out.push(_curve(x - b.w * 0.04, y, x, y - crownH * 0.06,
           x + b.w * 0.045, y + crownH * 0.01, f));
@@ -1080,6 +1195,38 @@ const Garden = (function () {
       }
       return out;
     }
+    if (type === 'lemonverbena') {
+      // Mata leñosa alta y abierta: varas erguidas, hoja verticilada y
+      // panícula terminal clara. Es la única aromática con porte de arbusto.
+      for (let i = 0; i < 5; i++) {
+        const t = i / 4, x = b.x + b.w * (.12 + t * .76);
+        const top = b.y + b.h * (.08 + Math.abs(t - .5) * .3);
+        out.push(_curve(cx, baseY, cx + (x - cx) * .5, b.y + b.h * .5, x, top, o));
+        for (let j = 1; j <= 3; j++) {
+          const y = top + (baseY - top) * j / 4.5;
+          out.push(_line(x, y, x - b.w * .07, y - b.h * .03, f));
+          out.push(_line(x, y, x + b.w * .07, y - b.h * .03, f));
+        }
+        out.push(_dot(x, top, Math.max(1.2, b.w * .022), a));
+      }
+      return out;
+    }
+    if (type === 'mint') {
+      // Herbácea baja: tallos rectos, hojas opuestas y espiga terminal.
+      for (let i = 0; i < 6; i++) {
+        const t = i / 5, x = b.x + b.w * (.12 + t * .76);
+        const top = b.y + b.h * (.16 + Math.abs(t - .5) * .26);
+        out.push(_line(x, baseY, x, top, o));
+        for (let j = 1; j <= 3; j++) {
+          const y = baseY - (baseY - top) * j / 4;
+          out.push(_curve(x, y, x - b.w * .06, y - b.h * .045, x - b.w * .085, y, f));
+          out.push(_curve(x, y, x + b.w * .06, y - b.h * .045, x + b.w * .085, y, f));
+        }
+        out.push(_line(x, top, x, top - b.h * .09, a));
+        out.push(_dot(x, top - b.h * .09, Math.max(1.05, b.w * .018), a));
+      }
+      return out;
+    }
     if (type === 'sage') {
       // Hojas basales anchas y espigas florales separadas.
       for (let i = 0; i < 6; i++) {
@@ -1130,6 +1277,104 @@ const Garden = (function () {
         out.push(_dot(x + side * b.w * .06, y + b.h * .012,
           Math.max(1.15, b.w * .042), a));
       }
+      return out;
+    }
+    if (type === 'seadaffodil') {
+      // Bulbo dunar: escapo robusto, umbela de trompetas blancas y hoja
+      // acintada saliendo de la arena.
+      const cx = b.x + b.w / 2;
+      for (const s of [-1, -.45, .45, 1]) {
+        out.push(_curve(cx, baseY, cx + s * b.w * .3, b.y + b.h * .58,
+          cx + s * b.w * .46, b.y + b.h * .44, f));
+      }
+      out.push(_line(cx, baseY, cx, b.y + b.h * .24, f));
+      for (const [s, rise] of [[-1, .06], [0, 0], [1, .06]]) {
+        const fx = cx + b.w * .2 * s, fy = b.y + b.h * (.14 + rise);
+        out.push(_line(cx, b.y + b.h * .24, fx, fy, f));
+        for (let p = 0; p < 6; p++) {
+          const ang = (p / 6) * Math.PI * 2;
+          out.push(_dot(fx + Math.cos(ang) * b.w * .06, fy + Math.sin(ang) * b.h * .05,
+            Math.max(1.2, b.w * .032), a));
+        }
+        out.push(_dot(fx, fy, Math.max(1.2, b.w * .03), f));   // corona estaminal
+      }
+      return out;
+    }
+    if (type === 'snowbell') {
+      // Campanillas péndulas colgando de un escapo fino, entre hoja linear.
+      const cx = b.x + b.w / 2;
+      for (const s of [-1, -.4, .4, 1]) {
+        out.push(_line(cx, baseY, cx + s * b.w * .17, b.y + b.h * (.28 + Math.abs(s) * .14), f));
+      }
+      out.push(_line(cx, baseY, cx, b.y + b.h * .16, f));
+      for (const [s, d] of [[-1, .1], [1, .17]]) {
+        const bx = cx + s * b.w * .14, by = b.y + b.h * (.2 + d);
+        out.push(_curve(cx, b.y + b.h * .16, cx + s * b.w * .1, b.y + b.h * .14, bx, by, f));
+        out.push(_dot(bx, by + b.h * .05, Math.max(1.4, b.w * .075), a));
+      }
+      return out;
+    }
+    if (type === 'rockdragon') {
+      // Rupícola: los tallos ascienden poco y se vencen, como cuelga de la roca.
+      const cx = b.x + b.w / 2;
+      for (let i = 0; i < 5; i++) {
+        const s = i % 2 ? 1 : -1, t = Math.floor(i / 2) / 2;
+        const ex = cx + s * b.w * (.18 + t * .26), ey = b.y + b.h * (.32 + t * .24);
+        out.push(_curve(cx, baseY, cx + s * b.w * .12, b.y + b.h * (.18 + t * .12), ex, ey, o));
+        out.push(_dot(ex, ey, Math.max(1.4, b.w * .058), a));
+        out.push(_dot(ex + s * b.w * .045, ey + b.h * .035, Math.max(1.1, b.w * .034), a));
+      }
+      return out;
+    }
+    if (type === 'silene') {
+      // Mata leñosa en la base y tallos glandulosos con flor de cinco pétalos.
+      const cx = b.x + b.w / 2;
+      out.push(_curve(b.x + b.w * .18, baseY, cx, b.y + b.h * .74, b.x + b.w * .82, baseY, o));
+      for (let i = 0; i < 5; i++) {
+        const t = i / 4, x = b.x + b.w * (.14 + t * .72);
+        const top = b.y + b.h * (.12 + Math.abs(t - .5) * .26);
+        out.push(_curve(cx, baseY, cx + (x - cx) * .6, b.y + b.h * .5, x, top, f));
+        for (let p = 0; p < 5; p++) {
+          const ang = (p / 5) * Math.PI * 2 - Math.PI / 2;
+          out.push(_dot(x + Math.cos(ang) * b.w * .045, top + Math.sin(ang) * b.h * .04,
+            Math.max(1.1, b.w * .03), a));
+        }
+      }
+      return out;
+    }
+    if (type === 'saladina') {
+      // Roseta basal pegada al suelo y panícula alta muy ramificada: es lo que
+      // la separa del estátice de jardín, que ramifica desde media altura.
+      const cx = b.x + b.w / 2;
+      for (const s of [-1, -.5, .5, 1]) {
+        out.push(_curve(cx, baseY, cx + s * b.w * .22, baseY - b.h * .1,
+          cx + s * b.w * .38, baseY - b.h * .03, f));
+      }
+      out.push(_line(cx, baseY, cx, b.y + b.h * .3, f));
+      for (const [s, up] of [[-1, .1], [1, .16], [-.5, .2], [.5, .25]]) {
+        const tx = cx + s * b.w * .25, ty = b.y + b.h * (.3 - up);
+        out.push(_curve(cx, b.y + b.h * .3, cx + s * b.w * .13,
+          b.y + b.h * (.3 - up * .6), tx, ty, f));
+        out.push(_dot(tx, ty, Math.max(1.1, b.w * .03), a));
+        out.push(_dot(tx - s * b.w * .07, ty + b.h * .035, Math.max(1, b.w * .025), a));
+      }
+      return out;
+    }
+    if (type === 'trumpetdaffodil') {
+      // Narciso trompón: la trompa es tan larga como los tépalos, y ese es su
+      // rasgo; por eso el centro va más grande que en cualquier otra flor.
+      const cx = b.x + b.w / 2;
+      for (const s of [-1, -.35, .35, 1]) {
+        out.push(_line(cx, baseY, cx + s * b.w * .2, b.y + b.h * (.22 + Math.abs(s) * .16), f));
+      }
+      out.push(_line(cx, baseY, cx, b.y + b.h * .18, f));
+      for (let p = 0; p < 6; p++) {
+        const ang = (p / 6) * Math.PI * 2;
+        out.push(_dot(cx + Math.cos(ang) * b.w * .09, b.y + b.h * .18 + Math.sin(ang) * b.h * .07,
+          Math.max(1.3, b.w * .045), a));
+      }
+      out.push(_dot(cx, b.y + b.h * .18, Math.max(1.4, b.w * .06), a));
+      out.push(_dot(cx, b.y + b.h * .18, Math.max(1.1, b.w * .03), f));
       return out;
     }
     const stems = type === 'bed' ? 7 : 1;

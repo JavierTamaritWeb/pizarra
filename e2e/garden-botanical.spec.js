@@ -49,8 +49,8 @@ test('Jardín botánico: planta/alzado, escala, especies y persistencia', async 
   await selectTool(page, 'arbol');
   const modal = page.locator('#modal-tree');
   await expect(modal).toBeVisible();
-  await expect(page.locator('#tree-catalog .modal__tree')).toHaveCount(12);
-  await expect(page.locator('#tree-catalog .modal__shape-note--botanical')).toHaveCount(12);
+  await expect(page.locator('#tree-catalog .modal__tree')).toHaveCount(13);
+  await expect(page.locator('#tree-catalog .modal__shape-note--botanical')).toHaveCount(13);
   await expect(page.locator('#tree-plant-view')).toHaveValue('plan');
   await expect(page.locator('#tree-plant-stage')).toHaveValue('adult');
   await expect(page.locator('#tree-plant-scale')).toHaveValue('100');
