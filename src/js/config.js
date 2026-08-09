@@ -31,7 +31,8 @@ const TOOLS = Object.freeze({
   BUILD_PLANTA: 'planta',         BUILD_FACADE: 'fachada',
   BUILD_ROOF:   'tejado',         BUILD_DOOR:   'puerta',
   BUILD_WINDOW: 'ventana',        BUILD_BALCONY:'balcon',
-  BUILD_WALL:   'muro',
+  BUILD_WALL:   'muro',           BUILD_FENCE:  'verja',
+  BUILD_GATE:   'cancela',
   // Jardín — herramientas de creación (NO tipos de elemento): producen
   // rect/line/circle/curveArrow/text. Todo en vista de planta. Ver js/garden.js.
   GARDEN_PLOT:   'jardin',        GARDEN_TREE:   'arbol',
@@ -45,6 +46,7 @@ const TOOLS = Object.freeze({
 const BUILDING_TOOLS = Object.freeze([
   TOOLS.BUILD_PLANTA, TOOLS.BUILD_FACADE, TOOLS.BUILD_ROOF,
   TOOLS.BUILD_DOOR, TOOLS.BUILD_WINDOW, TOOLS.BUILD_BALCONY, TOOLS.BUILD_WALL,
+  TOOLS.BUILD_FENCE, TOOLS.BUILD_GATE,
 ]);
 
 /** Formas de huella del botón Planta (catálogo del modal). Ampliable.
@@ -135,6 +137,59 @@ const FACADE_TYPES = Object.freeze([
     altura, verja y puerta son ejes independientes de la vista —no caben como
     variantes de este catálogo— y viven como controles propios en #modal-wall. */
 const WALL_VIEWS = Object.freeze([
+  { id: 'plan',      name: 'Vista de planta' },
+  { id: 'elevation', name: 'Vista de alzado' },
+]);
+
+/** Los trece diseños de forja se comparten entre la coronación del Muro y la
+    herramienta Verjas. Todos conservan puntas de lanza defensivas. */
+const FORGE_TYPES = Object.freeze([
+  { id: 'spear',    name: 'Lanzas clásicas' },
+  { id: 'minimal',  name: 'Recta minimalista con lanzas' },
+  { id: 'arches',   name: 'Arcos entrelazados con lanzas' },
+  { id: 'diamonds', name: 'Rombos ingleses con lanzas' },
+  { id: 'rings',    name: 'Anillas neoclásicas con lanzas' },
+  { id: 'scrolls',  name: 'Volutas barrocas con lanzas' },
+  { id: 'fans',     name: 'Abanicos ornamentales con lanzas' },
+  { id: 'castilian', name: 'Castellana de cuadradillo torsionado' },
+  { id: 'plateresque', name: 'Plateresca de medallones y palmetas' },
+  { id: 'herrerian', name: 'Herreriana de nudos sobrios' },
+  { id: 'andalusian', name: 'Andaluza de roleos en S' },
+  { id: 'catalan', name: 'Catalana de espirales y rosetas' },
+  { id: 'valencian', name: 'Valenciana barroca de rocalla' },
+]);
+
+/** Vistas arquitectónicas de la herramienta Verjas. El tipo y la altura son
+    ajustes independientes dentro de su modal. */
+const FENCE_VIEWS = Object.freeze([
+  { id: 'plan',      name: 'Vista de planta' },
+  { id: 'elevation', name: 'Vista de alzado' },
+]);
+
+/** Cancelas autónomas disponibles también como puerta del Muro. Se excluye
+    «Sin puerta» porque esta herramienta siempre crea una cancela real. */
+const GATE_TYPES = Object.freeze([
+  { id: 'single', name: 'Barrotes, una hoja' },
+  { id: 'double', name: 'Barrotes, dos hojas' },
+  { id: 'concave', name: 'Cóncava pura, barrotes graduados' },
+  { id: 'concaveSwan', name: 'Cuello de cisne, doble curva' },
+  { id: 'concavePanel', name: 'Cóncava con zócalo ciego' },
+  { id: 'concaveOrnate', name: 'Cóncava ornamental y volutas' },
+  { id: 'concaveFan', name: 'Cóncava con abanico radial' },
+  { id: 'concaveLyre', name: 'Cóncava con lira central' },
+  { id: 'concaveDiamond', name: 'Cóncava con rombos ingleses' },
+  { id: 'concaveRings', name: 'Cóncava de anillas neoclásicas' },
+  { id: 'concavePalmette', name: 'Cóncava de palmetas barrocas' },
+  { id: 'convexPanel', name: 'Convexa monumental · Panelada clásica' },
+  { id: 'convexFan', name: 'Convexa monumental · Abanico imperial' },
+  { id: 'convexMedallion', name: 'Convexa monumental · Doble cenefa' },
+  { id: 'convexBlind', name: 'Convexa monumental · Ciega acanalada' },
+  { id: 'solidTransom', name: 'Portón ciego con montante superior' },
+  { id: 'openBars', name: 'Portón abierto de barrotes con lanzas' },
+  { id: 'openScrolls', name: 'Portón abierto ornamental con lanzas' },
+]);
+
+const GATE_VIEWS = Object.freeze([
   { id: 'plan',      name: 'Vista de planta' },
   { id: 'elevation', name: 'Vista de alzado' },
 ]);
@@ -299,6 +354,8 @@ const TOOL_GROUPS = [
       // opcional; mejor sin atajo que pisando una acción existente.
       { id: TOOLS.BUILD_BALCONY, icon: '▥', name: 'Balcón' },
       { id: TOOLS.BUILD_WALL,    icon: '🧱', name: 'Muro y cancela' },
+      { id: TOOLS.BUILD_FENCE,   icon: '╫',  name: 'Verjas' },
+      { id: TOOLS.BUILD_GATE,    icon: '⚜',  name: 'Cancela' },
     ],
   },
   {

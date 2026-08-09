@@ -10,7 +10,8 @@ const { loadAll, createCtxStub } = require('./helpers/load.js');
 
 const ctx = loadAll();
 const { Building, TOOLS, BUILDING_TOOLS, DOOR_TYPES, WINDOW_TYPES, ROOF_TYPES,
-        FACADE_TYPES, BALCONY_TYPES, Renderer } = ctx;
+        FACADE_TYPES, BALCONY_TYPES, FORGE_TYPES, FENCE_VIEWS,
+        GATE_TYPES, GATE_VIEWS, Renderer } = ctx;
 const O = { color: '#123456', lineWidth: 3 };
 const P1 = { x: 100, y: 100 }, P2 = { x: 300, y: 260 };
 const planta = (shape, p1 = { x: 0, y: 0 }, p2 = P2) =>
@@ -518,6 +519,16 @@ test('muro en alzado: piedra con hiladas y juntas de sillar, hormigón con una s
   assert.ok(stoneLines > concreteLines + 3, 'la piedra lleva mucho más detalle que el hormigón');
 });
 
+test('ladrillo cara vista: hiladas regulares y juntas verticales alternadas', () => {
+  const brick = muro('elevation', { wallMaterial: 'brick' }, { x: 0, y: 0 }, { x: 240, y: 100 });
+  const beds = brick.filter(e => e.type === 'line' && e.y1 === e.y2 && e.lineWidth < O.lineWidth);
+  const joints = brick.filter(e => e.type === 'line' && e.x1 === e.x2 && e.lineWidth < O.lineWidth);
+  assert.ok(beds.length >= 6, 'varias hiladas horizontales');
+  assert.ok(joints.length >= 12, 'juntas de ladrillo a soga');
+  const jointXs = [...new Set(joints.map(e => Math.round(e.x1)))];
+  assert.ok(jointXs.length >= 6, 'las juntas se alternan y no forman una única columna');
+});
+
 test('verja de forja arriba: solo aparece con wallRailing activado, combada con ArcMath', () => {
   const withRailing = muro('elevation', { wallRailing: true }, { x: 0, y: 0 }, { x: 200, y: 90 });
   const without = muro('elevation', { wallRailing: false }, { x: 0, y: 0 }, { x: 200, y: 90 });
@@ -538,6 +549,31 @@ test('la altura de la verja superior se regula en metros y se acota', () => {
   assert.ok(hOf(1.5) > hOf(0.3) + 80, 'la verja alta sobresale claramente más que la baja');
   assert.equal(hOf(99), hOf(Building.WALL_RAIL_H_MAX), 'los valores altos se recortan');
   assert.equal(hOf(0), hOf(0.7), 'un valor imposible cae al alto por defecto');
+});
+
+test('los trece diseños de verja superior generan forjas distintas', () => {
+  const types = FORGE_TYPES.map(type => type.id);
+  const draw = type => muro('elevation', {
+    wallRailing: true, wallRailingType: type, wallRailingHeight: 1,
+    wallGateType: 'none', wallMaterial: 'concrete',
+  }, { x: 0, y: 0 }, { x: 260, y: 100 });
+  const drawings = Object.fromEntries(types.map(type => [type, draw(type)]));
+  assert.equal(new Set(types.map(type => JSON.stringify(drawings[type]))).size, FORGE_TYPES.length);
+  assert.ok(drawings.arches.some(e => e.type === 'curveArrow'), 'arcos curvos');
+  assert.ok(drawings.rings.filter(e => e.type === 'circle').length >= 4, 'anillas repetidas');
+  assert.ok(drawings.scrolls.filter(e => e.type === 'curveArrow').length >= 4, 'roleos alternos');
+  assert.ok(drawings.fans.filter(e => e.type === 'circle').length >= 2, 'cubos de los abanicos');
+  assert.ok(drawings.diamonds.filter(e => e.type === 'line').length > drawings.minimal.filter(e => e.type === 'line').length,
+    'los rombos añaden diagonales cruzadas');
+  types.forEach(type => {
+    const finials = new Map();
+    drawings[type].filter(e => e.type === 'line' && e.y2 < e.y1 && e.x1 !== e.x2).forEach(e => {
+      const key = `${e.x2.toFixed(2)},${e.y2.toFixed(2)}`;
+      finials.set(key, (finials.get(key) || 0) + 1);
+    });
+    assert.ok([...finials.values()].some(count => count >= 2),
+      `${type}: debe conservar puntas de lanza defensivas`);
+  });
 });
 
 test('cancela en planta: dos pilastras flanqueando el paso y una hoja por batiente', () => {
@@ -652,6 +688,69 @@ test('cancela convexa monumental: coronación central, barrotes densos, cenefa y
     'sin arco de fábrica sobre la cancela');
 });
 
+test('las cuatro convexas monumentales son opciones geométricamente distintas', () => {
+  const box = [{ x: 0, y: 0 }, { x: 280, y: 110 }];
+  const draw = type => muro('elevation', { wallGateType: type, wallGateHeight: 2.4 }, ...box);
+  const panel = draw('convexPanel');
+  const fan = draw('convexFan');
+  const medallion = draw('convexMedallion');
+  const blind = draw('convexBlind');
+  const lines = els => els.filter(e => e.type === 'line').length;
+  const circles = els => els.filter(e => e.type === 'circle').length;
+
+  assert.ok(lines(fan) > lines(panel) + 8, 'el abanico imperial añade sus radios');
+  assert.ok(circles(medallion) >= circles(panel) + 4, 'la doble cenefa añade medallones concéntricos');
+  assert.ok(lines(blind) > lines(panel) + 8, 'la versión ciega añade acanaladuras verticales');
+  const lowerBlind = blind.filter(e => e.type === 'rect' && e.lineWidth < O.lineWidth && e.h > 45);
+  assert.ok(lowerBlind.length >= 1, 'la chapa ciega ocupa la mayor parte inferior');
+  assert.equal(new Set([panel, fan, medallion, blind].map(JSON.stringify)).size, 4);
+});
+
+test('portón ciego con montante: chapa doble, barrotes superiores, remaches y machones de ladrillo', () => {
+  const els = muro('elevation', { wallGateType: 'solidTransom', wallMaterial: 'brick', wallGateHeight: 2.4 },
+    { x: 0, y: 0 }, { x: 280, y: 110 });
+  const leaves = els.filter(e => e.type === 'rect' && e.lineWidth === O.lineWidth && e.w > 35 && e.h > 45);
+  assert.ok(leaves.length >= 2, 'dos hojas grandes de chapa');
+  const upperBars = els.filter(e => e.type === 'line' && e.lineWidth < O.lineWidth && e.x1 === e.x2 && e.y2 - e.y1 < 40);
+  assert.ok(upperBars.length >= 8, 'montante superior de barrotes');
+  assert.ok(els.filter(e => e.type === 'circle' && e.w <= 5).length >= 6, 'banda de remaches');
+  assert.ok(els.some(e => e.type === 'line' && e.y1 !== e.y2 && e.lineWidth < O.lineWidth),
+    'albardillas inclinadas sobre los machones');
+  assert.equal(els.filter(e => e.type === 'curveArrow' && e.arc === true).length, 0,
+    'el portón recto no recibe arco de fábrica');
+});
+
+test('los dos portones abiertos dejan la hoja calada, llevan lanzas y son distintos', () => {
+  const draw = type => muro('elevation', {
+    wallGateType: type, wallMaterial: 'brick', wallGateHeight: 2.4,
+  }, { x: 0, y: 0 }, { x: 280, y: 110 });
+  const bars = draw('openBars');
+  const scrolls = draw('openScrolls');
+
+  for (const [name, els] of [['barrotes', bars], ['ornamental', scrolls]]) {
+    const openBars = els.filter(e => e.type === 'line' && e.lineWidth < O.lineWidth &&
+      e.x1 === e.x2 && e.y2 - e.y1 > 45);
+    assert.ok(openBars.length >= 5, `${name}: barrotes abiertos a toda altura`);
+    const solidLeaves = els.filter(e => e.type === 'rect' && e.lineWidth === O.lineWidth &&
+      e.x >= 80 && e.x + e.w <= 200 && e.w > 35 && e.h > 45);
+    assert.equal(solidLeaves.length, 0, `${name}: no contiene hojas de chapa ciega`);
+    const finials = new Map();
+    els.filter(e => e.type === 'line' && e.lineWidth < O.lineWidth && e.y2 < e.y1 && e.x1 !== e.x2)
+      .forEach(e => {
+        const key = `${e.x2.toFixed(2)},${e.y2.toFixed(2)}`;
+        finials.set(key, (finials.get(key) || 0) + 1);
+      });
+    assert.ok([...finials.values()].some(count => count >= 2), `${name}: coronación con lanzas`);
+    assert.equal(els.filter(e => e.type === 'curveArrow' && e.arc === true).length, 0,
+      `${name}: portada recta sin arco de fábrica`);
+  }
+  assert.ok(scrolls.filter(e => e.type === 'curveArrow').length >= 8,
+    'la variante ornamental incorpora roleos abiertos');
+  assert.ok(scrolls.filter(e => e.type === 'circle').length > bars.filter(e => e.type === 'circle').length,
+    'la variante ornamental incorpora una cenefa de rosetas');
+  assert.notEqual(JSON.stringify(bars), JSON.stringify(scrolls));
+});
+
 // La altura manda en la caja por defecto (clic sin arrastrar) —igual que
 // byVariant en Balcón: un arrastre de verdad siempre gana— y además fija la
 // escala de la textura (ver el test de arriba). La clave de tamaño la deriva
@@ -681,6 +780,121 @@ test('la verja se ve en las dos vistas del muro', () => {
   const without = muro('plan', { wallMaterial: 'concrete', wallRailing: false });
   assert.equal(fineRuns(without), 0, 'sin verja, el hormigón en planta va liso');
   assert.equal(fineRuns(withRail), 2, 'con verja, las dos líneas del pasamanos');
+});
+
+/* ---------------- verjas independientes ---------------- */
+
+const verja = (view, type = 'spear', height = 180, p1 = { x: 0, y: 0 }, p2 = { x: 200, y: 0 }) =>
+  Building.elements(TOOLS.BUILD_FENCE, p1, p2, {
+    ...O, fenceView: view, fenceType: type, fenceHeightCm: height,
+  });
+
+test('Verjas ofrece planta y alzado como geometrías arquitectónicas distintas', () => {
+  assert.deepEqual([...FENCE_VIEWS.map(v => v.id)], ['plan', 'elevation']);
+  const plan = verja('plan', 'spear', 180);
+  const elevation = verja('elevation', 'spear', 180);
+  assert.ok(plan.length > 4, 'planta: pletinas, eje y postes');
+  assert.ok(elevation.length > plan.length, 'alzado: desarrolla la forja completa');
+  assert.notEqual(JSON.stringify(plan), JSON.stringify(elevation));
+});
+
+test('los trece tipos de Verjas son distintos y todos conservan lanzas', () => {
+  const drawings = FORGE_TYPES.map(type => verja('elevation', type.id, 220));
+  assert.equal(new Set(drawings.map(JSON.stringify)).size, FORGE_TYPES.length);
+  drawings.forEach((els, index) => {
+    const finials = new Map();
+    els.filter(e => e.type === 'line' && e.y2 < e.y1 && e.x1 !== e.x2).forEach(e => {
+      const key = `${e.x2.toFixed(2)},${e.y2.toFixed(2)}`;
+      finials.set(key, (finials.get(key) || 0) + 1);
+    });
+    assert.ok([...finials.values()].some(count => count >= 2),
+      `${FORGE_TYPES[index].id}: falta la punta de lanza`);
+  });
+});
+
+test('cada diseño de Verjas tiene una coronación ornamental propia', () => {
+  const drawings = FORGE_TYPES.map(type => verja('elevation', type.id, 220));
+  const bladeProfiles = drawings.map(els => {
+    const rising = els.filter(el => el.type === 'line' && el.y2 < el.y1 && el.x1 !== el.x2);
+    const tipY = Math.min(...rising.map(el => el.y2));
+    const firstTipX = Math.min(...rising.filter(el => Math.abs(el.y2 - tipY) < 0.001)
+      .map(el => el.x2));
+    return rising.filter(el => Math.abs(el.y2 - tipY) < 0.001 && Math.abs(el.x2 - firstTipX) < 0.001)
+      .map(el => [Number(Math.abs(el.x1 - el.x2).toFixed(3)), Number((el.y1 - el.y2).toFixed(3))])
+      .sort((a, b) => a[0] - b[0]);
+  });
+  assert.equal(new Set(bladeProfiles.map(JSON.stringify)).size, FORGE_TYPES.length,
+    'cada modelo debe tener una hoja de lanza realmente distinta, no solo otro collar');
+  bladeProfiles.forEach((profile, index) => {
+    assert.equal(profile.length, 2, `${FORGE_TYPES[index].id}: la hoja debe converger en dos filos`);
+  });
+  const crowns = drawings.map(els => {
+    const railTop = els[0].y;
+    return els.filter(el => {
+      const ys = [el.y, el.y1, el.y2, el.cy, el.cy2]
+        .filter(value => Number.isFinite(value));
+      return ys.some(value => value < railTop);
+    });
+  });
+  assert.equal(new Set(crowns.map(JSON.stringify)).size, FORGE_TYPES.length,
+    'las trece siluetas de remate deben ser distintas');
+  crowns.forEach((crown, index) => {
+    assert.ok(crown.length >= 5, `${FORGE_TYPES[index].id}: remate demasiado simple`);
+  });
+  assert.ok(crowns[FORGE_TYPES.findIndex(type => type.id === 'rings')]
+    .some(el => el.type === 'circle'), 'la neoclásica corona con anillas');
+  assert.ok(crowns[FORGE_TYPES.findIndex(type => type.id === 'plateresque')]
+    .some(el => el.type === 'curveArrow'), 'la plateresca corona con hojas curvas');
+  assert.ok(crowns[FORGE_TYPES.findIndex(type => type.id === 'valencian')]
+    .some(el => el.type === 'curveArrow'), 'la valenciana corona con rocalla curva');
+});
+
+test('la altura de Verjas cubre y acota exactamente 0–350 cm', () => {
+  assert.equal(Building.FENCE_H_MIN_CM, 0);
+  assert.equal(Building.FENCE_H_MAX_CM, 350);
+  const zero = verja('elevation', 'minimal', 0);
+  assert.equal(zero.length, 1, '0 cm conserva solo la línea de implantación');
+  assert.equal(zero[0].y1, zero[0].y2);
+  const low = unionBounds(verja('elevation', 'minimal', 100));
+  const high = unionBounds(verja('elevation', 'minimal', 350));
+  assert.ok(high.h > low.h * 2.5, '350 cm se representa bastante más alto que 100 cm');
+  assert.equal(JSON.stringify(verja('elevation', 'minimal', -20)), JSON.stringify(zero),
+    'los negativos se acotan a cero');
+  assert.equal(JSON.stringify(verja('elevation', 'minimal', 900)),
+    JSON.stringify(verja('elevation', 'minimal', 350)), 'el exceso se acota a 350 cm');
+});
+
+/* ---------------- cancelas independientes ---------------- */
+
+const cancela = (view, type = 'concave', height = 200,
+  p1 = { x: 0, y: 0 }, p2 = { x: 180, y: 0 }) =>
+  Building.elements(TOOLS.BUILD_GATE, p1, p2, {
+    ...O, gateView: view, gateType: type, gateHeightCm: height,
+  });
+
+test('Cancela ofrece los dieciocho estilos en planta y alzado', () => {
+  assert.equal(GATE_TYPES.length, 18);
+  assert.deepEqual([...GATE_VIEWS.map(view => view.id)], ['plan', 'elevation']);
+  const drawings = GATE_TYPES.map(type => cancela('elevation', type.id, 220));
+  assert.equal(new Set(drawings.map(JSON.stringify)).size, GATE_TYPES.length,
+    'cada estilo debe conservar su geometría propia fuera del Muro');
+  assert.notEqual(JSON.stringify(cancela('plan')), JSON.stringify(cancela('elevation')));
+  assert.ok(cancela('plan').some(el => el.type === 'rect'), 'planta con pilastras');
+  assert.ok(cancela('elevation').length > 20, 'alzado con hojas, remates y pilastras');
+});
+
+test('la altura de Cancela cubre y acota exactamente 0–350 cm', () => {
+  assert.equal(Building.GATE_H_MIN_CM, 0);
+  assert.equal(Building.GATE_H_MAX_CM, 350);
+  const zero = cancela('elevation', 'concave', 0);
+  assert.equal(zero.length, 1, '0 cm conserva solo la línea de implantación');
+  const low = unionBounds(cancela('elevation', 'concave', 100));
+  const high = unionBounds(cancela('elevation', 'concave', 350));
+  assert.ok(high.h > low.h * 1.8,
+    '350 cm produce una cancela claramente más alta, conservando arco y pilastras');
+  assert.equal(JSON.stringify(cancela('elevation', 'concave', -1)), JSON.stringify(zero));
+  assert.equal(JSON.stringify(cancela('elevation', 'concave', 999)),
+    JSON.stringify(cancela('elevation', 'concave', 350)));
 });
 
 // Guarda de regresión: mismo motivo que en Balcón — la validación de

@@ -42,6 +42,18 @@ const Building = (function () {
   const WALL_GATE_H_MIN    = 0.8; // alto de cancela, en metros (rango del deslizador)
   const WALL_GATE_H_MAX    = 3;
   const WALL_GATE_H_DEF    = 2;
+  // Verja independiente: el modal trabaja en centímetros, tal como se acota
+  // una cerrajería en proyecto. Cero conserva solo la línea de implantación.
+  const FENCE_H_MIN_CM     = 0;
+  const FENCE_H_MAX_CM     = 350;
+  const FENCE_H_DEF_CM     = 180;
+  const FENCE_PX_PER_CM    = 0.65;
+  // Cancela independiente: comparte escala física con Verjas, pero tiene
+  // estado propio porque sus hojas, pilastras y estilo se eligen aparte.
+  const GATE_H_MIN_CM      = 0;
+  const GATE_H_MAX_CM      = 350;
+  const GATE_H_DEF_CM      = 200;
+  const GATE_PX_PER_CM     = 0.65;
 
   /* Tamaño al hacer clic sin arrastrar. Una puerta o una ventana miden lo mismo
      sea cual sea su tipo, así que les basta una caja por herramienta; el balcón
@@ -72,10 +84,22 @@ const Building = (function () {
       h1: { w: 200, h: WALL_M_PX },
       h2: { w: 200, h: WALL_M_PX * 2 },
     } },
+    [TOOLS.BUILD_FENCE]: { w: 200, h: FENCE_H_DEF_CM * FENCE_PX_PER_CM },
+    [TOOLS.BUILD_GATE]:  { w: 180, h: GATE_H_DEF_CM * GATE_PX_PER_CM },
   };
 
   const _wallHeightM = o => (Number(o.wallHeight) === 2 ? 2 : 1);
   const _wallSizeKey = o => (o.wallView === 'elevation' ? 'h' : 'plan') + _wallHeightM(o);
+  const _fenceHeightCm = o => {
+    const v = Number(o.fenceHeightCm);
+    return Math.min(FENCE_H_MAX_CM,
+      Math.max(FENCE_H_MIN_CM, Number.isFinite(v) ? v : FENCE_H_DEF_CM));
+  };
+  const _gateHeightCm = o => {
+    const v = Number(o.gateHeightCm);
+    return Math.min(GATE_H_MAX_CM,
+      Math.max(GATE_H_MIN_CM, Number.isFinite(v) ? v : GATE_H_DEF_CM));
+  };
 
   function elements(tool, p1, p2, opts) {
     const o = { color: '#000000', lineWidth: 2, ...(opts || {}) };
@@ -84,11 +108,31 @@ const Building = (function () {
     if (tool === TOOLS.BUILD_WALL) o.wallSizeKey = _wallSizeKey(o);
     const def = (base.byVariant && base.byVariant[o[base.variantKey]]) || base;
     const rawW = Math.abs(p2.x - p1.x), rawH = Math.abs(p2.y - p1.y);
-    const b = {
+    let b = {
       x: Math.min(p1.x, p2.x), y: Math.min(p1.y, p2.y),
       w: rawW >= MIN_SPAN ? rawW : def.w,
       h: rawH >= MIN_SPAN ? rawH : def.h,
     };
+    // En Verjas el arrastre fija la longitud; la altura procede siempre del
+    // control 0–350 cm. Así una verja de 120 cm no cambia de escala física
+    // según cuánto se desvíe verticalmente el puntero al trazarla.
+    if (tool === TOOLS.BUILD_FENCE) {
+      const cm = _fenceHeightCm(o);
+      const h = o.fenceView === 'plan'
+        ? (cm === 0 ? 1 : Math.max(7, Math.min(18, 7 + cm / 35)))
+        : (cm === 0 ? 1 : Math.max(12, cm * FENCE_PX_PER_CM));
+      b = { ...b, h };
+    }
+    // En Cancela el arrastre determina solo el ancho. La cota 0–350 cm manda
+    // en el alto, igual que en Verjas; en planta se traduce a la profundidad
+    // gráfica de pilastras y hojas.
+    if (tool === TOOLS.BUILD_GATE) {
+      const cm = _gateHeightCm(o);
+      const h = o.gateView === 'plan'
+        ? (cm === 0 ? 1 : Math.max(8, Math.min(20, 8 + cm / 30)))
+        : (cm === 0 ? 1 : Math.max(12, cm * GATE_PX_PER_CM));
+      b = { ...b, h };
+    }
     switch (tool) {
       case TOOLS.BUILD_PLANTA: return _planta(b, o, o.plantaShape || 'rect');
       case TOOLS.BUILD_FACADE: return _facadeTool(b, o);
@@ -97,6 +141,8 @@ const Building = (function () {
       case TOOLS.BUILD_WINDOW: return _windowTool(b, o);
       case TOOLS.BUILD_BALCONY: return _balconyTool(b, o);
       case TOOLS.BUILD_WALL:   return _wallTool(b, o);
+      case TOOLS.BUILD_FENCE:  return _fenceTool(b, o);
+      case TOOLS.BUILD_GATE:   return _gateTool(b, o);
       default: return [];
     }
   }
@@ -779,7 +825,9 @@ const Building = (function () {
     if (!['single', 'double', 'concave', 'concaveSwan',
       'concavePanel', 'concaveOrnate', 'concaveFan', 'concaveLyre',
       'concaveDiamond', 'concaveRings', 'concavePalmette',
-      'convexPanel'].includes(o.wallGateType)) return null;
+      'convexPanel', 'convexFan', 'convexMedallion',
+      'convexBlind', 'solidTransom', 'openBars',
+      'openScrolls'].includes(o.wallGateType)) return null;
     const gw = Math.min(b.w * 0.5, o.wallGateType === 'single' ? WALL_GATE_W_SINGLE : WALL_GATE_W_DOUBLE);
     const pw = Math.max(3, Math.min(14, gw * 0.14));
     if (gw < 16 || b.w - gw - 2 * pw < 20) return null;
@@ -824,9 +872,17 @@ const Building = (function () {
   // IRREGULARES (con paso exacto parecía la junta de un panel prefabricado),
   // salvo en el paso. Hormigón: liso —la ausencia de achurado ES la textura—.
   function _wallTexturePlan(b, o, gate) {
-    if (o.wallMaterial !== 'stone') return [];
     const ty1 = b.y + b.h * 0.22, ty2 = b.y + b.h * 0.78;
     if (ty2 - ty1 < 2) return [];
+    if (o.wallMaterial === 'brick') {
+      const els = [];
+      const gap = Math.max(8, Math.min(18, b.w / 8));
+      for (let i = 0, x = b.x + gap / 2; x < b.x + b.w - 2; i++, x += gap) {
+        if (!_inGate(gate, x)) els.push(_lineT(x, ty1, x, ty2, o));
+      }
+      return els;
+    }
+    if (o.wallMaterial !== 'stone') return [];
     const gap = Math.max(9, Math.min(STONE_TICK_GAP, b.w / 3));
     const els = [];
     let tx = b.x + gap * (0.5 + 0.5 * _noise(0, 5));
@@ -852,6 +908,15 @@ const Building = (function () {
       if (gate.x1 - b.x > 1) els.push(_lineT(b.x, y, gate.x1, y, o));
       if (b.x + b.w - gate.x2 > 1) els.push(_lineT(gate.x2, y, b.x + b.w, y, o));
     });
+    const style = o.wallRailingType || 'spear';
+    if (style !== 'spear') {
+      const step = Math.max(12, Math.min(24, b.w / 8));
+      _wallSpans(b, gate).forEach(span => {
+        for (let x = span[0] + step; x < span[1] - 2; x += step) {
+          els.push(_lineT(x, b.y + inset, x, b.y + b.h - inset, o));
+        }
+      });
+    }
     return els;
   }
 
@@ -934,6 +999,24 @@ const Building = (function () {
     const top = b.y + trim.cap, bot = b.y + b.h - trim.plinth;
     const els = [];
     if (bot - top < 6 || x2 - x1 < 6) return els;
+    if (o.wallMaterial === 'brick') {
+      const rowH = Math.max(6, Math.min(13, pxM * 0.12));
+      const rows = Math.max(2, Math.min(18, Math.round((bot - top) / rowH)));
+      const brickW = Math.max(12, Math.min(30, pxM * 0.28));
+      for (let r = 1; r < rows; r++) {
+        const y = top + (bot - top) * r / rows;
+        els.push(_lineT(x1, y, x2, y, o));
+      }
+      for (let r = 0; r < rows; r++) {
+        const y1 = top + (bot - top) * r / rows;
+        const y2 = top + (bot - top) * (r + 1) / rows;
+        const offset = r % 2 ? 0 : brickW / 2;
+        for (let x = x1 + offset + brickW; x < x2 - 2; x += brickW) {
+          els.push(_lineT(x, y1, x, y2, o));
+        }
+      }
+      return els;
+    }
     if (o.wallMaterial !== 'stone') {
       const lifts = Math.max(2, Math.min(6, Math.round(_wallHeightM(o) / 0.5)));
       for (let i = 1; i < lifts; i++) els.push(_lineT(x1, top + (bot - top) * i / lifts, x2, top + (bot - top) * i / lifts, o));
@@ -1001,6 +1084,182 @@ const Building = (function () {
   }
 
   /**
+   * Remate defensivo de una barra de verja. Todas las variantes terminan en
+   * una punta real, pero su silueta y el collar que la sostiene pertenecen al
+   * lenguaje ornamental del paño: no tendría sentido coronar una rocalla con
+   * la misma flecha industrial de una verja minimalista.
+   */
+  function _forgeFinial(type, cx, baseY, h, bay, o, index = 0) {
+    const style = type || 'spear';
+    const tipY = baseY - h;
+    const half = Math.max(1.25, Math.min(bay * 0.24, h * 0.43));
+    const neckY = baseY - h * 0.08;
+    const collarY = baseY - h * 0.2;
+    const d = Math.max(2, Math.min(half * 1.25, h * 0.34));
+    const els = [];
+    const curve = (x1, y1, x2, y2, qx, qy) => ({
+      type: 'curveArrow', x1, y1, x2, y2, cx: qx, cy: qy,
+      heads: 'none', color: o.color, lineWidth: _thinW(o),
+    });
+    const point = (left, leftY, right = left, rightY = leftY) => {
+      // Toda variante conserva dos filos que convergen en una punta defensiva.
+      els.push(_lineT(cx - left, leftY, cx, tipY, o),
+        _lineT(cx + right, rightY, cx, tipY, o));
+    };
+    const nerve = () => els.push(_lineT(cx, tipY, cx, baseY, o));
+
+    if (style === 'minimal') {
+      // Aguja estrecha tradicional: sin hoja abombada, con doble collar fino.
+      point(half * 0.55, neckY);
+      nerve();
+      els.push(_lineT(cx - half * 0.9, collarY, cx + half * 0.9, collarY, o),
+        _lineT(cx - half * 0.7, collarY + d * 0.38, cx + half * 0.7, collarY + d * 0.38, o));
+    } else if (style === 'arches') {
+      // Ojiva trilobulada: pico central y dos lóbulos góticos descendentes.
+      const shoulderY = tipY + h * 0.46;
+      point(half * 0.72, shoulderY);
+      nerve();
+      els.push(curve(cx - half * 0.72, shoulderY, cx, neckY,
+        cx - half * 1.3, collarY - d * 0.45),
+      curve(cx + half * 0.72, shoulderY, cx, neckY,
+        cx + half * 1.3, collarY - d * 0.45),
+      _lineT(cx - half * 1.05, neckY, cx + half * 1.05, neckY, o));
+    } else if (style === 'diamonds') {
+      // Hierro de pica romboidal: cuatro facetas forman la propia hoja.
+      const waistY = tipY + h * 0.55;
+      point(half * 0.94, waistY);
+      els.push(_lineT(cx - half * 0.94, waistY, cx, neckY, o),
+        _lineT(cx + half * 0.94, waistY, cx, neckY, o),
+        _lineT(cx, tipY, cx, neckY, o),
+        _lineT(cx - half * 0.7, collarY, cx + half * 0.7, collarY, o));
+    } else if (style === 'rings') {
+      // Hoja de laurel perforada sobre anilla neoclásica.
+      const shoulderY = tipY + h * 0.64;
+      point(half * 0.86, shoulderY);
+      els.push(curve(cx - half * 0.86, shoulderY, cx, neckY,
+        cx - half * 0.35, baseY - h * 0.02),
+      curve(cx + half * 0.86, shoulderY, cx, neckY,
+        cx + half * 0.35, baseY - h * 0.02),
+      _lineT(cx, tipY, cx, collarY - d * 0.55, o),
+      _circleT(cx - d / 2, collarY - d / 2, d, d, o),
+        _lineT(cx - d * 0.75, collarY, cx - d / 2, collarY, o),
+        _lineT(cx + d / 2, collarY, cx + d * 0.75, collarY, o));
+    } else if (style === 'scrolls') {
+      // Punta flamígera barroca: hombros desiguales y roleos abiertos.
+      const leftY = tipY + h * 0.47, rightY = tipY + h * 0.66;
+      point(half * 0.72, leftY, half * 1.06, rightY);
+      els.push(curve(cx - half * 0.72, leftY, cx, neckY,
+        cx - half * 1.35, collarY - d * 0.45),
+      curve(cx + half * 1.06, rightY, cx, neckY,
+        cx + half * 0.55, collarY - d * 0.65),
+      curve(cx, neckY, cx - half * 1.65, collarY, cx - half * 1.55, tipY + h * 0.7),
+      curve(cx, neckY, cx + half * 1.65, collarY, cx + half * 1.55, tipY + h * 0.7),
+      _lineT(cx, tipY, cx, baseY, o));
+    } else if (style === 'fans') {
+      // Palmeta de cinco hojas: la central es la punta y las laterales abanican.
+      const shoulderY = tipY + h * 0.58;
+      point(half * 0.88, shoulderY);
+      nerve();
+      els.push(_lineT(cx - half * 0.88, shoulderY, cx, neckY, o),
+        _lineT(cx + half * 0.88, shoulderY, cx, neckY, o),
+        _lineT(cx, baseY, cx - half * 1.65, shoulderY + h * 0.2, o),
+        _lineT(cx, baseY, cx + half * 1.65, shoulderY + h * 0.2, o),
+        _circleT(cx - d * 0.28, collarY - d * 0.28, d * 0.56, d * 0.56, o));
+    } else if (style === 'castilian') {
+      // Hoja de cuatro planos, corta y recia, sobre cuadradillo torsionado.
+      const shoulderY = tipY + h * 0.5;
+      point(half * 1.08, shoulderY);
+      const nd = d * 0.72;
+      nerve();
+      els.push(_lineT(cx - half * 1.08, shoulderY, cx, neckY, o),
+        _lineT(cx + half * 1.08, shoulderY, cx, neckY, o),
+        _lineT(cx - half * 0.9, shoulderY, cx + half * 0.9, shoulderY, o),
+        _rectT(cx - nd / 2, collarY - nd / 2, nd, nd, o),
+        _lineT(cx - nd / 2, collarY - nd / 2, cx + nd / 2, collarY + nd / 2, o),
+        _lineT(cx - nd / 2, collarY + nd / 2, cx + nd / 2, collarY - nd / 2, o));
+    } else if (style === 'plateresque') {
+      // Flor de lis plateresca: pétalo axial afilado y dos hojas vueltas.
+      const shoulderY = tipY + h * 0.42;
+      point(half * 0.58, shoulderY);
+      nerve();
+      els.push(_lineT(cx - half * 0.58, shoulderY, cx, neckY, o),
+        _lineT(cx + half * 0.58, shoulderY, cx, neckY, o),
+        curve(cx, neckY, cx - half * 1.9, shoulderY + h * 0.16,
+          cx - half * 1.55, collarY - h * 0.22),
+        curve(cx, neckY, cx + half * 1.9, shoulderY + h * 0.16,
+          cx + half * 1.55, collarY - h * 0.22),
+        _lineT(cx - half * 1.25, collarY, cx + half * 1.25, collarY, o));
+    } else if (style === 'herrerian') {
+      // Piramidión herreriano: triángulo neto sobre dado, sin hoja vegetal.
+      const baseTipY = tipY + h * 0.72;
+      point(half * 0.98, baseTipY);
+      const block = d * 0.78;
+      els.push(_lineT(cx - half * 0.98, baseTipY, cx + half * 0.98, baseTipY, o),
+        _lineT(cx, tipY, cx, baseTipY, o),
+        _rectT(cx - block / 2, collarY - block / 2, block, block, o),
+        _lineT(cx - half * 1.15, neckY, cx + half * 1.15, neckY, o));
+    } else if (style === 'andalusian') {
+      // Cáliz de perfil morisco: punta esbelta nacida entre dos ces enfrentadas.
+      const shoulderY = tipY + h * 0.62;
+      point(half * 0.74, shoulderY);
+      const flip = index % 2 ? -1 : 1;
+      nerve();
+      els.push(curve(cx - half * 0.74, shoulderY, cx, neckY,
+        cx - half * 1.18, collarY - d * 0.5),
+      curve(cx + half * 0.74, shoulderY, cx, neckY,
+        cx + half * 1.18, collarY - d * 0.5),
+      curve(cx, neckY, cx - half * 1.8, collarY + d * 0.2,
+        cx - half * (0.45 + 0.18 * flip), shoulderY - d * 0.3),
+      curve(cx, neckY, cx + half * 1.8, collarY + d * 0.2,
+        cx + half * (0.45 + 0.18 * flip), shoulderY - d * 0.3));
+    } else if (style === 'catalan') {
+      // Hoja acorazonada catalana sobre roseta y arranques espirales.
+      const shoulderY = tipY + h * 0.55;
+      point(half * 1.02, shoulderY);
+      nerve();
+      els.push(curve(cx - half * 1.02, shoulderY, cx, neckY,
+        cx - half * 0.95, baseY - h * 0.02),
+      curve(cx + half * 1.02, shoulderY, cx, neckY,
+        cx + half * 0.95, baseY - h * 0.02),
+      _circleT(cx - d / 2, collarY - d / 2, d, d, o),
+        curve(cx - d / 2, collarY, cx - half * 1.6, baseY,
+          cx - half * 1.35, collarY - d),
+        curve(cx + d / 2, collarY, cx + half * 1.6, baseY,
+          cx + half * 1.35, collarY - d));
+    } else if (style === 'valencian') {
+      // Llama de rocalla valenciana: perfil clásico, quebrado y asimétrico.
+      const flip = index % 2 ? -1 : 1;
+      const hubX = cx + flip * d * 0.16;
+      const leftY = tipY + h * (flip > 0 ? 0.43 : 0.66);
+      const rightY = tipY + h * (flip > 0 ? 0.68 : 0.46);
+      point(half * (flip > 0 ? 0.65 : 1.08), leftY,
+        half * (flip > 0 ? 1.12 : 0.68), rightY);
+      nerve();
+      els.push(curve(cx - half * (flip > 0 ? 0.65 : 1.08), leftY, cx, neckY,
+        cx - half * 1.25, collarY - d * 0.7),
+      curve(cx + half * (flip > 0 ? 1.12 : 0.68), rightY, cx, neckY,
+        cx + half * 0.55, collarY - d * 0.8),
+      curve(cx, neckY, cx - half * 1.9, baseY,
+        cx - half * (1.6 + 0.2 * flip), tipY + h * 0.58),
+      curve(cx, neckY, cx + half * 1.55, collarY + d * 0.25,
+        cx + half * (1.15 - 0.15 * flip), tipY + h * 0.5 - d * 0.45));
+      [-0.9, -0.45, 0, 0.45, 0.9].forEach(ray => {
+        els.push(_lineT(hubX, baseY, hubX + half * ray, collarY - d * (0.4 - 0.18 * Math.abs(ray)), o));
+      });
+    } else {
+      // Hoja lanceolada clásica: perfil cerrado, nervio y collar doble.
+      const shoulderY = tipY + h * 0.54;
+      point(half, shoulderY);
+      nerve();
+      els.push(_lineT(cx - half, shoulderY, cx, neckY, o),
+        _lineT(cx + half, shoulderY, cx, neckY, o),
+        _lineT(cx - half * 1.2, collarY, cx + half * 1.2, collarY, o),
+        _lineT(cx - half * 0.9, collarY + d * 0.38, cx + half * 0.9, collarY + d * 0.38, o));
+    }
+    return els;
+  }
+
+  /**
    * Panel de reja de forja antigua: puntas de lanza, pasamanos, banda de
    * roleos (dos travesaños con rosetas), barrotes abombados a lados alternos y
    * zócalo de chapa al pie. Es el motivo compartido por la verja del remate y
@@ -1029,8 +1288,7 @@ const Building = (function () {
       const bx = x + step * i;
       els.push(_bowBar(bx, top, base, i % 2 ? amp : -amp, o));
       if (tip >= 4) {
-        els.push(_lineT(bx - step * 0.22, top, bx, y, o),
-                 _lineT(bx + step * 0.22, top, bx, y, o));
+        els.push(..._forgeFinial('spear', bx, top, tip, step, o, i));
       }
     }
     if (band) {
@@ -1051,6 +1309,293 @@ const Building = (function () {
     return els;
   }
 
+  // Variantes de verja sobre muro. Todas comparten marco y ritmo métrico,
+  // pero no reutilizan adornos entre sí para que el selector cambie de verdad
+  // la silueta y no sea una etiqueta cosmética.
+  function _wallRailPanel(x, y, w, h, o, gap, type) {
+    if (!type || type === 'spear') return _railPanel(x, y, w, h, o, gap);
+    if (w < 10 || h < 12) return [];
+    const top = y + Math.max(3, h * 0.08), bot = y + h;
+    const n = _barCount(w, gap), step = w / n;
+    const els = [_rectEl(x, top, w, Math.max(2, Math.min(6, h * 0.07)), o),
+      _lineT(x, bot - 2, x + w, bot - 2, o)];
+
+    // Defensa común a TODAS las variantes: puntas de lanza sobre el
+    // pasamanos. El patrón inferior puede ser geométrico u ornamental, pero
+    // la coronación nunca queda plana ni ofrece un apoyo fácil para trepar.
+    const spearH = Math.max(4, Math.min(10, h * 0.13));
+    for (let i = 1; i < n; i++) {
+      const bx = x + step * i;
+      els.push(..._forgeFinial(type, bx, top, spearH, step, o, i));
+    }
+
+    if (type === 'minimal') {
+      for (let i = 1; i < n; i++) {
+        const bx = x + step * i;
+        els.push(_lineT(bx, top, bx, bot, o));
+      }
+      return els;
+    }
+
+    if (type === 'arches') {
+      const springY = top + (bot - top) * 0.52;
+      for (let i = 0; i < n; i++) {
+        const x1 = x + step * i, x2 = x1 + step;
+        els.push(_lineT(x1, top, x1, bot, o), {
+          type: 'curveArrow', x1, y1: springY, x2, y2: springY,
+          cx: (x1 + x2) / 2, cy: top + (springY - top) * 0.18,
+          heads: 'none', color: o.color, lineWidth: _thinW(o),
+        });
+      }
+      return els;
+    }
+
+    if (type === 'diamonds') {
+      const y1 = top + 3, y2 = bot - 3;
+      for (let i = 0; i < n; i++) {
+        const x1 = x + step * i, x2 = x1 + step;
+        els.push(_lineT(x1, y1, x2, y2, o), _lineT(x1, y2, x2, y1, o));
+      }
+      return els;
+    }
+
+    if (type === 'rings') {
+      const d = Math.min(step * 0.76, (bot - top) * 0.38);
+      const cy = top + (bot - top) * 0.45;
+      for (let i = 0; i < n; i++) {
+        const cx = x + step * (i + 0.5);
+        els.push(_lineT(cx, top, cx, bot, o));
+        if (d >= 4) els.push(_circleT(cx - d / 2, cy - d / 2, d, d, o));
+      }
+      return els;
+    }
+
+    if (type === 'scrolls') {
+      const midY = top + (bot - top) * 0.5;
+      for (let i = 0; i < n; i++) {
+        const x1 = x + step * i, x2 = x1 + step;
+        els.push({ type: 'curveArrow', x1, y1: midY, x2, y2: midY,
+          cx: (x1 + x2) / 2, cy: i % 2 ? top + 2 : bot - 4,
+          heads: 'none', color: o.color, lineWidth: _thinW(o) });
+        if (i % 2 === 0) els.push(_lineT((x1 + x2) / 2, top, (x1 + x2) / 2, bot, o));
+      }
+      return els;
+    }
+
+    // Castilla: cuadradillo vertical con pequeños nudos torsionados. El giro
+    // se abstrae como dos aspas sucesivas sobre cada barra, legibles incluso
+    // en el icono del catálogo.
+    if (type === 'castilian') {
+      const node = Math.max(2, Math.min(4.5, step * 0.22));
+      const ys = [top + (bot - top) * 0.38, top + (bot - top) * 0.68];
+      for (let i = 0; i < n; i++) {
+        const bx = x + step * (i + 0.5);
+        els.push(_lineT(bx, top, bx, bot, o));
+        ys.forEach((ny, j) => {
+          const twist = (i + j) % 2 ? node : -node;
+          els.push(_lineT(bx - node, ny - twist, bx + node, ny + twist, o),
+            _lineT(bx - node, ny + twist, bx + node, ny - twist, o));
+        });
+      }
+      return els;
+    }
+
+    // Renacimiento plateresco: medallones y palmetas simétricas organizados
+    // como un friso de candelieri, sin cerrar el paño.
+    if (type === 'plateresque') {
+      const d = Math.max(5, Math.min(10, step * 0.7));
+      const cy = top + (bot - top) * 0.58;
+      for (let i = 0; i < n; i++) {
+        const bx = x + step * (i + 0.5);
+        els.push(_lineT(bx, top, bx, bot, o));
+        if (i % 2 === 0) {
+          els.push(_circleT(bx - d / 2, cy - d / 2, d, d, o),
+            _lineT(bx, cy - d / 2, bx, cy - d * 1.45, o),
+            _lineT(bx, cy - d * 1.05, bx - d * 0.75, cy - d * 1.55, o),
+            _lineT(bx, cy - d * 1.05, bx + d * 0.75, cy - d * 1.55, o));
+        }
+      }
+      return els;
+    }
+
+    // Herreriano: composición ortogonal, austera y muy modulada. Los nudos
+    // cuadrados alternos sustituyen cualquier roleo o motivo vegetal.
+    if (type === 'herrerian') {
+      const y1 = top + (bot - top) * 0.36, y2 = top + (bot - top) * 0.7;
+      els.push(_lineT(x, y1, x + w, y1, o), _lineT(x, y2, x + w, y2, o));
+      const d = Math.max(3, Math.min(7, step * 0.42));
+      for (let i = 0; i <= n; i++) {
+        const bx = x + step * i;
+        els.push(_lineT(bx, top, bx, bot, o));
+        const ny = i % 2 ? y1 : y2;
+        els.push(_rectT(bx - d / 2, ny - d / 2, d, d, o));
+      }
+      return els;
+    }
+
+    // Andalucía: ces y roleos en S enfrentados, con simetría dentro de cada
+    // calle. Las barras pares actúan como ejes de la composición.
+    if (type === 'andalusian') {
+      const midY = top + (bot - top) * 0.54;
+      for (let i = 0; i < n; i++) {
+        const x1 = x + step * i, x2 = x1 + step, cx = (x1 + x2) / 2;
+        if (i % 2 === 0) els.push(_lineT(cx, top, cx, bot, o));
+        els.push(
+          { type: 'curveArrow', x1, y1: midY, x2: cx, y2: midY,
+            cx: x1 + step * 0.18, cy: top + 3,
+            heads: 'none', color: o.color, lineWidth: _thinW(o) },
+          { type: 'curveArrow', x1: cx, y1: midY, x2, y2: midY,
+            cx: x1 + step * 0.82, cy: bot - 3,
+            heads: 'none', color: o.color, lineWidth: _thinW(o) });
+      }
+      return els;
+    }
+
+    // Cataluña: espirales enlazadas mediante una S cúbica continua y rosetas
+    // alternas, inspiradas en los repertorios históricos de hierro artístico.
+    if (type === 'catalan') {
+      const midY = top + (bot - top) * 0.52;
+      const d = Math.max(4, Math.min(8, step * 0.55));
+      for (let i = 0; i < n; i++) {
+        const x1 = x + step * i, x2 = x1 + step;
+        const up = i % 2 === 0;
+        els.push({ type: 'curveArrow', x1, y1: midY, x2, y2: midY,
+          cx: x1 + step * 0.25, cy: up ? top + 2 : bot - 3,
+          cx2: x1 + step * 0.75, cy2: up ? bot - 3 : top + 2,
+          heads: 'none', color: o.color, lineWidth: _thinW(o) });
+        if (up) {
+          const cx = (x1 + x2) / 2;
+          els.push(_circleT(cx - d / 2, midY - d / 2, d, d, o),
+            _lineT(cx, top, cx, bot, o));
+        }
+      }
+      return els;
+    }
+
+    // Valencia barroca: cartelas ovales entre roleos quebrados y pequeños
+    // abanicos de concha. La ligera asimetría de cada calle evoca la rocalla
+    // rococó sin perder la repetición estructural de la verja.
+    if (type === 'valencian') {
+      const groups = Math.max(2, Math.min(6, Math.round(w / Math.max(26, gap * 2.5))));
+      const groupW = w / groups;
+      const cy = top + (bot - top) * 0.56;
+      const d = Math.max(5, Math.min(11, Math.min(groupW * 0.32, (bot - top) * 0.18)));
+      for (let g = 0; g < groups; g++) {
+        const x1 = x + groupW * g, x2 = x1 + groupW;
+        const gx = (x1 + x2) / 2;
+        els.push(_lineT(x1, top, x1, bot, o),
+          _circleT(gx - d * 0.8, cy - d * 0.46, d * 1.6, d * 0.92, o),
+          { type: 'curveArrow', x1: gx, y1: cy, x2: x1 + groupW * 0.08, y2: cy + d * 0.2,
+            cx: gx - groupW * 0.38, cy: cy - d * 1.5,
+            heads: 'none', color: o.color, lineWidth: _thinW(o) },
+          { type: 'curveArrow', x1: gx, y1: cy, x2: x2 - groupW * 0.08, y2: cy - d * 0.15,
+            cx: gx + groupW * 0.34, cy: cy + d * 1.55,
+            heads: 'none', color: o.color, lineWidth: _thinW(o) });
+        const hubY = cy + d * 0.42;
+        [-0.34, -0.17, 0, 0.17, 0.34].forEach(off => {
+          els.push(_lineT(gx, hubY, gx + groupW * off, cy - d * 0.9, o));
+        });
+        if (g % 2 === 0) {
+          els.push(_circleT(gx - d * 0.24, hubY - d * 0.24, d * 0.48, d * 0.48, o));
+        }
+      }
+      els.push(_lineT(x + w, top, x + w, bot, o));
+      return els;
+    }
+
+    // Abanicos: grupos de tres radios nacen de una sucesión de cubos bajos.
+    const groups = Math.max(2, Math.min(7, Math.round(w / Math.max(22, gap * 2.4))));
+    const groupW = w / groups;
+    const hubY = bot - Math.max(5, (bot - top) * 0.18);
+    for (let g = 0; g < groups; g++) {
+      const gx = x + groupW * (g + 0.5);
+      const d = Math.min(6, groupW * 0.2);
+      els.push(_circleT(gx - d / 2, hubY - d / 2, d, d, o));
+      [-0.38, 0, 0.38].forEach(off => {
+        els.push(_lineT(gx, hubY, gx + groupW * off, top, o));
+      });
+    }
+    return els;
+  }
+
+  /* ── verjas independientes (planta + alzado) ───────────────────────
+     Comparte exactamente los trece paños de forja del Muro, pero sin fábrica
+     debajo. En planta la ornamentación vertical no es visible: se representan
+     pletinas y montantes con el ritmo propio de cada modelo. */
+  function _fenceTool(b, o) {
+    const cm = _fenceHeightCm(o);
+    const ids = FORGE_TYPES.map(item => item.id);
+    const type = ids.includes(o.fenceType) ? o.fenceType : 'spear';
+    if (cm === 0) return [_line(b.x, b.y, b.x + b.w, b.y, o)];
+    if (o.fenceView === 'plan') return _fencePlan(b, o, type, ids.indexOf(type));
+    return _fenceElevation(b, o, type);
+  }
+
+  function _fenceElevation(b, o, type) {
+    const gap = Math.max(9, Math.min(18, 10 + _fenceHeightCm(o) / 70));
+    const els = _wallRailPanel(b.x, b.y, b.w, b.h, o, gap, type);
+    if (!els.length) return [_line(b.x, b.y + b.h, b.x + b.w, b.y + b.h, o)];
+    // Montantes extremos estructurales: el paño ornamental queda contenido
+    // entre ellos y se lee como una verja autónoma, no como una barandilla.
+    const postW = Math.max(3, Math.min(8, b.w * 0.025));
+    const top = b.y + Math.max(3, b.h * 0.08);
+    els.push(_rectEl(b.x - postW / 2, top, postW, b.y + b.h - top, o),
+      _rectEl(b.x + b.w - postW / 2, top, postW, b.y + b.h - top, o),
+      _line(b.x - postW, b.y + b.h, b.x + b.w + postW, b.y + b.h, o));
+    return els;
+  }
+
+  /* ── cancela independiente (planta + alzado) ────────────────────────
+     Reutiliza las hojas y pilastras de la entrada del Muro, pero construye
+     su propio vano: no crea fábrica lateral ni obliga a dibujar un muro. */
+  function _gateTool(b, o) {
+    const cm = _gateHeightCm(o);
+    if (cm === 0) return [_line(b.x, b.y, b.x + b.w, b.y, o)];
+    const type = GATE_TYPES.some(item => item.id === o.gateType)
+      ? o.gateType : 'concave';
+    const pw = Math.max(3, Math.min(14, b.w * 0.08));
+    const gw = b.w - 2 * pw;
+    if (gw < 16) return [_line(b.x, b.y + b.h, b.x + b.w, b.y + b.h, o)];
+    const gate = {
+      gx: b.x + pw, gw, pw,
+      x1: b.x, x2: b.x + b.w,
+    };
+    const opts = {
+      ...o,
+      wallGateType: type,
+      wallGateHeight: cm / 100,
+      standaloneGateHeightCm: cm,
+    };
+    if (o.gateView === 'plan') return _wallGatePlan(b, opts, gate);
+    return [
+      ..._wallGateElevation(b, opts, gate),
+      _line(b.x - 8, b.y + b.h, b.x + b.w + 8, b.y + b.h, o),
+    ];
+  }
+
+  function _fencePlan(b, o, type, typeIndex) {
+    const cy = b.y + b.h / 2;
+    const inset = Math.max(1.5, b.h * 0.22);
+    const y1 = b.y + inset, y2 = b.y + b.h - inset;
+    const els = [_line(b.x, y1, b.x + b.w, y1, o),
+      _line(b.x, y2, b.x + b.w, y2, o)];
+    const pitch = Math.max(14, Math.min(30, 16 + typeIndex * 2));
+    const n = Math.max(2, Math.min(20, Math.round(b.w / pitch)));
+    const step = b.w / n;
+    const d = Math.max(3, Math.min(8, b.h * 0.62));
+    for (let i = 0; i <= n; i++) {
+      const x = b.x + step * i;
+      if (type === 'rings' || type === 'scrolls' || type === 'fans') {
+        els.push(_circleT(x - d / 2, cy - d / 2, d, d, o));
+      } else {
+        els.push(_rectT(x - d / 2, cy - d / 2, d, d, o));
+      }
+    }
+    // Eje fino de implantación: facilita alinear varios tramos en planta.
+    els.push(_lineT(b.x, cy, b.x + b.w, cy, o));
+    return els;
+  }
+
   // Verja de forja sobre el remate: el mismo panel de reja, partido en los dos
   // tramos que deja el paso —una verja cruzando por encima de la cancela sería
   // forja flotando en el aire— y apoyada sobre la albardilla. Alto y ritmo van
@@ -1061,7 +1606,10 @@ const Building = (function () {
     const gap = Math.max(9, Math.min(18, pxM * 0.17));
     const y = b.y - railH + (trim ? trim.cap * 0.4 : 0);
     const els = [];
-    _wallSpans(b, gate).forEach(s => els.push(..._railPanel(s[0], y, s[1] - s[0], railH, o, gap)));
+    const type = o.wallRailingType || 'spear';
+    _wallSpans(b, gate).forEach(s => els.push(..._wallRailPanel(
+      s[0], y, s[1] - s[0], railH, o, gap, type,
+    )));
     return els;
   }
 
@@ -1090,6 +1638,28 @@ const Building = (function () {
       els.push(_rectT(px + pw / 2 - d * 0.2, cy - d * 0.3, d * 0.4, d * 0.3, o),  // cuello
                _circleEl(px + pw / 2 - d / 2, cy - d * 0.3 - d, d, d, o));        // bola
     }
+    return els;
+  }
+
+  // Machón de ladrillo visto para el portón ciego: aparejo regular, cornisa
+  // de dos vuelos y albardilla inclinada. Sustituye la bola clásica por el
+  // remate escalonado de la referencia.
+  function _wallBrickPier(px, pTop, pw, ground, o, pxM) {
+    const els = [_rectEl(px, pTop, pw, ground - pTop, o)];
+    const rowH = Math.max(5, Math.min(11, pxM * 0.11));
+    let row = 0;
+    for (let y = pTop + rowH; y < ground - 3; y += rowH, row++) {
+      els.push(_lineT(px, y, px + pw, y, o));
+      const jx = px + (row % 2 ? pw * 0.38 : pw * 0.65);
+      els.push(_lineT(jx, y - rowH, jx, y, o));
+    }
+    const capH = Math.max(3, Math.min(8, pxM * 0.08));
+    els.push(_rectEl(px - pw * 0.18, pTop - capH, pw * 1.36, capH, o),
+      _rectEl(px - pw * 0.34, pTop - capH * 2, pw * 1.68, capH, o));
+    const roofY = pTop - capH * 2;
+    els.push(_lineT(px - pw * 0.42, roofY, px + pw / 2, roofY - capH * 1.7, o),
+      _lineT(px + pw / 2, roofY - capH * 1.7, px + pw * 1.42, roofY, o),
+      _lineT(px - pw * 0.42, roofY, px + pw * 1.42, roofY, o));
     return els;
   }
 
@@ -1289,11 +1859,13 @@ const Building = (function () {
   // ciego de paneles moldurados. El punto más alto está en el encuentro de
   // las dos hojas, a diferencia del seno de las variantes cóncavas.
   function _wallGateConvexPanel(gate, top, ground, o, pxM) {
+    const style = o.wallGateType;
     const centerX = gate.gx + gate.gw / 2;
     const totalH = ground - top;
     const rise = Math.min(totalH * 0.22, Math.max(10, gate.gw * 0.15));
     const edgeTop = top + rise;
-    const panelTop = ground - Math.max(24, totalH * 0.43);
+    const panelRatio = style === 'convexBlind' ? 0.62 : 0.43;
+    const panelTop = ground - Math.max(24, totalH * panelRatio);
     const bandH = Math.max(8, Math.min(15, totalH * 0.1));
     const bandTop = panelTop - bandH;
     const els = [];
@@ -1310,7 +1882,8 @@ const Building = (function () {
 
     // Barrotes densos: el perfil superior se evalúa como parábola para que
     // cada lanza nazca exactamente sobre la pletina curva.
-    const bars = Math.max(12, Math.min(30, Math.round(gate.gw / Math.max(5, pxM * 0.075))));
+    const barMax = style === 'convexBlind' ? 20 : 30;
+    const bars = Math.max(12, Math.min(barMax, Math.round(gate.gw / Math.max(5, pxM * 0.075))));
     const step = gate.gw / bars;
     const tip = Math.max(4, Math.min(10, totalH * 0.06));
     for (let i = 1; i < bars; i++) {
@@ -1359,7 +1932,165 @@ const Building = (function () {
           _lineT(cx - d * 0.75, cy, cx + d * 0.75, cy, o));
       });
     }
+
+    if (style === 'convexFan') {
+      // Abanico imperial superpuesto a la barrotera: un cubo central y radios
+      // que se abren hacia la coronación, reforzando visualmente su cresta.
+      const hubY = bandTop - Math.max(8, totalH * 0.08);
+      const hubD = Math.min(14, gate.gw * 0.1);
+      els.push(_circleT(centerX - hubD / 2, hubY - hubD / 2, hubD, hubD, o));
+      for (let i = -5; i <= 5; i++) {
+        if (i === 0) continue;
+        const ex = centerX + i * gate.gw * 0.042;
+        const u = Math.abs(ex - centerX) / (gate.gw / 2);
+        const ey = top + rise * u * u + tip * 1.4;
+        els.push(_lineT(centerX, hubY, ex, ey, o));
+      }
+    }
+
+    if (style === 'convexMedallion') {
+      // Segunda cenefa estrecha y grandes medallones en los paños principales.
+      const secondH = Math.max(6, bandH * 0.65);
+      els.push(_rectT(gate.gx, panelTop + 3, gate.gw, secondH, o));
+      [0.25, 0.75].forEach(pos => {
+        const cx = gate.gx + gate.gw * pos;
+        const cy = panelTop + (ground - panelTop) * 0.58;
+        const d = Math.min(24, gate.gw * 0.16, (ground - panelTop) * 0.42);
+        els.push(_circleEl(cx - d / 2, cy - d / 2, d, d, o),
+          _circleT(cx - d * 0.34, cy - d * 0.34, d * 0.68, d * 0.68, o),
+          _lineT(cx - d * 0.72, cy, cx + d * 0.72, cy, o));
+      });
+    }
+
+    if (style === 'convexBlind') {
+      // Chapa alta acanalada: nervios verticales y zócalo continuo que dejan
+      // solo el tercio superior abierto, una versión más privada y defensiva.
+      const flutes = 12, fw = gate.gw / flutes;
+      for (let i = 1; i < flutes; i++) {
+        const x = gate.gx + fw * i;
+        els.push(_lineT(x, panelTop + 3, x, ground - 3, o));
+      }
+      els.push(_rectT(gate.gx + 2, panelTop + 2, gate.gw - 4, ground - panelTop - 4, o));
+    }
     els.push(_line(centerX, top, centerX, ground, o));
+    return els;
+  }
+
+  // Portón recto de chapa ciega con montante superior abierto. Las hojas son
+  // austeras y pesadas; la ornamentación se concentra en una banda de
+  // remaches, los florones bajos y el pequeño pináculo del encuentro.
+  function _wallGateSolidTransom(gate, top, ground, o, pxM) {
+    const centerX = gate.gx + gate.gw / 2;
+    const totalH = ground - top;
+    const transomH = Math.max(18, Math.min(38, totalH * 0.25));
+    const leafTop = top + transomH;
+    const bandH = Math.max(7, Math.min(13, totalH * 0.08));
+    const els = [_rectEl(gate.gx, top, gate.gw, transomH, o)];
+
+    const bars = Math.max(8, Math.min(20, Math.round(gate.gw / Math.max(7, pxM * 0.1))));
+    const step = gate.gw / bars;
+    for (let i = 1; i < bars; i++) {
+      const x = gate.gx + step * i;
+      els.push(_lineT(x, top + 2, x, leafTop - 2, o));
+    }
+
+    // Banda claveteada bajo el montante.
+    els.push(_rectT(gate.gx, leafTop - bandH, gate.gw, bandH, o));
+    const rivets = Math.max(6, Math.min(16, Math.round(gate.gw / 11)));
+    const rd = Math.max(2.5, Math.min(5, bandH * 0.38));
+    for (let i = 0; i < rivets; i++) {
+      const x = gate.gx + gate.gw * (i + 0.5) / rivets;
+      els.push(_circleT(x - rd / 2, leafTop - bandH / 2 - rd / 2, rd, rd, o));
+    }
+
+    // Dos grandes hojas de chapa, con marco, bisagras y florón bajo.
+    const leafW = gate.gw / 2;
+    for (let leaf = 0; leaf < 2; leaf++) {
+      const x = gate.gx + leaf * leafW;
+      els.push(_rectEl(x, leafTop, leafW, ground - leafTop, o));
+      const inset = Math.max(3, Math.min(8, leafW * 0.08));
+      els.push(_rectT(x + inset, leafTop + inset, leafW - 2 * inset,
+        ground - leafTop - 2 * inset, o));
+      [0.28, 0.7].forEach(pos => {
+        const hx = leaf === 0 ? x + inset * 0.8 : x + leafW - inset * 0.8;
+        const hy = leafTop + (ground - leafTop) * pos;
+        els.push(_circleT(hx - rd / 2, hy - rd / 2, rd, rd, o));
+      });
+      const fx = x + leafW / 2, fy = ground - Math.max(12, totalH * 0.13);
+      const fr = Math.min(10, leafW * 0.14);
+      els.push(_circleT(fx - fr * 0.35, fy - fr * 0.35, fr * 0.7, fr * 0.7, o));
+      for (let a = 0; a < 8; a++) {
+        const angle = Math.PI * a / 4;
+        els.push(_lineT(fx + Math.cos(angle) * fr * 0.35, fy + Math.sin(angle) * fr * 0.35,
+          fx + Math.cos(angle) * fr, fy + Math.sin(angle) * fr, o));
+      }
+    }
+    els.push(_line(centerX, top, centerX, ground, o),
+      _lineT(centerX - 5, top, centerX, top - 10, o),
+      _lineT(centerX + 5, top, centerX, top - 10, o));
+    return els;
+  }
+
+  // Dos portones completamente calados para la misma portada urbana del
+  // portón ciego. En ambos, los barrotes recorren toda la hoja y terminan en
+  // lanzas: no hay chapa ni casetones que oculten la vista. La variante
+  // ornamental añade una cenefa de roleos, pero conserva el ritmo defensivo.
+  function _wallGateOpen(gate, top, ground, o, pxM, style) {
+    const centerX = gate.gx + gate.gw / 2;
+    const totalH = ground - top;
+    const tip = Math.max(6, Math.min(12, totalH * 0.1));
+    const railTop = top + tip;
+    const railH = Math.max(3, Math.min(7, totalH * 0.055));
+    const gap = style === 'openScrolls'
+      ? Math.max(10, Math.min(17, pxM * 0.16))
+      : Math.max(8, Math.min(14, pxM * 0.13));
+    const n = _barCount(gate.gw, gap), step = gate.gw / n;
+    const els = [
+      _rectEl(gate.gx, railTop, gate.gw, railH, o),
+      _line(gate.gx, railTop, gate.gx, ground, o),
+      _line(gate.gx + gate.gw, railTop, gate.gx + gate.gw, ground, o),
+      _line(gate.gx, ground, gate.gx + gate.gw, ground, o),
+      _line(centerX, top, centerX, ground, o),
+    ];
+
+    // Barrotera transparente a toda altura y punta de lanza sobre cada barra.
+    for (let i = 1; i < n; i++) {
+      const x = gate.gx + step * i;
+      els.push(_lineT(x, railTop + railH, x, ground, o),
+        _lineT(x - step * 0.22, railTop, x, top, o),
+        _lineT(x + step * 0.22, railTop, x, top, o));
+    }
+
+    if (style === 'openBars') {
+      // Dos travesaños rectos arriostran las hojas sin convertirlas en paños
+      // ciegos; el resultado es el portón tradicional más sobrio.
+      const y1 = railTop + (ground - railTop) * 0.42;
+      const y2 = railTop + (ground - railTop) * 0.78;
+      els.push(_lineT(gate.gx, y1, gate.gx + gate.gw, y1, o),
+        _lineT(gate.gx, y2, gate.gx + gate.gw, y2, o));
+      return els;
+    }
+
+    // Cenefa abierta de roleos contrapuestos y rosetas. Los adornos ocupan
+    // solo una franja central y nunca forman una superficie continua.
+    const bandY = railTop + (ground - railTop) * 0.48;
+    const bandH = Math.max(11, Math.min(22, totalH * 0.15));
+    els.push(_lineT(gate.gx, bandY - bandH / 2, gate.gx + gate.gw, bandY - bandH / 2, o),
+      _lineT(gate.gx, bandY + bandH / 2, gate.gx + gate.gw, bandY + bandH / 2, o));
+    const bays = Math.max(4, Math.min(8, Math.round(gate.gw / 24)));
+    const bayW = gate.gw / bays;
+    const rosette = Math.max(4, Math.min(9, bandH * 0.42));
+    for (let i = 0; i < bays; i++) {
+      const x1 = gate.gx + i * bayW, x2 = x1 + bayW;
+      const cx = (x1 + x2) / 2;
+      els.push(_circleT(cx - rosette / 2, bandY - rosette / 2, rosette, rosette, o),
+        { type: 'curveArrow', x1: x1 + 1, y1: bandY, x2: cx, y2: bandY,
+          cx: x1 + bayW * 0.28, cy: bandY - bandH * 0.72,
+          heads: 'none', color: o.color, lineWidth: _thinW(o) },
+        { type: 'curveArrow', x1: cx, y1: bandY, x2: x2 - 1, y2: bandY,
+          cx: x1 + bayW * 0.72, cy: bandY + bandH * 0.72,
+          heads: 'none', color: o.color, lineWidth: _thinW(o) });
+    }
     return els;
   }
 
@@ -1372,21 +2103,31 @@ const Building = (function () {
    * acompañándola.
    */
   function _wallGateElevation(b, o, gate) {
-    const pxM = _wallPxPerM(b, o);
+    const standalone = Number.isFinite(o.standaloneGateHeightCm);
+    const pxM = standalone ? GATE_PX_PER_CM * 100 : _wallPxPerM(b, o);
     const ground = b.y + b.h;
-    const gh = Math.min(pxM * WALL_GATE_H_MAX, Math.max(14, _wallGateH(o) * pxM));
+    const gh = standalone
+      ? b.h
+      : Math.min(pxM * WALL_GATE_H_MAX, Math.max(14, _wallGateH(o) * pxM));
     const top = ground - gh;
-    const convexPanel = o.wallGateType === 'convexPanel';
+    const solidTransom = o.wallGateType === 'solidTransom';
+    const openPortal = ['openBars', 'openScrolls'].includes(o.wallGateType);
+    const urbanPortal = solidTransom || openPortal;
+    const convexPanel = ['convexPanel', 'convexFan', 'convexMedallion',
+      'convexBlind'].includes(o.wallGateType);
     const concave = ['concave', 'concaveSwan', 'concavePanel',
       'concaveOrnate', 'concaveFan', 'concaveLyre', 'concaveDiamond',
       'concaveRings', 'concavePalmette'].includes(o.wallGateType);
-    const arch = concave || convexPanel ? [] : _wallGateArch(gate, top, o, pxM);
+    const arch = concave || convexPanel || urbanPortal ? [] : _wallGateArch(gate, top, o, pxM);
     const rise = Math.max(4, Math.min(30, pxM * 0.18));
     // El fuste sube hasta la clave del arco: una pilastra más baja que su
     // propio arco no sostiene nada.
     const pTop = Math.min(top - (arch.length ? gate.gw * 0.28 + rise * 0.5 : rise), b.y - 2);
     const els = [];
-    [gate.x1, gate.gx + gate.gw].forEach(px => els.push(..._wallPier(px, pTop, gate.pw, ground, o, pxM)));
+    [gate.x1, gate.gx + gate.gw].forEach(px => els.push(...(
+      urbanPortal ? _wallBrickPier(px, pTop, gate.pw, ground, o, pxM)
+        : _wallPier(px, pTop, gate.pw, ground, o, pxM)
+    )));
     els.push(...arch);
     if (concave) {
       els.push(..._wallGateConcave(gate, top, ground, o, pxM));
@@ -1394,6 +2135,14 @@ const Building = (function () {
     }
     if (convexPanel) {
       els.push(..._wallGateConvexPanel(gate, top, ground, o, pxM));
+      return els;
+    }
+    if (solidTransom) {
+      els.push(..._wallGateSolidTransom(gate, top, ground, o, pxM));
+      return els;
+    }
+    if (openPortal) {
+      els.push(..._wallGateOpen(gate, top, ground, o, pxM, o.wallGateType));
       return els;
     }
     const leaves = o.wallGateType === 'double' ? 2 : 1;
@@ -1407,5 +2156,6 @@ const Building = (function () {
   }
 
   return { elements, MIN_SPAN, ROOF_FRAC, FLOOR_H,
-    WALL_GATE_H_MIN, WALL_GATE_H_MAX, WALL_RAIL_H_MIN, WALL_RAIL_H_MAX };
+    WALL_GATE_H_MIN, WALL_GATE_H_MAX, WALL_RAIL_H_MIN, WALL_RAIL_H_MAX,
+    FENCE_H_MIN_CM, FENCE_H_MAX_CM, GATE_H_MIN_CM, GATE_H_MAX_CM };
 })();

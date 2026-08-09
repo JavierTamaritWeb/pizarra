@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=2.4.5" />
+  <link rel="stylesheet" href="css/styles.css?v=2.6.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.4.5" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.6.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v2.4.5</span>
+        <span class="topbar__badge">v2.6.0</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes" aria-expanded="false" aria-controls="side-panel">
@@ -412,8 +412,10 @@
       <section class="modal__help-group">
         <h4 class="modal__help-title">🏛️ Edificios</h4>
         <ul class="modal__help-list">
-          <li><strong>Planta</strong> (<kbd>W</kbd>), <strong>Fachada</strong> (<kbd>1</kbd>), <strong>Tejado</strong> (<kbd>2</kbd>), <strong>Puerta</strong> (<kbd>0</kbd>), <strong>Ventana</strong> (<kbd>Y</kbd>) y <strong>Balcón</strong>: cada una abre un catálogo de tipos al pulsarla; elige uno y arrastra en el lienzo</li>
-          <li><strong>Balcón</strong> ofrece 8 tipos —de barrotes, francés, de forja, balaustrada, corrido, acristalado, terraza y mirador—; el arrastre marca el balcón entero (barandilla arriba y losa abajo) y el vuelo sobresale a los lados. Es el único sin atajo: no quedaban teclas sueltas libres</li>
+          <li><strong>Planta</strong> (<kbd>W</kbd>), <strong>Fachada</strong> (<kbd>1</kbd>), <strong>Tejado</strong> (<kbd>2</kbd>), <strong>Puerta</strong> (<kbd>0</kbd>), <strong>Ventana</strong> (<kbd>Y</kbd>), <strong>Balcón</strong>, <strong>Muro</strong>, <strong>Verjas</strong> y <strong>Cancela</strong>: cada una abre un catálogo al pulsarla; elige y arrastra en el lienzo</li>
+          <li><strong>Balcón</strong> ofrece 8 tipos —de barrotes, francés, de forja, balaustrada, corrido, acristalado, terraza y mirador—; el arrastre marca el balcón entero (barandilla arriba y losa abajo) y el vuelo sobresale a los lados. No tiene atajo: no quedaban teclas sueltas libres</li>
+          <li><strong>Verjas</strong> ofrece planta y alzado, trece diseños de forja con lanzas —seis inspirados en tradiciones españolas— y altura regulable de <strong>0 a 350 cm</strong>, todo visible en su miniatura en vivo</li>
+          <li><strong>Cancela</strong> reúne los 18 estilos de entrada en una herramienta independiente, con planta, alzado, miniatura en vivo y altura de <strong>0 a 350 cm</strong></li>
           <li>En su catálogo, como en los del <strong>Jardín</strong>, el <strong>icono es el dibujo real</strong> que vas a obtener</li>
           <li><strong>Fachada</strong> ofrece 3 vistas —de frente, con tejado y de lado— con una <strong>miniatura en vivo</strong>: plantas, ventanas por planta, pendiente y cubierta se ajustan en el propio catálogo (y siguen en el panel <strong>Edificios</strong>, sincronizados). Pasa el puntero por una vista para verla antes de elegirla</li>
           <li>El <strong>tipo de puerta y de ventana</strong> de los huecos también se elige en ese mismo catálogo, sin cambiar de herramienta</li>
@@ -590,6 +592,7 @@
             <select class="panel__select" id="wall-material">
               <option value="stone">Piedra</option>
               <option value="concrete">Hormigón</option>
+              <option value="brick">Ladrillo cara vista</option>
             </select>
           </label>
           <label class="panel__field" for="wall-height">
@@ -614,7 +617,13 @@
               <option value="concaveDiamond">Cóncava con rombos ingleses</option>
               <option value="concaveRings">Cóncava de anillas neoclásicas</option>
               <option value="concavePalmette">Cóncava de palmetas barrocas</option>
-              <option value="convexPanel">Convexa monumental con paneles</option>
+              <option value="convexPanel">Convexa monumental · Panelada clásica</option>
+              <option value="convexFan">Convexa monumental · Abanico imperial</option>
+              <option value="convexMedallion">Convexa monumental · Doble cenefa</option>
+              <option value="convexBlind">Convexa monumental · Ciega acanalada</option>
+              <option value="solidTransom">Portón ciego con montante superior</option>
+              <option value="openBars">Portón abierto de barrotes con lanzas</option>
+              <option value="openScrolls">Portón abierto ornamental con lanzas</option>
             </select>
           </label>
           <label class="panel__field" for="wall-gate-height">
@@ -625,6 +634,24 @@
           </label>
           <label class="panel__check">
             <input type="checkbox" id="wall-railing" /> Verja de forja arriba
+          </label>
+          <label class="panel__field" for="wall-railing-type">
+            <span class="modal__field-label">Diseño de la verja</span>
+            <select class="panel__select" id="wall-railing-type">
+              <option value="spear">Lanzas clásicas</option>
+              <option value="minimal">Recta minimalista con lanzas</option>
+              <option value="arches">Arcos entrelazados con lanzas</option>
+              <option value="diamonds">Rombos ingleses con lanzas</option>
+              <option value="rings">Anillas neoclásicas con lanzas</option>
+              <option value="scrolls">Volutas barrocas con lanzas</option>
+              <option value="fans">Abanicos ornamentales con lanzas</option>
+              <option value="castilian">Castellana de cuadradillo torsionado</option>
+              <option value="plateresque">Plateresca de medallones y palmetas</option>
+              <option value="herrerian">Herreriana de nudos sobrios</option>
+              <option value="andalusian">Andaluza de roleos en S</option>
+              <option value="catalan">Catalana de espirales y rosetas</option>
+              <option value="valencian">Valenciana barroca de rocalla</option>
+            </select>
           </label>
           <label class="panel__field" for="wall-railing-height">
             <span class="modal__field-label">Alto de la verja: <span id="wall-railing-height-val">0,7</span> m</span>
@@ -637,6 +664,60 @@
 
       <p class="modal__legend">Vista</p>
       <div id="wall-catalog"></div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
+  <!-- ===== MODAL: VERJAS ===== -->
+  <dialog class="modal" id="modal-fence" aria-labelledby="modal-fence-title">
+      <h3 class="modal__heading" id="modal-fence-title">Verjas de forja</h3>
+      <p class="modal__sub">Elige el diseño y la altura; después pulsa planta o alzado para dibujar.</p>
+
+      <div class="modal__build">
+        <canvas class="modal__preview" id="fence-preview" width="176" height="168"
+                role="img" aria-label="Vista previa de la verja con los ajustes actuales"></canvas>
+        <div class="modal__build-fields">
+          <label class="panel__field" for="fence-type">
+            <span class="modal__field-label">Tipo de verja</span>
+            <select class="panel__select" id="fence-type"></select>
+          </label>
+          <label class="panel__field" for="fence-height">
+            <span class="modal__field-label">Altura: <span id="fence-height-val">180</span> cm</span>
+            <input class="panel__slider" type="range" id="fence-height"
+                   min="0" max="350" step="5" value="180"
+                   aria-label="Altura de la verja, de 0 a 350 centímetros" />
+          </label>
+        </div>
+      </div>
+
+      <p class="modal__legend">Vista</p>
+      <div id="fence-catalog"></div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
+  <!-- ===== MODAL: CANCELA ===== -->
+  <dialog class="modal" id="modal-gate" aria-labelledby="modal-gate-title">
+      <h3 class="modal__heading" id="modal-gate-title">Cancelas</h3>
+      <p class="modal__sub">Elige uno de los estilos, ajusta su altura y pulsa planta o alzado para dibujar.</p>
+
+      <div class="modal__build">
+        <canvas class="modal__preview" id="gate-preview" width="176" height="168"
+                role="img" aria-label="Vista previa de la cancela con los ajustes actuales"></canvas>
+        <div class="modal__build-fields">
+          <label class="panel__field" for="gate-type">
+            <span class="modal__field-label">Estilo de cancela</span>
+            <select class="panel__select" id="gate-type"></select>
+          </label>
+          <label class="panel__field" for="gate-height">
+            <span class="modal__field-label">Altura: <span id="gate-height-val">200</span> cm</span>
+            <input class="panel__slider" type="range" id="gate-height"
+                   min="0" max="350" step="5" value="200"
+                   aria-label="Altura de la cancela, de 0 a 350 centímetros" />
+          </label>
+        </div>
+      </div>
+
+      <p class="modal__legend">Vista</p>
+      <div id="gate-catalog"></div>
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
   </dialog>
 
@@ -753,19 +834,19 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=2.4.5"></script>
-  <script src="src/js/sketchy.js?v=2.4.5"></script>
-  <script src="src/js/arc.js?v=2.4.5"></script>
-  <script src="src/js/curve-path.js?v=2.4.5"></script>
-  <script src="src/js/shape-rotation.js?v=2.4.5"></script>
-  <script src="src/js/regular-polygon.js?v=2.4.5"></script>
-  <script src="src/js/trapezoid.js?v=2.4.5"></script>
-  <script src="src/js/eraser.js?v=2.4.5"></script>
-  <script src="src/js/building.js?v=2.4.5"></script>
-  <script src="src/js/garden.js?v=2.4.5"></script>
-  <script src="src/js/renderer.js?v=2.4.5"></script>
-  <script src="src/js/exporter.js?v=2.4.5"></script>
-  <script src="src/js/templates.js?v=2.4.5"></script>
-  <script src="src/js/app.js?v=2.4.5"></script>
+  <script src="src/js/config.js?v=2.6.0"></script>
+  <script src="src/js/sketchy.js?v=2.6.0"></script>
+  <script src="src/js/arc.js?v=2.6.0"></script>
+  <script src="src/js/curve-path.js?v=2.6.0"></script>
+  <script src="src/js/shape-rotation.js?v=2.6.0"></script>
+  <script src="src/js/regular-polygon.js?v=2.6.0"></script>
+  <script src="src/js/trapezoid.js?v=2.6.0"></script>
+  <script src="src/js/eraser.js?v=2.6.0"></script>
+  <script src="src/js/building.js?v=2.6.0"></script>
+  <script src="src/js/garden.js?v=2.6.0"></script>
+  <script src="src/js/renderer.js?v=2.6.0"></script>
+  <script src="src/js/exporter.js?v=2.6.0"></script>
+  <script src="src/js/templates.js?v=2.6.0"></script>
+  <script src="src/js/app.js?v=2.6.0"></script>
 </body>
 </html>

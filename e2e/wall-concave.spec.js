@@ -17,10 +17,12 @@ test('Muro y cancela: la cóncava se ve, se dibuja y sobrevive a una recarga', a
   await expect(page.locator('#modal-wall')).toBeVisible();
   await expect(page.locator('#wall-gate-type')).toHaveValue('concave');
   const concaveTypes = await page.locator('#wall-gate-type option').evaluateAll(options =>
-    options.map(o => o.value).filter(v => v.startsWith('concave') || v === 'convexPanel'));
+    options.map(o => o.value).filter(v => v.startsWith('concave') || v.startsWith('convex') ||
+      ['solidTransom', 'openBars', 'openScrolls'].includes(v)));
   expect(concaveTypes).toEqual(['concave', 'concaveSwan', 'concavePanel', 'concaveOrnate',
     'concaveFan', 'concaveLyre', 'concaveDiamond', 'concaveRings', 'concavePalmette',
-    'convexPanel']);
+    'convexPanel', 'convexFan', 'convexMedallion', 'convexBlind', 'solidTransom',
+    'openBars', 'openScrolls']);
   const previews = [];
   for (const type of concaveTypes) {
     await page.locator('#wall-gate-type').selectOption(type);
@@ -31,9 +33,25 @@ test('Muro y cancela: la cóncava se ve, se dibuja y sobrevive a una recarga', a
       return hash >>> 0;
     }));
   }
-  expect(new Set(previews).size, 'cada diseño debe cambiar la miniatura').toBe(10);
+  expect(new Set(previews).size, 'cada diseño debe cambiar la miniatura').toBe(16);
   await page.locator('#wall-gate-type').selectOption('concave');
   await page.locator('#wall-railing').check();
+  const railingTypes = await page.locator('#wall-railing-type option').evaluateAll(options =>
+    options.map(o => o.value));
+  expect(railingTypes).toEqual(['spear', 'minimal', 'arches', 'diamonds', 'rings', 'scrolls', 'fans',
+    'castilian', 'plateresque', 'herrerian', 'andalusian', 'catalan', 'valencian']);
+  const railingPreviews = [];
+  for (const type of railingTypes) {
+    await page.locator('#wall-railing-type').selectOption(type);
+    railingPreviews.push(await page.locator('#wall-preview').evaluate(canvas => {
+      const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+      let hash = 2166136261;
+      for (let i = 0; i < data.length; i += 17) hash = Math.imul(hash ^ data[i], 16777619);
+      return hash >>> 0;
+    }));
+  }
+  expect(new Set(railingPreviews).size, 'cada verja debe cambiar la miniatura').toBe(13);
+  await page.locator('#wall-railing-type').selectOption('spear');
   await page.locator('#wall-railing-height').fill('1.4');
   await page.locator('#wall-railing-height').dispatchEvent('input');
   await page.locator('#wall-railing-height').dispatchEvent('change');

@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.4.5 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.6.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.4\.5</);
-  assert.match(html, /css\/styles\.css\?v=2\.4\.5/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.4\.5/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.4\.5/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.4\.5/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.4\.5/);
+  assert.match(html, /class="topbar__badge">v2\.6\.0</);
+  assert.match(html, /css\/styles\.css\?v=2\.6\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.6\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.6\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.6\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.6\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -206,6 +206,32 @@ test('el slider de alto de verja cubre justo el rango que acota building.js', ()
   const { Building } = loadAll();
   assert.equal(attr('min'), Building.WALL_RAIL_H_MIN);
   assert.equal(attr('max'), Building.WALL_RAIL_H_MAX);
+});
+
+test('el slider de Verjas cubre exactamente de 0 a 350 cm', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const tag = html.match(/<input[^>]*id="fence-height"[\s\S]*?\/>/);
+  assert.ok(tag, 'no existe el slider #fence-height');
+  const attrs = tag[0].replace(/\s+/g, ' ');
+  const attr = a => Number(attrs.match(new RegExp(`${a}="([^"]+)"`))[1]);
+  const { Building } = loadAll();
+  assert.equal(attr('min'), Building.FENCE_H_MIN_CM);
+  assert.equal(attr('max'), Building.FENCE_H_MAX_CM);
+  assert.ok(attr('value') >= Building.FENCE_H_MIN_CM &&
+    attr('value') <= Building.FENCE_H_MAX_CM);
+});
+
+test('el slider de Cancela cubre exactamente de 0 a 350 cm', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const tag = html.match(/<input[^>]*id="gate-height"[\s\S]*?\/>/);
+  assert.ok(tag, 'no existe el slider #gate-height');
+  const attrs = tag[0].replace(/\s+/g, ' ');
+  const attr = a => Number(attrs.match(new RegExp(`${a}="([^"]+)"`))[1]);
+  const { Building } = loadAll();
+  assert.equal(attr('min'), Building.GATE_H_MIN_CM);
+  assert.equal(attr('max'), Building.GATE_H_MAX_CM);
+  assert.ok(attr('value') >= Building.GATE_H_MIN_CM &&
+    attr('value') <= Building.GATE_H_MAX_CM);
 });
 
 // Los ajustes de Edificios existen DOS veces (panel + modal de Fachada) y

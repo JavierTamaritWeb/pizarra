@@ -34,8 +34,17 @@
     wallHeight: 1,
     wallRailing: false,
     wallRailingHeight: 0.7,
+    wallRailingType: 'spear',
     wallGateType: 'concave',
     wallGateHeight: 2,   // alto de la cancela en metros (Building.WALL_GATE_H_MIN/MAX)
+    // Verja independiente: vista, diseño de forja y altura acotada en cm.
+    fenceView: 'elevation',
+    fenceType: 'spear',
+    fenceHeightCm: 180,
+    // Cancela autónoma: vista, modelo y altura en centímetros.
+    gateView: 'elevation',
+    gateType: 'concave',
+    gateHeightCm: 200,
     buildFloors: 'auto', // nº de plantas de Fachada/Alzado/Perfil ('auto' = según la altura)
     buildBays: 'auto',   // ventanas por planta ('auto' = según el ancho)
     roofPitch: 0.36,     // fracción de altura del tejado en Alzado/Perfil (0.20–0.50)
@@ -811,8 +820,17 @@
         wallHeight: state.wallHeight,
         wallRailing: state.wallRailing,
         wallRailingHeight: state.wallRailingHeight,
+        wallRailingType: state.wallRailingType,
         wallGateType: state.wallGateType,
         wallGateHeight: state.wallGateHeight,
+        // Verja independiente: los tres controles de su modal también son
+        // defaults de creación y deben sobrevivir a la recarga.
+        fenceView: state.fenceView,
+        fenceType: state.fenceType,
+        fenceHeightCm: state.fenceHeightCm,
+        gateView: state.gateView,
+        gateType: state.gateType,
+        gateHeightCm: state.gateHeightCm,
         // Variantes de Jardín, por el mismo motivo.
         plotShape: state.plotShape,
         treeType: state.treeType,
@@ -877,23 +895,36 @@
       }
       // Los 3 ajustes de Muro sin catálogo propio se validan contra su lista
       // fija (mismas opciones que el <select>/checkbox de #modal-wall).
-      if (['stone', 'concrete'].includes(prefs.wallMaterial)) state.wallMaterial = prefs.wallMaterial;
+      if (['stone', 'concrete', 'brick'].includes(prefs.wallMaterial)) state.wallMaterial = prefs.wallMaterial;
       if (prefs.wallHeight === 1 || prefs.wallHeight === 2) state.wallHeight = prefs.wallHeight;
       if (typeof prefs.wallRailing === 'boolean') state.wallRailing = prefs.wallRailing;
+      if (FORGE_TYPES.some(item => item.id === prefs.wallRailingType)) {
+        state.wallRailingType = prefs.wallRailingType;
+      }
       if (Number.isFinite(prefs.wallRailingHeight)) {
         state.wallRailingHeight = Math.min(Building.WALL_RAIL_H_MAX,
           Math.max(Building.WALL_RAIL_H_MIN, prefs.wallRailingHeight));
       }
       if (prefs.wallDesignVersion === WALL_DESIGN_VERSION &&
-          ['none', 'single', 'double', 'concave', 'concaveSwan',
-            'concavePanel', 'concaveOrnate', 'concaveFan', 'concaveLyre',
-            'concaveDiamond', 'concaveRings', 'concavePalmette',
-            'convexPanel'].includes(prefs.wallGateType)) {
+          (prefs.wallGateType === 'none' ||
+            GATE_TYPES.some(item => item.id === prefs.wallGateType))) {
         state.wallGateType = prefs.wallGateType;
       }
       if (Number.isFinite(prefs.wallGateHeight)) {
         state.wallGateHeight = Math.min(Building.WALL_GATE_H_MAX,
           Math.max(Building.WALL_GATE_H_MIN, prefs.wallGateHeight));
+      }
+      restoreVariant(prefs.fenceView, FENCE_VIEWS, 'fenceView');
+      restoreVariant(prefs.fenceType, FORGE_TYPES, 'fenceType');
+      if (Number.isFinite(prefs.fenceHeightCm)) {
+        state.fenceHeightCm = Math.min(Building.FENCE_H_MAX_CM,
+          Math.max(Building.FENCE_H_MIN_CM, prefs.fenceHeightCm));
+      }
+      restoreVariant(prefs.gateView, GATE_VIEWS, 'gateView');
+      restoreVariant(prefs.gateType, GATE_TYPES, 'gateType');
+      if (Number.isFinite(prefs.gateHeightCm)) {
+        state.gateHeightCm = Math.min(Building.GATE_H_MAX_CM,
+          Math.max(Building.GATE_H_MIN_CM, prefs.gateHeightCm));
       }
       restoreVariant(prefs.plotShape,   PLOT_SHAPES,   'plotShape');
       restoreVariant(prefs.treeType,    TREE_TYPES,    'treeType');
@@ -1546,7 +1577,12 @@
       wallView: state.wallView, wallMaterial: state.wallMaterial,
       wallHeight: state.wallHeight, wallRailing: state.wallRailing,
       wallRailingHeight: state.wallRailingHeight,
+      wallRailingType: state.wallRailingType,
       wallGateType: state.wallGateType, wallGateHeight: state.wallGateHeight,
+      fenceView: state.fenceView, fenceType: state.fenceType,
+      fenceHeightCm: state.fenceHeightCm,
+      gateView: state.gateView, gateType: state.gateType,
+      gateHeightCm: state.gateHeightCm,
     };
   }
 
@@ -2578,6 +2614,12 @@
     // la vista (no caben en este catálogo de 2 entradas): viven como ajustes
     // propios de #modal-wall, sincronizados por syncWallControls() al abrir.
     { tool: TOOLS.BUILD_WALL, modal: 'modal-wall', root: 'wall-catalog', cls: 'modal__wall', data: 'wall', catalog: WALL_VIEWS, key: 'wallView', gen: () => Building, opts: () => buildOpts(), box: { x: 0, y: 0 } },
+    // Verjas: el catálogo elige planta/alzado; tipo y altura viven en los
+    // controles del modal y se reflejan en la miniatura en vivo.
+    { tool: TOOLS.BUILD_FENCE, modal: 'modal-fence', root: 'fence-catalog', cls: 'modal__fence', data: 'fence', catalog: FENCE_VIEWS, key: 'fenceView', gen: () => Building, opts: () => buildOpts(), box: { x: 0, y: 0 } },
+    // Cancela: planta/alzado en el catálogo; modelo y cota 0–350 cm en sus
+    // controles, con la misma geometría que las entradas del Muro.
+    { tool: TOOLS.BUILD_GATE, modal: 'modal-gate', root: 'gate-catalog', cls: 'modal__gate', data: 'gate', catalog: GATE_VIEWS, key: 'gateView', gen: () => Building, opts: () => buildOpts(), box: { x: 0, y: 0 } },
     { tool: TOOLS.GARDEN_PLOT,   modal: 'modal-plot',   root: 'plot-catalog',   cls: 'modal__plot',   data: 'plot',   catalog: PLOT_SHAPES,   key: 'plotShape'  },
     { tool: TOOLS.GARDEN_TREE,   modal: 'modal-tree',   root: 'tree-catalog',   cls: 'modal__tree',   data: 'tree',   catalog: TREE_TYPES,    key: 'treeType'   },
     { tool: TOOLS.GARDEN_SHRUB,  modal: 'modal-shrub',  root: 'shrub-catalog',  cls: 'modal__shrub',  data: 'shrub',  catalog: SHRUB_TYPES,   key: 'shrubType'  },
@@ -2652,6 +2694,8 @@
       // Muro también lleva ajustes propios (material/altura/verja/puerta)
       // fuera del catálogo genérico, mismo motivo que Camino.
       if (id === TOOLS.BUILD_WALL) syncWallControls();
+      if (id === TOOLS.BUILD_FENCE) syncFenceControls();
+      if (id === TOOLS.BUILD_GATE) syncGateControls();
       $(variant.modal).showModal();
     }
   }
@@ -3207,6 +3251,11 @@
       syncWallControls();
       savePrefs();
     });
+    $('wall-railing-type').addEventListener('change', e => {
+      state.wallRailingType = e.target.value;
+      syncWallControls();
+      savePrefs();
+    });
     $('wall-railing-height').addEventListener('input', e => {
       const v = Number(e.target.value);
       if (!Number.isFinite(v)) return;
@@ -3233,6 +3282,44 @@
     });
     $('wall-gate-height').addEventListener('change', savePrefs);
     syncWallControls();   // valores iniciales (tras restorePrefs)
+    // Verjas: tipo y altura son ajustes propios; la vista se elige pulsando
+    // uno de los dos botones del catálogo genérico.
+    fillVariantSelect('fence-type', FORGE_TYPES);
+    $('fence-type').addEventListener('change', e => {
+      state.fenceType = FORGE_TYPES.some(item => item.id === e.target.value)
+        ? e.target.value : 'spear';
+      syncFenceControls();
+      savePrefs();
+    });
+    $('fence-height').addEventListener('input', e => {
+      const v = Number(e.target.value);
+      if (!Number.isFinite(v)) return;
+      state.fenceHeightCm = Math.min(Building.FENCE_H_MAX_CM,
+        Math.max(Building.FENCE_H_MIN_CM, v));
+      syncFenceControls();
+      scheduleOverlay();
+    });
+    $('fence-height').addEventListener('change', savePrefs);
+    syncFenceControls();
+    // Cancela independiente: todos los modelos comparten el mismo rango de
+    // altura y las dos vistas arquitectónicas del catálogo.
+    fillVariantSelect('gate-type', GATE_TYPES);
+    $('gate-type').addEventListener('change', e => {
+      state.gateType = GATE_TYPES.some(item => item.id === e.target.value)
+        ? e.target.value : 'concave';
+      syncGateControls();
+      savePrefs();
+    });
+    $('gate-height').addEventListener('input', e => {
+      const v = Number(e.target.value);
+      if (!Number.isFinite(v)) return;
+      state.gateHeightCm = Math.min(Building.GATE_H_MAX_CM,
+        Math.max(Building.GATE_H_MIN_CM, v));
+      syncGateControls();
+      scheduleOverlay();
+    });
+    $('gate-height').addEventListener('change', savePrefs);
+    syncGateControls();
     // Doble punta — semántica dual: con selección aplica/quita heads:'both'
     // a las flechas seleccionadas (los no-flecha se ignoran); sin selección
     // fija el default para las nuevas flechas.
@@ -4388,6 +4475,7 @@
     $('wall-material').value = state.wallMaterial;
     $('wall-height').value = String(state.wallHeight);
     $('wall-railing').checked = state.wallRailing;
+    $('wall-railing-type').value = state.wallRailingType;
     $('wall-railing-height').value = String(state.wallRailingHeight);
     $('wall-railing-height-val').textContent = state.wallRailingHeight.toFixed(1).replace('.', ',');
     $('wall-gate-type').value = state.wallGateType;
@@ -4436,6 +4524,105 @@
     );
     pctx.scale(s, s);
     drawPiecesPreview(pctx, els.map(el => ({ ...el, lineWidth: Math.max(el.lineWidth, 0.9 / s) })));
+    pctx.restore();
+  }
+
+  /** Sincroniza y previsualiza la herramienta Verjas. La altura se conserva
+      en centímetros de proyecto (0–350), sin conversiones visibles a metros. */
+  function syncFenceControls() {
+    $('fence-type').value = state.fenceType;
+    $('fence-height').value = String(state.fenceHeightCm);
+    $('fence-height-val').textContent = String(Math.round(state.fenceHeightCm));
+    renderFencePreview();
+  }
+
+  const FENCE_PREVIEW_W = 176, FENCE_PREVIEW_H = 168;
+  const FENCE_SAMPLE_LEN = 160;
+
+  function renderFencePreview() {
+    const cv = $('fence-preview');
+    if (!cv) return;
+    const pctx = cv.getContext('2d');
+    if (!pctx) return;
+    const dpr = window.devicePixelRatio || 1;
+    if (cv.width !== Math.round(FENCE_PREVIEW_W * dpr)) {
+      cv.width = Math.round(FENCE_PREVIEW_W * dpr);
+      cv.height = Math.round(FENCE_PREVIEW_H * dpr);
+    }
+    pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    pctx.fillStyle = state.canvasBg;
+    pctx.fillRect(0, 0, FENCE_PREVIEW_W, FENCE_PREVIEW_H);
+
+    const els = Building.elements(
+      TOOLS.BUILD_FENCE, { x: 0, y: 0 }, { x: FENCE_SAMPLE_LEN, y: 0 }, buildOpts(),
+    );
+    if (!els.length) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    els.forEach(el => {
+      const b = getElementBounds(el);
+      minX = Math.min(minX, b.x); minY = Math.min(minY, b.y);
+      maxX = Math.max(maxX, b.x + b.w); maxY = Math.max(maxY, b.y + b.h);
+    });
+    const pad = 12;
+    const bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY);
+    const s = Math.min((FENCE_PREVIEW_W - 2 * pad) / bw,
+      (FENCE_PREVIEW_H - 2 * pad) / bh);
+    pctx.save();
+    pctx.translate((FENCE_PREVIEW_W - bw * s) / 2 - minX * s,
+      (FENCE_PREVIEW_H - bh * s) / 2 - minY * s);
+    pctx.scale(s, s);
+    drawPiecesPreview(pctx, els.map(el => ({
+      ...el, lineWidth: Math.max(el.lineWidth, 0.9 / s),
+    })));
+    pctx.restore();
+  }
+
+  /** Sincroniza el catálogo autónomo de cancelas y su miniatura. */
+  function syncGateControls() {
+    $('gate-type').value = state.gateType;
+    $('gate-height').value = String(state.gateHeightCm);
+    $('gate-height-val').textContent = String(Math.round(state.gateHeightCm));
+    renderGatePreview();
+  }
+
+  const GATE_PREVIEW_W = 176, GATE_PREVIEW_H = 168;
+  const GATE_SAMPLE_LEN = 160;
+
+  function renderGatePreview() {
+    const cv = $('gate-preview');
+    if (!cv) return;
+    const pctx = cv.getContext('2d');
+    if (!pctx) return;
+    const dpr = window.devicePixelRatio || 1;
+    if (cv.width !== Math.round(GATE_PREVIEW_W * dpr)) {
+      cv.width = Math.round(GATE_PREVIEW_W * dpr);
+      cv.height = Math.round(GATE_PREVIEW_H * dpr);
+    }
+    pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    pctx.fillStyle = state.canvasBg;
+    pctx.fillRect(0, 0, GATE_PREVIEW_W, GATE_PREVIEW_H);
+
+    const els = Building.elements(
+      TOOLS.BUILD_GATE, { x: 0, y: 0 }, { x: GATE_SAMPLE_LEN, y: 0 }, buildOpts(),
+    );
+    if (!els.length) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    els.forEach(el => {
+      const b = getElementBounds(el);
+      minX = Math.min(minX, b.x); minY = Math.min(minY, b.y);
+      maxX = Math.max(maxX, b.x + b.w); maxY = Math.max(maxY, b.y + b.h);
+    });
+    const pad = 12;
+    const bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY);
+    const s = Math.min((GATE_PREVIEW_W - 2 * pad) / bw,
+      (GATE_PREVIEW_H - 2 * pad) / bh);
+    pctx.save();
+    pctx.translate((GATE_PREVIEW_W - bw * s) / 2 - minX * s,
+      (GATE_PREVIEW_H - bh * s) / 2 - minY * s);
+    pctx.scale(s, s);
+    drawPiecesPreview(pctx, els.map(el => ({
+      ...el, lineWidth: Math.max(el.lineWidth, 0.9 / s),
+    })));
     pctx.restore();
   }
 

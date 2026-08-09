@@ -1172,13 +1172,34 @@ test('Muro: la cancela cóncava está disponible y se restaura desde prefs', () 
   assert.ok(options.includes('concave'), 'la variante señorial figura en el selector');
 });
 
-test('Muro: los nueve diseños cóncavos y el convexo están disponibles y persisten', () => {
+test('Muro: los nueve diseños cóncavos y los cuatro convexos están disponibles y persisten', () => {
   const types = ['concave', 'concaveSwan', 'concavePanel', 'concaveOrnate',
     'concaveFan', 'concaveLyre', 'concaveDiamond', 'concaveRings', 'concavePalmette',
-    'convexPanel'];
+    'convexPanel', 'convexFan', 'convexMedallion', 'convexBlind'];
   for (const type of types) {
     const app = loadApp({ prefs: { wallDesignVersion: 1, wallGateType: type } });
     assert.equal(app.$('wall-gate-type').value, type);
+  }
+});
+
+test('Muro: ladrillo cara vista y los tres portones urbanos persisten', () => {
+  const app = loadApp({ prefs: {
+    wallDesignVersion: 1, wallMaterial: 'brick', wallGateType: 'solidTransom',
+  } });
+  assert.equal(app.$('wall-material').value, 'brick');
+  assert.equal(app.$('wall-gate-type').value, 'solidTransom');
+  for (const type of ['openBars', 'openScrolls']) {
+    const restored = loadApp({ prefs: { wallDesignVersion: 1, wallGateType: type } });
+    assert.equal(restored.$('wall-gate-type').value, type);
+  }
+});
+
+test('Muro: los trece diseños de verja superior están disponibles y persisten', () => {
+  const types = ['spear', 'minimal', 'arches', 'diamonds', 'rings', 'scrolls', 'fans',
+    'castilian', 'plateresque', 'herrerian', 'andalusian', 'catalan', 'valencian'];
+  for (const type of types) {
+    const app = loadApp({ prefs: { wallRailingType: type } });
+    assert.equal(app.$('wall-railing-type').value, type);
   }
 });
 
@@ -1189,4 +1210,100 @@ test('Muro: la cancela cóncava en alzado es el inicio visible y migra defaults 
 
   const legacy = loadApp({ prefs: { wallView: 'plan', wallGateType: 'none' } });
   assert.equal(legacy.$('wall-gate-type').value, 'concave', 'el default histórico no oculta el diseño nuevo');
+});
+
+test('Verjas: el botón abre un modal con trece tipos, altura y dos vistas', () => {
+  const app = loadApp();
+  app.selectTool('verja');
+  assert.equal(app.$('modal-fence').open, true);
+  assert.deepEqual(app.$('fence-type').children.map(option => option.value),
+    ['spear', 'minimal', 'arches', 'diamonds', 'rings', 'scrolls', 'fans',
+      'castilian', 'plateresque', 'herrerian', 'andalusian', 'catalan', 'valencian']);
+  const views = app.$('fence-catalog').querySelectorAll('.modal__fence')
+    .map(button => button.dataset.fence);
+  assert.deepEqual(views, ['plan', 'elevation']);
+  assert.equal(app.$('fence-height').value, '180');
+});
+
+test('Verjas: tipo, altura y vista se dibujan y persisten', () => {
+  const app = loadApp();
+  app.selectTool('verja');
+  const type = app.$('fence-type');
+  type.value = 'fans';
+  type.__fire('change', { target: type });
+  const height = app.$('fence-height');
+  height.value = '350';
+  height.__fire('input', { target: height });
+  height.__fire('change', { target: height });
+  app.pickVariant('fence-catalog', 'modal__fence', 'elevation', 'fence');
+  app.drag(100, 100, 300, 100);
+  const els = app.elements();
+  assert.ok(els.filter(e => e.type === 'circle').length >= 2,
+    'el abanico conserva sus cubos ornamentales');
+  const bounds = els.reduce((acc, el) => {
+    if ('y' in el && 'h' in el) { acc.min = Math.min(acc.min, el.y); acc.max = Math.max(acc.max, el.y + el.h); }
+    if ('y1' in el) { acc.min = Math.min(acc.min, el.y1, el.y2); acc.max = Math.max(acc.max, el.y1, el.y2); }
+    return acc;
+  }, { min: Infinity, max: -Infinity });
+  assert.ok(bounds.max - bounds.min > 200, '350 cm produce una verja monumental');
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.fenceView, 'elevation');
+  assert.equal(prefs.fenceType, 'fans');
+  assert.equal(prefs.fenceHeightCm, 350);
+});
+
+test('Verjas: preferencias inválidas se ignoran o se acotan al rango', () => {
+  const app = loadApp({ prefs: {
+    fenceView: 'perspective', fenceType: 'barbed', fenceHeightCm: 999,
+  } });
+  assert.equal(app.$('fence-type').value, 'spear');
+  assert.equal(app.$('fence-height').value, '350');
+  app.selectTool('verja');
+  const active = app.$('fence-catalog').querySelector('.modal__shape--active');
+  assert.equal(active.dataset.fence, 'elevation');
+});
+
+test('Cancela: el botón abre un modal con dieciocho estilos, altura y dos vistas', () => {
+  const app = loadApp();
+  app.selectTool('cancela');
+  assert.equal(app.$('modal-gate').open, true);
+  assert.deepEqual(app.$('gate-type').children.map(option => option.value),
+    [...app.context.GATE_TYPES.map(type => type.id)]);
+  assert.equal(app.$('gate-type').children.length, 18);
+  const views = app.$('gate-catalog').querySelectorAll('.modal__gate')
+    .map(button => button.dataset.gate);
+  assert.deepEqual(views, ['plan', 'elevation']);
+  assert.equal(app.$('gate-height').value, '200');
+});
+
+test('Cancela: estilo, altura y vista se dibujan y persisten', () => {
+  const app = loadApp();
+  app.selectTool('cancela');
+  const type = app.$('gate-type');
+  type.value = 'convexFan';
+  type.__fire('change', { target: type });
+  const height = app.$('gate-height');
+  height.value = '350';
+  height.__fire('input', { target: height });
+  height.__fire('change', { target: height });
+  app.pickVariant('gate-catalog', 'modal__gate', 'elevation', 'gate');
+  app.drag(100, 100, 320, 100);
+  const els = app.elements();
+  assert.ok(els.length > 30, 'la cancela conserva hojas, pilastras y ornamentación');
+  assert.ok(els.some(el => el.type === 'circle'), 'el abanico imperial conserva su rosetón');
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.gateView, 'elevation');
+  assert.equal(prefs.gateType, 'convexFan');
+  assert.equal(prefs.gateHeightCm, 350);
+});
+
+test('Cancela: preferencias inválidas se ignoran o se acotan al rango', () => {
+  const app = loadApp({ prefs: {
+    gateView: 'perspective', gateType: 'automatic', gateHeightCm: 999,
+  } });
+  assert.equal(app.$('gate-type').value, 'concave');
+  assert.equal(app.$('gate-height').value, '350');
+  app.selectTool('cancela');
+  const active = app.$('gate-catalog').querySelector('.modal__shape--active');
+  assert.equal(active.dataset.gate, 'elevation');
 });

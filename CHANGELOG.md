@@ -4,6 +4,79 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.6.0] — 2026-08-09
+
+### Añadido
+
+- **Herramienta independiente «Cancela»** en la sección Edificios. Permite
+  colocar una entrada sin dibujar previamente un muro, en vista de **planta o
+  alzado**, conservando hojas, pilastras, coronaciones y motivos ornamentales.
+- Su modal reúne los **18 estilos** existentes: barrotes de una o dos hojas,
+  nueve cóncavas, cuatro convexas monumentales y tres portones urbanos.
+- **Altura regulable de 0 a 350 cm**, con miniatura en vivo. A 0 cm queda solo
+  la línea de implantación; el arrastre fija el ancho y la cota fija el alto.
+- Estado independiente y persistente para `gateView`, `gateType` y
+  `gateHeightCm`. Las preferencias inválidas se ignoran o se acotan.
+- Catálogos compartidos `GATE_TYPES` y `GATE_VIEWS`, usados también para
+  validar las cancelas del Muro sin mantener dos listas divergentes.
+
+### Cambiado
+
+- La documentación y la ayuda integrada reflejan los nueve botones de
+  Edificios, los 18 estilos de cancela y los rangos en centímetros.
+- Versión visible, caché de recursos y distribución actualizadas a **2.6.0**.
+
+### Tests
+
+- **462 tests unitarios**: geometría autónoma, 18 diseños distintos, planta y
+  alzado, rango exacto 0–350 cm, persistencia y validación del modal.
+- **31 tests end-to-end**: el nuevo flujo comprueba botón, modal, 18 miniaturas
+  diferentes, dibujo real y restauración tras recargar.
+
+## [2.5.4] — 2026-08-09
+
+### Cambiado
+
+- Las puntas defensivas de los **13 diseños de Verjas** dejan de compartir una
+  plantilla genérica. Cada modelo tiene una hoja clásica propia: lanceolada,
+  aguja, ojiva trilobulada, rombo, laurel, llama, palmeta, hoja castellana
+  facetada, flor de lis, piramidión herreriano, cáliz andaluz, corazón catalán
+  o rocalla valenciana.
+- Los remates se aplican tanto a la herramienta Verjas como a la verja superior
+  del Muro. Todos conservan dos filos convergentes y función disuasoria.
+
+### Tests
+
+- Guardia geométrica que compara la **propia hoja**, no solo su collar o el
+  ornamento inferior, e impide que dos modelos vuelvan a compartir perfil.
+
+## [2.5.2] — 2026-08-09
+
+### Añadido
+
+- **Verja Valenciana barroca de rocalla**, con cartelas ovales, roleos
+  asimétricos, abanicos de concha y rosetas. Es el decimotercer diseño y está
+  disponible tanto como verja autónoma como sobre el Muro.
+
+## [2.5.0] — 2026-08-09
+
+### Añadido
+
+- **Herramienta «Verjas»** en Edificios: paños independientes en planta o
+  alzado, miniatura en vivo y altura física de **0 a 350 cm**.
+- Doce diseños iniciales de forja, incluidos cinco repertorios españoles:
+  castellano, plateresco, herreriano, andaluz y catalán. Todos llevan lanzas.
+- Material **ladrillo cara vista** para el Muro, con hiladas y juntas alternas.
+- Seis cancelas adicionales para el Muro: tres variantes de Convexa monumental
+  y tres portones urbanos —uno ciego y dos abiertos—. El catálogo alcanza los
+  **18 estilos** actuales.
+
+### Cambiado
+
+- La altura de la verja superior del Muro pasa a ser ajustable.
+- La distribución `dist/`, las preferencias y la ayuda integrada incorporan
+  los nuevos catálogos y materiales.
+
 ## [2.4.5] — 2026-08-09
 
 ### Añadido
