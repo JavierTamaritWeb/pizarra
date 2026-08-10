@@ -602,8 +602,12 @@ test('elegir el borrador abre su modal de tamaño, como Planta o Balcón abren e
 
 test('el modal de tamaño del borrador se sincroniza con el panel y su ajuste se recuerda', () => {
   const app = loadApp();
-  app.selectTool('pencil');
-  assert.equal(app.$('btn-eraser-size').hidden, true, 'sin el borrador activo, el botón está oculto');
+  // El ⚙ de la cabecera «Trazo» abre los ajustes de la herramienta activa, así
+  // que solo está con una que tenga: Mover no (es la única sin modal desde la
+  // 2.10.0 — hasta Texto y los componentes UI tienen el suyo), el borrador y
+  // las de dibujo y Formas sí (ver la guarda de más abajo sobre a cuál va).
+  app.selectTool('select');
+  assert.equal(app.$('btn-eraser-size').hidden, true, 'sin ajustes propios, el botón está oculto');
   app.selectTool('eraser');
   assert.equal(app.$('btn-eraser-size').hidden, false, 'con el borrador activo, aparece el botón');
   app.$('modal-eraser').close();   // se abrió solo al elegir la herramienta; lo cerramos para reabrirlo a mano
@@ -630,6 +634,856 @@ test('el modal de tamaño del borrador se sincroniza con el panel y su ajuste se
   app2.$('btn-eraser-size').__fire('click', { target: app2.$('btn-eraser-size') });
   app2.flush();
   assert.equal(app2.$('eraser-size-modal-slider').value, '50', 'y vuelve puesto al arrancar de nuevo');
+});
+
+/* ── Panel: secciones contextuales y ajustes de trazo ── */
+
+// El panel era una lista plana: dibujando con el lápiz seguían delante
+// «Plantas», «Cubierta del alzado» o «Ancho del camino», que solo sirven para
+// Fachada y para Camino. Ahora cada sección aparece con su herramienta.
+test('el panel solo enseña las secciones de la herramienta activa', () => {
+  const app = loadApp();
+  const shown = id => !app.$(id).hidden;
+
+  app.selectTool('rect');
+  assert.equal(shown('panel-sec-build'), false, 'Edificios no pinta nada dibujando un rectángulo');
+  assert.equal(shown('panel-sec-garden'), false, 'ni Jardín');
+  assert.equal(shown('panel-sec-text'), false, 'ni Texto');
+  assert.equal(shown('panel-sec-fill'), true, 'Relleno sí: el rectángulo se puede rellenar');
+  assert.equal(shown('panel-sec-canvas'), true, 'Lienzo y Selección están siempre');
+  assert.equal(shown('panel-sec-selection'), true);
+
+  app.selectTool('fachada');
+  assert.equal(shown('panel-sec-build'), true, 'Edificios aparece con una herramienta de Edificios');
+  assert.equal(shown('panel-sec-garden'), false);
+
+  app.selectTool('arbol');
+  assert.equal(shown('panel-sec-garden'), true, 'y Jardín con una del Jardín');
+  assert.equal(shown('panel-sec-build'), false);
+
+  app.selectTool('text');
+  assert.equal(shown('panel-sec-text'), true, 'el tamaño de texto, con la herramienta Texto');
+
+  app.selectTool('line');
+  assert.equal(app.$('row-dash').hidden, false, 'el discontinuo aplica a la línea');
+  assert.equal(app.$('row-double-head').hidden, true, 'pero la línea no lleva puntas');
+  app.selectTool('arrow');
+  assert.equal(app.$('row-double-head').hidden, false, 'la flecha sí');
+});
+
+// El punto delicado de ocultar por herramienta: los controles de relleno, trazo
+// y texto tienen semántica dual, así que con algo seleccionado tienen que estar
+// aunque la herramienta activa no los use. Si esto falla, seleccionar una forma
+// deja de permitir editarla, que es peor que el panel largo original.
+test('las secciones reaparecen con la selección, no solo con la herramienta', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(120, 120, 260, 240);
+  app.selectTool('pencil');
+  assert.equal(app.$('panel-sec-fill').hidden, true, 'con el lápiz y sin selección, Relleno se va');
+
+  app.selectTool('select');
+  app.click(190, 180);
+  assert.equal(app.elements().length, 1);
+  assert.equal(app.$('panel-sec-fill').hidden, false,
+    'pero con el rectángulo seleccionado vuelve, o no habría forma de rellenarlo');
+  assert.equal(app.$('check-fill').checked, false, 'y muestra el valor del elemento');
+});
+
+// Elegir una herramienta de dibujo abre sus ajustes, igual que el Borrador abre
+// el suyo o Planta su catálogo: la vía a un ajuste tiene que salir de la propia
+// herramienta, no solo del panel (que además es un cajón oculto bajo 1100px).
+test('elegir una herramienta de dibujo abre sus ajustes de trazo', () => {
+  const app = loadApp();
+  for (const tool of ['pencil', 'line', 'arrow', 'curveArrow', 'arc']) {
+    app.selectTool('select');          // la única sin modal, para partir de cero
+    app.$('modal-stroke').close();
+    app.selectTool(tool);
+    assert.equal(app.$('modal-stroke').open, true, `${tool} debe abrir sus ajustes`);
+    // Cerrar deja la herramienta puesta: no hay nada que elegir, como en el
+    // Borrador. Si volviera a la anterior no se podría dibujar.
+    app.$('modal-stroke').close();
+    app.flush();
+    assert.equal(app.$('sidebar').querySelector('.sidebar__tool--active').dataset.tool, tool,
+      `cerrar los ajustes de ${tool} no puede cambiar de herramienta`);
+  }
+});
+
+// Las ocho de Formas abren su propio modal, que además de trazo lleva el
+// relleno entero: es la sección del panel que solo les sirve a ellas.
+test('elegir una forma abre sus ajustes, con trazo y relleno', () => {
+  const app = loadApp();
+  const shapes = ['rect', 'roundedRect', 'circle', 'square',
+    'trapezoid', 'triangle', 'pentagon', 'hexagon'];
+  for (const tool of shapes) {
+    app.selectTool('select');
+    app.$('modal-shape').close();
+    app.selectTool(tool);
+    assert.equal(app.$('modal-shape').open, true, `${tool} debe abrir sus ajustes`);
+    app.$('modal-shape').close();
+    app.flush();
+    assert.equal(app.$('sidebar').querySelector('.sidebar__tool--active').dataset.tool, tool,
+      `cerrar los ajustes de ${tool} no puede cambiar de herramienta`);
+  }
+
+  // Los seis campos son gemelos de los del panel, en los dos sentidos.
+  app.selectTool('rect');
+  const fill = app.$('shape-modal-fill');
+  fill.checked = true; fill.__fire('change', { target: fill });
+  app.flush();
+  assert.equal(app.$('check-fill').checked, true, 'el relleno viaja al panel');
+
+  const transp = app.$('shape-modal-fill-transparent');
+  transp.checked = true; transp.__fire('change', { target: transp });
+  app.flush();
+  assert.equal(app.$('check-fill-transparent').checked, true);
+  assert.equal(app.$('fill-opacity-slider').disabled, false,
+    'y la opacidad se habilita en los dos, como en el panel');
+
+  const op = app.$('shape-modal-opacity');
+  op.value = '70'; op.__fire('input', { target: op });
+  app.flush();
+  assert.equal(app.$('fill-opacity-val').textContent, '70');
+
+  const panelOp = app.$('fill-opacity-slider');
+  panelOp.value = '25'; panelOp.__fire('input', { target: panelOp });
+  app.flush();
+  assert.equal(app.$('shape-modal-opacity-val').textContent, '25', 'y al revés');
+
+  const w = app.$('shape-modal-slider');
+  w.value = '5'; w.__fire('input', { target: w });
+  app.flush();
+  assert.equal(app.$('stroke-slider').value, '5', 'el grosor también es el mismo');
+
+  // Y lo dibujado sale con esos ajustes.
+  app.$('modal-shape').close();
+  app.flush();
+  app.drag(120, 120, 240, 240);
+  const el = app.elements()[0];
+  assert.equal(el.fill, true);
+  assert.equal(el.fillTransparent, true);
+  assert.equal(el.fillOpacity, 0.25);
+  assert.equal(el.lineWidth, 5);
+});
+
+/* ── Editar lo ya dibujado: color, posición, tamaño y texto ── */
+
+// Los componentes de UI se movían y se redimensionaban arrastrando, pero su
+// color no se podía cambiar (el picker era el ÚNICO control de aspecto sin
+// semántica dual), no había forma de dar una medida exacta y su rótulo solo se
+// tocaba con doble clic sobre el dibujo. Vale para todos los tipos, no solo UI.
+test('un elemento ya dibujado se puede recolorear, medir y rotular desde el panel', () => {
+  for (const tool of ['button', 'input', 'nav', 'card', 'imagePlaceholder']) {
+    const app = loadApp();
+    app.selectTool(tool);
+    app.drag(200, 200, 340, 250);
+    const el0 = app.elements()[0];
+    assert.equal(el0.type, tool);
+
+    app.selectTool('select');
+    app.click(el0.x + el0.w / 2, el0.y + el0.h / 2);
+    assert.equal(app.$('panel-sec-element').hidden, false,
+      'con algo seleccionado aparece «Posición y tamaño»');
+
+    // Color: el picker recolorea la selección, y todo el gesto es UN undo.
+    const before = app.elements();
+    const picker = app.$('color-picker');
+    picker.value = '#ff0000';
+    picker.__fire('input', { target: picker });
+    picker.__fire('change', { target: picker });
+    app.flush();
+    assert.equal(app.elements()[0].color, '#ff0000', `${tool} debe poder recolorearse`);
+    app.key('z', { ctrlKey: true });
+    assert.deepEqual(app.elements(), before, 'y deshacerse de una vez');
+
+    // Deshacer vacía la selección: hay que volver a coger el elemento.
+    app.click(el0.x + el0.w / 2, el0.y + el0.h / 2);
+
+    // Posición y tamaño exactos.
+    const set = (id, v) => { app.$(id).value = String(v); app.$(id).__fire('change', { target: app.$(id) }); };
+    set('el-x', 60); set('el-y', 80); set('el-w', 300); set('el-h', 120);
+    app.flush();
+    const box = app.elements()[0];
+    assert.equal(Math.round(box.x), 60, `${tool}: X exacta`);
+    assert.equal(Math.round(box.y), 80, `${tool}: Y exacta`);
+    assert.equal(Math.round(box.w), 300, `${tool}: ancho exacto`);
+    assert.equal(Math.round(box.h), 120, `${tool}: alto exacto`);
+    // Y los campos reflejan lo que hay, no lo último tecleado.
+    assert.equal(app.$('el-w').value, '300');
+  }
+});
+
+// Escribir una medida no puede permitir lo que arrastrar un tirador prohíbe:
+// un polígono regular deformado no pasa isValidElement, así que el proyecto
+// dejaría de poder reimportarse; y un grupo escala en proporción o rompe esa
+// misma invariante en las piezas que lleva dentro.
+test('la caja escrita respeta las invariantes: polígono cuadrado y grupo proporcional', () => {
+  const app = loadApp();
+  app.selectTool('pentagon');
+  app.$('modal-shape').close();
+  app.drag(150, 150, 250, 250);
+  app.selectTool('select');
+  app.click(200, 200);
+
+  const set = (id, v) => { app.$(id).value = String(v); app.$(id).__fire('change', { target: app.$(id) }); };
+  set('el-w', 240);
+  app.flush();
+  const pent = app.elements()[0];
+  assert.equal(Math.round(pent.w), 240);
+  assert.equal(Math.round(pent.h), 240, 'el alto sigue al ancho: w === h');
+  assert.ok(Exporter.isValidElement(pent), 'y sigue siendo importable');
+  assert.equal(app.$('el-h').value, '240', 'el campo enseña el valor real, no el tecleado');
+
+  // Grupo: un edificio son muchas piezas y escala en proporción.
+  const app2 = loadApp();
+  app2.selectTool('fachada');
+  app2.pickVariant('facade-catalog', 'modal__facade', 'flat', 'facade');
+  app2.drag(200, 200, 400, 360);
+  app2.selectTool('select');
+  app2.click(300, 280);
+  assert.ok(app2.elements().length > 2, 'la fachada es un grupo');
+  const box = app2.$('el-w').value;
+  const alto = app2.$('el-h').value;
+  const set2 = (id, v) => { app2.$(id).value = String(v); app2.$(id).__fire('change', { target: app2.$(id) }); };
+  set2('el-w', Number(box) * 2);
+  app2.flush();
+  const ratioAntes = Number(box) / Number(alto);
+  const ratioDespues = Number(app2.$('el-w').value) / Number(app2.$('el-h').value);
+  assert.ok(Math.abs(ratioAntes - ratioDespues) < 0.02,
+    'el grupo conserva la proporción al escribir un ancho');
+  app2.elements().forEach(el => assert.ok(Exporter.isValidElement({ ...el, seed: 1 }),
+    'ninguna pieza del grupo queda inválida'));
+});
+
+test('el texto de un componente y de un texto se edita desde el panel', () => {
+  const app = loadApp();
+  app.selectTool('button');
+  app.drag(200, 200, 340, 250);
+  app.selectTool('select');
+  app.click(270, 225);
+  assert.equal(app.$('el-label-row').hidden, false, 'un botón tiene rótulo');
+  const lab = app.$('el-label');
+  lab.value = 'Enviar'; lab.__fire('change', { target: lab });
+  app.flush();
+  assert.equal(app.elements()[0].label, 'Enviar');
+  app.key('z', { ctrlKey: true });
+  assert.notEqual(app.elements()[0].label, 'Enviar', 'y se deshace');
+
+  // La imagen no lleva rótulo: la fila no debe ofrecerse.
+  const app2 = loadApp();
+  app2.selectTool('imagePlaceholder');
+  app2.drag(200, 200, 340, 250);
+  app2.selectTool('select');
+  app2.click(270, 225);
+  assert.equal(app2.$('el-label-row').hidden, true,
+    'el marcador de imagen no tiene texto que editar');
+});
+
+/* ── v2.10.0: pulsar la herramienta del elemento seleccionado lo edita ── */
+
+// Antes, selectTool vaciaba la selección SIEMPRE, así que el modal de ajustes
+// solo servía para los defaults de creación. Ahora, si lo seleccionado es del
+// tipo que ese modal sabe editar, la selección se conserva y el modal abre
+// editándolo — la semántica dual hace el resto, posición incluida.
+test('pulsar la herramienta de un elemento seleccionado lo edita en su modal, posición incluida', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.$('modal-shape').close();
+  app.drag(150, 150, 270, 230);
+  app.selectTool('select');
+  app.click(210, 190);
+  assert.equal(app.$('panel-sec-element').hidden, false, 'el clic seleccionó el rectángulo');
+
+  app.selectTool('rect');
+  assert.equal(app.$('modal-shape').open, true, 'vuelve a abrir sus ajustes');
+  assert.equal(app.$('panel-sec-element').hidden, false, 'sin perder la selección');
+  assert.equal(app.$('shape-modal-geo').hidden, false, 'y el modal enseña su posición');
+  assert.equal(app.$('shape-modal-x').value, String(Math.round(app.elements()[0].x)));
+
+  const set = (id, v) => { app.$(id).value = String(v); app.$(id).__fire('change', { target: app.$(id) }); };
+  set('shape-modal-x', 60); set('shape-modal-w', 300);
+  app.flush();
+  const el = app.elements()[0];
+  assert.equal(Math.round(el.x), 60, 'la X escrita en el modal mueve el elemento');
+  assert.equal(Math.round(el.w), 300, 'y el ancho lo escala');
+  assert.equal(app.$('el-w').value, '300', 'el campo del panel refleja lo mismo: es el mismo cuerpo');
+
+  // La regla es por tipo exacto: con un rect seleccionado, otra herramienta
+  // deselecciona como siempre.
+  app.selectTool('circle');
+  assert.equal(app.$('panel-sec-element').hidden, true, 'círculo ≠ rect: deselecciona');
+});
+
+// La caja escrita en el modal respeta las mismas invariantes que la del panel
+// (es literalmente el mismo applyGeometry, parametrizado por prefijo): un
+// polígono regular deformado no pasa isValidElement y el proyecto no reabriría.
+test('la caja escrita en el modal respeta las invariantes del polígono', () => {
+  const app = loadApp();
+  app.selectTool('pentagon');
+  app.$('modal-shape').close();
+  app.drag(150, 150, 250, 250);
+  app.selectTool('select');
+  app.click(200, 200);
+  app.selectTool('pentagon');        // conserva la selección y reabre el modal
+  const set = (id, v) => { app.$(id).value = String(v); app.$(id).__fire('change', { target: app.$(id) }); };
+  set('shape-modal-w', 240);
+  app.flush();
+  const pent = app.elements()[0];
+  assert.equal(Math.round(pent.w), 240);
+  assert.equal(Math.round(pent.h), 240, 'w === h también escribiendo en el modal');
+  assert.ok(Exporter.isValidElement(pent), 'y sigue siendo importable');
+});
+
+test('empezar a dibujar suelta la selección conservada', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.$('modal-shape').close();
+  app.drag(100, 100, 180, 160);
+  app.selectTool('select');
+  app.click(140, 130);
+  app.selectTool('rect');            // conserva la selección para editar
+  app.$('modal-shape').close();
+  assert.equal(app.$('panel-sec-element').hidden, false);
+
+  app.drag(300, 300, 380, 360);      // …pero el siguiente trazo es crear
+  assert.equal(app.elements().length, 2, 'el arrastre crea otro rectángulo, no mueve el primero');
+  assert.equal(Math.round(app.elements()[0].x), 100, 'el primero no se ha movido');
+  assert.equal(app.$('panel-sec-element').hidden, true,
+    'y la selección se soltó al empezar el trazo');
+});
+
+/* ── v2.10.0: ajustes propios de los componentes UI, el texto y el emoji ── */
+
+test('el modal de UI fija el rótulo de creación y edita el del seleccionado', () => {
+  const app = loadApp();
+  app.selectTool('button');
+  assert.equal(app.$('modal-ui').open, true, 'Botón abre sus ajustes al elegirlo');
+  assert.equal(app.$('modal-ui-title').textContent, 'Ajustes de Botón');
+
+  // Sin selección, el rótulo escrito es el default de creación…
+  const lab = app.$('ui-modal-label');
+  lab.value = 'Enviar'; lab.__fire('change', { target: lab });
+  app.flush();
+  app.drag(200, 200, 340, 250);
+  app.drag(200, 300, 340, 350);
+  assert.equal(app.elements()[0].label, 'Enviar', 'el primer botón nace rotulado');
+  assert.equal(app.elements()[1].label, 'Enviar', 'y el segundo igual');
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.uiLabels.button, 'Enviar', 'el default se recuerda entre sesiones');
+
+  // …y con un botón seleccionado, el mismo campo edita ESE botón.
+  app.selectTool('select');
+  app.click(270, 225);
+  app.selectTool('button');          // conserva la selección y reabre el modal
+  assert.equal(app.$('ui-modal-label').value, 'Enviar', 'enseña el rótulo del elemento');
+  lab.value = 'Comprar'; lab.__fire('change', { target: lab });
+  app.flush();
+  assert.equal(app.elements()[0].label, 'Comprar', 'edita el seleccionado');
+  assert.equal(app.elements()[1].label, 'Enviar', 'sin tocar al otro');
+  const prefs2 = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs2.uiLabels.button, 'Enviar', 'ni el default de creación');
+
+  // Imagen no tiene rótulo (su renderer no lo recibe): la fila se oculta,
+  // igual que hace el panel con #el-label-row.
+  const app2 = loadApp();
+  app2.selectTool('imagePlaceholder');
+  assert.equal(app2.$('modal-ui-title').textContent, 'Ajustes de Imagen');
+  assert.equal(app2.$('ui-modal-label-row').hidden, true);
+});
+
+test('Texto abre su modal y el tamaño de letra tiene semántica dual', () => {
+  const app = loadApp();
+  app.selectTool('text');
+  assert.equal(app.$('modal-text').open, true, 'Texto abre sus ajustes al elegirlo');
+  assert.equal(app.$('btn-eraser-size').hidden, false, 'y el ⚙ queda para reabrirlos');
+
+  // Sin selección, cualquiera de los dos gemelos fija el default de creación.
+  const modalSize = app.$('text-modal-size');
+  modalSize.value = '30';
+  modalSize.__fire('input', { target: modalSize });
+  modalSize.__fire('change', { target: modalSize });
+  app.flush();
+  assert.equal(app.$('font-val').textContent, '30', 'el gemelo del panel sigue al del modal');
+  app.$('modal-text').close();
+
+  app.click(200, 200);
+  const input = app.$('text-input');
+  input.value = 'Hola';
+  input.__fire('blur', { target: input });
+  app.flush();
+  assert.equal(app.elements()[0].fontSize, 30, 'el texto nace con el tamaño elegido');
+
+  // Con el texto seleccionado, el mismo deslizador edita ESE texto…
+  app.selectTool('select');
+  app.click(210, 215);
+  assert.equal(app.$('panel-sec-element').hidden, false, 'el clic seleccionó el texto');
+  const panelSize = app.$('font-slider');
+  panelSize.value = '40';
+  panelSize.__fire('input', { target: panelSize });
+  panelSize.__fire('change', { target: panelSize });
+  app.flush();
+  assert.equal(app.elements()[0].fontSize, 40, 'el deslizador edita el texto seleccionado');
+  // …y todo el gesto es UN paso de undo que lo devuelve a como estaba.
+  app.key('z', { ctrlKey: true });
+  assert.equal(app.elements()[0].fontSize, 30, 'un gesto, un undo');
+});
+
+test('el emoji se estampa con el tamaño elegido en su catálogo', () => {
+  const app = loadApp();
+  app.selectTool('emoji');
+  assert.equal(app.$('modal-emoji').open, true);
+  const size = app.$('emoji-modal-size');
+  assert.equal(size.value, '32', 'arranca en el mínimo, el tamaño de icono');
+  size.value = '64';
+  size.__fire('input', { target: size });
+  size.__fire('change', { target: size });
+  app.$('modal-emoji').close();
+  app.flush();
+
+  app.click(300, 300);
+  const emoji = app.elements()[0];
+  assert.equal(emoji.type, 'text', 'el emoji es un text corriente');
+  assert.equal(emoji.fontSize, 64, 'estampado al tamaño del deslizador');
+
+  // Con Emoji activo, la sección «Texto» del panel se retitula y gobierna el
+  // tamaño del EMOJI (retargeteo estilo borrador): enseña 64 bajo «Emoji»…
+  assert.equal(app.$('font-label').textContent, 'Emoji');
+  assert.equal(app.$('font-val').textContent, '64');
+  // …sin haber tocado el tamaño de letra: al volver a Texto, sigue en 18.
+  app.selectTool('text');
+  app.$('modal-text').close();
+  app.flush();
+  assert.equal(app.$('font-label').textContent, 'Texto');
+  assert.equal(app.$('font-val').textContent, '18',
+    'el tamaño de letra del texto no se ha movido');
+
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.emojiSize, 64, 'y se recuerda entre sesiones');
+});
+
+/* ── Auditoría v2.10.1: guardas de los defectos corregidos ── */
+
+// Los campos de medida ENSEÑAN valores redondeados: comparar lo tecleado
+// contra la caja exacta hacía «cambiado» a todo campo fraccionario, y como el
+// ancho se evalúa primero, el alto que acababas de teclear PERDÍA contra un
+// ancho que nadie había tocado. Cualquier arrastre diagonal de un polígono da
+// caja fraccionaria (y con el auto-zoom del navegador, casi todo lo demás).
+test('el lado tecleado manda aunque la caja sea fraccionaria', () => {
+  const app = loadApp();
+  app.selectTool('pentagon');
+  app.$('modal-shape').close();
+  app.drag(300, 300, 330, 341);          // radio diagonal → caja fraccionaria
+  const p0 = app.elements()[0];
+  assert.ok(p0.w !== Math.round(p0.w), 'la caja de partida es fraccionaria (premisa)');
+  app.selectTool('select');
+  app.click(p0.x + p0.w / 2, p0.y + p0.h / 2);
+  const set = (id, v) => { app.$(id).value = String(v); app.$(id).__fire('change', { target: app.$(id) }); };
+  set('el-h', 200);
+  app.flush();
+  const p = app.elements()[0];
+  assert.equal(Math.round(p.h), 200, 'el alto tecleado no pierde contra el ancho sin tocar');
+  assert.equal(p.w, p.h, 'y el polígono sigue cuadrado');
+});
+
+// Un <input type=number> vaciado (o con basura) da value '' y Number('') es 0:
+// vaciar «Ancho» colapsaba el elemento a 1px y vaciar «X» lo mandaba a 0.
+test('vaciar un campo de medida no colapsa el elemento', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.$('modal-shape').close();
+  app.drag(100, 100, 300, 200);
+  app.selectTool('select');
+  app.click(200, 150);
+  const set = (id, v) => { app.$(id).value = String(v); app.$(id).__fire('change', { target: app.$(id) }); };
+  set('el-w', '');
+  set('el-x', '');
+  app.flush();
+  const el = app.elements()[0];
+  assert.equal(Math.round(el.w), 200, 'el ancho no se colapsa a 1px');
+  assert.equal(Math.round(el.x), 100, 'la X no salta a 0');
+  assert.equal(app.$('el-w').value, '200', 'y el campo vuelve a decir la verdad');
+});
+
+// selectionGroupBounds exige buildingGroupId: con dos elementos SUELTOS los
+// campos enseñaban valores rancios y teclear no hacía nada, cuando el panel
+// promete la caja combinada de cualquier selección.
+test('la caja escrita también funciona con una multi-selección libre, en proporción', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.$('modal-shape').close();
+  app.drag(100, 100, 180, 160);
+  app.drag(300, 300, 380, 360);
+  app.selectTool('select');
+  app.drag(50, 50, 500, 450);            // marquesina sobre ambos
+  assert.equal(app.$('el-w').value, '280', 'los campos enseñan la caja combinada');
+
+  const set = (id, v) => { app.$(id).value = String(v); app.$(id).__fire('change', { target: app.$(id) }); };
+  set('el-w', 560);                       // el doble → escala uniforme ×2
+  app.flush();
+  const [a, b] = app.elements();
+  assert.equal(Math.round(a.w), 160, 'la primera pieza escala');
+  assert.equal(Math.round(b.w), 160, 'la segunda también');
+  assert.equal(Math.round(b.h), 120, 'en proporción');
+  assert.equal(Math.round(b.x), 500, 'y las posiciones relativas escalan con la caja');
+});
+
+// Teclear una medida que la geometría no puede absorber (el alto de una línea
+// horizontal: scaleElement fuerza sy=1 con from.h = 0) apilaba un paso de
+// deshacer fantasma y el campo se quedaba prometiendo un alto inexistente.
+test('una medida que la geometría no absorbe ni apila undo ni miente', () => {
+  const app = loadApp();
+  app.selectTool('line');
+  app.$('modal-stroke').close();
+  app.drag(100, 100, 300, 100);          // línea horizontal: alto 0
+  app.selectTool('select');
+  app.click(200, 100);
+  assert.equal(app.$('panel-sec-element').hidden, false, 'la línea está seleccionada');
+  const set = (id, v) => { app.$(id).value = String(v); app.$(id).__fire('change', { target: app.$(id) }); };
+  set('el-h', 50);
+  app.flush();
+  assert.equal(app.$('el-h').value, '0', 'el campo vuelve al alto real, no al prometido');
+  app.key('z', { ctrlKey: true });
+  assert.equal(app.elements().length, 0,
+    'UN solo deshacer quita la línea: no había paso fantasma por medio');
+});
+
+// En navegador, clicar otro elemento dispara PRIMERO el mousedown (que cambia
+// la selección) y DESPUÉS el blur→change del campo: el ancho tecleado para A
+// se aplicaba al B recién seleccionado. Se reproduce el orden real disparando
+// el clic sin drenar el rAF que resincroniza.
+test('un change rezagado no aplica la medida a la selección recién cambiada', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.$('modal-shape').close();
+  app.drag(100, 100, 200, 160);
+  app.drag(300, 300, 400, 360);
+  app.selectTool('select');
+  app.click(150, 130);                    // selecciona A
+  app.$('el-w').value = '500';            // teclea… sin confirmar todavía
+  const cv = app.$('main-canvas');
+  cv.__fire('pointerdown', { clientX: 350, clientY: 330, pointerId: 1, button: 0 });
+  cv.__fire('pointerup', { clientX: 350, clientY: 330, pointerId: 1, button: 0 });
+  app.$('el-w').__fire('change', { target: app.$('el-w') });   // el blur rezagado
+  app.flush();
+  const [a, b] = app.elements();
+  assert.equal(Math.round(a.w), 100, 'A conserva su ancho');
+  assert.equal(Math.round(b.w), 100, 'y B no hereda el 500 tecleado para A');
+});
+
+// applyLabel era la única fuga de la semántica dual: con una multi-selección
+// delante, escribir el rótulo cambiaba EN SILENCIO el default de creación. Y
+// la fila se ofrecía aunque editar no hiciera nada.
+test('con multi-selección el rótulo ni edita el default ni se ofrece', () => {
+  const app = loadApp();
+  app.selectTool('button');
+  const lab = app.$('ui-modal-label');
+  lab.value = 'Enviar'; lab.__fire('change', { target: lab });
+  app.flush();
+  app.drag(100, 100, 220, 150);
+  app.drag(100, 200, 220, 250);
+  app.selectTool('select');
+  app.click(160, 125);
+  app.click(160, 225, { shiftKey: true });
+  app.selectTool('button');               // conserva la multi-selección
+  assert.equal(app.$('ui-modal-label-row').hidden, true,
+    'la fila de rótulo no se ofrece con varias piezas');
+  lab.value = 'Hola'; lab.__fire('change', { target: lab });
+  app.flush();
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.uiLabels.button, 'Enviar', 'el default de creación no se toca');
+  app.elements().forEach(el => assert.equal(el.label, 'Enviar', 'ni los elementos'));
+
+  // Y el default se recorta a 120, el mismo tope que aplica restorePrefs: sin
+  // él, un rótulo más largo encogía en silencio al recargar.
+  const app2 = loadApp();
+  app2.selectTool('button');
+  const lab2 = app2.$('ui-modal-label');
+  lab2.value = 'x'.repeat(150); lab2.__fire('change', { target: lab2 });
+  app2.flush();
+  const prefs2 = JSON.parse(app2.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs2.uiLabels.button.length, 120, 'recortado al guardar, no al recargar');
+});
+
+// Vaciar el contenido de un `text` desde el panel dejaba un elemento invisible
+// de caja cero; el editor de doble clic (commitText) en el mismo caso borra.
+// Las dos vías deben decir lo mismo.
+test('vaciar el texto desde el panel lo borra, como el editor de doble clic', () => {
+  const app = loadApp();
+  app.selectTool('text');
+  app.$('modal-text').close();
+  app.click(200, 200);
+  const input = app.$('text-input');
+  input.value = 'Hola';
+  input.__fire('blur', { target: input });
+  app.flush();
+  assert.equal(app.elements().length, 1);
+
+  app.selectTool('select');
+  app.click(210, 210);
+  const lab = app.$('el-label');
+  lab.value = ''; lab.__fire('change', { target: lab });
+  app.flush();
+  assert.equal(app.elements().length, 0, 'el texto vaciado se borra, no queda invisible');
+  assert.equal(app.$('panel-sec-element').hidden, true, 'y la selección se suelta');
+  app.key('z', { ctrlKey: true });
+  assert.equal(app.elements().length, 1, 'con su paso de deshacer');
+});
+
+// selectTool ganó `silent` en la 2.10.0 y Emoji no lo honraba: cancelar un
+// catálogo viniendo de Emoji reabría su catálogo encima del recién cerrado.
+test('cancelar un catálogo viniendo de Emoji no reabre su catálogo', () => {
+  const app = loadApp();
+  app.selectTool('emoji');
+  app.$('modal-emoji').close();
+  app.flush();
+  app.selectTool('planta');
+  app.$('modal-planta').close();          // cancelar, sin elegir huella
+  app.flush();
+  assert.equal(app.$('sidebar').querySelector('.sidebar__tool--active').dataset.tool, 'emoji',
+    'cancelar devuelve a Emoji');
+  assert.equal(app.$('modal-emoji').open, false,
+    'sin encadenar su catálogo encima del que se acaba de cerrar');
+});
+
+// El modal de trazo ofrecía «Trazo discontinuo» al lápiz (que lo ignora: el
+// case pencil del renderer no tiene dash) y «Doble punta» a un semicírculo
+// seleccionado (heads:'none', que nunca la lleva).
+test('discontinuo y doble punta se atenúan cuando no aplican', () => {
+  const app = loadApp();
+  app.selectTool('pencil');
+  assert.equal(app.$('stroke-modal-dash').disabled, true,
+    'el lápiz no lleva discontinuo: la casilla se atenúa');
+  app.$('modal-stroke').close();
+  app.selectTool('line');
+  assert.equal(app.$('stroke-modal-dash').disabled, false, 'la línea sí');
+  assert.equal(app.$('stroke-modal-double').disabled, true, 'pero no lleva punta');
+  app.$('modal-stroke').close();
+
+  app.drag(200, 200, 300, 200);           // una línea para poder salir de ella
+  app.selectTool('arc');
+  app.$('modal-stroke').close();
+  app.drag(200, 300, 300, 300);           // semicírculo (curveArrow heads:none)
+  app.key('a', { ctrlKey: true });        // Ctrl+A selecciona todo (Mover)
+  app.selectTool('select');
+  app.click(250, 300, { altKey: true });  // aísla el semicírculo
+  const semi = app.elements().find(el => el.heads === 'none');
+  assert.ok(semi, 'hay un semicírculo (premisa)');
+  app.selectTool('arc');                  // conserva la selección y abre ajustes
+  assert.equal(app.$('stroke-modal-double').disabled, true,
+    'un semicírculo nunca lleva punta: la casilla se atenúa');
+  assert.equal(app.$('stroke-modal-dash').disabled, false,
+    'el discontinuo sí se le puede poner');
+});
+
+// Con la selección conservada y una herramienta de creación activa, los
+// tiradores ya no se dibujan (son de Mover): agarrar la esquina CREA, y el
+// lienzo no debe prometer otra cosa.
+test('con selección conservada y herramienta de creación, la esquina crea', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.$('modal-shape').close();
+  app.drag(100, 100, 180, 160);
+  app.selectTool('select');
+  app.click(140, 130);
+  app.selectTool('rect');                 // conserva la selección
+  app.$('modal-shape').close();
+  app.drag(180, 160, 240, 220);           // desde la esquina exacta del rect
+  assert.equal(app.elements().length, 2, 'la esquina crea otro rectángulo');
+  assert.equal(Math.round(app.elements()[0].w), 80, 'sin escalar el primero');
+});
+
+// La muestra del relleno sólido copiaba el color del picker aunque nunca se
+// hubiera elegido: la creación real solo escribe fillColor si EXISTE, y sin él
+// el relleno es el tinte clásico del trazo. Se pina la fuente compartida.
+test('rellenar sin color elegido conserva el tinte clásico (sin fillColor)', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.$('modal-shape').close();
+  const fill = app.$('check-fill');
+  fill.checked = true; fill.__fire('change', { target: fill });
+  app.flush();
+  app.drag(100, 100, 200, 160);
+  const el = app.elements()[0];
+  assert.equal(el.fill, true);
+  assert.equal('fillColor' in el, false,
+    'sin color elegido no se escribe fillColor: manda el tinte del trazo');
+});
+
+// El giro era una acción SOLO sobre lo ya dibujado («Rotar selección», un paso
+// por clic): no había forma de decidir la orientación antes de trazar, y llegar
+// a 288° en un pentágono costaba ocho pulsaciones. Ahora es un ajuste más de la
+// forma, con el paso propio de cada tipo.
+test('el giro de la forma se elige antes de dibujar y sale en el elemento', () => {
+  const app = loadApp();
+  const slider = () => app.$('shape-modal-rotation');
+
+  // El paso lo manda el tipo: 36° el pentágono, 30° el hexágono, 90° el
+  // triángulo, 45° el cuadrado. Un rectángulo no guarda ángulo y no lo ofrece.
+  const pasos = { pentagon: '36', hexagon: '30', triangle: '90', square: '45', trapezoid: '90' };
+  for (const [tool, step] of Object.entries(pasos)) {
+    app.selectTool(tool);
+    assert.equal(app.$('shape-modal-rotation-row').hidden, false, `${tool} debe ofrecer giro`);
+    assert.equal(String(slider().step), step, `el paso de ${tool}`);
+    assert.equal(String(slider().max), String(360 - Number(step)), `el máximo de ${tool}`);
+    app.$('modal-shape').close();
+  }
+  app.selectTool('rect');
+  assert.equal(app.$('shape-modal-rotation-row').hidden, true,
+    'el rectángulo guarda su giro en las dimensiones, no como ángulo: no lo ofrece');
+  app.$('modal-shape').close();
+
+  // Sin selección fija cómo NACE la próxima forma.
+  app.selectTool('pentagon');
+  slider().value = '72';
+  slider().__fire('input', { target: slider() });
+  app.$('modal-shape').close();
+  app.flush();
+  app.drag(140, 140, 240, 240);
+  const pent = app.elements()[0];
+  assert.equal(pent.type, 'pentagon');
+  assert.equal(pent.rotation, 72, 'el pentágono nace ya girado');
+  assert.ok(Exporter.isValidElement(pent), 'y sobrevive al round-trip JSON');
+
+  // Con selección, gira lo seleccionado, en UN solo paso de deshacer.
+  app.selectTool('select');
+  app.click(190, 190);
+  assert.equal(app.elements().length, 1);
+  const before = app.elements();
+  slider().value = '216';
+  slider().__fire('input', { target: slider() });
+  slider().__fire('change', { target: slider() });
+  app.flush();
+  assert.equal(app.elements()[0].rotation, 216, 'la selección gira al ángulo elegido');
+  app.key('z', { ctrlKey: true });
+  assert.deepEqual(app.elements(), before, 'y todo el arrastre se deshace de una vez');
+});
+
+// El trapecio no solo guarda el ángulo: al girar un cuarto intercambia ancho y
+// alto. Fijar `rotation` a pelo dejaría su caja desalineada de la silueta, así
+// que el giro pasa por ShapeRotation.rotateElement.
+test('el trapecio girado conserva caja y silueta, y solo admite cuartos de vuelta', () => {
+  const app = loadApp();
+  app.selectTool('trapezoid');
+  const slider = app.$('shape-modal-rotation');
+  slider.value = '90';
+  slider.__fire('input', { target: slider });
+  app.$('modal-shape').close();
+  app.flush();
+  app.drag(120, 120, 260, 200);
+
+  const trap = app.elements()[0];
+  assert.equal(trap.rotation, 90);
+  assert.ok(Exporter.isValidElement(trap),
+    'isValidElement rechaza un trapecio con un giro que no sea múltiplo de 90');
+  const vertices = app.context.Trapezoid.vertices(trap);
+  assert.equal(vertices.length, 4);
+  const cx = trap.x + trap.w / 2, cy = trap.y + trap.h / 2;
+  const mx = vertices.reduce((s, v) => s + v.x, 0) / 4;
+  const my = vertices.reduce((s, v) => s + v.y, 0) / 4;
+  assert.ok(Math.abs(mx - cx) < 1 && Math.abs(my - cy) < 1,
+    'la silueta sigue centrada en la caja del elemento');
+});
+
+// Cancelar un catálogo devuelve a la herramienta anterior. Ahora que casi todas
+// abren sus ajustes al elegirse, ese retorno encadenaría un segundo modal encima
+// del que se acaba de cerrar; se vuelve en modo `silent`. Mandar a Seleccionar
+// —el camino fácil— habría dejado al usuario sin su herramienta.
+test('cancelar un catálogo recupera la herramienta sin encadenar modales', () => {
+  const app = loadApp();
+  for (const tool of ['line', 'rect', 'eraser']) {
+    app.selectTool(tool);
+    app.$('modal-stroke').close();
+    app.$('modal-shape').close();
+    app.$('modal-eraser').close();
+    app.flush();
+
+    app.selectTool('planta');
+    app.$('modal-planta').close();       // cancelar, sin elegir huella
+    app.flush();
+
+    assert.equal(app.$('sidebar').querySelector('.sidebar__tool--active').dataset.tool, tool,
+      `cancelar debe devolver a ${tool}, no tirar a Seleccionar`);
+    for (const m of ['modal-stroke', 'modal-shape', 'modal-eraser']) {
+      assert.equal(app.$(m).open, false,
+        `${m} no puede abrirse detrás del catálogo que se acaba de cerrar`);
+    }
+  }
+});
+
+test('el modal de Trazo y el panel son el mismo ajuste', () => {
+  const app = loadApp();
+  app.selectTool('line');
+  assert.equal(app.$('modal-stroke').open, true);
+
+  const modalSlider = app.$('stroke-modal-slider');
+  modalSlider.value = '6';
+  modalSlider.__fire('input', { target: modalSlider });
+  app.flush();
+  assert.equal(app.$('stroke-slider').value, '6', 'el gemelo del panel sigue al del modal');
+  assert.equal(app.$('stroke-val').textContent, '6');
+
+  const panelSlider = app.$('stroke-slider');
+  panelSlider.value = '3';
+  panelSlider.__fire('input', { target: panelSlider });
+  app.flush();
+  assert.equal(app.$('stroke-modal-val').textContent, '3', 'y al revés');
+
+  const dash = app.$('stroke-modal-dash');
+  dash.checked = true; dash.__fire('change', { target: dash });
+  app.flush();
+  assert.equal(app.$('check-dash').checked, true, 'el discontinuo también viaja a los dos');
+
+  app.selectTool('select');
+  assert.equal(app.$('btn-eraser-size').hidden, true, 'el ⚙ se va con una herramienta sin ajustes');
+  app.selectTool('pencil');
+  assert.equal(app.$('btn-eraser-size').hidden, false, 'y vuelve con una de dibujo');
+  app.$('modal-stroke').close();   // se abrió al elegir; se cierra para reabrirlo con el ⚙
+  app.flush();
+  app.$('btn-eraser-size').__fire('click', { target: app.$('btn-eraser-size') });
+  app.flush();
+  assert.equal(app.$('modal-stroke').open, true, 'el ⚙ lo reabre sin cambiar de herramienta');
+  assert.equal(app.$('modal-eraser').open, false, 'y no abre el del borrador');
+});
+
+test('«Etiquetas» del panel y la de los modales del jardín son el mismo ajuste', () => {
+  const app = loadApp();
+  app.selectTool('arbol');
+  assert.equal(app.$('check-garden-labels').checked, true);
+
+  // La casilla botánica se crea en runtime: un id asignado así no entra en el
+  // índice del arnés, de modo que se llega a ella recorriendo el modal, no con
+  // $(). Es el mismo motivo por el que app.js la sincroniza por referencia.
+  const treeBox = app.$('modal-tree').querySelectorAll('input')
+    .find(i => i.id === 'tree-garden-labels');
+  assert.ok(treeBox, 'el modal botánico lleva su casilla de etiquetas');
+  assert.equal(treeBox.checked, true, 'arranca según el estado');
+
+  treeBox.checked = false;
+  treeBox.__fire('change', { target: treeBox });
+  app.flush();
+  assert.equal(app.$('check-garden-labels').checked, false, 'la gemela del panel se entera');
+  assert.equal(app.$('plot-garden-labels').checked, false, 'y las de los otros modales también');
+
+  app.pickVariant('tree-catalog', 'modal__tree', 'broadleaf', 'tree');
+  app.drag(200, 200, 300, 300);
+  assert.ok(!app.elements().some(el => el.type === 'text'),
+    'y la planta sale sin rótulo, que es lo que la casilla promete');
+});
+
+test('tras «Limpiar todo» los controles de Verjas y Cancela vuelven a su valor', () => {
+  const app = loadApp();
+  app.selectTool('verja');
+  const fence = app.$('fence-height');
+  fence.value = '40'; fence.__fire('input', { target: fence });
+  app.flush();
+  assert.equal(app.$('fence-height-val').textContent, '40');
+
+  app.$('modal-fence').close();
+  app.$('btn-clear').__fire('click', { target: app.$('btn-clear') });
+  app.flush();
+  assert.equal(app.$('fence-height').value, '180', 'el modal no puede quedarse con el valor viejo');
+  assert.equal(app.$('fence-height-val').textContent, '180');
+  assert.equal(app.$('gate-height').value, '200');
 });
 
 test('lo borrado no reaparece al mover el dibujo (el fallo de la máscara)', () => {

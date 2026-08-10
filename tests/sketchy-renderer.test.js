@@ -315,19 +315,19 @@ test('overlapRuns recorta con el borrador los bordes ocultos de formas anteriore
     'ningún subtrazo diferido atraviesa el área borrada');
 });
 
-test('renderElement button: roundedRect + fill + etiqueta "Button" centrada', () => {
+test('renderElement button: roundedRect + fill + etiqueta «Botón» centrada', () => {
   const ctx = render(baseEl({ type: 'button', x: 10, y: 10, w: 120, h: 40 }));
   assert.equal(ctx.callsTo('arcTo').length, 4);
   assert.ok(ctx.callsTo('fill').length >= 1);
   assert.ok(ctx.callsTo('stroke').length >= 1);
-  assert.deepEqual(ctx.callsTo('fillText')[0].args, ['Button', 70, 30]);
+  assert.deepEqual(ctx.callsTo('fillText')[0].args, ['Botón', 70, 30]);
   assert.deepEqual(ctx.callsTo('set textAlign')[0].args, ['center']);
 });
 
-test('renderElement input: roundedRect + placeholder "Type here..."', () => {
+test('renderElement input: roundedRect + placeholder «Escribe aquí...»', () => {
   const ctx = render(baseEl({ type: 'input', x: 0, y: 0, w: 220, h: 36 }));
   assert.ok(ctx.callsTo('stroke').length >= 1);
-  assert.deepEqual(ctx.callsTo('fillText')[0].args, ['Type here...', 10, 18]);
+  assert.deepEqual(ctx.callsTo('fillText')[0].args, ['Escribe aquí...', 10, 18]);
   // El borde del input se atenúa con alpha hex '80'
   assert.deepEqual(ctx.callsTo('set strokeStyle')[1].args, ['#1a1a2e80']);
 });
@@ -347,16 +347,16 @@ test('renderElement nav: logo + links + hamburguesa', () => {
   const w = 600, h = 50;
   const ctx = render(baseEl({ type: 'nav', x: 0, y: 0, w, h }));
   const texts = ctx.callsTo('fillText').map(c => c.args[0]);
-  assert.deepEqual(texts, ['Logo', 'Home', 'About', 'Contact']);
+  assert.deepEqual(texts, ['Logo', 'Inicio', 'Nosotros', 'Contacto']);
   // Hamburguesa: 3 líneas cortas al final
   assert.ok(ctx.callsTo('stroke').length >= 3);
 
   // Regresión: antes los links reservaban 30px pero se pintaban con paso de
-  // 70px y 'Contact' caía fuera del navbar. Ahora reserva y paso coinciden
+  // 70px y el último caía fuera del navbar. Ahora reserva y paso coinciden
   // (70px) y todos los links quedan dentro, sin pisar la hamburguesa (w-30).
-  const contact = ctx.callsTo('fillText').find(c => c.args[0] === 'Contact');
+  const contact = ctx.callsTo('fillText').find(c => c.args[0] === 'Contacto');
   assert.equal(contact.args[1], w - 70 * 3 - 40 + 2 * 70); // 490
-  assert.ok(contact.args[1] < w - 30, 'Contact dentro del navbar, sin pisar la hamburguesa');
+  assert.ok(contact.args[1] < w - 30, 'Contacto dentro del navbar, sin pisar la hamburguesa');
 });
 
 test('renderElement card: imagen + título + líneas de descripción', () => {
@@ -364,7 +364,7 @@ test('renderElement card: imagen + título + líneas de descripción', () => {
   // Área de imagen
   assert.equal(ctx.callsTo('fillRect').length, 1);
   const titles = ctx.callsTo('fillText').map(c => c.args[0]);
-  assert.deepEqual(titles, ['Card Title']);
+  assert.deepEqual(titles, ['Título']);
   // roundedRect (1) + separador (1) + 2 líneas descripción = 4 strokes
   assert.equal(ctx.callsTo('stroke').length, 4);
 });

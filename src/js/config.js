@@ -356,6 +356,9 @@ const TOOL_GROUPS = [
     label: 'Edición',
     tools: [
       { id: TOOLS.SELECT, icon: '👆', name: 'Mover', key: 'v' },
+      // El Borrador vive aquí y no en «Dibujo»: no crea nada, quita lo que ya
+      // está dibujado, que es lo mismo que hace el resto de este grupo.
+      { id: TOOLS.ERASER, icon: '🧽', name: 'Borrador', key: 'e' },
     ],
   },
   {
@@ -366,7 +369,6 @@ const TOOL_GROUPS = [
       { id: TOOLS.ARROW,  icon: '➡️', name: 'Flecha',   key: 'a' },
       { id: TOOLS.CURVE_ARROW, icon: '↷', name: 'Flecha curva', key: 'u' },
       { id: TOOLS.ARC,    icon: '◠', name: 'Semicírculo', key: 'g' },
-      { id: TOOLS.ERASER, icon: '🧽', name: 'Borrador', key: 'e' },
     ],
   },
   {
@@ -478,6 +480,10 @@ const CANVAS_H = 800;
 
 /** Tamaño mínimo al insertar un emoji, para que se lea como icono */
 const EMOJI_MIN_SIZE = 32;
+
+/** Tope del deslizador de tamaño del catálogo de emoji. Debe coincidir con el
+    max de #emoji-modal-size en index.html — lo pina tests/smoke.test.js. */
+const EMOJI_MAX_SIZE = 96;
 
 /** Familia manuscrita del lienzo. La fuente de verdad es --font-sketch
     (scss/abstracts/_fonts.scss): cambiarla allí cambia también esto. El

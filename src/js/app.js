@@ -80,8 +80,13 @@
     fillColor:   null,  // color de relleno; null = tinte translúcido del trazo
     fillTransparent: false, // usa fillOpacity en vez de relleno sólido
     fillOpacity: 0.4,   // opacidad del relleno translúcido (0..1)
+    shapeRotation: 0,   // giro con el que nacen las formas que lo admiten
     overlapMode: 'normal', // normal | hidden-dashed
     pendingEmoji: EMOJI_GROUPS[0].emojis[0], // el que se estampa con la herramienta Emoji
+    emojiSize:   EMOJI_MIN_SIZE, // tamaño de los próximos emojis, independiente del de letra
+    // Rótulo con el que nacen los componentes UI ('' = default del renderer).
+    // Imagen no está: el renderer de imagePlaceholder no recibe rótulo.
+    uiLabels:    { button: '', input: '', nav: '', card: '' },
     ...CREATION_DEFAULTS, // Edificios/Jardín (los resetea también «Limpiar todo»)
     toolBeforeModal: null, // herramienta activa antes de abrir un modal de Edificios (restaurar al cancelar)
     variantChosen: false, // true si se eligió variante en el modal (no fue cancelación)
@@ -309,9 +314,23 @@
     if (state.selection.length < 2) return null;
     const gid = state.elements[state.selection[0]].buildingGroupId;
     if (!gid || !state.selection.every(i => state.elements[i].buildingGroupId === gid)) return null;
+    return selectionBounds();
+  }
+
+  /** Caja combinada de la selección, tenga grupo o no: la del elemento si es
+      único, la unión de todas las cajas si hay varios. selectionGroupBounds
+      (arriba) sigue siendo solo-de-grupo a propósito — decide la caja ÚNICA
+      con tiradores —, pero escribir medidas en «Posición y tamaño» no
+      necesita que la multi-selección sea un edificio: con dos rects sueltos
+      los campos enseñaban valores rancios y teclear no hacía nada, cuando el
+      panel promete la caja combinada (auditoría v2.10.1). */
+  function selectionBounds() {
+    const sel = state.selection.map(i => state.elements[i]).filter(Boolean);
+    if (!sel.length) return null;
+    if (sel.length === 1) return getElementBounds(sel[0]);
     let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
-    state.selection.forEach(i => {
-      const b = getElementBounds(state.elements[i]);
+    sel.forEach(el => {
+      const b = getElementBounds(el);
       x1 = Math.min(x1, b.x); y1 = Math.min(y1, b.y);
       x2 = Math.max(x2, b.x + b.w); y2 = Math.max(y2, b.y + b.h);
     });
@@ -882,6 +901,9 @@
         plantColorMode: state.plantColorMode,
         pathWidth: state.pathWidth,
         pathAnyAngle: state.pathAnyAngle,
+        // Ajustes de UI y Emoji (v2.10.0): defaults de creación, como todo.
+        emojiSize: state.emojiSize,
+        uiLabels: state.uiLabels,
       }));
     } catch (_) { /* almacenamiento lleno o bloqueado: se ignora */ }
   }
@@ -902,6 +924,22 @@
           ERASER_SIZE_MAX,
           Math.max(ERASER_SIZE_MIN, prefs.eraserSize),
         );
+      }
+      if (Number.isFinite(prefs.emojiSize)) {
+        state.emojiSize = Math.min(
+          EMOJI_MAX_SIZE,
+          Math.max(EMOJI_MIN_SIZE, prefs.emojiSize),
+        );
+      }
+      // Rótulos de creación de los componentes UI: solo las claves conocidas,
+      // solo strings, y recortados — van a parar a `label`, que viaja en el
+      // JSON exportado.
+      if (prefs.uiLabels && typeof prefs.uiLabels === 'object') {
+        Object.keys(state.uiLabels).forEach(k => {
+          if (typeof prefs.uiLabels[k] === 'string') {
+            state.uiLabels[k] = prefs.uiLabels[k].slice(0, 120);
+          }
+        });
       }
       if (prefs.buildFloors === 'auto' || (Number.isFinite(prefs.buildFloors) && prefs.buildFloors >= 1)) {
         state.buildFloors = prefs.buildFloors;
@@ -1092,22 +1130,29 @@
     // (handles de resize solo con un único elemento seleccionado)
     state.selection = state.selection.filter(i => state.elements[i]);
     const single = state.selection.length === 1;
+    // Tiradores SOLO con Mover: con una herramienta de creación activa la
+    // selección conservada (v2.10.0) se edita en su modal y en el panel, pero
+    // el lienzo CREA — el hit-test de tiradores vive en la rama de Mover de
+    // onMouseDown, así que dibujarlos aquí era mentir: agarrar la esquina
+    // pintaba un elemento nuevo encima en vez de escalar (auditoría v2.10.1).
+    // La caja discontinua sí se dibuja siempre: comunica qué se está editando.
+    const handlesOn = state.tool === TOOLS.SELECT;
     const groupBox = selectionGroupBounds();
     if (groupBox) {
       // Edificio seleccionado como unidad: una sola caja combinada, CON
       // handles — escalan el grupo entero de forma uniforme (resizeGroupTo).
-      Renderer.drawSelection(ctx, groupBox, true);
+      Renderer.drawSelection(ctx, groupBox, handlesOn);
     } else {
       state.selection.forEach(i => {
         const el = state.elements[i];
         // Las flechas usan handles de extremo/curvatura, no esquinas de escala
         const isArrow = el.type === 'arrow' || el.type === 'curveArrow';
-        Renderer.drawSelection(ctx, getElementBounds(el), single && !isArrow);
+        Renderer.drawSelection(ctx, getElementBounds(el), handlesOn && single && !isArrow);
       });
     }
     // Handles de flecha: curvatura (turquesa, con polilínea de control como
     // guía) y extremos (naranja, arrastrables para mover/anclar)
-    if (single) {
+    if (single && handlesOn) {
       const sel = state.elements[state.selection[0]];
       const handles = arrowHandles(sel);
       if (handles.length) {
@@ -1179,6 +1224,7 @@
     // (Con multi-selección no se tocan: conservan lo último mostrado.)
     if (single) {
       const sel = state.elements[state.selection[0]];
+      showColor(sel.color);
       $('stroke-label').textContent = 'Trazo';
       $('stroke-slider').min = '1';
       $('stroke-slider').max = '8';
@@ -1190,6 +1236,12 @@
       }
       if (sel.type === 'line' || sel.type === 'arrow' || sel.type === 'curveArrow') {
         $('check-dash').checked = sel.dash === true;
+      }
+      if (sel.type === 'text') {
+        $('font-label').textContent = 'Texto';
+        $('font-slider').min = '10';
+        $('font-slider').value = String(sel.fontSize);
+        $('font-val').textContent = String(sel.fontSize);
       }
       if (FILLABLE_TYPES.includes(sel.type)) {
         $('check-fill').checked = sel.fill === true;
@@ -1205,7 +1257,6 @@
     } else if (!hasSel) {
       const erasing = state.tool === TOOLS.ERASER;
       $('stroke-label').textContent = erasing ? 'Tamaño del borrador' : 'Trazo';
-      $('btn-eraser-size').hidden = !erasing;
       $('stroke-slider').min = erasing ? String(ERASER_SIZE_MIN) : '1';
       $('stroke-slider').max = erasing ? String(ERASER_SIZE_MAX) : '8';
       $('stroke-slider').setAttribute(
@@ -1222,8 +1273,217 @@
       $('fill-opacity-val').textContent = String(Math.round(state.fillOpacity * 100));
       $('fill-opacity-slider').disabled = !state.fillTransparent;
       $('fill-color-picker').value = hex6(state.fillColor || state.color);
+      // Con Emoji activo el deslizador de la sección «Texto» se retitula y
+      // pasa a gobernar el tamaño del EMOJI (state.emojiSize, min 32 para que
+      // siga leyéndose como icono) — el mismo retargeteo que hace el de grosor
+      // con el borrador. placeEmoji ya no lee fontSize, así que sin esto la
+      // sección era un control muerto para el Emoji (auditoría v2.10.1).
+      const emojiing = state.tool === TOOLS.EMOJI;
+      $('font-label').textContent = emojiing ? 'Emoji' : 'Texto';
+      $('font-slider').min = emojiing ? String(EMOJI_MIN_SIZE) : '10';
+      $('font-slider').value = String(emojiing ? state.emojiSize : state.fontSize);
+      $('font-val').textContent = String(emojiing ? state.emojiSize : state.fontSize);
+      showColor(state.color);
     }
+    syncGeometryControls();
+    syncPanelSections();
     scheduleAutosave();
+  }
+
+  /** Tipos con texto propio editable desde el panel. El de `text` es su
+      contenido (`value`); el de los componentes UI, su rótulo (`label`). */
+  const LABEL_FIELD = el => (el.type === 'text' ? 'value'
+    : ['button', 'input', 'nav', 'card'].includes(el.type) ? 'label' : null);
+
+  /** Vuelca en «Posición y tamaño» la caja real de lo seleccionado. Con varios,
+      la caja combinada: escribir en ella mueve o escala el conjunto, igual que
+      arrastrar su marco. Mientras el usuario teclea en un campo no se le
+      sobrescribe. */
+  /** Juegos de campos X/Y/Ancho/Alto: el del panel («el») y sus gemelos dentro
+      de los cuatro modales de ajustes (v2.10.0) — un solo cuerpo de lectura y
+      otro de escritura para todos, porque la caja escrita a mano no puede
+      tener dos vías que discrepen. */
+  const GEO_PREFIXES = ['el', 'stroke-modal', 'shape-modal', 'text-modal', 'ui-modal'];
+
+  // Para qué selección se escribieron los campos. En navegador, clicar otro
+  // elemento dispara PRIMERO el mousedown (que cambia la selección) y DESPUÉS
+  // el blur del campo → change: sin esta marca, el ancho tecleado para A se
+  // aplicaba al B recién seleccionado (auditoría v2.10.1). El redraw que
+  // resincroniza va por rAF, siempre posterior al change, así que la marca
+  // desfasada delata el gesto.
+  let geoFieldsFor = '';
+
+  function syncGeometryControls() {
+    const sel = state.selection.map(i => state.elements[i]).filter(Boolean);
+    // Los bloques de los modales solo aparecen con selección (sin ella no hay
+    // nada que colocar); el del panel lo oculta syncPanelSections con toda su
+    // sección «Posición y tamaño».
+    GEO_PREFIXES.forEach(p => {
+      if (p !== 'el') $(p + '-geo').hidden = !sel.length;
+    });
+    geoFieldsFor = state.selection.join(',');
+    if (!sel.length) return;
+    // La caja combinada de CUALQUIER selección, no solo la de un grupo: con
+    // dos elementos sueltos también hay una caja que enseñar y editar.
+    const b = selectionBounds();
+    if (!b) return;
+    const put = (id, v) => {
+      const input = $(id);
+      if (document.activeElement !== input) input.value = String(Math.round(v));
+    };
+    GEO_PREFIXES.forEach(p => {
+      put(p + '-x', b.x); put(p + '-y', b.y);
+      put(p + '-w', b.w); put(p + '-h', b.h);
+    });
+    const field = sel.length === 1 ? LABEL_FIELD(sel[0]) : null;
+    $('el-label-row').hidden = !field;
+    if (field && document.activeElement !== $('el-label')) {
+      $('el-label').value = sel[0][field] || '';
+    }
+  }
+
+  /** Aplica la caja escrita a mano: mueve y escala con las mismas funciones que
+      el arrastre y los tiradores, para no abrir una segunda vía que pueda
+      discrepar. Un cambio, un paso de deshacer. `prefix` dice qué juego de
+      campos se acaba de editar (el del panel o el de un modal). */
+  function applyGeometry(prefix) {
+    const p = GEO_PREFIXES.includes(prefix) ? prefix : 'el';
+    const sel = state.selection.map(i => state.elements[i]).filter(Boolean);
+    if (!sel.length) return;
+    // Los campos hablan de OTRA selección (el clic que la cambió corrió antes
+    // que este change): no se aplica nada y se resincronizan a la nueva.
+    if (state.selection.join(',') !== geoFieldsFor) {
+      syncGeometryControls();
+      return;
+    }
+    // La misma caja combinada que enseñan los campos (cualquier selección,
+    // tenga grupo o no) — leer aquí otra caja es garantía de discrepancia.
+    const from = selectionBounds();
+    if (!from) return;
+    // Lee un campo decidiendo si el usuario lo CAMBIÓ. Dos trampas ya
+    // mordidas (auditoría v2.10.1):
+    //   · un <input type=number> vaciado (o con basura tecleada) da value ''
+    //     y Number('') es 0, no NaN: sin el chequeo de la cadena, vaciar
+    //     «Ancho» colapsaba el elemento a 1px y vaciar «X» lo mandaba a 0;
+    //   · los campos ENSEÑAN valores redondeados (put hace Math.round), así
+    //     que comparar lo tecleado contra la caja EXACTA hacía «cambiado» a
+    //     todo campo de valor fraccionario — y como el ancho se evalúa
+    //     primero, el alto que acababas de teclear PERDÍA contra un ancho
+    //     que nadie había tocado (con el auto-zoom del 120% casi toda caja
+    //     es fraccionaria). Cambiado es «distinto de lo que el campo
+    //     mostraba»; sin cambio, manda el valor exacto, no el redondeado.
+    const field = (id, exact) => {
+      const s = String($(p + id).value).trim();
+      const v = Number(s);
+      if (s === '' || !Number.isFinite(v)) return { v: exact, changed: false };
+      if (v === Math.round(exact)) return { v: exact, changed: false };
+      return { v, changed: true };
+    };
+    const X = field('-x', from.x), Y = field('-y', from.y);
+    const W = field('-w', from.w), H = field('-h', from.h);
+    const to = {
+      x: X.v, y: Y.v,
+      w: Math.max(1, W.v), h: Math.max(1, H.v),
+    };
+    // Las mismas invariantes que imponen los tiradores, porque escribir una
+    // medida no puede permitir lo que arrastrar prohíbe:
+    //   · un polígono regular exige w === h, e isValidElement RECHAZA los
+    //     deformados — un ancho y un alto distintos darían un proyecto que ya
+    //     no se puede reimportar;
+    //   · un grupo (o cualquier multi-selección) escala en proporción, porque
+    //     dentro viaja de todo y un estirón libre rompería la invariante
+    //     anterior en sus piezas.
+    // En ambos casos manda el lado que se acaba de escribir y el otro le sigue;
+    // syncGeometryControls lo refleja en el acto, así que se ve por qué.
+    const single = sel.length === 1 ? sel[0] : null;
+    if (single && REGULAR_POLYGON_TYPES.includes(single.type)) {
+      const side = W.changed ? to.w : H.changed ? to.h : from.w;
+      to.w = side; to.h = side;
+    } else if (sel.length > 1) {
+      const s = W.changed ? (from.w ? to.w / from.w : 1)
+        : H.changed ? (from.h ? to.h / from.h : 1) : 1;
+      to.w = from.w * s; to.h = from.h * s;
+    }
+    // No-op efectivo: nada tecleado distinto, o una medida que la geometría no
+    // puede absorber (teclear un alto a una línea horizontal: scaleElement
+    // fuerza sy=1 cuando from.h es 0). Sin este cálculo se apilaba un paso de
+    // deshacer fantasma — el primer Ctrl+Z parecía muerto — y el campo se
+    // quedaba prometiendo un alto que el elemento no tiene: se resincroniza
+    // para que vuelva a decir la verdad.
+    const dx = to.x - from.x, dy = to.y - from.y;
+    const sx = from.w ? to.w / from.w : 1;
+    const sy = from.h ? to.h / from.h : 1;
+    if (!dx && !dy && sx === 1 && sy === 1) {
+      syncGeometryControls();
+      return;
+    }
+    saveUndo();
+    state.selection.forEach(i => {
+      // Primero la escala (referida a la caja de origen) y luego el
+      // desplazamiento: al revés, el factor se aplicaría sobre una caja movida.
+      const scaled = scaleElement(state.elements[i], from, { ...from, w: to.w, h: to.h });
+      state.elements[i] = moveElement(scaled, to.x - from.x, to.y - from.y);
+    });
+    redraw();
+  }
+
+  /**
+   * Muestra en el panel SOLO las secciones que la herramienta activa o la
+   * selección usan. El panel era una lista plana de 45 controles: dibujando con
+   * el lápiz seguían delante «Plantas», «Cubierta del alzado» o «Ancho del
+   * camino», que solo sirven para Fachada y para Camino. Y por debajo de 1100px
+   * el panel es un cajón, donde cada control de más se paga en scroll.
+   *
+   * Se decide por herramienta Y por selección, no solo por herramienta: los
+   * controles de relleno, trazo y texto tienen semántica dual, así que con un
+   * rectángulo seleccionado «Relleno» tiene que estar aunque la herramienta
+   * activa sea el lápiz. Ese es el punto delicado de todo esto.
+   *
+   * Se llama desde redrawNow(), que es el único punto de sincronía de la UI
+   * dependiente de la selección y ya calculó todo lo que hace falta.
+   */
+  function syncPanelSections() {
+    const sel = state.selection.map(i => state.elements[i]).filter(Boolean);
+    const selHas = pred => sel.some(pred);
+    const tool = state.tool;
+
+    const fill = FILLABLE_TYPES.includes(tool) ||
+      selHas(el => FILLABLE_TYPES.includes(el.type));
+    const text = tool === TOOLS.TEXT || tool === TOOLS.EMOJI ||
+      selHas(el => el.type === 'text');
+    const dashable = DASHABLE_TYPES.includes(tool) || tool === TOOLS.ARC ||
+      selHas(el => DASHABLE_TYPES.includes(el.type));
+    const headed = tool === TOOLS.ARROW || tool === TOOLS.CURVE_ARROW ||
+      selHas(el => (el.type === 'arrow' || el.type === 'curveArrow') && el.heads !== 'none');
+
+    $('panel-sec-element').hidden = !state.selection.length;
+    $('panel-sec-fill').hidden = !fill;
+    $('panel-sec-text').hidden = !text;
+    $('panel-sec-build').hidden = !BUILDING_TOOLS.includes(tool);
+    $('panel-sec-garden').hidden = !GARDEN_TOOLS.includes(tool);
+    $('row-dash').hidden = !dashable;
+    $('row-double-head').hidden = !headed;
+    // El ⚙ de «Trazo» abre el modal del borrador o el del trazo; con cualquier
+    // otra herramienta no hay nada que abrir y desaparece. Va aquí y no en la
+    // rama sin-selección de redrawNow para que siga estando con algo
+    // seleccionado: los ajustes de trazo también editan la selección.
+    $('btn-eraser-size').hidden = !(tool === TOOLS.ERASER ||
+      STROKE_TOOLS.includes(tool) || SHAPE_TOOLS.includes(tool) ||
+      tool === TOOLS.TEXT || UI_MODAL_TOOLS.includes(tool));
+    $('btn-eraser-size').title = tool === TOOLS.ERASER
+      ? 'Ajustar el tamaño del borrador'
+      : SHAPE_TOOLS.includes(tool) ? 'Ajustar la forma'
+      : tool === TOOLS.TEXT ? 'Ajustar el texto'
+      : UI_MODAL_TOOLS.includes(tool) ? 'Ajustar el componente'
+      : 'Ajustar el trazo';
+    // Con un modal de ajustes abierto, la selección puede cambiar por debajo
+    // (Ctrl+A, borrar…): se refresca para que siga enseñando lo que edita. Solo
+    // si está abierto — repintar su miniatura en cada frame del arrastre sería
+    // trabajo tirado.
+    if ($('modal-stroke').open) syncStrokeControls();
+    if ($('modal-shape').open) syncShapeControls();
+    if ($('modal-text').open) syncTextControls();
+    if ($('modal-ui').open) syncUiControls();
   }
 
   /* ── Canvas events ── */
@@ -1642,6 +1902,12 @@
       return;
     }
 
+    // Con una herramienta de creación (o el borrador) activa, empezar un gesto
+    // en el lienzo suelta la selección que selectTool conservó para editarla en
+    // su modal: si se está creando algo nuevo, el panel y los modales ya no
+    // deben seguir editando lo anterior.
+    if (state.selection.length) setSelection([]);
+
     // TEXT tool
     if (state.tool === TOOLS.TEXT) {
       // Si ya hay un editor abierto, su blur (que se dispara DESPUÉS de este
@@ -1885,7 +2151,9 @@
         octx.beginPath(); octx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2); octx.stroke();
         break;
       case TOOLS.TRAPEZOID: {
-        const vertices = Trapezoid.vertices({ x, y, w, h });
+        // El giro elegido entra también en la previsualización: si no, el
+        // arrastre enseñaría una forma y al soltar saldría otra.
+        const vertices = Trapezoid.vertices({ x, y, w, h, rotation: creationRotation() });
         if (!vertices.length) break;
         octx.beginPath();
         octx.moveTo(vertices[0].x, vertices[0].y);
@@ -1899,7 +2167,8 @@
       case TOOLS.PENTAGON:
       case TOOLS.HEXAGON: {
         const box = RegularPolygon.fromCenter(state.startPos, pos);
-        const vertices = RegularPolygon.vertices({ type: state.tool, ...box });
+        const vertices = RegularPolygon.vertices(
+          { type: state.tool, ...box, rotation: creationRotation() });
         if (!vertices.length) break;
         octx.beginPath();
         octx.moveTo(vertices[0].x, vertices[0].y);
@@ -2312,6 +2581,10 @@
         if (state.fillShapes && state.fillColor) shape.fillColor = state.fillColor;
         if (state.fillShapes && state.fillTransparent) shape.fillTransparent = true;
         shape.fillOpacity = state.fillOpacity;
+        // El giro solo se escribe si lo hay: su ausencia es el formato
+        // histórico, y en rect/redondeado isValidElement lo rechaza.
+        const rotation = creationRotation();
+        if (rotation) shape.rotation = rotation;
         state.elements.push(shape);
       }
     }
@@ -2319,14 +2592,19 @@
     else if (UI_DEFAULTS[state.tool]) {
       const defs = UI_DEFAULTS[state.tool];
       saveUndo();
-      state.elements.push({
+      const el = {
         type: state.tool,
         x, y,
         w: w > 20 ? w : defs.w,
         h: h > 20 ? h : defs.h,
         color: state.color, lineWidth: state.lineWidth,
         seed: newSeed(),
-      });
+      };
+      // Rótulo de creación elegido en #modal-ui; vacío = default del renderer
+      // (Imagen no está en uiLabels: su renderer no recibe rótulo).
+      const label = (state.uiLabels[state.tool] || '').trim();
+      if (label) el.label = label;
+      state.elements.push(el);
     }
     // Edificios — herramientas de creación: 1..N elementos de tipos ya
     // existentes (rect/line, ver js/building.js). Un solo undo por gesto.
@@ -2443,7 +2721,10 @@
   function placeEmoji(pos) {
     const emoji = state.pendingEmoji;
     if (!emoji) return;
-    const fontSize = Math.max(state.fontSize, EMOJI_MIN_SIZE);
+    // Tamaño propio del emoji (deslizador de su catálogo), no el de letra:
+    // hasta la 2.10.0 heredaba max(fontSize, 32) y no había forma de agrandar
+    // un emoji sin cambiar también el tamaño del próximo texto.
+    const fontSize = Math.max(state.emojiSize, EMOJI_MIN_SIZE);
     // El render de `text` ancla en la esquina superior izquierda; se descuenta
     // media caja para que el emoji quede centrado en el punto pulsado
     ctx.save();
@@ -2765,6 +3046,35 @@
   ].map(cfg => ({ gen: () => Garden, opts: () => gardenOpts(), box: { x: 100, y: 84 }, ...cfg }));
   const variantModalOf = tool => VARIANT_MODALS.find(m => m.tool === tool);
 
+  /** Entradas de jardín de la tabla, para derivar de ella las casillas
+      «Etiquetas» de cada modal y que la lista no se quede corta al añadir una
+      herramienta nueva. */
+  const GARDEN_MODALS = VARIANT_MODALS.filter(m => GARDEN_TOOLS.includes(m.tool));
+  /** Casillas de «Etiquetas» escritas en index.html: la del panel y las de los
+      tres modales del jardín sin ficha botánica (parcela, decoración y camino).
+      Las cinco botánicas las crea installPlantControls y NO se buscan por id,
+      sino por referencia en `cfg.plantControls` —igual que el resto de sus
+      controles—: un id asignado en runtime no entra en el índice del arnés de
+      tests, así que la búsqueda devolvería un nodo distinto del real. */
+  const GARDEN_LABEL_CHECKS = ['check-garden-labels',
+    ...GARDEN_MODALS.filter(m => !m.plant).map(m => `${m.data}-garden-labels`)];
+
+  /** Punto ÚNICO de sincronía de «Etiquetas»: un solo ajuste, nueve mandos.
+      Mismo contrato que syncPathControls(). Con las etiquetas apagadas el
+      selector de modo no rotula nada, así que se deshabilita. */
+  function syncGardenLabelControls() {
+    GARDEN_LABEL_CHECKS.forEach(id => {
+      const box = $(id);
+      if (box) box.checked = state.gardenLabels;
+    });
+    GARDEN_MODALS.forEach(m => {
+      const c = m.plantControls;
+      if (!c) return;
+      c.labels.checked = state.gardenLabels;
+      c.labelMode.disabled = !state.gardenLabels;
+    });
+  }
+
   /** Ficha compacta y serializable con la intención de diseño del ejemplar.
       Se repite en cada pieza para que sobreviva a copiar, mover y exportar. */
   function gardenGroupMeta(tool, p1, p2, style = {}) {
@@ -2837,11 +3147,22 @@
     state.editGardenGroupId = selected.gid;
     selectTool(meta.tool);
   }
-  /** true si elegir esta herramienta abre un catálogo de variante. */
+  /** true si elegir esta herramienta abre un catálogo de variante — es decir,
+      si hay que ELEGIR algo antes de poder dibujar, y por tanto cancelar debe
+      devolver a la herramienta anterior (ver wireBuildModalCancel). */
   const opensVariantModal = tool =>
     MODAL_BUILD_TOOLS.includes(tool) || VARIANT_MODALS.some(m => m.tool === tool);
 
-  function selectTool(id) {
+
+  /**
+   * @param {string} id
+   * @param {{silent?: boolean}} [opts] `silent` elige la herramienta sin abrir
+   *   sus ajustes. Lo usa el retorno tras cancelar un catálogo: volver a la
+   *   herramienta anterior no debe encadenar un segundo modal encima del que
+   *   se acaba de cerrar, pero tampoco es motivo para tirar al usuario a Mover.
+   */
+  function selectTool(id, opts) {
+    const silent = !!(opts && opts.silent);
     if (id !== state.tool && state.curveChain) cancelCurveChain();
     // Al abrir un modal de Edificios, recuerda a dónde volver si se cancela: la
     // herramienta previa (si venimos de otra) o esta misma (reentrada para cambiar
@@ -2850,8 +3171,18 @@
       state.toolBeforeModal = id === state.tool ? id : state.tool;
       state.variantChosen = false;
     }
+    // Pulsar la herramienta de un elemento seleccionado lo EDITA en vez de
+    // deseleccionarlo: si la selección contiene al menos un elemento del tipo
+    // que el modal de ajustes de esta herramienta sabe editar (MODAL_EDIT_TYPE,
+    // por tipo exacto), se conserva, y el modal abre mostrando sus valores —
+    // la semántica dual de los controles hace el resto, posición incluida.
+    // Empezar a crear en el lienzo la suelta (onMouseDown). Los catálogos, el
+    // Borrador y Emoji siguen vaciando como siempre: no editan elementos.
+    const editType = MODAL_EDIT_TYPE[id];
+    const keepSelection = !!editType &&
+      state.selection.some(i => (state.elements[i] || {}).type === editType);
     state.tool = id;
-    setSelection([]);
+    if (!keepSelection) setSelection([]);
     updateToolbarActive();
     updateCursor();
     redraw();
@@ -2860,14 +3191,36 @@
     // solo limpia si la herramienta sigue siendo el borrador).
     scheduleOverlay();
     // Elegir la herramienta Emoji abre el catálogo; tras escoger uno, cada
-    // click en el lienzo lo estampa (volver a pulsarla permite cambiarlo)
-    if (id === TOOLS.EMOJI) $('modal-emoji').showModal();
+    // click en el lienzo lo estampa (volver a pulsarla permite cambiarlo).
+    // También honra `silent`: el retorno tras cancelar un catálogo de
+    // Edificios/Jardín volvía a Emoji REABRIENDO este modal encima del que se
+    // acababa de cerrar — justo la cadena que silent existe para evitar
+    // (auditoría v2.10.1).
+    if (id === TOOLS.EMOJI && !silent) {
+      $('emoji-modal-size').value = String(state.emojiSize);
+      $('emoji-modal-size-val').textContent = String(state.emojiSize);
+      $('modal-emoji').showModal();
+    }
     // Borrador abre su modal de tamaño, igual que Emoji o Planta abren el
     // suyo: si no, el único acceso es el botón ⚙ del panel, lejos del
     // sidebar y fácil de no ver. A diferencia de esos, cerrarlo NO debe
     // devolver a la herramienta anterior (el borrador es usable sin elegir
     // nada en el modal), así que no pasa por opensVariantModal.
-    if (id === TOOLS.ERASER) openEraserSizeModal();
+    if (id === TOOLS.ERASER && !silent) openEraserSizeModal();
+    // Las herramientas de dibujo abren sus ajustes de trazo al elegirlas, igual
+    // que el Borrador abre el suyo y Planta o Balcón su catálogo: es la misma
+    // promesa para todas las herramientas que tienen algo que ajustar. Volver a
+    // pulsar la herramienta ya activa lo reabre (esta misma línea), y el ⚙ de
+    // la cabecera «Trazo» lo hace sin cambiar de herramienta. Como el Borrador,
+    // cerrarlo NO devuelve a la herramienta anterior: no hay nada que elegir,
+    // el trazo ya es usable, así que tampoco pasa por opensVariantModal.
+    if (STROKE_TOOLS.includes(id) && !silent) openStrokeModal();
+    // Las ocho de Formas, lo mismo, con trazo y relleno en el mismo sitio.
+    if (SHAPE_TOOLS.includes(id) && !silent) openShapeModal();
+    // Texto y los cinco componentes de UI, lo mismo: sus ajustes se abren al
+    // elegirlos y el ⚙ los reabre. Tampoco pasan por opensVariantModal.
+    if (id === TOOLS.TEXT && !silent) openTextModal();
+    if (UI_MODAL_TOOLS.includes(id) && !silent) openUiModal();
     // Planta abre su catálogo de huellas; reaplica el resaltado activo antes de
     // abrir (updateEmojiActive no está acotado y comparte la clase .modal__emoji)
     if (id === TOOLS.BUILD_PLANTA) { updatePlantaActive(); $('modal-planta').showModal(); }
@@ -2892,6 +3245,10 @@
       // los dos juegos de controles y repintar la miniatura antes de enseñarlo,
       // igual que hace Fachada con syncBuildControls().
       if (id === TOOLS.GARDEN_PATH) syncPathControls();
+      // «Etiquetas» está en los ocho modales del jardín: hay que repartirla
+      // antes de enseñar cualquiera de ellos, incluidos los no botánicos
+      // (parcela, decoración y camino), que no pasan por syncPlantControls.
+      if (GARDEN_TOOLS.includes(id)) syncGardenLabelControls();
       // Muro también lleva ajustes propios (material/altura/verja/puerta)
       // fuera del catálogo genérico, mismo motivo que Camino.
       if (id === TOOLS.BUILD_WALL) syncWallControls();
@@ -3044,22 +3401,43 @@
       swatch.style.background = c;
       swatch.dataset.color = c;
       swatch.setAttribute('aria-label', `Color ${c}`);
-      swatch.addEventListener('click', () => setColor(c));
+      // Las muestras son discretas: un clic, un paso de undo (no hay gesto que
+      // agrupar como en el picker nativo). Comparten la semántica dual.
+      swatch.addEventListener('click', () => {
+        if (state.selection.length) {
+          saveUndo();
+          state.selection.forEach(i => {
+            state.elements[i] = { ...state.elements[i], color: c };
+          });
+          showColor(c);
+          redraw();
+        } else {
+          setColor(c);
+        }
+      });
       grid.appendChild(swatch);
     });
     updateColorActive();
   }
 
-  function setColor(c) {
-    state.color = c;
-    $('color-picker').value = c;
+  /** Refresca los mandos del color SIN tocar el default de creación. Lo usa
+      redrawNow para enseñar el color del elemento seleccionado: antes el picker
+      se quedaba en el último color elegido y mentía sobre lo seleccionado. */
+  function showColor(c) {
+    $('color-picker').value = hex6(c);
     $('color-hex').textContent = c;
-    updateColorActive();
+    updateColorActive(c);
   }
 
-  function updateColorActive() {
+  function setColor(c) {
+    state.color = c;
+    showColor(c);
+  }
+
+  function updateColorActive(current) {
+    const shown = current !== undefined ? current : state.color;
     document.querySelectorAll('.panel__color-swatch').forEach(s => {
-      const active = s.dataset.color === state.color;
+      const active = s.dataset.color === shown;
       s.classList.toggle('panel__color-swatch--active', active);
       s.setAttribute('aria-pressed', String(active));
     });
@@ -3122,6 +3500,440 @@
     $('modal-eraser').showModal();
   }
 
+  /* ── Trazo: ajustes compartidos entre el panel y #modal-stroke ── */
+
+  /** Herramientas de dibujo a mano alzada: son las que tienen ajustes de trazo
+      propios y, por tanto, las que abren #modal-stroke. */
+  const STROKE_TOOLS = [
+    TOOLS.PENCIL, TOOLS.LINE, TOOLS.ARROW, TOOLS.CURVE_ARROW, TOOLS.ARC,
+  ];
+  /** Las ocho de Formas: abren #modal-shape, con trazo, relleno y giro. Cada
+      herramienta produce un elemento de su mismo id (el Cuadrado incluido: es
+      un polígono regular de cuatro lados, no un `rect`). */
+  const SHAPE_TOOLS = [
+    TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE, TOOLS.TRAPEZOID,
+    ...REGULAR_POLYGON_TYPES,
+  ];
+  /** Los cinco componentes de UI que comparten #modal-ui (Texto tiene el suyo
+      propio, #modal-text, porque sus ajustes son otros: tamaño de letra). */
+  const UI_MODAL_TOOLS = [
+    TOOLS.BUTTON, TOOLS.INPUT, TOOLS.IMAGE_PLACEHOLDER, TOOLS.NAV, TOOLS.CARD,
+  ];
+  /** Tipo de elemento que el modal de ajustes de cada herramienta sabe editar.
+      Es la tabla de «pulsar la herramienta del elemento seleccionado lo edita»
+      (selectTool conserva la selección si contiene alguno de este tipo). Por
+      tipo EXACTO a propósito: la regla cabe en una frase y no da sorpresas —
+      con un círculo seleccionado, pulsar Rectángulo deselecciona como siempre.
+      El Semicírculo edita `curveArrow` porque eso es lo que crea (no es un
+      tipo de elemento). Quedan fuera Emoji, Borrador y los catálogos: sus
+      modales no editan elementos. */
+  const MODAL_EDIT_TYPE = {
+    [TOOLS.PENCIL]: 'pencil', [TOOLS.LINE]: 'line', [TOOLS.ARROW]: 'arrow',
+    [TOOLS.CURVE_ARROW]: 'curveArrow', [TOOLS.ARC]: 'curveArrow',
+    [TOOLS.TEXT]: 'text',
+  };
+  SHAPE_TOOLS.forEach(t => { MODAL_EDIT_TYPE[t] = t; });
+  UI_MODAL_TOOLS.forEach(t => { MODAL_EDIT_TYPE[t] = t; });
+  /** Formas cuyo giro se guarda como ángulo y, por tanto, se puede fijar antes
+      de dibujar. Rectángulo y redondeado quedan fuera a propósito: su giro se
+      serializa intercambiando ancho y alto, así que un cuarto de vuelta sobre
+      una caja que aún estás arrastrando no significa nada — e `isValidElement`
+      rechaza un `rotation` en ellos. El círculo, por razones obvias. */
+  const ROTATABLE_TOOLS = [...REGULAR_POLYGON_TYPES, TOOLS.TRAPEZOID];
+
+  /** Giro con el que nace la próxima forma, ya ajustado al paso de la
+      herramienta activa. Fuente ÚNICA para la previsualización del arrastre y
+      para el elemento que se crea al soltar, para que no puedan discrepar. */
+  function creationRotation() {
+    if (!ROTATABLE_TOOLS.includes(state.tool) || !state.shapeRotation) return 0;
+    const stepDeg = ShapeRotation.step(state.tool);
+    return ShapeRotation.normalize(
+      Math.round(state.shapeRotation / stepDeg) * stepDeg);
+  }
+
+  /** Lleva una forma al ángulo `target` aplicando pasos completos de su propio
+      tipo. Se apoya en ShapeRotation.rotateElement en vez de escribir el
+      ángulo a pelo porque el trapecio, además de girar, intercambia ancho y
+      alto: fijar solo `rotation` dejaría su caja —y con ella el impacto del
+      clic— desalineada de la silueta. */
+  function rotateTo(el, target) {
+    const stepDeg = ShapeRotation.step(el.type);
+    if (!stepDeg) return el;
+    const current = Number.isFinite(el.rotation) ? el.rotation : 0;
+    let steps = Math.round(ShapeRotation.normalize(target - current) / stepDeg);
+    let out = el;
+    while (steps-- > 0) out = ShapeRotation.rotateElement(out);
+    return out;
+  }
+  /** Tipos de elemento a los que se les puede poner o quitar el discontinuo. */
+  const DASHABLE_TYPES = ['line', 'arrow', 'curveArrow'];
+
+  /** Doble punta: con selección se la pone a las flechas seleccionadas (los
+      no-flecha se ignoran); sin selección fija el default de las nuevas.
+      Vive aquí y no dentro del listener porque la casilla existe dos veces. */
+  function applyDoubleHead(on) {
+    if (state.selection.length) {
+      const arrows = state.selection.filter(i => {
+        const el = state.elements[i];
+        // Los semicírculos (heads:'none') nunca llevan punta
+        return (el.type === 'arrow' || el.type === 'curveArrow') && el.heads !== 'none';
+      });
+      // Sin flechas en la selección no hay nada que editar, pero se cae al
+      // resync del final igualmente: un `return` aquí dejaba la casilla
+      // marcada aunque no hubiera cambiado nada (auditoría v2.10.1).
+      if (arrows.length) {
+        saveUndo();
+        arrows.forEach(i => {
+          const copy = { ...state.elements[i] };
+          if (on) copy.heads = 'both';
+          else delete copy.heads;
+          state.elements[i] = copy;
+        });
+        redraw();
+      }
+    } else {
+      state.doubleHead = on;
+    }
+    syncStrokeControls();
+  }
+
+  /** Trazo discontinuo: misma semántica dual, sobre line/arrow/curveArrow. */
+  function applyDash(on) {
+    if (state.selection.length) {
+      const strokes = state.selection.filter(
+        i => DASHABLE_TYPES.includes(state.elements[i].type));
+      // Mismo motivo que en applyDoubleHead: siempre se resincroniza.
+      if (strokes.length) {
+        saveUndo();
+        strokes.forEach(i => {
+          const copy = { ...state.elements[i] };
+          if (on) copy.dash = true;
+          else delete copy.dash;
+          state.elements[i] = copy;
+        });
+        redraw();
+      }
+    } else {
+      state.dashed = on;
+    }
+    syncStrokeControls();
+  }
+
+  /** Punto ÚNICO de sincronía de los ajustes de trazo: reparte grosor, color,
+      discontinuo y doble punta a los dos juegos de controles (panel y modal) y
+      repinta la muestra. Asignar `.value`/`.checked` no dispara eventos, así
+      que los gemelos no pueden realimentarse. Mismo contrato que
+      syncBuildControls() y syncPathControls(). */
+  function syncStrokeControls() {
+    const single = state.selection.length === 1
+      ? state.elements[state.selection[0]] : null;
+    const width = single ? single.lineWidth
+      : state.tool === TOOLS.ERASER ? state.eraserSize : state.lineWidth;
+    $('stroke-modal-slider').value = String(width);
+    $('stroke-modal-val').textContent = String(width);
+    $('stroke-modal-color').value = hex6(single ? single.color : state.color);
+    const dash = single && DASHABLE_TYPES.includes(single.type)
+      ? single.dash === true : state.dashed;
+    const double = single && (single.type === 'arrow' || single.type === 'curveArrow')
+      ? single.heads === 'both' : state.doubleHead;
+    // A los DOS lados: este es el punto de sincronía, no solo el del modal.
+    $('stroke-modal-dash').checked = dash;
+    $('check-dash').checked = dash;
+    $('stroke-modal-double').checked = double;
+    $('check-double-head').checked = double;
+    // El lápiz y la línea no llevan punta: el campo se atenúa en vez de
+    // desaparecer, como hace updateFacadeFieldsEnabled con la cubierta. Un
+    // semicírculo (heads:'none') tampoco la lleva NUNCA — mismo criterio que
+    // syncPanelSections; sin la exclusión, la casilla quedaba habilitada e
+    // inerte con uno seleccionado (auditoría v2.10.1).
+    const heads = state.tool === TOOLS.ARROW || state.tool === TOOLS.CURVE_ARROW ||
+      (single && (single.type === 'arrow' || single.type === 'curveArrow') &&
+        single.heads !== 'none');
+    $('stroke-modal-double-row').classList.toggle('modal__field--off', !heads);
+    $('stroke-modal-double').disabled = !heads;
+    // Y el discontinuo se atenúa para el lápiz, con el criterio del panel
+    // (syncPanelSections oculta #row-dash por lo mismo): el case 'pencil' del
+    // renderer no tiene dash, así que la casilla dibujaba la muestra
+    // discontinua, el trazo salía continuo y encima cambiaba en silencio
+    // state.dashed — la siguiente LÍNEA nacía discontinua sin pedirlo.
+    const dashable = DASHABLE_TYPES.includes(state.tool) || state.tool === TOOLS.ARC ||
+      (single && DASHABLE_TYPES.includes(single.type));
+    $('stroke-modal-dash-row').classList.toggle('modal__field--off', !dashable);
+    $('stroke-modal-dash').disabled = !dashable;
+    renderStrokePreview();
+  }
+
+  /** Abre los ajustes de trazo. Igual que el borrador, cerrarlo NO devuelve a
+      la herramienta anterior (no hay nada que elegir: el trazo ya es usable),
+      así que no pasa por opensVariantModal. */
+  function openStrokeModal() {
+    syncStrokeControls();
+    $('modal-stroke').showModal();
+  }
+
+  /** Muestra del trazo con los ajustes actuales, dibujada con las mismas
+      primitivas que el lienzo: la miniatura no puede prometer otra cosa. */
+  function renderStrokePreview() {
+    const canvas = $('stroke-preview');
+    const pctx = canvas && canvas.getContext && canvas.getContext('2d');
+    if (!pctx) return;
+    const w = canvas.width, h = canvas.height;
+    pctx.setTransform(1, 0, 0, 1, 0, 0);
+    pctx.clearRect(0, 0, w, h);
+    pctx.fillStyle = state.canvasBg;
+    pctx.fillRect(0, 0, w, h);
+    const single = state.selection.length === 1
+      ? state.elements[state.selection[0]] : null;
+    const el = {
+      type: state.tool === TOOLS.ARROW || state.tool === TOOLS.CURVE_ARROW
+        ? 'arrow' : 'line',
+      x1: w * 0.12, y1: h * 0.62, x2: w * 0.88, y2: h * 0.38,
+      color: single ? single.color : state.color,
+      lineWidth: single ? single.lineWidth : state.lineWidth,
+      seed: 7,
+    };
+    // La casilla puede estar marcada (state.dashed) pero atenuada porque la
+    // herramienta no admite discontinuo (lápiz): la muestra dibuja lo que va a
+    // salir, no lo que dice un control deshabilitado.
+    if ($('stroke-modal-dash').checked && !$('stroke-modal-dash').disabled) el.dash = true;
+    if ($('stroke-modal-double').checked && el.type === 'arrow') el.heads = 'both';
+    Renderer.renderElement(pctx, el);
+  }
+
+  /* ── Formas: ajustes compartidos entre el panel y #modal-shape ── */
+
+  /** Punto ÚNICO de sincronía de los ajustes de forma: trazo y relleno a los
+      dos juegos de controles, y la muestra al día. Mismo contrato que
+      syncStrokeControls(). */
+  function syncShapeControls() {
+    // Misma regla que redrawNow: con multiselección los controles no se tocan
+    // —no hay un valor que enseñar— y conservan lo último mostrado, que además
+    // es lo que el usuario está arrastrando ahora mismo.
+    if (state.selection.length > 1) { renderShapePreview(); return; }
+    const single = state.selection.length === 1
+      ? state.elements[state.selection[0]] : null;
+    const fillable = single && FILLABLE_TYPES.includes(single.type) ? single : null;
+    const width = single ? single.lineWidth : state.lineWidth;
+    $('shape-modal-slider').value = String(width);
+    $('shape-modal-val').textContent = String(width);
+    $('shape-modal-color').value = hex6(single ? single.color : state.color);
+
+    const on = fillable ? fillable.fill === true : state.fillShapes;
+    const transparent = fillable
+      ? fillable.fillTransparent === true : state.fillTransparent;
+    const pct = Math.round((fillable
+      ? (fillable.fillOpacity !== undefined ? fillable.fillOpacity : 0.4)
+      : state.fillOpacity) * 100);
+    const fillColor = hex6(fillable
+      ? (fillable.fillColor || fillable.color) : (state.fillColor || state.color));
+    // A los DOS lados: este es el punto de sincronía del relleno, no solo el
+    // del modal. La opacidad solo pinta en modo translúcido, en ambos.
+    $('shape-modal-fill').checked = on;
+    $('check-fill').checked = on;
+    $('shape-modal-fill-transparent').checked = transparent;
+    $('check-fill-transparent').checked = transparent;
+    $('shape-modal-opacity').value = String(pct);
+    $('fill-opacity-slider').value = String(pct);
+    $('shape-modal-opacity-val').textContent = String(pct);
+    $('fill-opacity-val').textContent = String(pct);
+    $('shape-modal-opacity').disabled = !transparent;
+    $('fill-opacity-slider').disabled = !transparent;
+    $('shape-modal-fill-color').value = fillColor;
+    $('fill-color-picker').value = fillColor;
+
+    // Giro. El paso lo manda el tipo, así que el deslizador se reconfigura al
+    // cambiar de herramienta y el valor se ajusta al múltiplo más cercano: 36°
+    // de un pentágono no es una orientación válida para un hexágono, y un
+    // trapecio con un giro que no sea cuarto de vuelta lo rechaza la validación
+    // al reimportar el JSON.
+    const rotType = single && ShapeRotation.isType(single.type) &&
+      ROTATABLE_TOOLS.includes(single.type) ? single.type
+      : ROTATABLE_TOOLS.includes(state.tool) ? state.tool : null;
+    const row = $('shape-modal-rotation-row');
+    row.hidden = !rotType;
+    if (rotType) {
+      const stepDeg = ShapeRotation.step(rotType);
+      const raw = single ? (Number.isFinite(single.rotation) ? single.rotation : 0)
+        : state.shapeRotation;
+      const snapped = ShapeRotation.normalize(Math.round(raw / stepDeg) * stepDeg);
+      if (!single) state.shapeRotation = snapped;
+      const slider = $('shape-modal-rotation');
+      slider.step = String(stepDeg);
+      slider.max = String(360 - stepDeg);
+      slider.value = String(snapped);
+      $('shape-modal-rotation-val').textContent = String(snapped);
+    }
+    renderShapePreview();
+  }
+
+  /** Abre los ajustes de la forma. Como el borrador y el trazo, cerrarlo no
+      devuelve a la herramienta anterior: no hay nada que elegir. */
+  function openShapeModal() {
+    syncShapeControls();
+    $('modal-shape').showModal();
+  }
+
+  /** Muestra de LA FORMA de la herramienta activa con el trazo y el relleno
+      actuales — no un rectángulo genérico: la gracia es ver el resultado antes
+      de arrastrar, y un pentágono no se parece a un círculo. */
+  function renderShapePreview() {
+    const canvas = $('shape-preview');
+    const pctx = canvas && canvas.getContext && canvas.getContext('2d');
+    if (!pctx) return;
+    const w = canvas.width, h = canvas.height;
+    pctx.setTransform(1, 0, 0, 1, 0, 0);
+    pctx.clearRect(0, 0, w, h);
+    pctx.fillStyle = state.canvasBg;
+    pctx.fillRect(0, 0, w, h);
+    const single = state.selection.length === 1
+      ? state.elements[state.selection[0]] : null;
+    const type = SHAPE_TOOLS.includes(state.tool) ? state.tool : TOOLS.RECT;
+    // Los polígonos regulares exigen w === h (RegularPolygon): caja cuadrada.
+    const sq = REGULAR_POLYGON_TYPES.includes(type) || type === TOOLS.CIRCLE;
+    const bw = sq ? h * 0.62 : w * 0.66, bh = h * 0.62;
+    const el = {
+      type, x: (w - bw) / 2, y: (h - bh) / 2, w: bw, h: bh,
+      color: single ? single.color : state.color,
+      lineWidth: single ? single.lineWidth : state.lineWidth,
+      seed: 11,
+    };
+    const rot = +$('shape-modal-rotation').value;
+    if (rot && ROTATABLE_TOOLS.includes(type)) el.rotation = rot;
+    if ($('shape-modal-fill').checked) {
+      el.fill = true;
+      // El picker enseña SIEMPRE un color (hex6(fillColor || color)), pero la
+      // creación solo escribe fillColor si existe de verdad; sin él, el
+      // relleno es el tinte clásico del trazo (color + '20'). Copiar aquí el
+      // valor del picker pintaba la muestra con un sólido opaco donde el
+      // elemento real sale con un tinte tenue (auditoría v2.10.1). Se lee la
+      // misma fuente que usa la creación / el elemento seleccionado.
+      const fc = single ? single.fillColor : state.fillColor;
+      if (fc) el.fillColor = fc;
+      if ($('shape-modal-fill-transparent').checked) {
+        el.fillTransparent = true;
+        el.fillOpacity = +$('shape-modal-opacity').value / 100;
+      }
+    }
+    Renderer.renderElement(pctx, el);
+  }
+
+  /* ── Texto: ajustes compartidos entre el panel y #modal-text ── */
+
+  /** Punto único de sincronía de los ajustes de texto, mismo contrato que
+      syncStrokeControls(): con un `text` seleccionado enseña sus valores; sin
+      selección, los defaults de creación. */
+  function syncTextControls() {
+    const single = state.selection.length === 1
+      ? state.elements[state.selection[0]] : null;
+    const size = single && single.type === 'text' ? single.fontSize : state.fontSize;
+    $('text-modal-size').value = String(size);
+    $('text-modal-size-val').textContent = String(size);
+    $('text-modal-color').value = hex6(single ? single.color : state.color);
+    renderTextPreview();
+  }
+
+  /** Abre los ajustes del texto. Como el trazo: cerrarlo no devuelve a la
+      herramienta anterior (no hay nada que elegir). */
+  function openTextModal() {
+    syncTextControls();
+    $('modal-text').showModal();
+  }
+
+  /** Muestra del texto con el tamaño y el color actuales — el texto REAL si
+      hay uno seleccionado (su primera línea), la palabra «Texto» si no. */
+  function renderTextPreview() {
+    const canvas = $('text-preview');
+    const pctx = canvas && canvas.getContext && canvas.getContext('2d');
+    if (!pctx) return;
+    const w = canvas.width, h = canvas.height;
+    pctx.setTransform(1, 0, 0, 1, 0, 0);
+    pctx.clearRect(0, 0, w, h);
+    pctx.fillStyle = state.canvasBg;
+    pctx.fillRect(0, 0, w, h);
+    const single = state.selection.length === 1 &&
+      state.elements[state.selection[0]].type === 'text'
+      ? state.elements[state.selection[0]] : null;
+    const size = Number($('text-modal-size').value) || state.fontSize;
+    Renderer.renderElement(pctx, {
+      type: 'text',
+      x: 14, y: (h - size) / 2,
+      value: single && single.value ? single.value.split('\n')[0] : 'Texto',
+      color: single ? single.color : state.color,
+      fontSize: size,
+      lineWidth: single ? single.lineWidth : state.lineWidth,
+    });
+  }
+
+  /* ── Componentes UI: #modal-ui sirve a Botón, Input, Imagen, Navbar y Tarjeta ── */
+
+  /** Nombre visible de cada componente, para retitular el modal compartido. */
+  const UI_TOOL_NAMES = {
+    [TOOLS.BUTTON]: 'Botón', [TOOLS.INPUT]: 'Input',
+    [TOOLS.IMAGE_PLACEHOLDER]: 'Imagen', [TOOLS.NAV]: 'Navbar',
+    [TOOLS.CARD]: 'Tarjeta',
+  };
+
+  /** Punto único de sincronía de los ajustes de componente. El tipo mostrado
+      es el del componente seleccionado si lo hay (⚙ con selección) y el de la
+      herramienta activa si no. */
+  function syncUiControls() {
+    const single = state.selection.length === 1
+      ? state.elements[state.selection[0]] : null;
+    const uiType = single && UI_TOOL_NAMES[single.type] ? single.type
+      : UI_TOOL_NAMES[state.tool] ? state.tool : TOOLS.BUTTON;
+    $('modal-ui-title').textContent = 'Ajustes de ' + UI_TOOL_NAMES[uiType];
+    // Imagen no tiene rótulo (el renderer de imagePlaceholder no lo recibe):
+    // la fila entera se oculta, igual que hace el panel con #el-label-row. Y
+    // con multi-selección tampoco se ofrece — la regla del panel es que con
+    // varias piezas los controles de texto no se tocan (#el-label-row hace lo
+    // mismo), y un campo visible que no edita nada es un callejón sin salida.
+    const labeled = state.selection.length <= 1 && uiType !== TOOLS.IMAGE_PLACEHOLDER;
+    $('ui-modal-label-row').hidden = !labeled;
+    if (labeled && document.activeElement !== $('ui-modal-label')) {
+      $('ui-modal-label').value = single ? (single.label || '')
+        : (state.uiLabels[uiType] || '');
+    }
+    const width = single ? single.lineWidth : state.lineWidth;
+    $('ui-modal-slider').value = String(width);
+    $('ui-modal-val').textContent = String(width);
+    $('ui-modal-color').value = hex6(single ? single.color : state.color);
+    renderUiPreview(uiType, single);
+  }
+
+  /** Abre los ajustes del componente UI activo. Mismo contrato que el trazo. */
+  function openUiModal() {
+    syncUiControls();
+    $('modal-ui').showModal();
+  }
+
+  /** Muestra del componente dibujada con el renderer REAL, encajada en la
+      miniatura: el nav mide 600×50 y la tarjeta 220×280, así que se escala por
+      el lado que mande en vez de recortar. */
+  function renderUiPreview(uiType, single) {
+    const canvas = $('ui-preview');
+    const pctx = canvas && canvas.getContext && canvas.getContext('2d');
+    if (!pctx) return;
+    const w = canvas.width, h = canvas.height;
+    pctx.setTransform(1, 0, 0, 1, 0, 0);
+    pctx.clearRect(0, 0, w, h);
+    pctx.fillStyle = state.canvasBg;
+    pctx.fillRect(0, 0, w, h);
+    const defs = UI_DEFAULTS[uiType] || UI_DEFAULTS[TOOLS.BUTTON];
+    const s = Math.min((w - 20) / defs.w, (h - 20) / defs.h, 1);
+    const el = {
+      type: uiType,
+      x: (w / s - defs.w) / 2, y: (h / s - defs.h) / 2,
+      w: defs.w, h: defs.h,
+      color: single ? single.color : state.color,
+      lineWidth: single ? single.lineWidth : state.lineWidth,
+      seed: 5,
+    };
+    const label = single ? single.label : (state.uiLabels[uiType] || '').trim();
+    if (label) el.label = label;
+    pctx.scale(s, s);
+    Renderer.renderElement(pctx, el);
+  }
+
   /* ── Panel controls wiring ── */
 
   function wireControls() {
@@ -3138,17 +3950,52 @@
       if (e.target.matches('input, select')) e.target.blur();
     });
 
-    // Color picker
-    $('color-picker').addEventListener('input', e => setColor(e.target.value));
+    // Color del trazo — semántica dual, como el resto de controles de aspecto.
+    // Hasta la v2.9.0 era el ÚNICO que no la tenía: con algo seleccionado,
+    // elegir un color no lo recoloreaba, así que un botón, una tarjeta o
+    // cualquier elemento ya dibujado se quedaba para siempre del color con el
+    // que nació. El diálogo nativo dispara un 'input' por cada tono que se pisa
+    // al arrastrar, así que todo el gesto es UN paso de undo (mismo patrón que
+    // el color de relleno).
+    let colorGestureSnap = null;
+    const applyColor = c => {
+      if (state.selection.length) {
+        if (!colorGestureSnap) colorGestureSnap = snapshot();
+        state.selection.forEach(i => {
+          state.elements[i] = { ...state.elements[i], color: c };
+        });
+        showColor(c);
+        redraw();
+      } else {
+        setColor(c);
+      }
+      syncStrokeControls();
+      syncShapeControls();
+      syncTextControls();
+      syncUiControls();
+    };
+    function commitColorGesture() {
+      if (!colorGestureSnap) return;
+      const snap = colorGestureSnap;
+      colorGestureSnap = null;
+      const unchanged = snap.length === state.elements.length &&
+        snap.every((el, i) => el === state.elements[i] || el.color === state.elements[i].color);
+      if (unchanged) state.elements = snap;
+      else pushUndo(snap);
+    }
+    ['color-picker', 'stroke-modal-color', 'shape-modal-color',
+      'text-modal-color', 'ui-modal-color'].forEach(id => {
+      $(id).addEventListener('input', e => applyColor(e.target.value));
+      $(id).addEventListener('change', commitColorGesture);
+    });
 
     // Stroke slider — semántica dual: con selección edita el grosor de los
     // elementos seleccionados en vivo; sin selección fija el default de
     // creación. Todo el deslizamiento cuenta como UN paso de undo: el
     // snapshot se captura al primer 'input' del gesto y se apila en 'change'.
     let strokeGestureSnap = null;
-    $('stroke-slider').addEventListener('input', e => {
-      const v = +e.target.value;
-      $('stroke-val').textContent = e.target.value;
+    const applyStrokeWidth = v => {
+      $('stroke-val').textContent = String(v);
       if (state.tool === TOOLS.ERASER && !state.selection.length) {
         applyEraserSize(v);
       } else if (state.selection.length) {
@@ -3159,8 +4006,13 @@
         redraw();
       } else {
         state.lineWidth = v;
+        $('stroke-slider').value = String(v);
       }
-    });
+      syncStrokeControls();
+      syncShapeControls();
+      syncUiControls();
+    };
+    $('stroke-slider').addEventListener('input', e => applyStrokeWidth(+e.target.value));
     // El cierre del gesto no puede depender solo de 'change': un <input
     // type=range> NO dispara 'change' si el valor comprometido coincide con
     // el previo al gesto (p. ej. arrastrar 2→5→2), lo que dejaría un
@@ -3189,20 +4041,108 @@
     $('stroke-slider').addEventListener('pointerup', commitStrokeGesture);
     $('stroke-slider').addEventListener('pointercancel', commitStrokeGesture);
 
-    // Modal del tamaño del borrador: mismo dato que el slider "Trazo" de
-    // arriba (ver applyEraserSize), solo que con una previsualización más
-    // grande. El botón que lo abre solo es visible con el borrador activo.
-    $('btn-eraser-size').addEventListener('click', openEraserSizeModal);
+    // Gemelos del grosor dentro de #modal-stroke, #modal-shape y #modal-ui:
+    // mismo dato, mismo gesto de undo. No van por wireBuildPair porque
+    // necesitan 'input' en vivo.
+    ['stroke-modal-slider', 'shape-modal-slider', 'ui-modal-slider'].forEach(id => {
+      $(id).addEventListener('input', e => applyStrokeWidth(+e.target.value));
+      $(id).addEventListener('change', commitStrokeGesture);
+      $(id).addEventListener('pointerup', commitStrokeGesture);
+      $(id).addEventListener('pointercancel', commitStrokeGesture);
+    });
+
+    // El ⚙ de la cabecera «Trazo» abre los ajustes de la herramienta activa:
+    // el tamaño con el borrador, la forma con las de Formas, el texto y los
+    // componentes de UI con los suyos, y el trazo con las de dibujo. Solo es
+    // visible cuando hay algo que abrir (syncPanelSections).
+    $('btn-eraser-size').addEventListener('click', () => {
+      if (state.tool === TOOLS.ERASER) openEraserSizeModal();
+      else if (SHAPE_TOOLS.includes(state.tool)) openShapeModal();
+      else if (state.tool === TOOLS.TEXT) openTextModal();
+      else if (UI_MODAL_TOOLS.includes(state.tool)) openUiModal();
+      else openStrokeModal();
+    });
+    // Los ⚙ de «Edificios» y «Jardín» reabren el catálogo de la herramienta
+    // activa sin soltarla, igual que el del borrador.
+    $('btn-build-settings').addEventListener('click', () => selectTool(TOOLS.BUILD_FACADE));
+    $('btn-garden-settings').addEventListener('click', () => selectTool(state.tool));
     $('eraser-size-modal-slider').addEventListener('input', e => {
       applyEraserSize(+e.target.value);
     });
     $('eraser-size-modal-slider').addEventListener('change', savePrefs);
 
-    // Font slider
-    $('font-slider').addEventListener('input', e => {
-      state.fontSize = +e.target.value;
-      $('font-val').textContent = e.target.value;
+    // Tamaño de letra — semántica dual, como el grosor: con selección cambia
+    // en vivo el fontSize de los `text` seleccionados (los demás tipos se
+    // ignoran, no lo tienen); sin selección fija el default de creación. Era
+    // el último control de aspecto sin la dualidad: un texto ya escrito solo
+    // cambiaba de tamaño estirándolo con los tiradores. Mismo cierre de gesto
+    // que el grosor: todo el deslizamiento cuenta como UN paso de undo, y se
+    // remata también en pointerup por los gestos que acaban donde empezaron.
+    // Con la herramienta Emoji activa, el mismo deslizador gobierna el tamaño
+    // del EMOJI, no el de letra — el patrón del borrador con el de grosor
+    // (applyEraserSize): desde que placeEmoji usa state.emojiSize, dejar aquí
+    // fontSize convertía la sección «Texto» en un control muerto para el
+    // Emoji, y antes de la 2.10.0 este deslizador SÍ mandaba sobre él
+    // (auditoría v2.10.1). Punto único: los dos deslizadores (panel y
+    // catálogo), el rótulo y el estado.
+    function applyEmojiSize(v) {
+      state.emojiSize = Math.min(EMOJI_MAX_SIZE, Math.max(EMOJI_MIN_SIZE, v));
+      $('emoji-modal-size').value = String(state.emojiSize);
+      $('emoji-modal-size-val').textContent = String(state.emojiSize);
+      $('font-slider').value = String(state.emojiSize);
+      $('font-val').textContent = String(state.emojiSize);
+    }
+    let fontGestureSnap = null;
+    const applyFontSize = v => {
+      if (state.tool === TOOLS.EMOJI && !state.selection.length) {
+        applyEmojiSize(v);
+        return;
+      }
+      $('font-val').textContent = String(v);
+      $('font-slider').value = String(v);
+      $('text-modal-size').value = String(v);
+      $('text-modal-size-val').textContent = String(v);
+      const texts = state.selection.filter(i =>
+        state.elements[i] && state.elements[i].type === 'text');
+      if (texts.length) {
+        if (!fontGestureSnap) fontGestureSnap = snapshot();
+        texts.forEach(i => {
+          state.elements[i] = { ...state.elements[i], fontSize: v };
+        });
+        redraw();
+      } else if (!state.selection.length) {
+        state.fontSize = v;
+      }
+      renderTextPreview();
+    };
+    function commitFontGesture() {
+      if (!fontGestureSnap) return;
+      const snap = fontGestureSnap;
+      fontGestureSnap = null;
+      const unchanged = snap.length === state.elements.length &&
+        snap.every((el, i) => el === state.elements[i] ||
+          el.fontSize === state.elements[i].fontSize);
+      if (unchanged) state.elements = snap;
+      else pushUndo(snap);
+    }
+    ['font-slider', 'text-modal-size'].forEach(id => {
+      $(id).addEventListener('input', e => applyFontSize(+e.target.value));
+      $(id).addEventListener('change', commitFontGesture);
+      $(id).addEventListener('pointerup', commitFontGesture);
+      $(id).addEventListener('pointercancel', commitFontGesture);
     });
+    // Con Emoji activo, el deslizador del panel escribe emojiSize: se persiste
+    // al soltar, igual que hace el de grosor con el tamaño del borrador.
+    $('font-slider').addEventListener('change', () => {
+      if (state.tool === TOOLS.EMOJI && !state.selection.length) savePrefs();
+    });
+
+    // Tamaño del emoji: propio (state.emojiSize), no el de letra — agrandar
+    // un emoji no debe encoger el próximo texto. El min lo pone el HTML en
+    // EMOJI_MIN_SIZE para que siga leyéndose como icono. Mismo punto único
+    // (applyEmojiSize) que usa el deslizador del panel con Emoji activo.
+    $('emoji-modal-size').addEventListener('input', e => applyEmojiSize(+e.target.value));
+    $('emoji-modal-size').addEventListener('change', savePrefs);
 
     // Zoom slider
     $('zoom-slider').addEventListener('input', e => {
@@ -3230,10 +4170,16 @@
     // Rellenar formas — semántica dual: con selección rellena/vacía las formas
     // seleccionadas (los demás tipos se ignoran); sin selección fija el default
     // de creación.
-    $('check-fill').addEventListener('change', e => {
-      const on = e.target.checked;
+    // Las cuatro existen dos veces —panel y #modal-shape—, así que el cuerpo va
+    // en una función y los dos juegos se enganchan a ella, como el discontinuo
+    // y la doble punta. `selShapes()` es el filtro común: con una selección sin
+    // formas rellenables el control no escribe NADA, ni elemento ni default.
+    const selShapes = () =>
+      state.selection.filter(i => FILLABLE_TYPES.includes(state.elements[i].type));
+
+    const applyFill = on => {
       if (state.selection.length) {
-        const shapes = state.selection.filter(i => FILLABLE_TYPES.includes(state.elements[i].type));
+        const shapes = selShapes();
         if (!shapes.length) return;
         saveUndo();
         // Solo alterna `fill`: el `fillColor` que ya tuviera se conserva
@@ -3246,15 +4192,18 @@
       } else {
         state.fillShapes = on;
       }
+      syncShapeControls();
+    };
+    ['check-fill', 'shape-modal-fill'].forEach(id => {
+      $(id).addEventListener('change', e => applyFill(e.target.checked));
     });
 
     // Relleno translúcido — semántica dual: sólido (off) o con la opacidad
     // elegida en el slider (on).
-    $('check-fill-transparent').addEventListener('change', e => {
-      const on = e.target.checked;
+    const applyFillTransparent = on => {
       $('fill-opacity-slider').disabled = !on;
       if (state.selection.length) {
-        const shapes = state.selection.filter(i => FILLABLE_TYPES.includes(state.elements[i].type));
+        const shapes = selShapes();
         if (!shapes.length) return;
         saveUndo();
         shapes.forEach(i => {
@@ -3267,16 +4216,21 @@
       } else {
         state.fillTransparent = on;
       }
+      syncShapeControls();
+    };
+    ['check-fill-transparent', 'shape-modal-fill-transparent'].forEach(id => {
+      $(id).addEventListener('change', e => applyFillTransparent(e.target.checked));
     });
 
     // Opacidad del relleno translúcido — 0..100% en UI, 0..1 en el modelo.
     // Como el grosor, todo el arrastre sobre una selección es un único undo.
     let fillOpacityGestureSnap = null;
-    $('fill-opacity-slider').addEventListener('input', e => {
-      const opacity = +e.target.value / 100;
-      $('fill-opacity-val').textContent = e.target.value;
+    const applyFillOpacity = pct => {
+      const opacity = pct / 100;
+      $('fill-opacity-val').textContent = String(pct);
+      $('fill-opacity-slider').value = String(pct);
       if (state.selection.length) {
-        const shapes = state.selection.filter(i => FILLABLE_TYPES.includes(state.elements[i].type));
+        const shapes = selShapes();
         if (!shapes.length) return;
         if (!fillOpacityGestureSnap) fillOpacityGestureSnap = snapshot();
         shapes.forEach(i => {
@@ -3286,7 +4240,9 @@
       } else {
         state.fillOpacity = opacity;
       }
-    });
+      syncShapeControls();
+    };
+    $('fill-opacity-slider').addEventListener('input', e => applyFillOpacity(+e.target.value));
 
     function commitFillOpacityGesture() {
       if (!fillOpacityGestureSnap) return;
@@ -3299,9 +4255,12 @@
       if (unchanged) state.elements = snap;
       else pushUndo(snap);
     }
-    $('fill-opacity-slider').addEventListener('change', commitFillOpacityGesture);
-    $('fill-opacity-slider').addEventListener('pointerup', commitFillOpacityGesture);
-    $('fill-opacity-slider').addEventListener('pointercancel', commitFillOpacityGesture);
+    ['fill-opacity-slider', 'shape-modal-opacity'].forEach(id => {
+      $(id).addEventListener('change', commitFillOpacityGesture);
+      $(id).addEventListener('pointerup', commitFillOpacityGesture);
+      $(id).addEventListener('pointercancel', commitFillOpacityGesture);
+    });
+    $('shape-modal-opacity').addEventListener('input', e => applyFillOpacity(+e.target.value));
 
     // Color de relleno — misma semántica dual. Elegir un color implica querer
     // relleno, así que además lo activa (el checkbox sigue siendo el "off").
@@ -3309,10 +4268,9 @@
     // diálogo nativo dispara 'input' por cada tono que se pisa al arrastrar,
     // y un saveUndo() por evento expulsaba el historial entero (límite 50).
     let fillColorGestureSnap = null;
-    $('fill-color-picker').addEventListener('input', e => {
-      const col = e.target.value;
+    const applyFillColor = col => {
       if (state.selection.length) {
-        const shapes = state.selection.filter(i => FILLABLE_TYPES.includes(state.elements[i].type));
+        const shapes = selShapes();
         if (!shapes.length) return;
         if (!fillColorGestureSnap) fillColorGestureSnap = snapshot();
         shapes.forEach(i => {
@@ -3325,7 +4283,47 @@
         state.fillShapes = true;
         $('check-fill').checked = true;
       }
+      syncShapeControls();
+    };
+    ['fill-color-picker', 'shape-modal-fill-color'].forEach(id => {
+      $(id).addEventListener('input', e => applyFillColor(e.target.value));
+      $(id).addEventListener('change', () => commitFillColorGesture());
     });
+
+    // Giro de la forma — semántica dual: con selección gira las formas
+    // seleccionadas hasta ese ángulo; sin selección fija el de la próxima. Todo
+    // el arrastre es UN paso de undo, como el grosor y la opacidad; antes el
+    // único giro era el botón «Rotar selección», de un paso por clic, y llegar
+    // a 288° en un pentágono costaba ocho pulsaciones sobre algo ya dibujado.
+    let rotationGestureSnap = null;
+    const applyShapeRotation = deg => {
+      $('shape-modal-rotation-val').textContent = String(deg);
+      if (state.selection.length) {
+        const targets = state.selection.filter(
+          i => ShapeRotation.isType(state.elements[i].type));
+        if (!targets.length) return;
+        if (!rotationGestureSnap) rotationGestureSnap = snapshot();
+        targets.forEach(i => { state.elements[i] = rotateTo(state.elements[i], deg); });
+        redraw();
+      } else {
+        state.shapeRotation = deg;
+      }
+      syncShapeControls();
+    };
+    function commitRotationGesture() {
+      if (!rotationGestureSnap) return;
+      const snap = rotationGestureSnap;
+      rotationGestureSnap = null;
+      const unchanged = snap.length === state.elements.length &&
+        snap.every((el, i) => el === state.elements[i] ||
+          (el.rotation || 0) === (state.elements[i].rotation || 0));
+      if (unchanged) state.elements = snap;
+      else pushUndo(snap);
+    }
+    $('shape-modal-rotation').addEventListener('input', e => applyShapeRotation(+e.target.value));
+    $('shape-modal-rotation').addEventListener('change', commitRotationGesture);
+    $('shape-modal-rotation').addEventListener('pointerup', commitRotationGesture);
+    $('shape-modal-rotation').addEventListener('pointercancel', commitRotationGesture);
     function commitFillColorGesture() {
       if (!fillColorGestureSnap) return;
       const snap = fillColorGestureSnap;
@@ -3337,7 +4335,6 @@
       if (unchanged) state.elements = snap;
       else pushUndo(snap);
     }
-    $('fill-color-picker').addEventListener('change', commitFillColorGesture);
     $('overlap-mode').value = state.overlapMode;
     $('overlap-mode').addEventListener('change', e => {
       state.overlapMode = e.target.value === 'hidden-dashed' ? 'hidden-dashed' : 'normal';
@@ -3397,11 +4394,18 @@
     // herramientas de Jardín son solo de creación —no hay ningún elemento
     // "jardín" que editar—, así que esto se comporta como los ajustes de
     // Edificios y no como los checkboxes de relleno o doble punta.
-    $('check-garden-labels').checked = state.gardenLabels;
-    $('check-garden-labels').addEventListener('change', e => {
-      state.gardenLabels = e.target.checked;
-      savePrefs();
+    // La casilla existe una vez en el panel y otra dentro de cada modal del
+    // jardín: la decisión de rotular se toma al elegir qué se dibuja, que es
+    // donde está el usuario, y el panel queda para retocarla sin soltar la
+    // herramienta. syncGardenLabelControls() reparte el valor a todas.
+    GARDEN_LABEL_CHECKS.forEach(id => {
+      $(id).addEventListener('change', e => {
+        state.gardenLabels = e.target.checked;
+        syncGardenLabelControls();
+        savePrefs();
+      });
     });
+    syncGardenLabelControls();
     // Camino: sus dos ajustes existen DOS veces —panel y modal de Camino— y se
     // cablean por pares contra el mismo `state`, igual que los de Edificios.
     // El del modal es el que de verdad importa: es donde está el usuario al
@@ -3524,49 +4528,66 @@
     // Doble punta — semántica dual: con selección aplica/quita heads:'both'
     // a las flechas seleccionadas (los no-flecha se ignoran); sin selección
     // fija el default para las nuevas flechas.
-    $('check-double-head').addEventListener('change', e => {
-      const on = e.target.checked;
-      if (state.selection.length) {
-        const arrows = state.selection.filter(i => {
-          const el = state.elements[i];
-          // Los semicírculos (heads:'none') nunca llevan punta
-          return (el.type === 'arrow' || el.type === 'curveArrow') && el.heads !== 'none';
-        });
-        if (!arrows.length) return;
-        saveUndo();
-        arrows.forEach(i => {
-          const copy = { ...state.elements[i] };
-          if (on) copy.heads = 'both';
-          else delete copy.heads;
-          state.elements[i] = copy;
-        });
-        redraw();
-      } else {
-        state.doubleHead = on;
-      }
+    // Ambas casillas existen dos veces —panel y #modal-stroke—, así que el
+    // cuerpo vive en applyDoubleHead/applyDash (arriba) y los dos juegos de
+    // controles se enganchan a la misma función, como hace wireBuildPair con
+    // los gemelos de Edificios.
+    ['check-double-head', 'stroke-modal-double'].forEach(id => {
+      $(id).addEventListener('change', e => applyDoubleHead(e.target.checked));
     });
-    // Trazo discontinuo: misma semántica dual que la doble punta, sobre
-    // line/arrow/curveArrow
-    $('check-dash').addEventListener('change', e => {
-      const on = e.target.checked;
-      if (state.selection.length) {
-        const strokes = state.selection.filter(i => {
-          const t = state.elements[i].type;
-          return t === 'line' || t === 'arrow' || t === 'curveArrow';
-        });
-        if (!strokes.length) return;
-        saveUndo();
-        strokes.forEach(i => {
-          const copy = { ...state.elements[i] };
-          if (on) copy.dash = true;
-          else delete copy.dash;
-          state.elements[i] = copy;
-        });
-        redraw();
-      } else {
-        state.dashed = on;
-      }
+    ['check-dash', 'stroke-modal-dash'].forEach(id => {
+      $(id).addEventListener('change', e => applyDash(e.target.checked));
     });
+    // Posición y tamaño exactos, en el panel y en los cuatro modales de
+    // ajustes: cinco juegos de campos, un solo cuerpo (applyGeometry). En
+    // 'change' y no en 'input': con 'input' cada tecla sería un paso de
+    // deshacer y un salto de la figura mientras escribes. El prefijo viaja por
+    // clausura — pasar applyGeometry a secas le colaría el evento como prefijo.
+    GEO_PREFIXES.forEach(p => {
+      ['-x', '-y', '-w', '-h'].forEach(sfx => {
+        $(p + sfx).addEventListener('change', () => applyGeometry(p));
+      });
+    });
+    // Texto del elemento (contenido de un `text`, rótulo de un componente UI).
+    // Cuerpo compartido entre el campo del panel y su gemelo de #modal-ui: con
+    // selección única edita el elemento; sin selección, fija el rótulo con el
+    // que nacerán los próximos componentes (state.uiLabels, persistido).
+    const applyLabel = v => {
+      if (state.selection.length === 1) {
+        const el = state.elements[state.selection[0]];
+        const field = LABEL_FIELD(el);
+        if (!field || (el[field] || '') === v) return;
+        // Vaciar el contenido de un `text` lo BORRA, igual que hace el editor
+        // de doble clic (commitText): dejarlo con value:'' fabricaba un
+        // elemento invisible de caja cero, casi inencontrable (auditoría
+        // v2.10.1). El rótulo vacío de un componente sí vale: vuelve al
+        // default del renderer.
+        if (field === 'value' && !v.trim()) {
+          saveUndo();
+          state.elements.splice(state.selection[0], 1);
+          setSelection([]);
+          redraw();
+          return;
+        }
+        saveUndo();
+        state.elements[state.selection[0]] = { ...el, [field]: v };
+        redraw();
+      } else if (!state.selection.length && state.uiLabels[state.tool] !== undefined) {
+        // SOLO sin selección: con una multi-selección delante, escribir aquí
+        // el default de creación era la única fuga de la semántica dual que
+        // quedaba — el usuario creía renombrar los botones seleccionados y en
+        // realidad cambiaba en silencio cómo nacerían los siguientes
+        // (auditoría v2.10.1; syncUiControls además oculta la fila con
+        // multi-selección). El recorte a 120 es el que ya aplica restorePrefs:
+        // sin él, un rótulo más largo encogía en silencio al recargar.
+        state.uiLabels[state.tool] = v.slice(0, 120);
+        savePrefs();
+        syncUiControls();
+      }
+    };
+    $('el-label').addEventListener('change', e => applyLabel(e.target.value));
+    $('ui-modal-label').addEventListener('change', e => applyLabel(e.target.value));
+
     $('check-grid').addEventListener('change', e => { state.showGrid = e.target.checked; redraw(); });
     $('check-snap').addEventListener('change', e => { state.snapGrid = e.target.checked; });
     $('check-multi-select').addEventListener('change', e => { state.multiSelect = e.target.checked; });
@@ -3593,10 +4614,22 @@
       // esto, el siguiente savePrefs() (p. ej. cambiar el fondo) reescribía
       // la configuración que el removeItem de abajo acababa de borrar.
       Object.assign(state, CREATION_DEFAULTS);
+      // Los de UI y Emoji (v2.10.0), por el mismo motivo.
+      state.emojiSize = EMOJI_MIN_SIZE;
+      state.uiLabels = { button: '', input: '', nav: '', card: '' };
+      // Los cinco puntos de sincronía, sin dejarse ninguno: Verjas y Cancela
+      // faltaban, así que tras «Limpiar todo» sus modales seguían enseñando el
+      // diseño y la altura anteriores hasta volver a abrirlos.
       syncBuildControls();
       syncPathControls();
       syncWallControls();
-      $('check-garden-labels').checked = state.gardenLabels;
+      syncFenceControls();
+      syncGateControls();
+      syncGardenLabelControls();
+      syncTextControls();
+      syncUiControls();
+      $('emoji-modal-size').value = String(state.emojiSize);
+      $('emoji-modal-size-val').textContent = String(state.emojiSize);
       // El zoom vuelve al ajuste automático, no a un 100% fijo: «Limpiar todo»
       // debe dejar la app igual que recién abierta, y ahí el lienzo aprovecha
       // todo el ancho disponible. Olvidar `zoomManual` es parte del reset: si
@@ -3949,8 +4982,15 @@
       const prev = state.toolBeforeModal;
       state.toolBeforeModal = null;
       if (!prev || prev === state.tool) return; // reentrada: mantener la herramienta actual
-      // Evita reabrir otro modal en cascada: si la previa también abre modal, ir a Seleccionar.
-      selectTool(opensVariantModal(prev) ? TOOLS.SELECT : prev);
+      // Si la anterior era OTRO catálogo, ir a Seleccionar: reabrirlo dejaría
+      // al usuario eligiendo variante otra vez, que no es lo que pidió al
+      // cancelar. Si solo abre sus ajustes (Borrador, dibujo, Formas), se vuelve
+      // a ella en modo `silent`: recupera su herramienta sin encadenar un
+      // segundo modal encima del que se acaba de cerrar. Antes de las
+      // v2.9.0 esa distinción no hacía falta porque casi ninguna herramienta
+      // abría nada; mandar a Seleccionar a todas sería el camino fácil y peor.
+      if (opensVariantModal(prev)) selectTool(TOOLS.SELECT);
+      else selectTool(prev, { silent: true });
     });
   }
 
@@ -4022,6 +5062,25 @@
     const eraserModal = $('modal-eraser');
     eraserModal.querySelector('.modal__cancel').addEventListener('click', () => eraserModal.close());
     closeOnBackdrop(eraserModal);
+
+    // Ajustes de trazo: como el del borrador, se cierra sin devolver a la
+    // herramienta anterior, así que tampoco pasa por wireBuildModalCancel.
+    const strokeModal = $('modal-stroke');
+    strokeModal.querySelector('.modal__cancel').addEventListener('click', () => strokeModal.close());
+    closeOnBackdrop(strokeModal);
+
+    const shapeModal = $('modal-shape');
+    shapeModal.querySelector('.modal__cancel').addEventListener('click', () => shapeModal.close());
+    closeOnBackdrop(shapeModal);
+
+    // Texto y componente UI: mismo contrato de cierre que trazo y forma.
+    const textModal = $('modal-text');
+    textModal.querySelector('.modal__cancel').addEventListener('click', () => textModal.close());
+    closeOnBackdrop(textModal);
+
+    const uiModal = $('modal-ui');
+    uiModal.querySelector('.modal__cancel').addEventListener('click', () => uiModal.close());
+    closeOnBackdrop(uiModal);
 
     const emojiModal = $('modal-emoji');
     buildEmojiCatalog();
@@ -4341,6 +5400,24 @@
     colorText.textContent = 'Color natural y volumen suave';
     colorLabel.appendChild(colorText);
     fields.appendChild(colorLabel);
+
+    // «Etiquetas»: gemela de la del panel «Jardín». Va junto al selector de
+    // modo porque son el mismo asunto —si no se rotula, elegir entre nombre
+    // común, botánico o cotas no significa nada— y aquí es donde el usuario
+    // está al elegir la especie. El id sigue la convención de las escritas a
+    // mano en index.html: `<data>-garden-labels`.
+    const labelsRow = document.createElement('label');
+    labelsRow.className = 'panel__check modal__plant-color';
+    const labels = document.createElement('input');
+    labels.type = 'checkbox';
+    labels.checked = state.gardenLabels;
+    labels.id = `${cfg.data}-garden-labels`;
+    labelsRow.appendChild(labels);
+    const labelsText = document.createElement('span');
+    labelsText.textContent = 'Etiquetas';
+    labelsRow.appendChild(labelsText);
+    fields.appendChild(labelsRow);
+
     const dimensions = document.createElement('p');
     dimensions.className = 'modal__plant-dimensions'; dimensions.setAttribute('aria-live', 'polite');
     dimensions.id = controlId('plantDimensions');
@@ -4348,7 +5425,7 @@
     wrap.appendChild(fields);
     $(cfg.root + '-controls').appendChild(wrap);
 
-    cfg.plantControls = { preview, view, stage, labelMode, scale, px, color, dimensions };
+    cfg.plantControls = { preview, view, stage, labelMode, scale, px, color, labels, dimensions };
     const changed = () => {
       state.plantView = view.value;
       state.plantStage = stage.value;
@@ -4356,11 +5433,13 @@
       state.plantScalePct = Number(scale.input.value);
       state.plantPxPerM = Number(px.input.value);
       state.plantColorMode = color.checked ? 'natural' : 'ink';
+      state.gardenLabels = labels.checked;
+      syncGardenLabelControls();   // la gemela del panel y las de los otros modales
       buildVariantCatalog(cfg);
       syncPlantControls(cfg);
       savePrefs();
     };
-    [view, stage, labelMode, scale.input, px.input, color].forEach(control => {
+    [view, stage, labelMode, scale.input, px.input, color, labels].forEach(control => {
       control.addEventListener(control.type === 'range' ? 'input' : 'change', changed);
     });
 
@@ -4426,6 +5505,7 @@
     c.px.input.value = state.plantPxPerM;
     c.px.value.textContent = `${state.plantPxPerM} px/m`;
     c.color.checked = state.plantColorMode === 'natural';
+    syncGardenLabelControls();
     renderPlantPreview(cfg, state[cfg.key]);
   }
 
@@ -5267,6 +6347,15 @@
     buildColors();
     wireControls();
     setupModals();
+    // Después de setupModals: las casillas de los cinco modales botánicos las
+    // crea installPlantControls, y hasta aquí no existen.
+    syncGardenLabelControls();
+    syncStrokeControls();
+    syncShapeControls();
+    syncTextControls();
+    syncUiControls();
+    $('emoji-modal-size').value = String(state.emojiSize);
+    $('emoji-modal-size-val').textContent = String(state.emojiSize);
     updateCursor();
     fitZoomToViewport();
     redraw();

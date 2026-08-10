@@ -28,6 +28,239 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### Auditoría v2.10.1 — el lado tecleado perdía contra una caja fraccionaria
+
+- **Síntoma:** con un pentágono (o cualquier caja de medidas fraccionarias —
+  con el auto-zoom del 120% lo es casi todo, porque `getPos` divide por 1.2),
+  teclear el **alto** en «Posición y tamaño» no hacía nada: el elemento se
+  quedaba prácticamente igual. Dos hermanos del mismo parser: **vaciar** un
+  campo colapsaba el elemento (Ancho → 1px, X → 0), y teclear una medida que
+  la geometría no puede absorber (el alto de una línea horizontal) apilaba un
+  paso de deshacer fantasma — el primer Ctrl+Z parecía muerto.
+- **Causa:** los campos *enseñan* valores redondeados (`put` hace
+  `Math.round`), pero `applyGeometry` comparaba lo tecleado contra la caja
+  **exacta**: todo campo fraccionario contaba como «cambiado», y como el ancho
+  se evalúa primero, ganaba siempre un ancho que nadie había tocado. Además
+  `Number('')` es `0`, no `NaN`, así que el fallback pensado para entradas
+  inválidas era código muerto; y el guard de no-op comparaba cajas, no el
+  efecto (`scaleElement` fuerza `sy = 1` cuando `from.h` es 0).
+- **Fix:** `applyGeometry` (app.js) — un lector de campo que decide «cambiado»
+  comparando contra lo que el campo **mostraba** (y devuelve el valor exacto
+  cuando no cambió), trata `''`/basura como «sin cambio», y un guard de no-op
+  por efecto (`dx/dy/sx/sy`) que además resincroniza para que el campo vuelva
+  a decir la verdad.
+- **Guardia:** `tests/app-interaction.test.js` › *"el lado tecleado manda
+  aunque la caja sea fraccionaria"*, *"vaciar un campo de medida no colapsa el
+  elemento"* y *"una medida que la geometría no absorbe ni apila undo ni
+  miente"*.
+
+### Auditoría v2.10.1 — la medida tecleada para A se aplicaba al B que clicabas después
+
+- **Síntoma:** teclear un ancho en «Posición y tamaño» y, sin confirmarlo,
+  clicar otro elemento en el lienzo: el ancho saltaba al elemento recién
+  seleccionado.
+- **Causa:** en navegador, el `mousedown` que cambia la selección corre ANTES
+  que el `blur` → `change` del campo; `applyGeometry` leía el campo contra la
+  selección nueva. El redraw que resincroniza va por rAF, siempre posterior.
+- **Fix:** `geoFieldsFor` (app.js): `syncGeometryControls` apunta para qué
+  selección escribió los campos y `applyGeometry` descarta el change si la
+  selección ya es otra (y resincroniza).
+- **Guardia:** `e2e/panel.spec.js` › *"un ancho tecleado y sin confirmar no se
+  aplica al elemento que se clica después"* — el orden de eventos es
+  exactamente lo que el arnés vm no simula; hay además una réplica del orden
+  en `tests/app-interaction.test.js` › *"un change rezagado…"*.
+
+### Auditoría v2.10.1 — «Posición y tamaño» muerto con una multi-selección libre
+
+- **Síntoma:** con dos elementos sueltos seleccionados (marquesina o
+  Shift+clic), los campos X/Y/Ancho/Alto enseñaban los valores de la selección
+  anterior y teclear en ellos no hacía nada — cuando CLAUDE.md y el propio
+  panel prometen la caja combinada de cualquier selección.
+- **Causa:** la lectura/escritura reutilizaba `selectionGroupBounds()`, que es
+  **solo-de-grupo** a propósito (exige `buildingGroupId` compartido: decide la
+  caja única con tiradores) y devuelve `null` para multi-selecciones libres.
+- **Fix:** `selectionBounds()` (app.js): caja combinada de cualquier
+  selección; `syncGeometryControls`/`applyGeometry` la usan, y la escala sigue
+  siendo uniforme para toda multi-selección (misma invariante que los grupos).
+- **Guardia:** `tests/app-interaction.test.js` › *"la caja escrita también
+  funciona con una multi-selección libre, en proporción"*.
+
+### Auditoría v2.10.1 — el rótulo con multi-selección editaba el default de creación
+
+- **Síntoma:** con varios botones seleccionados (el modal de UI los edita:
+  color y grosor funcionan), escribir en «Rótulo» no renombraba ninguno… pero
+  cambiaba EN SILENCIO el rótulo con el que nacerían los siguientes, y lo
+  persistía en prefs. Además el default admitía cualquier longitud al teclear
+  y `restorePrefs` lo recortaba a 120: un rótulo largo encogía al recargar.
+- **Causa:** el `else` de `applyLabel` no exigía selección vacía — era la
+  única fuga de la semántica dual que quedaba (`applyFontSize`, `applyFill`,
+  etc. la respetan); y el recorte de 120 vivía solo en la restauración.
+- **Fix:** `applyLabel` exige `!state.selection.length` para tocar
+  `state.uiLabels` y recorta a 120 al escribir; `syncUiControls` oculta la
+  fila de rótulo con multi-selección (un campo visible que no edita nada es un
+  callejón sin salida — precedente Muro v2.3.1); `#ui-modal-label` lleva
+  `maxlength="120"`.
+- **Guardia:** `tests/app-interaction.test.js` › *"con multi-selección el
+  rótulo ni edita el default ni se ofrece"*; `tests/smoke.test.js` pina el
+  `maxlength`.
+
+### Auditoría v2.10.1 — vaciar un texto desde el panel dejaba un elemento invisible
+
+- **Síntoma:** borrar todo el contenido del campo «Texto» del panel con un
+  `text` seleccionado dejaba un elemento con `value:''` — invisible, de caja
+  cero, casi imposible de volver a seleccionar. El editor de doble clic
+  (`commitText`) en el mismo caso **borra** el elemento: dos vías, dos
+  semánticas.
+- **Fix:** `applyLabel` borra el `text` vaciado (con su paso de deshacer),
+  igual que `commitText`. El rótulo vacío de un componente sigue siendo
+  válido: recupera el default del renderer.
+- **Guardia:** `tests/app-interaction.test.js` › *"vaciar el texto desde el
+  panel lo borra, como el editor de doble clic"*.
+
+### Auditoría v2.10.1 — tiradores dibujados que mentían con la selección conservada
+
+- **Síntoma:** tras pulsar la herramienta de un elemento seleccionado (la
+  selección se conserva desde v2.10.0), el lienzo seguía dibujando los
+  tiradores de esquina; agarrar uno no escalaba: pintaba un elemento nuevo
+  encima y soltaba la selección.
+- **Causa:** `redrawNow` dibujaba la selección con tiradores sin mirar la
+  herramienta, pero el hit-test de tiradores vive en la rama de **Mover** de
+  `onMouseDown`. El estado «selección + herramienta de creación» no existía
+  antes de v2.10.0 y nadie revisó esa premisa.
+- **Fix:** `handlesOn = state.tool === TOOLS.SELECT` en `redrawNow`: caja
+  discontinua siempre (comunica qué se edita), tiradores solo con Mover — los
+  de esquina y los de flecha.
+- **Guardia:** `tests/app-interaction.test.js` › *"con selección conservada y
+  herramienta de creación, la esquina crea"* pina el comportamiento del
+  gesto; que los tiradores no se pinten se comprueba a mano (el arnés no ve
+  el canvas): rect → Mover → clic → Rectángulo → cerrar modal → sin tiradores.
+
+### Auditoría v2.10.1 — la sección «Texto» quedó muerta para el Emoji
+
+- **Síntoma:** con la herramienta Emoji activa, el deslizador «Texto» del
+  panel no hacía nada: desde que el emoji tiene tamaño propio
+  (`state.emojiSize`), aquel control editaba un default que `placeEmoji` ya no
+  lee — y **antes de v2.10.0 sí mandaba** sobre el emoji (`max(fontSize, 32)`).
+  Además, seleccionar un emoji de más de 48px recortaba el deslizador (su
+  `max` era 48 y `EMOJI_MAX_SIZE` es 96).
+- **Fix:** el patrón del borrador: con Emoji activo, `redrawNow` retitula la
+  sección («Emoji», vía `#font-label`) y el deslizador gobierna
+  `state.emojiSize` (min 32) a través del punto único `applyEmojiSize`, que
+  sincroniza también el deslizador del catálogo. `#font-slider` y
+  `#text-modal-size` llegan hasta `EMOJI_MAX_SIZE` (96).
+- **Guardia:** `tests/app-interaction.test.js` › *"el emoji se estampa con el
+  tamaño elegido en su catálogo"* (ampliada con el retitulado);
+  `tests/smoke.test.js` pina el `max` del panel contra `EMOJI_MAX_SIZE`.
+
+### Auditoría v2.10.1 — cancelar un catálogo viniendo de Emoji encadenaba su catálogo
+
+- **Síntoma:** Emoji → cerrar su catálogo → Planta (o Balcón…) → Cancelar: el
+  catálogo de Emoji se reabría solo encima del que se acababa de cerrar.
+- **Causa:** el retorno tras cancelar usa `selectTool(prev, { silent: true })`
+  precisamente para no encadenar modales, pero la rama de Emoji era anterior a
+  `silent` y abría incondicionalmente.
+- **Fix:** `if (id === TOOLS.EMOJI && !silent)` en `selectTool`.
+- **Guardia:** `tests/app-interaction.test.js` › *"cancelar un catálogo
+  viniendo de Emoji no reabre su catálogo"*.
+
+### Auditoría v2.10.1 — casillas habilitadas e inertes en el modal de trazo
+
+- **Síntoma:** con el Lápiz, `#modal-stroke` ofrecía «Trazo discontinuo»: la
+  muestra se dibujaba discontinua, el trazo real salía continuo (el case
+  `pencil` del renderer no tiene dash) y, de propina, quedaba cambiado
+  `state.dashed` — la siguiente **línea** nacía discontinua sin pedirlo. Con
+  un Semicírculo seleccionado, «Doble punta» estaba habilitada e inerte
+  (`applyDoubleHead` ignora los `heads:'none'`… pero la casilla quedaba
+  marcada porque el `return` temprano se saltaba la resincronización).
+- **Fix:** `syncStrokeControls` atenúa el discontinuo con el mismo criterio
+  que el panel (`DASHABLE_TYPES` + Semicírculo) y excluye `heads:'none'` de la
+  doble punta, como ya hacía `syncPanelSections`; `applyDash`/`applyDoubleHead`
+  resincronizan SIEMPRE (sin `return` temprano); la muestra ignora una casilla
+  deshabilitada.
+- **Guardia:** `tests/app-interaction.test.js` › *"discontinuo y doble punta
+  se atenúan cuando no aplican"*.
+
+### Auditoría v2.10.1 — la muestra del relleno sólido mentía
+
+- **Síntoma:** marcar «Rellenar formas» sin haber elegido nunca color de
+  relleno pintaba la muestra de `#modal-shape` con un sólido **opaco** del
+  color del trazo; la forma real salía con el tinte clásico (`color + '20'`,
+  ~12%).
+- **Causa:** la muestra copiaba el valor del picker, que enseña siempre un
+  color (`hex6(fillColor || color)`); la creación solo escribe `fillColor` si
+  existe de verdad.
+- **Fix:** `renderShapePreview` lee la misma fuente que la creación
+  (`single.fillColor` o `state.fillColor`), no el picker.
+- **Guardia:** `tests/app-interaction.test.js` › *"rellenar sin color elegido
+  conserva el tinte clásico (sin fillColor)"* pina la fuente compartida; la
+  muestra en sí se comprueba a mano (el arnés no pinta canvas): marcar
+  «Rellenar formas» en `#modal-shape` recién abierto → la muestra debe verse
+  con tinte tenue, no opaca.
+
+### Auditoría v2.10.1 — el export decía cosas que la app nunca dice
+
+- **Síntoma:** el HTML exportado de un marcador de imagen mostraba «Image
+  Placeholder» — en inglés y un texto que el canvas ni siquiera dibuja. Y el
+  SVG de un navbar no llevaba **ningún** enlace, cuando canvas y HTML pintan
+  «Inicio / Nosotros / Contacto».
+- **Causa:** un literal olvidado por el barrido de traducción de v2.10.0, y
+  una divergencia histórica del SVG (tampoco llevaba Home/About/Contact) que
+  el contrato «los tres formatos dicen lo mismo» nunca toleró.
+- **Fix:** exporter.js — «Imagen» en el HTML del marcador; los tres enlaces en
+  el SVG del nav, en las mismas posiciones que el renderer (el SVG sigue
+  simplificando *formas* a propósito; lo que no puede es callarse un texto).
+- **Guardia:** `tests/exporter.test.js` › *"los tres formatos dicen lo mismo:
+  enlaces del nav en SVG y marcador en español"*.
+
+### El ⚙ del borrador se veía con todas las herramientas
+
+- **Síntoma:** el engranaje de la cabecera «Trazo» del panel estaba a la vista
+  con cualquier herramienta —lápiz, rectángulo, texto— y al pulsarlo abría el
+  modal del **tamaño del borrador**, que no venía a cuento. Existía desde que
+  se creó el botón (v1.22.0).
+- **Causa:** `app.js` le ponía y le quitaba el atributo `hidden` correctamente,
+  pero `.panel__gear` declara `display: inline-flex` para cumplir el objetivo
+  táctil de 24×24px (WCAG 2.5.8), y esa declaración **gana** al
+  `[hidden] { display: none }` del user-agent. Es exactamente la misma trampa
+  que ya había obligado a escribir `.btn[hidden]` en `_btn.scss`, pero nadie la
+  volvió a mirar al añadir el ⚙. Ninguna guarda podía verlo: en el arnés
+  `node:vm` `hidden` es una propiedad de JavaScript, no un estilo, así que
+  `assert.equal(app.$('btn-eraser-size').hidden, true)` pasaba —y sigue
+  pasando— con el botón perfectamente visible en el navegador.
+- **Fix:** `src/scss/components/_panel.scss` — `&__gear[hidden] { display: none }`,
+  y de paso lo mismo para `&__section[hidden]` y `&__check[hidden]`, que la
+  reorganización del panel (v2.9.0) iba a necesitar y habrían fallado igual.
+- **Guardia (e2e):** `e2e/panel.spec.js` › *"el ⚙ de «Trazo» abre los ajustes
+  de la herramienta activa"* — comprueba visibilidad real, no la propiedad.
+  Y `tests/smoke.test.js` › *"el panel tiene sus secciones contextuales y el
+  CSS que las oculta"* asserta las reglas en el artefacto compilado.
+
+### «Cuadrícula» se salía del panel por el borde de la ventana
+
+- **Síntoma:** en la sección «Lienzo», el rótulo del segundo selector de color
+  quedaba cortado por el borde derecho de la ventana.
+- **Causa:** `.panel__canvas-colors` era un `flex` sin `wrap`, y «Fondo» +
+  «Cuadrícula» con sus dos muestras no caben en los 22rem del panel menos su
+  padding.
+- **Fix:** `src/scss/components/_panel.scss` — `flex-wrap: wrap` y `gap` con
+  componente vertical, para que el segundo baje a su línea en vez de desbordar.
+- **Verificación manual:** abrir la app y mirar la sección «Lienzo»: los dos
+  rótulos se leen enteros dentro del panel.
+
+### Tras «Limpiar todo», Verjas y Cancela conservaban los valores anteriores
+
+- **Síntoma:** después de pulsar «Limpiar todo», abrir el modal de Verjas o el
+  de Cancela seguía mostrando el diseño y la altura de antes del reset, aunque
+  `state` ya tenía los valores por defecto. El primer arrastre salía con lo que
+  decía `state`, no con lo que enseñaba el modal.
+- **Causa:** el reset llamaba a `syncBuildControls()`, `syncPathControls()` y
+  `syncWallControls()`, pero no a `syncFenceControls()` ni `syncGateControls()`,
+  que se añadieron después (v2.6.0) sin volver a mirar esta lista.
+- **Fix:** `src/js/app.js`, `btn-clear` — se llama a los cinco puntos de
+  sincronía.
+- **Guardia:** `tests/app-interaction.test.js` › *"tras «Limpiar todo» los
+  controles de Verjas y Cancela vuelven a su valor"*.
+
 ### El ciprés del catálogo parecía una bola en vez de una llama
 
 - **Síntoma:** en la vista de alzado, el icono del Ciprés mediterráneo era un

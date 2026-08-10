@@ -255,12 +255,12 @@ const Exporter = (() => {
         // UI components → simple rects with labels in SVG
         case 'button':
           out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="8" stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="${tint('15')}"/>\n`;
-          out += `<text x="${el.x + el.w / 2}" y="${el.y + el.h / 2 + 5}" fill="${color}" font-family="${FONT_FALLBACK}" font-size="14" text-anchor="middle">${_escapeXml(el.label || 'Button')}</text>\n`;
+          out += `<text x="${el.x + el.w / 2}" y="${el.y + el.h / 2 + 5}" fill="${color}" font-family="${FONT_FALLBACK}" font-size="14" text-anchor="middle">${_escapeXml(el.label || 'Botón')}</text>\n`;
           break;
 
         case 'input':
           out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="4" stroke="${tint('80')}" stroke-width="${lw}" fill="none"/>\n`;
-          out += `<text x="${el.x + 10}" y="${el.y + el.h / 2 + 4}" fill="${tint('60')}" font-family="${FONT_FALLBACK}" font-size="13">${_escapeXml(el.label || 'Type here...')}</text>\n`;
+          out += `<text x="${el.x + 10}" y="${el.y + el.h / 2 + 4}" fill="${tint('60')}" font-family="${FONT_FALLBACK}" font-size="13">${_escapeXml(el.label || 'Escribe aquí...')}</text>\n`;
           break;
 
         case 'imagePlaceholder':
@@ -272,12 +272,19 @@ const Exporter = (() => {
         case 'nav':
           out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="${tint('0a')}"/>\n`;
           out += `<text x="${el.x + 20}" y="${el.y + el.h / 2 + 4}" fill="${color}" font-family="${FONT_FALLBACK}" font-size="12">${_escapeXml(el.label || 'Logo')}</text>\n`;
+          // Los mismos tres enlaces que pintan el canvas (renderer._nav) y el
+          // export HTML, en las mismas posiciones (paso de 70px, hueco de 40
+          // para la hamburguesa). El SVG simplifica FORMAS a propósito, pero un
+          // texto que los otros dos formatos enseñan no puede faltar aquí.
+          ['Inicio', 'Nosotros', 'Contacto'].forEach((link, i) => {
+            out += `<text x="${el.x + el.w - 250 + i * 70}" y="${el.y + el.h / 2 + 4}" fill="${color}" font-family="${FONT_FALLBACK}" font-size="12">${link}</text>\n`;
+          });
           break;
 
         case 'card':
           out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="10" ${s}/>\n`;
           out += `<line x1="${el.x + 4}" y1="${el.y + el.h * 0.45 + 4}" x2="${el.x + el.w - 4}" y2="${el.y + el.h * 0.45 + 4}" ${s}/>\n`;
-          out += `<text x="${el.x + 12}" y="${el.y + el.h * 0.45 + 24}" fill="${color}" font-family="${FONT_FALLBACK}" font-size="14" font-weight="bold">${_escapeXml(el.label || 'Card Title')}</text>\n`;
+          out += `<text x="${el.x + 12}" y="${el.y + el.h * 0.45 + 24}" fill="${color}" font-family="${FONT_FALLBACK}" font-size="14" font-weight="bold">${_escapeXml(el.label || 'Título')}</text>\n`;
           break;
     }
 
@@ -419,22 +426,22 @@ body { font-family: ${FONT_CSS}; background: #fff; }
           out += `  <p style="left:${el.x}px;top:${el.y}px;color:${color};font-size:${el.fontSize}px;white-space:pre-wrap;line-height:${el.fontSize + 4}px;">${_escapeHtml(el.value)}</p>\n`;
           break;
         case 'button':
-          out += `  <button style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};border-radius:8px;background:${tint('15')};color:${color};font-family:inherit;cursor:pointer;">${_escapeHtml(el.label || 'Button')}</button>\n`;
+          out += `  <button style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};border-radius:8px;background:${tint('15')};color:${color};font-family:inherit;cursor:pointer;">${_escapeHtml(el.label || 'Botón')}</button>\n`;
           break;
         case 'input':
-          out += `  <input placeholder="${_escapeHtml(el.label || 'Type here...')}" style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${tint('80')};border-radius:4px;padding:0 10px;font-family:inherit;"/>\n`;
+          out += `  <input placeholder="${_escapeHtml(el.label || 'Escribe aquí...')}" style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${tint('80')};border-radius:4px;padding:0 10px;font-family:inherit;"/>\n`;
           break;
         case 'imagePlaceholder':
-          out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};display:flex;align-items:center;justify-content:center;color:${tint('80')};font-size:14px;">Image Placeholder</div>\n`;
+          out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};display:flex;align-items:center;justify-content:center;color:${tint('80')};font-size:14px;">Imagen</div>\n`;
           break;
         case 'image':
           out += `  <img src="${_escapeHtml(el.src)}" alt="" style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;object-fit:fill;"/>\n`;
           break;
         case 'nav':
-          out += `  <nav style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};display:flex;align-items:center;justify-content:space-between;padding:0 20px;"><span>${_escapeHtml(el.label || 'Logo')}</span><div style="display:flex;gap:20px;"><a href="#">Home</a><a href="#">About</a><a href="#">Contact</a></div></nav>\n`;
+          out += `  <nav style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};display:flex;align-items:center;justify-content:space-between;padding:0 20px;"><span>${_escapeHtml(el.label || 'Logo')}</span><div style="display:flex;gap:20px;"><a href="#">Inicio</a><a href="#">Nosotros</a><a href="#">Contacto</a></div></nav>\n`;
           break;
         case 'card':
-          out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};border-radius:10px;overflow:hidden;"><div style="height:45%;background:${tint('10')};border-bottom:1px solid ${tint('30')};"></div><div style="padding:12px;"><h3 style="color:${color};">${_escapeHtml(el.label || 'Card Title')}</h3><p style="color:${tint('60')};margin-top:6px;">Description text</p></div></div>\n`;
+          out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};border-radius:10px;overflow:hidden;"><div style="height:45%;background:${tint('10')};border-bottom:1px solid ${tint('30')};"></div><div style="padding:12px;"><h3 style="color:${color};">${_escapeHtml(el.label || 'Título')}</h3><p style="color:${tint('60')};margin-top:6px;">Texto de ejemplo</p></div></div>\n`;
           break;
       }
       });

@@ -4,11 +4,11 @@
 
 **Wireframes, diagramas y bocetos con estética dibujada a mano — en el navegador y sin instalar nada.**
 
-[![Versión](https://img.shields.io/badge/versión-2.8.0-blueviolet?style=flat-square)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-2.10.1-blueviolet?style=flat-square)](CHANGELOG.md)
 [![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?style=flat-square&logo=javascript&logoColor=000)](src/js/)
 [![Estilos](https://img.shields.io/badge/estilos-SCSS%20·%20BEM%20·%20Gulp%205-cf649a?style=flat-square&logo=sass&logoColor=fff)](src/scss/)
 [![Dependencias](https://img.shields.io/badge/dependencias%20en%20runtime-0-brightgreen?style=flat-square)](#arquitectura)
-[![Tests](https://img.shields.io/badge/tests-480%20unitarios%20%2B%2036%20e2e-brightgreen?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-514%20unitarios%20%2B%2046%20e2e-brightgreen?style=flat-square)](#tests)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue?style=flat-square)](LICENSE)
 
 <img src="src/img/screenshot-pizarra.png" alt="La interfaz de Pizarra: barra de herramientas a la izquierda, lienzo con un wireframe de landing page dibujado a mano en el centro y panel de ajustes a la derecha" width="900">
@@ -128,10 +128,15 @@ Cada pieza de jardín nace con una **etiqueta** dentro del mismo grupo (se mueve
 - **Selección múltiple** con marquee, `Ctrl/Cmd+A` o la casilla **«Los clics acumulan selección»** del panel — cada clic añade, y un clic sobre lo ya seleccionado lo quita (`Shift`+clic es el atajo); el grupo se arrastra desde cualquier punto de su marco combinado, incluido el espacio vacío entre elementos.
 - **Rotación por pasos** (`Shift+R`): cuadrados 45°, trapecios/triángulos/rectángulos 90°, pentágonos 36°, hexágonos 30°. En una selección múltiple cada forma usa su propio paso.
 - **Copiar y pegar** (`Ctrl/Cmd+C` / `V`), también entre pestañas: lo pegado aparece desplazado, queda seleccionado y las flechas ancladas se re-vinculan a sus clones.
+- **Posición y tamaño exactos**: con algo seleccionado, el panel deja escribir X, Y, ancho y alto —y el **texto** del elemento cuando lo tiene: el contenido de un texto o el rótulo de un botón, un input, una navbar o una tarjeta—. Antes solo se podía arrastrar y estirar a ojo.
+- **Todo lo dibujado se puede recolorear**: elegir un color con algo seleccionado lo aplica a la selección, igual que el grosor o el relleno.
 - **Undo/redo** con historial de 50 pasos.
 - **Cuadrícula** con ajuste opcional (`Alt` lo desactiva al vuelo) y **zoom 30–300 %** con auto-ajuste al espacio disponible en pantallas anchas.
 - **Fondo y color de cuadrícula** personalizables, con persistencia entre sesiones.
 - **Autoguardado** en `localStorage`: el trabajo sobrevive al refresco.
+- **Panel contextual**: el panel derecho muestra solo lo que la herramienta activa y la selección usan — «Relleno» con una forma, «Edificios» con Fachada, «Jardín» con un árbol— y agrupa el resto en **Trazo**, **Lienzo** y **Selección**. Con el lápiz pasa de 28 controles a la vista a unos 13, que es lo que más se nota en el cajón de las pantallas estrechas. Nada desaparece: reaparece con su herramienta, y **al seleccionar un elemento vuelven los controles que lo editan**.
+- **Cada herramienta abre sus ajustes al pulsarla**, como ya hacían el Borrador y los catálogos. Lápiz, Línea, Flecha, Flecha curva y Semicírculo muestran grosor, color, discontinuo y doble punta; las **ocho formas** añaden el relleno entero —rellenar, translúcido, opacidad y color— y, las que guardan su orientación como ángulo, un **giro** con el paso propio de cada una (45° el cuadrado, 36° el pentágono, 30° el hexágono…), de modo que la forma nace ya orientada en vez de tener que dibujarla y girarla a golpe de clic. **Texto** ajusta tamaño de letra y color; **Botón, Input, Imagen, Navbar y Tarjeta** comparten un modal con color, grosor y el **rótulo** con el que nacerán —escribe «Enviar» y coloca tres botones que ya lo digan—; el catálogo de **Emoji** elige también el tamaño (32–96 px), independiente del de letra. Todos llevan **muestra en vivo** dibujada con el renderer real. Cerrar deja la herramienta lista, y el ⚙ de la cabecera «Trazo» reabre los ajustes sin cambiar de herramienta. Los mismos ajustes siguen en el panel, sincronizados; la única herramienta sin modal es Mover.
+- **Pulsar la herramienta de un elemento seleccionado lo edita**: la selección se conserva si es del tipo que esa herramienta crea, y su modal abre mostrando y editando ese elemento — color, relleno, giro, rótulo y también **posición y tamaño**, con los mismos límites que los tiradores (un polígono regular se mantiene cuadrado, un grupo escala en proporción). Empezar a dibujar suelta la selección: crear y editar no se pisan.
 - **Interfaz responsive**: la barra de herramientas pasa a dos columnas desde 1201 px y el panel se convierte en un cajón deslizable por debajo de 1100 px.
 
 ### Exportación
@@ -147,7 +152,7 @@ Cada pieza de jardín nace con una **etiqueta** dentro del mismo grupo (se mueve
 
 1. Elige una herramienta en la barra lateral —**Mover** abre la lista, arriba del todo— o con su atajo de teclado.
 2. Dibuja sobre el lienzo. Con **Mover** (`V`) seleccionas, desplazas, redimensionas y duplicas.
-3. Ajusta color, grosor, relleno, cuadrícula y zoom desde el panel derecho. Los controles tienen doble uso: **con algo seleccionado editan la selección; sin selección fijan el valor de lo próximo que dibujes.**
+3. Ajusta color, grosor, relleno, cuadrícula y zoom desde el panel derecho, que **enseña solo las secciones que la herramienta activa y la selección usan**. Los controles tienen doble uso: **con algo seleccionado editan la selección; sin selección fijan el valor de lo próximo que dibujes.**
 4. Exporta como PNG, JPG, SVG o HTML — o guarda el proyecto como JSON para seguir más tarde.
 
 > [!TIP]
@@ -157,11 +162,11 @@ Cada pieza de jardín nace con una **etiqueta** dentro del mismo grupo (se mueve
 
 | Atajo | Acción |
 | --- | --- |
-| `P` `L` `A` `U` `G` `E` | Lápiz · Línea · Flecha · Flecha curva · Semicírculo · Borrador |
+| `P` `L` `A` `U` `G` | Lápiz · Línea · Flecha · Flecha curva · Semicírculo |
 | `R` `O` `C` | Rectángulo · Redondeado · Círculo |
 | `3` `4` `5` `6` `7` | Triángulo · Cuadrado · Pentágono · Hexágono · Trapecio |
 | `T` `J` `B` `I` `M` `N` `K` | Texto · Emoji · Botón · Input · Imagen · Navbar · Tarjeta |
-| `V` | Mover / seleccionar |
+| `V` `E` | Edición: Mover / seleccionar · Borrador |
 | `W` `1` `2` `0` `Y` | Edificios: Planta · Fachada · Tejado · Puerta · Ventana (Balcón, Muro, Verjas y Cancela no tienen atajo) |
 | `8` `9` `H` `X` `Z` | Jardín: Jardín · Árbol · Arbusto · Flor · Decoración (Caminos, Aromáticas y Trepadoras van sin atajo) |
 | `Ctrl/Cmd+Z` · `Ctrl+Y` o `Cmd+Shift+Z` | Deshacer · rehacer |
@@ -243,7 +248,7 @@ Cuatro convenciones que conviene conocer:
 
 ## Tests
 
-**480 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
+**514 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
 de runtime:
 
 ```bash
@@ -253,7 +258,7 @@ node --test tests/exporter.test.js    # un archivo
 
 Los módulos se cargan en un contexto `node:vm` con stubs de canvas y DOM, incluido `src/js/app.js` completo: los tests lanzan gestos reales —puntero, teclado, modales— y leen el resultado del autoguardado, sin ningún hook de test en el código de producción.
 
-**36 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco, acciones por defecto del navegador, los flujos completos de Verjas y Cancela y el Jardín botánico en escritorio, móvil y anchos intermedios.
+**46 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco, acciones por defecto del navegador, los flujos completos de Verjas y Cancela y el Jardín botánico en escritorio, móvil y anchos intermedios.
 
 ```bash
 npm install && npm run e2e:install    # una vez (descarga Chromium)

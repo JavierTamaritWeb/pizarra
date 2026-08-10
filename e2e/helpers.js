@@ -96,9 +96,25 @@ async function canvasPoint(page, x, y) {
   return { x: box.x + x * scale, y: box.y + y * scale };
 }
 
-/** Elige una herramienta del sidebar por su id de TOOLS. */
+/** Modales de AJUSTES: se abren al elegir la herramienta pero no piden elegir
+    nada, así que el uso normal es cerrarlos y ponerse a dibujar. No están los
+    catálogos (Planta, Árbol…): ahí sí hay que elegir, y cerrarlos automáticamente
+    escondería justo lo que esos specs comprueban. */
+const SETTINGS_MODALS = ['#modal-stroke', '#modal-shape', '#modal-eraser',
+  '#modal-text', '#modal-ui'];
+
+/** Elige una herramienta del sidebar por su id de TOOLS y deja el lienzo libre:
+    si la herramienta abrió sus ajustes, los cierra, que es lo que hace cualquiera
+    antes de dibujar. Los specs que comprueban la APERTURA no usan este helper:
+    pulsan el botón del sidebar directamente (ver panel.spec.js). */
 async function selectTool(page, toolId) {
   await page.locator(`.sidebar__tool[data-tool="${toolId}"]`).click();
+  for (const sel of SETTINGS_MODALS) {
+    const modal = page.locator(sel);
+    if (await modal.evaluate(d => d.open)) {
+      await modal.locator('.modal__cancel').click();
+    }
+  }
   await settle(page);
 }
 

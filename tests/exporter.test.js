@@ -169,10 +169,30 @@ test('Exporter.html: contiene button/input/nav/card según los elementos', () =>
   const out = blob.content;
   assert.ok(out.startsWith('<!DOCTYPE html>'));
   assert.match(out, /<button style="left:10px;top:10px;width:120px;height:40px;/);
-  assert.match(out, /<input placeholder="Type here\.\.\." style="left:10px;top:60px;/);
+  assert.match(out, /<input placeholder="Escribe aquí\.\.\." style="left:10px;top:60px;/);
   assert.match(out, /<nav style="left:0px;top:0px;width:1200px;height:60px;/);
-  assert.ok(out.includes('Card Title'), 'card renderiza su título');
+  assert.ok(out.includes('Título'), 'card renderiza su título');
   assert.match(out, /<div style="left:400px;top:100px;width:260px;height:200px;[^"]*border-radius:10px/);
+});
+
+// Auditoría v2.10.1: el SVG del nav no pintaba NINGÚN enlace (canvas y HTML
+// llevan Inicio/Nosotros/Contacto desde siempre — antes Home/About/Contact),
+// y el marcador de imagen exportaba «Image Placeholder» en inglés, un texto
+// que el canvas ni siquiera dibuja. Los tres formatos deben decir lo mismo.
+test('los tres formatos dicen lo mismo: enlaces del nav en SVG y marcador en español', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.svg([elNav]);
+  const svgOut = lastBlob(ctx).content;
+  for (const link of ['Inicio', 'Nosotros', 'Contacto']) {
+    assert.ok(svgOut.includes(`>${link}</text>`),
+      `el SVG del nav debe llevar «${link}», como el canvas y el HTML`);
+  }
+
+  const ph = { ...base, type: 'imagePlaceholder', x: 0, y: 0, w: 200, h: 150 };
+  ctx.Exporter.html([ph]);
+  const htmlOut = lastBlob(ctx).content;
+  assert.ok(htmlOut.includes('>Imagen</div>'), 'el marcador exporta su texto en español');
+  assert.ok(!htmlOut.includes('Image Placeholder'), 'sin restos del literal inglés');
 });
 
 test('Exporter.html: escapa el texto del usuario en <p> (&, <, >)', () => {
@@ -357,7 +377,7 @@ test('Exporter.html: con borrador usa una escena SVG única y una máscara real'
   assert.ok(out.includes('<rect x="5" y="6"'), 'la forma borrable vive en el SVG');
   assert.ok(out.includes('<rect x="10" y="10" width="120" height="40" rx="8"'),
     'el elemento posterior también se conserva en la escena SVG');
-  assert.ok(out.includes('>Button</text>'), 'conserva la etiqueta del botón');
+  assert.ok(out.includes('>Botón</text>'), 'conserva la etiqueta del botón');
   assert.ok(!out.includes('<button style='), 'no duplica componentes HTML fuera de la máscara');
 });
 
@@ -403,7 +423,7 @@ test('exports: el.label personaliza button/input/nav/card en SVG y HTML (escapad
   ctx.Exporter.svg([btn, card]);
   const svgOut = lastBlob(ctx).content;
   assert.ok(svgOut.includes('Enviar &lt;ya&gt;'), 'label escapado en SVG');
-  assert.ok(!svgOut.includes('>Button<'), 'no usa el fallback si hay label');
+  assert.ok(!svgOut.includes('>Botón<'), 'no usa el fallback si hay label');
   assert.ok(svgOut.includes('Mi Card'));
 
   ctx.Exporter.html([btn, card]);

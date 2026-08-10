@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=2.8.0" />
+  <link rel="stylesheet" href="css/styles.css?v=2.10.1" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.8.0" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.10.1" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v2.8.0</span>
+        <span class="topbar__badge">v2.10.1</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes" aria-expanded="false" aria-controls="side-panel">
@@ -75,22 +75,78 @@
         </div>
       </main>
 
-      <!-- Right Panel -->
+      <!-- Right Panel
+
+           El orden y el agrupamiento de estas secciones SON la organización que
+           ve el usuario. Cada `<section>` lleva id porque `syncPanelSections()`
+           (app.js) las muestra u oculta según la herramienta activa y la
+           selección: con el lápiz no pintan nada «Plantas» ni «Ancho del
+           camino». Ojo: `.panel__section` es `display:flex`, así que el
+           atributo `hidden` NO basta por sí solo — `_panel.scss` añade la regla
+           `&[hidden] { display: none }`, igual que `.btn[hidden]`.
+
+           Lo que edita la selección (color, grosor, relleno, discontinuo, doble
+           punta, tamaño de texto) vive AQUÍ y no en un modal: `selectTool()`
+           vacía la selección y los atajos se desactivan con un `<dialog>`
+           abierto, así que un modal no puede sustituir al panel para editar. -->
       <aside class="panel" id="side-panel">
 
-        <!-- Color -->
-        <section class="panel__section">
-          <h3 class="panel__title">Color</h3>
+        <!-- Elemento: posición y tamaño EXACTOS de lo seleccionado, más su
+             texto cuando el tipo lo admite. Hasta la v2.9.0 solo se podía
+             mover arrastrando y redimensionar con los tiradores: no había forma
+             de dar una medida concreta ni de alinear dos cosas, y en un botón o
+             una tarjeta el texto solo se cambiaba con doble clic, que no se ve
+             por ningún sitio. Se lee y se escribe con getElementBounds +
+             moveElement/scaleElement, así que vale para cualquier tipo —incluidos
+             los trazos a mano y los grupos— sin un caso por tipo. -->
+        <section class="panel__section" id="panel-sec-element">
+          <h3 class="panel__title">Posición y tamaño</h3>
+          <div class="panel__nums">
+            <label class="panel__num" for="el-x"><span>X</span>
+              <input type="number" id="el-x" step="1" /></label>
+            <label class="panel__num" for="el-y"><span>Y</span>
+              <input type="number" id="el-y" step="1" /></label>
+            <label class="panel__num" for="el-w"><span>Ancho</span>
+              <input type="number" id="el-w" step="1" min="1" /></label>
+            <label class="panel__num" for="el-h"><span>Alto</span>
+              <input type="number" id="el-h" step="1" min="1" /></label>
+          </div>
+          <label class="panel__field" for="el-label" id="el-label-row">
+            <span class="panel__title">Texto</span>
+            <input class="panel__text" type="text" id="el-label" />
+          </label>
+        </section>
+
+        <!-- Trazo: grosor, color y los dos modificadores de línea. «Color» era
+             una sección aparte, pero es el color DEL TRAZO (lo dice su propio
+             aria-label), así que va aquí. -->
+        <section class="panel__section" id="panel-sec-stroke">
+          <h3 class="panel__title panel__title--row">
+            <span><span id="stroke-label">Trazo</span>: <span id="stroke-val">2</span>px</span>
+            <button type="button" class="panel__gear" id="btn-eraser-size"
+                    title="Ajustar el trazo" hidden>⚙️</button>
+          </h3>
+          <input class="panel__slider" type="range" id="stroke-slider"
+                 min="1" max="8" step="1" value="2"
+                 aria-label="Grosor del trazo" />
           <div class="panel__color-grid" id="color-grid"></div>
           <div class="panel__color-custom">
             <input class="panel__color-picker" type="color" id="color-picker" value="#1a1a2e"
                    aria-label="Color del trazo personalizado" />
             <code class="panel__color-hex" id="color-hex">#1a1a2e</code>
           </div>
+          <label class="panel__check" id="row-dash">
+            <input type="checkbox" id="check-dash" /> Trazo discontinuo
+          </label>
+          <label class="panel__check" id="row-double-head">
+            <input type="checkbox" id="check-double-head" /> Doble punta
+          </label>
         </section>
 
-        <!-- Relleno -->
-        <section class="panel__section">
+        <!-- Relleno: solo con una forma rellenable activa o seleccionada.
+             «Solapamiento» estaba aquí y no es un ajuste de relleno sino un modo
+             de render de toda la escena: se ha ido a «Lienzo». -->
+        <section class="panel__section" id="panel-sec-fill">
           <h3 class="panel__title">Relleno</h3>
           <label class="panel__check">
             <input type="checkbox" id="check-fill" /> Rellenar formas
@@ -102,13 +158,6 @@
           <input class="panel__slider" type="range" id="fill-opacity-slider"
                  min="0" max="100" step="1" value="40"
                  aria-label="Opacidad del relleno translúcido" disabled />
-          <label class="panel__field" for="overlap-mode">
-            <span class="panel__title">Solapamiento</span>
-            <select class="panel__select" id="overlap-mode">
-              <option value="normal">Normal</option>
-              <option value="hidden-dashed">Bordes ocultos</option>
-            </select>
-          </label>
           <div class="panel__canvas-colors">
             <label class="panel__canvas-color">
               <input class="panel__color-picker" type="color" id="fill-color-picker" value="#4ecdc4" />
@@ -117,21 +166,25 @@
           </div>
         </section>
 
-        <!-- Stroke -->
-        <section class="panel__section">
-          <h3 class="panel__title panel__title--row">
-            <span><span id="stroke-label">Trazo</span>: <span id="stroke-val">2</span>px</span>
-            <button type="button" class="panel__gear" id="btn-eraser-size"
-                    title="Ajustar el tamaño del borrador" hidden>⚙️</button>
-          </h3>
-          <input class="panel__slider" type="range" id="stroke-slider"
-                 min="1" max="8" step="1" value="2"
-                 aria-label="Grosor del trazo" />
+        <!-- Texto: solo con la herramienta Texto/Emoji o un texto seleccionado.
+             Con Emoji activo, redrawNow retitula el rótulo a «Emoji» y el
+             deslizador gobierna state.emojiSize (min 32), como el de grosor
+             hace con el borrador. El max 96 es EMOJI_MAX_SIZE: un emoji puede
+             medir hasta 96 y este mismo control lo enseña al seleccionarlo. -->
+        <section class="panel__section" id="panel-sec-text">
+          <label class="panel__title panel__title--block" for="font-slider"><span id="font-label">Texto</span>: <span id="font-val">18</span>px</label>
+          <input class="panel__slider" type="range" id="font-slider" min="10" max="96" value="18" />
         </section>
 
-        <!-- Edificios (defaults de creación para Fachada/Alzado/Perfil/Tejados) -->
-        <section class="panel__section">
-          <h3 class="panel__title">Edificios</h3>
+        <!-- Edificios (defaults de creación para Fachada/Alzado/Perfil/Tejados).
+             Gemelos de los cuatro campos de #modal-facade: añadir un ajuste
+             quinto exige añadirlo en los dos sitios o en ninguno. -->
+        <section class="panel__section" id="panel-sec-build">
+          <h3 class="panel__title panel__title--row">
+            <span>Edificios</span>
+            <button type="button" class="panel__gear" id="btn-build-settings"
+                    title="Abrir el catálogo de Fachada">⚙️</button>
+          </h3>
           <label class="panel__field" for="build-floors">
             <span class="panel__title">Plantas</span>
             <select class="panel__select" id="build-floors">
@@ -173,9 +226,15 @@
         </section>
 
         <!-- Jardín (defaults de creación; las herramientas son solo de creación,
-             así que no siguen la semántica dual del panel) -->
-        <section class="panel__section">
-          <h3 class="panel__title">Jardín</h3>
+             así que no siguen la semántica dual del panel). Los tres controles
+             tienen gemelo dentro de los modales del jardín: aquí se retocan sin
+             soltar la herramienta, allí se eligen donde está el usuario. -->
+        <section class="panel__section" id="panel-sec-garden">
+          <h3 class="panel__title panel__title--row">
+            <span>Jardín</span>
+            <button type="button" class="panel__gear" id="btn-garden-settings"
+                    title="Abrir el catálogo de esta herramienta">⚙️</button>
+          </h3>
           <label class="panel__check">
             <input type="checkbox" id="check-garden-labels" checked /> Etiquetas
           </label>
@@ -192,21 +251,17 @@
                  aria-label="Ancho de los caminos del jardín" />
         </section>
 
-        <!-- Font Size -->
-        <section class="panel__section">
-          <label class="panel__title panel__title--block" for="font-slider">Texto: <span id="font-val">18</span>px</label>
-          <input class="panel__slider" type="range" id="font-slider" min="10" max="48" value="18" />
-        </section>
-
-        <!-- Zoom -->
-        <section class="panel__section">
-          <label class="panel__title panel__title--block" for="zoom-slider">Zoom: <span id="zoom-val">100</span>%</label>
-          <input class="panel__slider" type="range" id="zoom-slider" min="30" max="300" step="10" value="100" />
-        </section>
-
-        <!-- Lienzo -->
-        <section class="panel__section">
+        <!-- Lienzo: todo lo que describe la escena y la vista, no lo que se
+             dibuja. Aquí acaban «Mostrar/Ajustar cuadrícula» y «Solapamiento»,
+             que estaban repartidos entre una sección sin título y «Relleno». -->
+        <section class="panel__section" id="panel-sec-canvas">
           <h3 class="panel__title">Lienzo</h3>
+          <label class="panel__check">
+            <input type="checkbox" id="check-grid" checked /> Mostrar cuadrícula
+          </label>
+          <label class="panel__check">
+            <input type="checkbox" id="check-snap" /> Ajustar a cuadrícula
+          </label>
           <div class="panel__canvas-colors">
             <label class="panel__canvas-color">
               <input class="panel__color-picker" type="color" id="canvas-bg-picker" value="#ffffff" />
@@ -217,29 +272,24 @@
               Cuadrícula
             </label>
           </div>
+          <label class="panel__field" for="overlap-mode">
+            <span class="panel__title">Solapamiento</span>
+            <select class="panel__select" id="overlap-mode">
+              <option value="normal">Normal</option>
+              <option value="hidden-dashed">Bordes ocultos</option>
+            </select>
+          </label>
+          <label class="panel__title panel__title--block" for="zoom-slider">Zoom: <span id="zoom-val">100</span>%</label>
+          <input class="panel__slider" type="range" id="zoom-slider" min="30" max="300" step="10" value="100" />
         </section>
 
-        <!-- Toggles -->
-        <section class="panel__section">
-          <label class="panel__check">
-            <input type="checkbox" id="check-double-head" /> Doble punta
-          </label>
-          <label class="panel__check">
-            <input type="checkbox" id="check-dash" /> Trazo discontinuo
-          </label>
-          <label class="panel__check">
-            <input type="checkbox" id="check-grid" checked /> Mostrar cuadrícula
-          </label>
-          <label class="panel__check">
-            <input type="checkbox" id="check-snap" /> Ajustar a cuadrícula
-          </label>
+        <!-- Selección: cómo se selecciona, cuánto hay y qué se puede hacer con
+             lo seleccionado. «Los clics acumulan selección» vivía suelto entre
+             las casillas de la cuadrícula. -->
+        <section class="panel__section panel__section--border" id="panel-sec-selection">
           <label class="panel__check">
             <input type="checkbox" id="check-multi-select" /> Los clics acumulan selección
           </label>
-        </section>
-
-        <!-- Info -->
-        <section class="panel__section panel__section--border">
           <h3 class="panel__title" aria-live="polite">Elementos: <span id="el-count">0</span></h3>
           <button class="btn btn--ghost btn--block" id="btn-edit-garden" hidden>
             🌿 Editar planta
@@ -456,6 +506,15 @@
   <dialog class="modal" id="modal-emoji" aria-labelledby="modal-emoji-title">
       <h3 class="modal__heading" id="modal-emoji-title">Insertar emoji</h3>
       <p class="modal__sub">Elige uno y haz click en el lienzo para colocarlo</p>
+      <!-- Tamaño propio del emoji (state.emojiSize), independiente del tamaño
+           de letra del texto: el min es EMOJI_MIN_SIZE (32), para que siga
+           leyéndose como icono. smoke.test.js pina que ambos coinciden. -->
+      <label class="panel__field" for="emoji-modal-size">
+        <span class="modal__field-label">Tamaño: <span id="emoji-modal-size-val">32</span>px</span>
+        <input class="panel__slider" type="range" id="emoji-modal-size"
+               min="32" max="96" step="1" value="32"
+               aria-label="Tamaño del emoji" />
+      </label>
       <div id="emoji-catalog"></div>
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
   </dialog>
@@ -474,6 +533,222 @@
                    min="4" max="100" step="1" value="16"
                    aria-label="Tamaño del borrador" />
           </label>
+        </div>
+      </div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cerrar</button>
+  </dialog>
+
+  <!-- ===== MODAL: TRAZO =====
+       Los ajustes de Lápiz, Línea, Flecha, Flecha curva y Semicírculo, junto a
+       la herramienta y no solo en el panel: por debajo de 1100px el panel es un
+       cajón oculto, y el sidebar donde se pulsa la herramienta queda al otro
+       lado de la pantalla. Se abre al elegir la herramienta (como todos los
+       ajustes desde la 2.9.0) y se reabre con el ⚙ de la cabecera «Trazo».
+
+       Los campos son gemelos de los del panel; `syncStrokeControls()` los
+       mantiene al día y conservan la semántica dual (con algo seleccionado
+       editan la selección — y desde la 2.10.0, pulsar la herramienta de un
+       elemento seleccionado conserva esa selección, así que el modal abre
+       editándolo, posición incluida). -->
+  <dialog class="modal" id="modal-stroke" aria-labelledby="modal-stroke-title">
+      <h3 class="modal__heading" id="modal-stroke-title">Ajustes del trazo</h3>
+      <p class="modal__sub">La muestra se dibuja con el grosor, el color y las puntas actuales.
+        Los mismos ajustes siguen estando en el panel «Trazo».</p>
+      <div class="modal__build">
+        <canvas class="modal__preview" id="stroke-preview" width="176" height="168"
+                role="img" aria-label="Vista previa del trazo con los ajustes actuales"></canvas>
+        <div class="modal__build-fields">
+          <label class="panel__field" for="stroke-modal-slider">
+            <span class="modal__field-label">Grosor: <span id="stroke-modal-val">2</span>px</span>
+            <input class="panel__slider" type="range" id="stroke-modal-slider"
+                   min="1" max="8" step="1" value="2"
+                   aria-label="Grosor del trazo" />
+          </label>
+          <label class="panel__field" for="stroke-modal-color">
+            <span class="modal__field-label">Color</span>
+            <input class="panel__color-picker" type="color" id="stroke-modal-color" value="#1a1a2e"
+                   aria-label="Color del trazo" />
+          </label>
+          <label class="panel__check" id="stroke-modal-dash-row">
+            <input type="checkbox" id="stroke-modal-dash" /> Trazo discontinuo
+          </label>
+          <label class="panel__check" id="stroke-modal-double-row">
+            <input type="checkbox" id="stroke-modal-double" /> Doble punta
+          </label>
+          <!-- Posición y tamaño del elemento SELECCIONADO: solo aparece cuando
+               hay selección (sin ella no hay nada que colocar). El envoltorio
+               es un div SIN clase a propósito: ninguna clase suya declara
+               `display`, así que el [hidden] del user-agent basta — no se
+               reabre la trampa documentada en _panel.scss. Mismo patrón en los
+               otros tres modales de ajustes. -->
+          <div id="stroke-modal-geo" hidden>
+            <span class="modal__field-label">Posición y tamaño</span>
+            <div class="panel__nums">
+              <label class="panel__num" for="stroke-modal-x"><span>X</span><input type="number" id="stroke-modal-x" step="1" /></label>
+              <label class="panel__num" for="stroke-modal-y"><span>Y</span><input type="number" id="stroke-modal-y" step="1" /></label>
+              <label class="panel__num" for="stroke-modal-w"><span>Ancho</span><input type="number" id="stroke-modal-w" step="1" min="1" /></label>
+              <label class="panel__num" for="stroke-modal-h"><span>Alto</span><input type="number" id="stroke-modal-h" step="1" min="1" /></label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cerrar</button>
+  </dialog>
+
+  <!-- ===== MODAL: FORMA =====
+       Los ajustes de las ocho herramientas de Formas, junto a la herramienta:
+       el trazo (grosor y color) y el relleno entero, que antes solo vivían en
+       el panel. La muestra dibuja LA FORMA de la herramienta activa con esos
+       ajustes, así que se ve el resultado antes de arrastrar.
+
+       Todos los campos son gemelos de los del panel y conservan su semántica
+       dual: con algo seleccionado editan la selección. -->
+  <dialog class="modal" id="modal-shape" aria-labelledby="modal-shape-title">
+      <h3 class="modal__heading" id="modal-shape-title">Ajustes de la forma</h3>
+      <p class="modal__sub">La muestra se dibuja con el trazo y el relleno actuales.
+        Los mismos ajustes siguen estando en el panel «Trazo» y «Relleno».</p>
+      <div class="modal__build">
+        <canvas class="modal__preview" id="shape-preview" width="176" height="168"
+                role="img" aria-label="Vista previa de la forma con los ajustes actuales"></canvas>
+        <div class="modal__build-fields">
+          <label class="panel__field" for="shape-modal-slider">
+            <span class="modal__field-label">Grosor: <span id="shape-modal-val">2</span>px</span>
+            <input class="panel__slider" type="range" id="shape-modal-slider"
+                   min="1" max="8" step="1" value="2"
+                   aria-label="Grosor del trazo" />
+          </label>
+          <label class="panel__field" for="shape-modal-color">
+            <span class="modal__field-label">Color del trazo</span>
+            <input class="panel__color-picker" type="color" id="shape-modal-color" value="#1a1a2e"
+                   aria-label="Color del trazo" />
+          </label>
+          <label class="panel__check">
+            <input type="checkbox" id="shape-modal-fill" /> Rellenar formas
+          </label>
+          <label class="panel__check">
+            <input type="checkbox" id="shape-modal-fill-transparent" /> Relleno translúcido
+          </label>
+          <label class="panel__field" for="shape-modal-opacity">
+            <span class="modal__field-label">Opacidad: <span id="shape-modal-opacity-val">40</span>%</span>
+            <input class="panel__slider" type="range" id="shape-modal-opacity"
+                   min="0" max="100" step="1" value="40"
+                   aria-label="Opacidad del relleno translúcido" disabled />
+          </label>
+          <label class="panel__field" for="shape-modal-fill-color">
+            <span class="modal__field-label">Color de relleno</span>
+            <input class="panel__color-picker" type="color" id="shape-modal-fill-color" value="#4ecdc4"
+                   aria-label="Color de relleno" />
+          </label>
+          <!-- Giro: solo para las formas que lo guardan como ángulo (polígonos
+               regulares y trapecio). El `step` lo pone syncShapeControls con el
+               de cada tipo —45° el cuadrado, 36° el pentágono, 30° el hexágono,
+               90° triángulo y trapecio—, así que el deslizador solo se para en
+               orientaciones válidas. Sin selección fija cómo nace la próxima
+               forma; con ella, gira la seleccionada. -->
+          <label class="panel__field" for="shape-modal-rotation" id="shape-modal-rotation-row">
+            <span class="modal__field-label">Giro: <span id="shape-modal-rotation-val">0</span>°</span>
+            <input class="panel__slider" type="range" id="shape-modal-rotation"
+                   min="0" max="315" step="45" value="0"
+                   aria-label="Giro de la forma en grados" />
+          </label>
+          <!-- Ver el bloque homólogo de #modal-stroke: div sin clase, solo con selección. -->
+          <div id="shape-modal-geo" hidden>
+            <span class="modal__field-label">Posición y tamaño</span>
+            <div class="panel__nums">
+              <label class="panel__num" for="shape-modal-x"><span>X</span><input type="number" id="shape-modal-x" step="1" /></label>
+              <label class="panel__num" for="shape-modal-y"><span>Y</span><input type="number" id="shape-modal-y" step="1" /></label>
+              <label class="panel__num" for="shape-modal-w"><span>Ancho</span><input type="number" id="shape-modal-w" step="1" min="1" /></label>
+              <label class="panel__num" for="shape-modal-h"><span>Alto</span><input type="number" id="shape-modal-h" step="1" min="1" /></label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cerrar</button>
+  </dialog>
+
+  <!-- ===== MODAL: TEXTO =====
+       Los ajustes de la herramienta Texto, con el mismo contrato que
+       #modal-stroke: se abre al elegirla, el ⚙ lo reabre, cerrar deja la
+       herramienta puesta (no pasa por opensVariantModal), y los campos son
+       gemelos del panel con semántica dual — el deslizador de tamaño edita el
+       texto seleccionado o, sin selección, el default de creación. -->
+  <dialog class="modal" id="modal-text" aria-labelledby="modal-text-title">
+      <h3 class="modal__heading" id="modal-text-title">Ajustes del texto</h3>
+      <p class="modal__sub">La muestra se dibuja con el tamaño y el color actuales.
+        El tamaño sigue estando en el panel «Texto».</p>
+      <div class="modal__build">
+        <canvas class="modal__preview" id="text-preview" width="176" height="168"
+                role="img" aria-label="Vista previa del texto con los ajustes actuales"></canvas>
+        <div class="modal__build-fields">
+          <label class="panel__field" for="text-modal-size">
+            <span class="modal__field-label">Tamaño: <span id="text-modal-size-val">18</span>px</span>
+            <input class="panel__slider" type="range" id="text-modal-size"
+                   min="10" max="96" value="18"
+                   aria-label="Tamaño de letra" />
+          </label>
+          <label class="panel__field" for="text-modal-color">
+            <span class="modal__field-label">Color</span>
+            <input class="panel__color-picker" type="color" id="text-modal-color" value="#1a1a2e"
+                   aria-label="Color del texto" />
+          </label>
+          <!-- Ver el bloque homólogo de #modal-stroke: div sin clase, solo con selección. -->
+          <div id="text-modal-geo" hidden>
+            <span class="modal__field-label">Posición y tamaño</span>
+            <div class="panel__nums">
+              <label class="panel__num" for="text-modal-x"><span>X</span><input type="number" id="text-modal-x" step="1" /></label>
+              <label class="panel__num" for="text-modal-y"><span>Y</span><input type="number" id="text-modal-y" step="1" /></label>
+              <label class="panel__num" for="text-modal-w"><span>Ancho</span><input type="number" id="text-modal-w" step="1" min="1" /></label>
+              <label class="panel__num" for="text-modal-h"><span>Alto</span><input type="number" id="text-modal-h" step="1" min="1" /></label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cerrar</button>
+  </dialog>
+
+  <!-- ===== MODAL: COMPONENTE UI =====
+       Un solo dialog para Botón, Input, Imagen, Navbar y Tarjeta (como
+       #modal-stroke sirve a las cinco de Dibujo): el título se retitula por
+       herramienta y la muestra dibuja el componente REAL con el renderer.
+       El rótulo tiene semántica dual: con selección edita el del elemento;
+       sin ella fija el rótulo con el que se crearán los próximos (state.uiLabels,
+       persistido en prefs). Imagen no tiene rótulo (el renderer no lo recibe):
+       su fila se oculta. -->
+  <dialog class="modal" id="modal-ui" aria-labelledby="modal-ui-title">
+      <h3 class="modal__heading" id="modal-ui-title">Ajustes del componente</h3>
+      <p class="modal__sub">La muestra se dibuja con el rótulo, el color y el grosor actuales.</p>
+      <div class="modal__build">
+        <canvas class="modal__preview" id="ui-preview" width="176" height="168"
+                role="img" aria-label="Vista previa del componente con los ajustes actuales"></canvas>
+        <div class="modal__build-fields">
+          <label class="panel__field" for="ui-modal-label" id="ui-modal-label-row">
+            <span class="modal__field-label">Rótulo</span>
+            <!-- maxlength = el mismo recorte de 120 que aplican applyLabel y
+                 restorePrefs: sin él, un rótulo más largo encogía al recargar. -->
+            <input class="panel__text" type="text" id="ui-modal-label" maxlength="120"
+                   aria-label="Rótulo del componente" />
+          </label>
+          <label class="panel__field" for="ui-modal-slider">
+            <span class="modal__field-label">Grosor: <span id="ui-modal-val">2</span>px</span>
+            <input class="panel__slider" type="range" id="ui-modal-slider"
+                   min="1" max="8" step="1" value="2"
+                   aria-label="Grosor del trazo" />
+          </label>
+          <label class="panel__field" for="ui-modal-color">
+            <span class="modal__field-label">Color</span>
+            <input class="panel__color-picker" type="color" id="ui-modal-color" value="#1a1a2e"
+                   aria-label="Color del componente" />
+          </label>
+          <!-- Ver el bloque homólogo de #modal-stroke: div sin clase, solo con selección. -->
+          <div id="ui-modal-geo" hidden>
+            <span class="modal__field-label">Posición y tamaño</span>
+            <div class="panel__nums">
+              <label class="panel__num" for="ui-modal-x"><span>X</span><input type="number" id="ui-modal-x" step="1" /></label>
+              <label class="panel__num" for="ui-modal-y"><span>Y</span><input type="number" id="ui-modal-y" step="1" /></label>
+              <label class="panel__num" for="ui-modal-w"><span>Ancho</span><input type="number" id="ui-modal-w" step="1" min="1" /></label>
+              <label class="panel__num" for="ui-modal-h"><span>Alto</span><input type="number" id="ui-modal-h" step="1" min="1" /></label>
+            </div>
+          </div>
         </div>
       </div>
       <button class="btn btn--ghost btn--block modal__cancel">Cerrar</button>
@@ -740,6 +1015,12 @@
   <dialog class="modal" id="modal-plot" aria-labelledby="modal-plot-title">
       <h3 class="modal__heading" id="modal-plot-title">Forma del jardín</h3>
       <p class="modal__sub">Elige la parcela y arrástrala en el lienzo</p>
+      <!-- Gemela de «Etiquetas» del panel «Jardín»: la decisión de rotular se
+           toma aquí, al elegir qué se dibuja. syncGardenLabelControls() las
+           mantiene al día en los ocho modales del jardín. -->
+      <label class="panel__check">
+        <input type="checkbox" id="plot-garden-labels" checked /> Etiquetas
+      </label>
       <div id="plot-catalog"></div>
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
   </dialog>
@@ -771,6 +1052,9 @@
   <dialog class="modal" id="modal-decor" aria-labelledby="modal-decor-title">
       <h3 class="modal__heading" id="modal-decor-title">Elemento decorativo</h3>
       <p class="modal__sub">Vista desde arriba: elige el elemento y arrástralo</p>
+      <label class="panel__check">
+        <input type="checkbox" id="decor-garden-labels" checked /> Etiquetas
+      </label>
       <div id="decor-catalog"></div>
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
   </dialog>
@@ -788,6 +1072,9 @@
         <canvas class="modal__preview" id="path-preview" width="176" height="168"
                 role="img" aria-label="Vista previa del camino con los ajustes actuales"></canvas>
         <div class="modal__build-fields">
+          <label class="panel__check">
+            <input type="checkbox" id="path-garden-labels" checked /> Etiquetas
+          </label>
           <label class="panel__check">
             <input type="checkbox" id="path-any-angle" /> Cualquier inclinación
           </label>
@@ -850,19 +1137,19 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=2.8.0"></script>
-  <script src="src/js/sketchy.js?v=2.8.0"></script>
-  <script src="src/js/arc.js?v=2.8.0"></script>
-  <script src="src/js/curve-path.js?v=2.8.0"></script>
-  <script src="src/js/shape-rotation.js?v=2.8.0"></script>
-  <script src="src/js/regular-polygon.js?v=2.8.0"></script>
-  <script src="src/js/trapezoid.js?v=2.8.0"></script>
-  <script src="src/js/eraser.js?v=2.8.0"></script>
-  <script src="src/js/building.js?v=2.8.0"></script>
-  <script src="src/js/garden.js?v=2.8.0"></script>
-  <script src="src/js/renderer.js?v=2.8.0"></script>
-  <script src="src/js/exporter.js?v=2.8.0"></script>
-  <script src="src/js/templates.js?v=2.8.0"></script>
-  <script src="src/js/app.js?v=2.8.0"></script>
+  <script src="src/js/config.js?v=2.10.1"></script>
+  <script src="src/js/sketchy.js?v=2.10.1"></script>
+  <script src="src/js/arc.js?v=2.10.1"></script>
+  <script src="src/js/curve-path.js?v=2.10.1"></script>
+  <script src="src/js/shape-rotation.js?v=2.10.1"></script>
+  <script src="src/js/regular-polygon.js?v=2.10.1"></script>
+  <script src="src/js/trapezoid.js?v=2.10.1"></script>
+  <script src="src/js/eraser.js?v=2.10.1"></script>
+  <script src="src/js/building.js?v=2.10.1"></script>
+  <script src="src/js/garden.js?v=2.10.1"></script>
+  <script src="src/js/renderer.js?v=2.10.1"></script>
+  <script src="src/js/exporter.js?v=2.10.1"></script>
+  <script src="src/js/templates.js?v=2.10.1"></script>
+  <script src="src/js/app.js?v=2.10.1"></script>
 </body>
 </html>

@@ -18,6 +18,21 @@
     gap: 0.6rem;
   }
 
+  // TODO bloque de este fichero que declare `display` y pueda ocultarse con el
+  // atributo `hidden` necesita su propia regla aquí: el `display` del bloque
+  // GANA al `display:none` del user-agent, así que `hidden` no oculta nada por
+  // sí solo. Es la misma razón por la que existe `.btn[hidden]` en _btn.scss, y
+  // ha mordido cuatro veces: la sección, la fila de casilla, el ⚙ y el campo de
+  // etiqueta+control. El arnés `node:vm` NO puede verlo —allí `hidden` es una
+  // propiedad de JavaScript, no un estilo—, así que la guarda vive en
+  // `e2e/panel.spec.js` y en el artefacto compilado (`tests/smoke.test.js`).
+  // Si añades un `.panel__x` con `display` y lo ocultas desde JS, añádelo aquí.
+  &__section[hidden],
+  &__check[hidden],
+  &__field[hidden] {
+    display: none;
+  }
+
   &__section--border {
     border-top: 0.1rem solid var(--border-main);
     padding-top: 1.2rem;
@@ -65,6 +80,16 @@
     justify-content: center;
   }
 
+  // Tercera vez que aparece la misma trampa (ver .btn[hidden] y las dos de
+  // arriba): el `display: inline-flex` que le da el objetivo de 24×24px gana al
+  // `display:none` del user-agent, así que el ⚙ se veía SIEMPRE aunque app.js
+  // le pusiera `hidden`. Estaba así desde que existe el botón; con cualquier
+  // herramienta que no fuese el borrador se veía un engranaje que abría el
+  // modal del borrador.
+  &__gear[hidden] {
+    display: none;
+  }
+
   &__gear:hover {
     color: var(--text-primary);
     background: var(--bg-hover);
@@ -93,6 +118,49 @@
     background: var(--bg-hover);
     font: inherit;
     cursor: pointer;
+  }
+
+  // Mismo tratamiento que `.panel__slider:disabled`, que ya existía: sin él un
+  // <select> deshabilitado se ve exactamente igual que uno usable. Lo pide el
+  // selector de modo de etiqueta, que se apaga al quitar «Etiquetas».
+  &__select:disabled {
+    cursor: not-allowed;
+    opacity: 0.35;
+  }
+
+  // Posición y tamaño: cuatro campos en dos columnas. Caben en los 22rem del
+  // panel y siguen cabiendo en el cajón estrecho, que es el mismo ancho.
+  &__nums {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem 1rem;
+  }
+
+  &__num {
+    display: grid;
+    gap: 0.3rem;
+    font-size: 1.1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15rem;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+  &__num input,
+  &__text {
+    width: 100%;
+    min-width: 0;
+    border: 0.1rem solid var(--border-main);
+    border-radius: 0.6rem;
+    padding: 0.7rem 0.9rem;
+    color: var(--text-primary);
+    background: var(--bg-hover);
+    font: inherit;
+
+    // Sin esto el número hereda el `text-transform` y el `letter-spacing` del
+    // rótulo de arriba, y «120» sale con los dígitos separados.
+    text-transform: none;
+    letter-spacing: normal;
   }
 
   &__color-grid {
@@ -145,7 +213,12 @@
   &__canvas-colors {
     margin-top: 0.8rem;
     display: flex;
-    gap: 1.6rem;
+
+    // «Fondo» y «Cuadrícula» no caben en una fila de 22rem menos el padding:
+    // el segundo rótulo se salía del panel y quedaba cortado por el borde de la
+    // ventana. Con wrap baja a su propia línea en vez de desbordar.
+    flex-wrap: wrap;
+    gap: 0.8rem 1.6rem;
   }
 
   &__canvas-color {

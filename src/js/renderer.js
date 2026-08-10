@@ -393,7 +393,7 @@ const Renderer = (() => {
     ctx.fillStyle = color;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(label || 'Button', x + w / 2, y + h / 2);
+    ctx.fillText(label || 'Botón', x + w / 2, y + h / 2);
   }
 
   function _input(ctx, x, y, w, h, color, lw, label) {
@@ -404,7 +404,7 @@ const Renderer = (() => {
     ctx.fillStyle = _tint(color, '60');
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(label || 'Type here...', x + 10, y + h / 2);
+    ctx.fillText(label || 'Escribe aquí...', x + 10, y + h / 2);
   }
 
   function _imagePlaceholder(ctx, x, y, w, h, color, lw) {
@@ -444,7 +444,9 @@ const Renderer = (() => {
     ctx.textBaseline = 'middle';
     ctx.fillText(label || 'Logo', x + 20, y + h / 2);
     // Links
-    const links = ['Home', 'About', 'Contact'];
+    // En español desde la 2.10.0, como el resto de defaults («Botón», «Escribe
+    // aquí...», «Título»); el exportador HTML lleva los mismos tres enlaces.
+    const links = ['Inicio', 'Nosotros', 'Contacto'];
     // 70px por link (mismo paso que el bucle) + 40 de hueco para la hamburguesa
     const startX = x + w - 70 * links.length - 40;
     links.forEach((link, i) => {
@@ -474,7 +476,7 @@ const Renderer = (() => {
     ctx.fillStyle = color;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText(label || 'Card Title', x + 12, y + imgH + 14);
+    ctx.fillText(label || 'Título', x + 12, y + imgH + 14);
     // Description lines
     ctx.strokeStyle = _tint(color, '40');
     ctx.lineWidth = 1;

@@ -28,7 +28,10 @@ test('tras usar un control del panel, Ctrl+Z sigue deshaciendo', async ({ page }
 
 test('tras marcar un checkbox del panel, las teclas de herramienta responden', async ({ page }) => {
   await openApp(page);
-  const check = page.locator('#check-fill');
+  // «Mostrar cuadrícula» y no «Rellenar formas»: desde que el panel enseña solo
+  // las secciones de la herramienta activa, «Relleno» está oculto con el lápiz
+  // (arranca activo) y no se puede pulsar. Este de «Lienzo» está siempre.
+  const check = page.locator('#check-grid');
   await check.click();
 
   await page.keyboard.press('r');
@@ -176,12 +179,10 @@ test('«?» no apila la Ayuda sobre otro modal, y su toggle sigue vivo', async (
 // siguiente (pointerleave solo limpia si la herramienta sigue siendo Borrador).
 test('el círculo del borrador no queda fantasma al cambiar de herramienta', async ({ page }) => {
   await openApp(page);
+  // Elegir Borrador abre su modal de tamaño (como Planta abre su catálogo) y el
+  // lienzo queda inerte mientras el <dialog> está abierto: el helper lo cierra,
+  // que es lo que hace cualquiera antes de ponerse a borrar.
   await selectTool(page, 'eraser');
-  // Elegir Borrador abre su modal de tamaño (como Planta abre su catálogo);
-  // hay que cerrarlo para poder interactuar con el lienzo, que queda inerte
-  // mientras el <dialog> está abierto.
-  await page.locator('#modal-eraser .modal__cancel').click();
-  await settle(page);
   const p = await canvasPoint(page, 400, 300);
   await page.mouse.move(p.x, p.y);
   await settle(page);

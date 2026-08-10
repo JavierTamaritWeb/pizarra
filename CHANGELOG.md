@@ -4,6 +4,206 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.10.1] — 2026-08-10
+
+### Corregido
+
+Auditoría severa sobre la 2.10.x (tres revisores independientes + verificación
+con sondas; cada defecto tiene su entrada en `BUGS.md` y su guarda de
+regresión):
+
+- **Teclear una medida ya siempre gana.** Los campos de «Posición y tamaño»
+  enseñan valores redondeados, pero se comparaban contra la caja exacta: con
+  cualquier caja fraccionaria (un polígono dibujado en diagonal; con el
+  auto-zoom, casi todo) el alto que acababas de teclear perdía contra un ancho
+  que nadie había tocado. Además, vaciar un campo colapsaba el elemento
+  (`Number('')` es 0: Ancho → 1px, X → 0) y una medida inasumible (el alto de
+  una línea horizontal) apilaba un paso de deshacer fantasma.
+- **Un cambio rezagado ya no se aplica al elemento equivocado.** Teclear un
+  ancho y clicar otro elemento sin confirmar aplicaba la medida al recién
+  seleccionado (el `mousedown` corre antes que el `blur`→`change`).
+- **«Posición y tamaño» funciona con cualquier multi-selección**, no solo con
+  grupos: con dos elementos sueltos los campos enseñaban valores rancios y
+  teclear no hacía nada. La escala sigue siendo uniforme.
+- **El rótulo respeta la semántica dual**: con multi-selección ya no reescribe
+  en silencio el rótulo de creación (y la fila no se ofrece); el default se
+  recorta a 120 caracteres al escribir, no al recargar.
+- **Vaciar un texto desde el panel lo borra**, como el editor de doble clic —
+  antes dejaba un elemento invisible de caja cero.
+- **Los tiradores solo se dibujan con Mover**: con la selección conservada y
+  una herramienta de creación, agarrar la esquina creaba un elemento nuevo en
+  vez de escalar — el lienzo prometía lo que no hacía.
+- **El deslizador del panel vuelve a mandar sobre el Emoji**: con Emoji activo
+  se retitula («Emoji») y gobierna su tamaño (32–96), como el de grosor hace
+  con el borrador; seleccionar un emoji grande ya no desborda el control
+  (max 96). Cancelar un catálogo viniendo de Emoji ya no reabre su catálogo.
+- **El modal de trazo no ofrece lo que no aplica**: «Trazo discontinuo» se
+  atenúa con el Lápiz (lo ignoraba, pero cambiaba en silencio el default de
+  las líneas) y «Doble punta» con un Semicírculo seleccionado; las casillas se
+  resincronizan siempre y la muestra ignora una casilla deshabilitada.
+- **La muestra del relleno sólido ya no miente**: sin color de relleno elegido
+  enseña el tinte clásico del trazo, como la forma que se va a crear.
+- **Los tres formatos dicen lo mismo**: el SVG del navbar gana los enlaces
+  «Inicio / Nosotros / Contacto» que canvas y HTML ya pintaban, y el marcador
+  de imagen deja de exportar «Image Placeholder» en inglés.
+
+## [2.10.0] — 2026-08-10
+
+### Añadido
+
+- **Pulsar la herramienta de un elemento seleccionado lo edita en su modal,
+  posición incluida.** Hasta ahora elegir una herramienta deseleccionaba
+  siempre, así que los modales de ajustes solo servían para configurar lo
+  próximo que se iba a dibujar. Ahora, si lo seleccionado es del tipo que esa
+  herramienta crea (regla por tipo exacto: un rectángulo se edita pulsando
+  Rectángulo), la selección se conserva y el modal abre mostrando y editando
+  ese elemento: color, grosor, relleno, giro… y un bloque nuevo de **Posición
+  y tamaño** (X/Y/ancho/alto) que existe en los cuatro modales de ajustes y
+  solo aparece con selección. Es el mismo `applyGeometry` del panel
+  parametrizado por prefijo, así que escribir una medida en el modal respeta
+  las mismas invariantes (un polígono regular mantiene `w === h`, un grupo
+  escala en proporción). Empezar a dibujar en el lienzo suelta la selección:
+  crear y editar no se pisan.
+- **Botón, Input, Imagen, Navbar y Tarjeta abren sus ajustes al pulsarlos**
+  (`#modal-ui`, compartido y retitulado por herramienta), con vista previa
+  dibujada por el renderer real, color, grosor y un campo de **Rótulo** con
+  semántica dual: con un componente seleccionado edita el suyo; sin selección
+  fija el rótulo con el que nacerán los próximos (se recuerda entre sesiones).
+  Imagen no lleva rótulo y su fila se oculta. El ⚙ del panel los reabre.
+- **Texto abre sus ajustes al pulsarlo** (`#modal-text`): tamaño de letra,
+  color y vista previa. El **tamaño de letra gana la semántica dual** que ya
+  tenían grosor y color: con un texto seleccionado, el deslizador (el del
+  panel o el del modal) lo cambia a él, en un solo paso de deshacer; sin
+  selección fija el default. Era el último control de aspecto sin ella.
+- **El catálogo de Emoji estrena un deslizador de tamaño** (32–96 px),
+  independiente del tamaño de letra del texto: agrandar un emoji ya no encoge
+  el próximo texto. Se recuerda entre sesiones y «Limpiar todo» lo devuelve a
+  32 px.
+
+### Cambiado
+
+- **Los textos por defecto de los componentes UI están en español**, en el
+  lienzo y en los exports SVG/HTML: «Botón», «Escribe aquí...», «Título»,
+  «Texto de ejemplo» y el menú «Inicio / Nosotros / Contacto» del Navbar
+  (antes «Button», «Type here...», «Card Title» y «Home / About / Contact», en
+  una app cuya interfaz siempre estuvo en español). Un componente con rótulo
+  propio no cambia; los que no lo tenían pasan a verse en español.
+- **Mover es ahora la única herramienta sin modal de ajustes**: la promesa
+  «pulsar una herramienta muestra sus ajustes» cubre ya Dibujo, Formas, UI,
+  Texto, Emoji, Borrador, Edificios y Jardín.
+
+## [2.9.0] — 2026-08-10
+
+### Cambiado
+
+- **El panel derecho se reorganiza y pasa a ser contextual.** Era una lista
+  plana de 45 controles en diez secciones, todos a la vista sea cual sea la
+  herramienta: dibujando con el lápiz seguían delante «Plantas», «Ventanas por
+  planta», «Pendiente del tejado», «Cubierta del alzado», «Ancho del camino» y
+  «Caminos en cualquier inclinación», que solo sirven para Fachada y para
+  Camino. Ahora cada sección aparece con lo que la usa, y con el lápiz el panel
+  baja de ~28 controles visibles a ~13 —lo que más se nota por debajo de
+  1100 px, donde el panel es un cajón y cada control de más se paga en scroll—.
+
+  - **Trazo** reúne grosor, color y los dos modificadores de línea. «Color» era
+    una sección aparte pese a ser el color *del trazo*; «Trazo discontinuo» y
+    «Doble punta» estaban en una sección **sin título** junto a la cuadrícula y
+    a la selección múltiple, y ahora solo salen con línea, flecha o curva.
+  - **Relleno** aparece con una forma rellenable. «Solapamiento» sale de aquí:
+    no es un ajuste de relleno sino un modo de render de toda la escena, y pasa
+    a «Lienzo».
+  - **Lienzo** agrupa mostrar/ajustar cuadrícula, fondo, color de cuadrícula,
+    solapamiento y zoom. **Selección** agrupa «Los clics acumulan selección»,
+    el recuento y los botones de la selección.
+  - **Edificios** y **Jardín** solo salen con sus herramientas, y estrenan un ⚙
+    que reabre el catálogo sin soltar la herramienta.
+  - **Nada se ha quitado ni renombrado.** Todo reaparece con su herramienta, y
+    **al seleccionar un elemento vuelven los controles que lo editan** aunque la
+    herramienta activa sea otra: es lo que hace falta para que seleccionar una
+    forma siga permitiendo rellenarla.
+
+### Añadido
+
+- **Lápiz, Línea, Flecha, Flecha curva y Semicírculo abren sus ajustes al
+  pulsarlas** (`#modal-stroke`), igual que el Borrador abre el suyo o Planta su
+  catálogo: grosor, color, trazo discontinuo, doble punta y una **muestra en
+  vivo** dibujada con las mismas primitivas que el lienzo, que cambia con la
+  herramienta (una línea no lleva puntas, y «Doble punta» se atenúa). Cerrar
+  deja la herramienta puesta —no hay nada que elegir—, y el ⚙ de la cabecera
+  «Trazo» lo reabre sin cambiar de herramienta. Los cuatro ajustes siguen en el
+  panel y son exactamente los mismos.
+- **Las ocho de Formas abren «Ajustes de la forma»** (`#modal-shape`): además del
+  trazo, llevan **el bloque de Relleno entero** —rellenar, translúcido, opacidad
+  y color—, que es la sección del panel que solo les sirve a ellas. La muestra
+  dibuja la forma de la herramienta activa (un pentágono no se parece a un
+  círculo) ya rellena, así que se ve el resultado antes de arrastrar.
+- **El giro deja de ser solo una acción sobre lo ya dibujado.** Cuadrado,
+  triángulo, pentágono, hexágono y trapecio traen un deslizador de **giro** con
+  el paso propio de cada uno —45°, 90°, 36°, 30° y cuartos de vuelta—, así que
+  la forma **nace ya orientada** y la previsualización del arrastre lo enseña.
+  Antes solo existía «Rotar selección», de un paso por clic: para poner un
+  pentágono a 288° había que dibujarlo, seleccionarlo y pulsar ocho veces. Con
+  algo seleccionado el mismo deslizador lo gira, en un único paso de deshacer.
+- **Sección «Posición y tamaño» en el panel**, con la selección puesta: X, Y,
+  ancho, alto y el **texto** del elemento cuando lo tiene (el contenido de un
+  texto, el rótulo de un botón, un input, una navbar o una tarjeta). Hasta ahora
+  solo se podía mover arrastrando y redimensionar con los tiradores —sin forma
+  de dar una medida concreta ni de alinear dos cosas—, y el rótulo de un
+  componente solo se cambiaba con doble clic sobre el dibujo, que no se anuncia
+  en ninguna parte. Se lee y se escribe con `getElementBounds` +
+  `moveElement`/`scaleElement`, así que vale para **cualquier** tipo, incluidos
+  los trazos a mano alzada y las selecciones múltiples. Va **la primera del
+  panel**: aparece solo cuando hay algo seleccionado, y entonces es lo más
+  relevante que hay en pantalla. Escribir una medida respeta las mismas reglas
+  que arrastrar un tirador —un polígono regular conserva `w === h` y un grupo
+  escala en proporción—, porque un polígono deformado no pasa la validación de
+  importación y dejaría un proyecto que ya no se puede abrir.
+- **«Etiquetas» dentro de los ocho modales del jardín**, junto al selector de
+  modo de etiqueta, que es donde se decide qué se dibuja. Con las etiquetas
+  apagadas, el modo de etiqueta se deshabilita porque no rotula nada. La casilla
+  del panel sigue estando y es la misma.
+
+### Corregido
+
+- **El ⚙ del panel se veía con todas las herramientas** y abría el modal del
+  tamaño del borrador viniera a cuento o no. `app.js` le ponía `hidden`
+  correctamente, pero `.panel__gear` declara `display: inline-flex` para cumplir
+  el objetivo táctil de 24×24 px, y eso gana al `display:none` del navegador.
+  Estaba así desde que existe el botón (v1.22.0) y ninguna guarda podía verlo:
+  en el arnés `node:vm`, `hidden` es una propiedad de JavaScript, no un estilo.
+- **«Cuadrícula» se salía del panel** por el borde de la ventana: los dos
+  selectores de color de «Lienzo» no caben en una fila de 22 rem.
+- **Tras «Limpiar todo», Verjas y Cancela** seguían enseñando el diseño y la
+  altura anteriores hasta reabrir su modal: el reset llamaba a tres de los cinco
+  puntos de sincronía.
+- **El color no se podía cambiar en nada ya dibujado.** El selector de color
+  era el único control de aspecto sin semántica dual: elegir un color con algo
+  seleccionado no lo recoloreaba, así que un botón, una tarjeta o cualquier
+  elemento se quedaba para siempre del color con el que nació. Ahora recolorea
+  la selección —tanto el picker como las muestras—, en un único paso de
+  deshacer, y el panel enseña el color de lo seleccionado en vez del último
+  elegido.
+- Un `<select>` deshabilitado se veía igual que uno usable: ahora se atenúa,
+  como ya hacían los deslizadores.
+- **La vista previa del Cuadrado dibujaba un rectángulo.** El cuadrado es un
+  polígono regular de cuatro lados con su propio tipo de elemento, no un `rect`.
+- El atributo `hidden` tampoco ocultaba `.panel__field` ni `.panel__gear`, por
+  el mismo motivo que las secciones: su `display` gana al del navegador. Las
+  cuatro reglas se agrupan ahora en un solo sitio, con la advertencia.
+- Cancelar un catálogo devolvía a la herramienta anterior sin mirar si esa
+  también abre modal, lo que ahora encadenaría dos ventanas seguidas. Se vuelve
+  a ella en silencio: recupera la herramienta sin abrir nada encima. Mandar a
+  Mover en todos los casos habría sido más fácil y peor.
+
+### Tests
+
+- **495 unitarios** y **43 end-to-end**. Las guardas nuevas cubren las secciones
+  contextuales, su reaparición con la selección, los gemelos del modal de trazo,
+  la reentrada de herramienta, la casilla de etiquetas y el reset completo.
+- La visibilidad real se comprueba en `e2e/panel.spec.js` **a propósito**: el
+  arnés `node:vm` ve `hidden` como propiedad y no sabe si el CSS la respeta, que
+  es exactamente el agujero por el que se coló el bug del ⚙.
+
 ## [2.8.0] — 2026-08-09
 
 ### Añadido
@@ -52,6 +252,8 @@ versionado es [SemVer](https://semver.org/lang/es/).
   es la herramienta a la que se vuelve entre gesto y gesto —seleccionar,
   arrastrar, redimensionar— y estaba al final, después de tres grupos de
   creación.
+- **El Borrador se muda de «Dibujo» a «Edición».** No crea nada: quita lo que ya
+  está dibujado, igual que el resto de ese grupo. Su atajo (`E`) no cambia.
 
 ### Corregido
 

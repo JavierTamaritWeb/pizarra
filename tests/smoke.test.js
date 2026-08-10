@@ -39,23 +39,108 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.8.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.10.1 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.8\.0</);
-  assert.match(html, /css\/styles\.css\?v=2\.8\.0/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.8\.0/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.8\.0/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.8\.0/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.8\.0/);
+  assert.match(html, /class="topbar__badge">v2\.10\.1</);
+  assert.match(html, /css\/styles\.css\?v=2\.10\.1/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.10\.1/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.10\.1/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.10\.1/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.10\.1/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
   assert.match(html, /id="modal-path"/);
   assert.match(html, /id="modal-herb"/);
   assert.match(html, /id="modal-eraser"/);
+  assert.match(html, /id="modal-stroke"/);
+  assert.match(html, /id="modal-shape"/);
+  assert.match(html, /id="modal-text"/);
+  assert.match(html, /id="modal-ui"/);
   assert.match(html, /id="stroke-label">Trazo</);
   assert.match(html, /Tamaño del borrador/);
   assert.match(html, /entre 4 y 100 px \(16 px por defecto\)/);
+});
+
+// v2.10.0: los cuatro modales de ajustes llevan su bloque «Posición y tamaño»
+// (visible solo con selección) y el catálogo de emoji su deslizador de tamaño,
+// acotado por las mismas constantes que usa app.js al restaurar prefs.
+test('los modales de ajustes llevan geometría y el emoji su tamaño acotado', () => {
+  const ctx = load('src/js/config.js');
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  for (const p of ['stroke-modal', 'shape-modal', 'text-modal', 'ui-modal']) {
+    assert.match(html, new RegExp(`id="${p}-geo" hidden`),
+      `#${p}-geo debe existir y nacer oculto (sin selección no hay nada que colocar)`);
+    for (const f of ['x', 'y', 'w', 'h']) {
+      assert.match(html, new RegExp(`id="${p}-${f}"`), `falta el campo #${p}-${f}`);
+    }
+  }
+  const slider = html.match(/<input[^>]*id="emoji-modal-size"[^>]*>/);
+  assert.ok(slider, 'falta el deslizador de tamaño del emoji');
+  assert.match(slider[0], new RegExp(`min="${ctx.EMOJI_MIN_SIZE}"`),
+    'el min del deslizador debe ser EMOJI_MIN_SIZE');
+  assert.match(slider[0], new RegExp(`max="${ctx.EMOJI_MAX_SIZE}"`),
+    'y el max, EMOJI_MAX_SIZE (restorePrefs recorta contra ellas)');
+  // El deslizador del panel llega hasta EMOJI_MAX_SIZE (con Emoji activo se
+  // retitula vía #font-label y gobierna emojiSize), y el rótulo del componente
+  // lleva el mismo tope de 120 que aplican applyLabel y restorePrefs.
+  const fontSlider = html.match(/<input[^>]*id="font-slider"[^>]*>/);
+  assert.match(fontSlider[0], new RegExp(`max="${ctx.EMOJI_MAX_SIZE}"`),
+    'el deslizador del panel debe alcanzar EMOJI_MAX_SIZE o un emoji grande lo desborda');
+  assert.match(html, /id="font-label"/, 'falta el rótulo retitulable del deslizador');
+  const uiLabel = html.match(/<input[^>]*id="ui-modal-label"[^>]*>/);
+  assert.match(uiLabel[0], /maxlength="120"/,
+    'el rótulo debe recortarse donde se escribe, no solo al recargar');
+});
+
+// El panel se reorganizó en secciones que aparecen según la herramienta activa
+// (syncPanelSections). Dos contratos que fallarían en silencio:
+//   1. Sin `.panel__section[hidden]{display:none}` el atributo `hidden` NO
+//      oculta nada, porque `.panel__section` es display:flex y gana al estilo
+//      del user-agent. La misma trampa que ya obligó a escribir `.btn[hidden]`.
+//      El síntoma sería el panel entero visible siempre: exactamente el estado
+//      previo, y ninguna guarda del arnés lo notaría (allí `hidden` es una
+//      propiedad JS, no CSS).
+//   2. Las secciones que el JS oculta tienen que existir con ese id.
+test('el panel tiene sus secciones contextuales y el CSS que las oculta', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  for (const id of ['panel-sec-stroke', 'panel-sec-fill', 'panel-sec-text',
+    'panel-sec-build', 'panel-sec-garden', 'panel-sec-canvas', 'panel-sec-selection']) {
+    assert.match(html, new RegExp(`id="${id}"`), `falta la sección #${id}`);
+  }
+  // Cada bloque del panel que declara `display` necesita su regla `[hidden]`:
+  // ese `display` gana al del user-agent y el atributo no oculta nada. Ha
+  // mordido cuatro veces (sección, casilla, ⚙ y campo), así que se pinta la
+  // lista entera en el artefacto compilado.
+  const css = fs.readFileSync(path.resolve(__dirname, '..', 'css', 'styles.css'), 'utf8');
+  const hiddenRule = /\{\s*display:\s*none/;
+  for (const sel of ['\\.panel__section\\[hidden\\]', '\\.panel__check\\[hidden\\]',
+    '\\.panel__field\\[hidden\\]', '\\.panel__gear\\[hidden\\]']) {
+    assert.match(css, new RegExp(sel + '[^{]*' + hiddenRule.source),
+      `sin ${sel.replace(/\\/g, '')} el atributo hidden no oculta nada`);
+  }
+});
+
+// Mismo contrato que los gemelos de Edificios: el grosor vive a la vez en el
+// panel y en #modal-stroke, y syncStrokeControls() asigna el valor a los dos.
+// Con rangos distintos, mover uno recortaría el otro sin avisar.
+test('los controles gemelos del trazo (panel y modal) ofrecen lo mismo', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const rangeOf = id => {
+    const tag = html.match(new RegExp(`<input[^>]*id="${id}"[^>]*>`));
+    assert.ok(tag, `no existe el slider #${id}`);
+    return ['min', 'max', 'step'].map(a => (tag[0].match(new RegExp(`${a}="([^"]+)"`)) || [])[1]);
+  };
+  assert.deepEqual(rangeOf('stroke-modal-slider'), rangeOf('stroke-slider'),
+    'el grosor del modal y el del panel deben cubrir el mismo rango');
+  assert.deepEqual(rangeOf('shape-modal-slider'), rangeOf('stroke-slider'),
+    'y el de #modal-shape, también');
+  assert.deepEqual(rangeOf('shape-modal-opacity'), rangeOf('fill-opacity-slider'),
+    'la opacidad del modal de forma y la del panel, lo mismo');
+  assert.deepEqual(rangeOf('ui-modal-slider'), rangeOf('stroke-slider'),
+    'el grosor de #modal-ui, el mismo rango que el del panel');
+  assert.deepEqual(rangeOf('text-modal-size'), rangeOf('font-slider'),
+    'el tamaño de letra de #modal-text y el del panel deben cubrir el mismo rango');
 });
 
 // css/styles.css es un artefacto compilado desde scss/ (Gulp 5 + dart-sass).
