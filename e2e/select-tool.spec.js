@@ -29,6 +29,11 @@ test('«Select»: el botón existe, el clic selecciona y la marquesina nace enci
   const btn = page.locator('.sidebar__tool[data-tool="pick"]');
   await expect(btn).toBeVisible();
   await btn.click();
+  // Desde la 2.17.0 elegirla abre sus ajustes, como toda herramienta
+  // configurable. Este spec pulsa el botón del sidebar a propósito (para
+  // comprobar que existe), así que cierra el modal a mano — es lo que hace el
+  // helper selectTool() y lo que haría cualquiera antes de tocar el lienzo.
+  await page.locator('#modal-select .modal__cancel').click();
   await settle(page);
   await expect(page.locator('#main-canvas')).toHaveClass(/canvas-area__canvas--pick/);
 
@@ -83,4 +88,39 @@ test('las manuscritas se sirven desde el repo y elegir una cambia lo que dibuja 
 
   // 3. El gemelo de «Ajustes del texto» sigue al del panel: es el mismo ajuste.
   await expect(page.locator('#text-modal-font')).toHaveValue('kalam');
+});
+
+// v2.17.0: «Los clics acumulan selección» dejó el panel y es el ajuste de
+// «Select». Lo que el arnés vm no puede juzgar: que el modal se abra de verdad
+// al pulsar el botón del sidebar, que su casilla se vea, y —la lección de la
+// v2.16.2— que al cerrarlo el lienzo vuelva a responder. Un <dialog showModal>
+// deja inerte todo lo que hay detrás, así que un modal que no se cierra bien
+// convierte la herramienta en un callejón sin salida.
+test('«Select» abre sus ajustes, y al cerrarlos el lienzo sigue vivo', async ({ page }) => {
+  await openApp(page);
+  await selectTool(page, 'rect');
+  await drag(page, 100, 100, 200, 200);
+  await drag(page, 400, 100, 500, 200);
+
+  await page.locator('.sidebar__tool[data-tool="pick"]').click();
+  const modal = page.locator('#modal-select');
+  await expect(modal).toHaveAttribute('open', '');
+  const casilla = page.locator('#select-modal-multi');
+  await expect(casilla).toBeVisible();
+  await expect(casilla).not.toBeChecked();
+
+  // La casilla vieja del panel ya no existe.
+  await expect(page.locator('#check-multi-select')).toHaveCount(0);
+
+  await casilla.check();
+  await page.locator('#modal-select .modal__cancel').click();
+  await expect(modal).not.toHaveAttribute('open', '');
+  await settle(page);
+
+  // Y el ajuste hace su trabajo: dos clics sueltos acumulan los dos rects.
+  await clickCanvas(page, 150, 150);
+  await clickCanvas(page, 450, 150);
+  await page.keyboard.press('Delete');
+  await settle(page);
+  expect(await elements(page)).toHaveLength(0);
 });

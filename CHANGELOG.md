@@ -4,6 +4,21 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.17.0] — 2026-08-10
+
+### Cambiado
+
+- **«Los clics acumulan selección» deja el panel y pasa a ser el ajuste de la
+  herramienta «Select».** Pulsarla abre sus ajustes con la casilla dentro, como
+  ya hacían el borrador, el trazo, las formas, el texto y los componentes. En el
+  panel quedaba lejos del sidebar —donde de verdad se elige la herramienta— y,
+  en pantallas de menos de 1100 px, escondida dentro de un cajón.
+- El ajuste sigue gobernando también los clics de **Mover**, que comparte la
+  misma forma de seleccionar. Mover no abre el modal al elegirla, porque es la
+  herramienta que más se pulsa —tras dibujar, al pegar, con Ctrl+A— y un
+  diálogo en cada paso estorbaría; se llega a él con el **⚙** del panel, que
+  ahora aparece también con las dos herramientas de Edición.
+
 ## [2.16.3] — 2026-08-10
 
 ### Corregido

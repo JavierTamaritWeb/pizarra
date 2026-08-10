@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.16.3 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.17.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.16\.3</);
-  assert.match(html, /css\/styles\.css\?v=2\.16\.3/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.16\.3/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.16\.3/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.16\.3/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.16\.3/);
+  assert.match(html, /class="topbar__badge">v2\.17\.0</);
+  assert.match(html, /css\/styles\.css\?v=2\.17\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.17\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.17\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.17\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.17\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -57,6 +57,15 @@ test('index publica v2.16.3 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="modal-shape"/);
   assert.match(html, /id="modal-text"/);
   assert.match(html, /id="modal-ui"/);
+  assert.match(html, /id="modal-select"/);
+  // «Los clics acumulan selección» dejó el panel en la v2.17.0 y es el ajuste
+  // de «Select». Si volviera a existir la casilla vieja habría dos controles
+  // para un mismo estado, y solo uno cableado: el arnés `node:vm` fabrica un
+  // <div> vacío para cualquier id desconocido, así que un id huérfano no
+  // rompería ningún test — solo dejaría de hacer nada en el navegador.
+  assert.match(html, /id="select-modal-multi"/);
+  assert.doesNotMatch(html, /id="check-multi-select"/,
+    'la casilla vieja del panel no debe volver');
   assert.match(html, /id="stroke-label">Trazo</);
   assert.match(html, /Tamaño del borrador/);
   assert.match(html, /entre 4 y 100 px \(16 px por defecto\)/);

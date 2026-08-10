@@ -129,7 +129,7 @@ test('«Los clics acumulan selección»: multi-selección disjunta sin teclado',
   app.drag(50, 50, 90, 90);
   app.drag(300, 300, 340, 340);
   app.selectTool('select');
-  toggle(app, 'check-multi-select');
+  toggle(app, 'select-modal-multi');
   app.click(70, 70);
   app.click(320, 320);          // añade: no sustituye
   app.key('Delete');
@@ -142,7 +142,7 @@ test('en modo acumular, arrastrar sigue moviendo y el clic sin arrastre quita', 
   app.drag(50, 50, 90, 90);
   app.drag(300, 300, 340, 340);
   app.selectTool('select');
-  toggle(app, 'check-multi-select');
+  toggle(app, 'select-modal-multi');
   app.click(70, 70);
   app.click(320, 320);
   // Arrastrar desde un elemento ya seleccionado mueve toda la selección
@@ -603,11 +603,13 @@ test('elegir el borrador abre su modal de tamaño, como Planta o Balcón abren e
 test('el modal de tamaño del borrador se sincroniza con el panel y su ajuste se recuerda', () => {
   const app = loadApp();
   // El ⚙ de la cabecera «Trazo» abre los ajustes de la herramienta activa, así
-  // que solo está con una que tenga: Mover no (es la única sin modal desde la
-  // 2.10.0 — hasta Texto y los componentes UI tienen el suyo), el borrador y
-  // las de dibujo y Formas sí (ver la guarda de más abajo sobre a cuál va).
-  app.selectTool('select');
-  assert.equal(app.$('btn-eraser-size').hidden, true, 'sin ajustes propios, el botón está oculto');
+  // que solo está con una que lo use: el borrador, las de dibujo y Formas, el
+  // texto, los componentes UI y —desde la 2.17.0— las dos de Edición. El Emoji
+  // no: sus ajustes viven en su propio catálogo (ver la guarda de más abajo
+  // sobre a cuál modal lleva el botón).
+  app.selectTool('emoji');
+  assert.equal(app.$('btn-eraser-size').hidden, true,
+    'con una herramienta que no usa este ⚙, el botón está oculto');
   app.selectTool('eraser');
   assert.equal(app.$('btn-eraser-size').hidden, false, 'con el borrador activo, aparece el botón');
   app.$('modal-eraser').close();   // se abrió solo al elegir la herramienta; lo cerramos para reabrirlo a mano
@@ -1433,8 +1435,8 @@ test('el modal de Trazo y el panel son el mismo ajuste', () => {
   app.flush();
   assert.equal(app.$('check-dash').checked, true, 'el discontinuo también viaja a los dos');
 
-  app.selectTool('select');
-  assert.equal(app.$('btn-eraser-size').hidden, true, 'el ⚙ se va con una herramienta sin ajustes');
+  app.selectTool('emoji');
+  assert.equal(app.$('btn-eraser-size').hidden, true, 'el ⚙ se va con una herramienta que no lo usa');
   app.selectTool('pencil');
   assert.equal(app.$('btn-eraser-size').hidden, false, 'y vuelve con una de dibujo');
   app.$('modal-stroke').close();   // se abrió al elegir; se cierra para reabrirlo con el ⚙
@@ -2444,7 +2446,7 @@ test('«Select» respeta «Los clics acumulan selección»: añade, y el clic re
   app.drag(50, 50, 90, 90);
   app.drag(300, 300, 340, 340);
   app.selectTool('pick');
-  toggle(app, 'check-multi-select');
+  toggle(app, 'select-modal-multi');
   app.click(70, 70);
   app.click(320, 320);           // añade: no sustituye
   app.click(320, 320);           // clic repetido: retira
@@ -3037,4 +3039,58 @@ test('con varios seleccionados el panel enseña su valor común, no los defaults
     'y su doble punta');
   assert.equal(app.$('stroke-modal-dash').checked, true, 'el gemelo del modal, igual');
   assert.equal(app.$('stroke-modal-double').checked, true);
+});
+
+/* ══════════════════════════════════════════════════════════════
+   «Los clics acumulan selección» pasa del panel a los ajustes de
+   «Select» (v2.17.0).
+   ══════════════════════════════════════════════════════════════ */
+
+test('pulsar «Select» abre sus ajustes con la casilla de acumular', () => {
+  const app = loadApp();
+  app.selectTool('pick');
+  assert.equal(app.$('modal-select').open, true, '«Select» abre su modal al elegirla');
+  assert.equal(app.$('select-modal-multi').checked, false, 'y enseña el estado actual');
+
+  // Se cierra por su BOTÓN, no llamando a close(): cada modal cablea el suyo a
+  // mano, y uno sin cablear no se puede cerrar — con el lienzo inerte detrás,
+  // eso es la app bloqueada (v2.16.2). Cerrarlo deja además la herramienta
+  // puesta: no hay nada que elegir, así que no pasa por opensVariantModal
+  // (mismo criterio que el borrador y el Emoji).
+  const cerrar = app.$('modal-select').querySelector('.modal__cancel');
+  cerrar.__fire('click', { target: cerrar });
+  app.flush();
+  assert.equal(app.$('modal-select').open, false, 'el botón «Cerrar» lo cierra de verdad');
+  assert.equal(app.$('sidebar').querySelector('.sidebar__tool--active').dataset.tool,
+    'pick', 'cerrar no devuelve a la herramienta anterior');
+});
+
+test('Mover no abre el modal al elegirla, pero llega a él por el ⚙', () => {
+  const app = loadApp();
+  // Mover es la herramienta que más se pulsa —tras dibujar, al pegar, con
+  // Ctrl+A—: un modal en cada paso estorbaría. Pero su clic obedece al mismo
+  // ajuste, así que el ⚙ tiene que llevarla allí o el ajuste queda fuera de
+  // alcance desde ella.
+  app.selectTool('select');
+  assert.equal(app.$('modal-select').open, false, 'elegir Mover no abre nada');
+  assert.equal(app.$('btn-eraser-size').hidden, false, 'pero el ⚙ está');
+  app.$('btn-eraser-size').__fire('click', { target: app.$('btn-eraser-size') });
+  app.flush();
+  assert.equal(app.$('modal-select').open, true, 'y abre los ajustes de selección');
+  assert.equal(app.$('modal-eraser').open, false, 'no el del borrador');
+  assert.equal(app.$('modal-stroke').open, false, 'ni el del trazo');
+});
+
+test('Ctrl+A y pegar no abren el modal de selección', () => {
+  // Los dos activan Mover por su cuenta. Si Mover abriera su modal —o si el ⚙
+  // se confundiera con la apertura automática—, un atajo de teclado acabaría
+  // sacando un diálogo que deja el lienzo inerte.
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(50, 50, 90, 90);
+  app.key('a', { ctrlKey: true });
+  app.flush();
+  assert.equal(app.$('sidebar').querySelector('.sidebar__tool--active').dataset.tool,
+    'select', 'Ctrl+A pasa a Mover');
+  assert.equal(app.$('modal-select').open, false, 'sin abrir ningún modal');
 });

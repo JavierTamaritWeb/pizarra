@@ -1666,11 +1666,16 @@
     // otra herramienta no hay nada que abrir y desaparece. Va aquí y no en la
     // rama sin-selección de redrawNow para que siga estando con algo
     // seleccionado: los ajustes de trazo también editan la selección.
+    // Mover entra aquí aunque no abra su modal al elegirla: comparte el ajuste
+    // de «Select» y sin el ⚙ sería el único sitio de la app desde el que un
+    // ajuste que SÍ te afecta queda fuera de alcance (v2.17.0).
     $('btn-eraser-size').hidden = !(tool === TOOLS.ERASER ||
       STROKE_TOOLS.includes(tool) || SHAPE_TOOLS.includes(tool) ||
-      tool === TOOLS.TEXT || UI_MODAL_TOOLS.includes(tool));
+      tool === TOOLS.TEXT || UI_MODAL_TOOLS.includes(tool) ||
+      SELECTION_TOOLS.includes(tool));
     $('btn-eraser-size').title = tool === TOOLS.ERASER
       ? 'Ajustar el tamaño del borrador'
+      : SELECTION_TOOLS.includes(tool) ? 'Ajustar la selección'
       : SHAPE_TOOLS.includes(tool) ? 'Ajustar la forma'
       : tool === TOOLS.TEXT ? 'Ajustar el texto'
       : UI_MODAL_TOOLS.includes(tool) ? 'Ajustar el componente'
@@ -3468,6 +3473,11 @@
     // devolver a la herramienta anterior (el borrador es usable sin elegir
     // nada en el modal), así que no pasa por opensVariantModal.
     if (id === TOOLS.ERASER && !silent) openEraserSizeModal();
+    // «Select» abre los suyos por la misma razón (v2.17.0). Mover NO: su clic
+    // obedece al mismo ajuste, pero es la herramienta que más se pulsa —tras
+    // dibujar, para pegar, con Ctrl+A— y un modal en cada paso estorbaría; el
+    // ⚙ del panel lo abre desde ella.
+    if (id === TOOLS.PICK && !silent) openSelectModal();
     // Las herramientas de dibujo abren sus ajustes de trazo al elegirlas, igual
     // que el Borrador abre el suyo y Planta o Balcón su catálogo: es la misma
     // promesa para todas las herramientas que tienen algo que ajustar. Volver a
@@ -3759,6 +3769,25 @@
     $('eraser-size-modal-val').textContent = String(state.eraserSize);
     renderEraserSizePreview();
     $('modal-eraser').showModal();
+  }
+
+  /** Abre los ajustes de «Select». Mismo contrato que el modal del borrador:
+      se abre al elegir la herramienta y el ⚙ del panel lo reabre sin soltarla,
+      y cerrarlo NO devuelve a la herramienta anterior —«Select» ya es usable
+      sin elegir nada—, así que no pasa por opensVariantModal.
+
+      Su única casilla gobierna TAMBIÉN los clics de Mover, que comparte la
+      semántica de selección; vive aquí porque «Select» es la herramienta cuyo
+      trabajo es justamente construir la selección. Desde Mover se llega
+      pulsando «Select» —ninguna de las dos vacía la selección al elegirla
+      (SELECTION_TOOLS)— o con el mismo ⚙, que se muestra para las dos. */
+  function openSelectModal() {
+    syncSelectControls();
+    $('modal-select').showModal();
+  }
+
+  function syncSelectControls() {
+    $('select-modal-multi').checked = state.multiSelect;
   }
 
   /* ── Trazo: ajustes compartidos entre el panel y #modal-stroke ── */
@@ -4378,6 +4407,7 @@
     // visible cuando hay algo que abrir (syncPanelSections).
     $('btn-eraser-size').addEventListener('click', () => {
       if (state.tool === TOOLS.ERASER) openEraserSizeModal();
+      else if (SELECTION_TOOLS.includes(state.tool)) openSelectModal();
       else if (SHAPE_TOOLS.includes(state.tool)) openShapeModal();
       else if (state.tool === TOOLS.TEXT) openTextModal();
       else if (UI_MODAL_TOOLS.includes(state.tool)) openUiModal();
@@ -5042,7 +5072,12 @@
 
     $('check-grid').addEventListener('change', e => { state.showGrid = e.target.checked; redraw(); });
     $('check-snap').addEventListener('change', e => { state.snapGrid = e.target.checked; });
-    $('check-multi-select').addEventListener('change', e => { state.multiSelect = e.target.checked; });
+    // «Los clics acumulan selección» es el ajuste de «Select» y vive en su
+    // modal (v2.17.0), no en el panel: allí quedaba lejos del sidebar donde se
+    // pulsa la herramienta y, por debajo de 1100px, dentro de un cajón oculto.
+    $('select-modal-multi').addEventListener('change', e => {
+      state.multiSelect = e.target.checked;
+    });
 
     // Undo / Redo
     $('btn-undo').addEventListener('click', undo);
@@ -5514,6 +5549,14 @@
     const eraserModal = $('modal-eraser');
     eraserModal.querySelector('.modal__cancel').addEventListener('click', () => eraserModal.close());
     closeOnBackdrop(eraserModal);
+
+    // Ajustes de «Select»: mismo contrato de cierre que el del borrador. Cada
+    // modal cablea el suyo, así que un diálogo nuevo sin esta pareja de líneas
+    // no se puede cerrar — y un <dialog showModal> abierto deja inerte el
+    // lienzo entero, que es la app entera bloqueada (ver v2.16.2 en BUGS.md).
+    const selectModal = $('modal-select');
+    selectModal.querySelector('.modal__cancel').addEventListener('click', () => selectModal.close());
+    closeOnBackdrop(selectModal);
 
     // Ajustes de trazo: como el del borrador, se cierra sin devolver a la
     // herramienta anterior, así que tampoco pasa por wireBuildModalCancel.

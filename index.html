@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=2.16.3" />
+  <link rel="stylesheet" href="css/styles.css?v=2.17.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.16.3" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.17.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v2.16.3</span>
+        <span class="topbar__badge">v2.17.0</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes" aria-expanded="false" aria-controls="side-panel">
@@ -308,13 +308,10 @@
           <input class="panel__slider" type="range" id="zoom-slider" min="30" max="300" step="10" value="100" />
         </section>
 
-        <!-- Selección: cómo se selecciona, cuánto hay y qué se puede hacer con
-             lo seleccionado. «Los clics acumulan selección» vivía suelto entre
-             las casillas de la cuadrícula. -->
+        <!-- Selección: cuánto hay seleccionado y qué se puede hacer con ello.
+             «Los clics acumulan selección» vivió aquí hasta la v2.17.0; ahora
+             es un ajuste de la herramienta «Select», en #modal-select. -->
         <section class="panel__section panel__section--border" id="panel-sec-selection">
-          <label class="panel__check">
-            <input type="checkbox" id="check-multi-select" /> Los clics acumulan selección
-          </label>
           <h3 class="panel__title" aria-live="polite">Elementos: <span id="el-count">0</span></h3>
           <button class="btn btn--ghost btn--block" id="btn-edit-garden" hidden>
             🌿 Editar planta
@@ -545,6 +542,30 @@
   </dialog>
 
   <!-- ===== MODAL: TAMAÑO DEL BORRADOR ===== -->
+  <!-- ===== MODAL: SELECCIÓN =====
+       El ajuste de «Select», junto a la herramienta y no en el panel: allí
+       vivía suelto entre las casillas de la cuadrícula, lejos del sidebar y
+       oculto en un cajón por debajo de 1100px. Se abre al elegir «Select»,
+       como el resto; cerrarlo deja la herramienta puesta (no hay nada que
+       elegir, así que no pasa por opensVariantModal). -->
+  <dialog class="modal" id="modal-select" aria-labelledby="modal-select-title">
+      <h3 class="modal__heading" id="modal-select-title">Ajustes de selección</h3>
+      <!-- La explicación va ANTES de la casilla: `.modal__sub` solo tiene
+           margen inferior, así que puesta detrás quedaba pegada a ella. Así
+           se lee qué hace y luego se activa, sin CSS nuevo. -->
+      <p class="modal__sub">
+        Con esto activado, cada clic <strong>suma</strong> el objeto a lo ya
+        seleccionado, y un clic sobre algo ya seleccionado lo <strong>saca</strong>.
+        Apagado, cada clic selecciona solo ese objeto. Mayúsculas+clic hace lo
+        mismo sin activarlo. Vale también para Mover, y vuelve a apagarse al
+        recargar.
+      </p>
+      <label class="panel__check">
+        <input type="checkbox" id="select-modal-multi" /> Los clics acumulan selección
+      </label>
+      <button class="btn btn--ghost btn--block modal__cancel">Cerrar</button>
+  </dialog>
+
   <dialog class="modal" id="modal-eraser" aria-labelledby="modal-eraser-title">
       <h3 class="modal__heading" id="modal-eraser-title">Tamaño del borrador</h3>
       <p class="modal__sub">El círculo muestra el alcance real a este tamaño</p>
@@ -1184,19 +1205,19 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=2.16.3"></script>
-  <script src="src/js/sketchy.js?v=2.16.3"></script>
-  <script src="src/js/arc.js?v=2.16.3"></script>
-  <script src="src/js/curve-path.js?v=2.16.3"></script>
-  <script src="src/js/shape-rotation.js?v=2.16.3"></script>
-  <script src="src/js/regular-polygon.js?v=2.16.3"></script>
-  <script src="src/js/trapezoid.js?v=2.16.3"></script>
-  <script src="src/js/eraser.js?v=2.16.3"></script>
-  <script src="src/js/building.js?v=2.16.3"></script>
-  <script src="src/js/garden.js?v=2.16.3"></script>
-  <script src="src/js/renderer.js?v=2.16.3"></script>
-  <script src="src/js/exporter.js?v=2.16.3"></script>
-  <script src="src/js/templates.js?v=2.16.3"></script>
-  <script src="src/js/app.js?v=2.16.3"></script>
+  <script src="src/js/config.js?v=2.17.0"></script>
+  <script src="src/js/sketchy.js?v=2.17.0"></script>
+  <script src="src/js/arc.js?v=2.17.0"></script>
+  <script src="src/js/curve-path.js?v=2.17.0"></script>
+  <script src="src/js/shape-rotation.js?v=2.17.0"></script>
+  <script src="src/js/regular-polygon.js?v=2.17.0"></script>
+  <script src="src/js/trapezoid.js?v=2.17.0"></script>
+  <script src="src/js/eraser.js?v=2.17.0"></script>
+  <script src="src/js/building.js?v=2.17.0"></script>
+  <script src="src/js/garden.js?v=2.17.0"></script>
+  <script src="src/js/renderer.js?v=2.17.0"></script>
+  <script src="src/js/exporter.js?v=2.17.0"></script>
+  <script src="src/js/templates.js?v=2.17.0"></script>
+  <script src="src/js/app.js?v=2.17.0"></script>
 </body>
 </html>

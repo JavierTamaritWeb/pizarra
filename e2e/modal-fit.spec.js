@@ -31,6 +31,7 @@ const MODALES = [
   { tool: 'pencil', modal: '#modal-stroke' },
   { tool: 'button', modal: '#modal-ui' },
   { tool: 'eraser', modal: '#modal-eraser' },
+  { tool: 'pick',   modal: '#modal-select' },
 ];
 
 for (const { tool, modal } of MODALES) {
