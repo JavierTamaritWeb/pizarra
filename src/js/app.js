@@ -3894,30 +3894,48 @@
       que los gemelos no pueden realimentarse. Mismo contrato que
       syncBuildControls() y syncPathControls(). */
   function syncStrokeControls() {
-    const single = state.selection.length === 1
-      ? state.elements[state.selection[0]] : null;
-    const width = single ? single.lineWidth
+    /* Con VARIOS seleccionados se enseña el valor que TODOS comparten, y si
+       discrepan el control se deja como está: la misma regla del panel
+       (v2.12.0), calculada sobre los elementos a los que cada control AFECTA.
+       Esta era la única de las tres hermanas que no la tenía —syncShape y
+       syncText sí— y caía a los defaults de creación, que además escribe en
+       #check-dash y #check-double-head, que son del PANEL: con el modal de
+       trazo abierto pisaba en cada frame lo que redrawNow acababa de calcular
+       bien, así que tres flechas discontinuas se anunciaban continuas y
+       marcar la casilla apilaba un undo que no deshacía nada visible
+       (auditoría v2.16.3). */
+    const sel = state.selection.map(i => state.elements[i]).filter(Boolean);
+    const arrows = sel.filter(el => el.type === 'arrow' || el.type === 'curveArrow');
+    const dashables = sel.filter(el => DASHABLE_TYPES.includes(el.type));
+    const width = sel.length ? commonOf(sel, el => el.lineWidth)
       : state.tool === TOOLS.ERASER ? state.eraserSize : state.lineWidth;
-    $('stroke-modal-slider').value = String(width);
-    $('stroke-modal-val').textContent = String(width);
-    $('stroke-modal-color').value = hex6(single ? single.color : state.color);
-    const dash = single && DASHABLE_TYPES.includes(single.type)
-      ? single.dash === true : state.dashed;
-    const double = single && (single.type === 'arrow' || single.type === 'curveArrow')
-      ? single.heads === 'both' : state.doubleHead;
+    if (width !== undefined) {
+      $('stroke-modal-slider').value = String(width);
+      $('stroke-modal-val').textContent = String(width);
+    }
+    const color = sel.length
+      ? commonOf(sel, el => hex6(el.color)) : hex6(state.color);
+    if (color !== undefined) $('stroke-modal-color').value = color;
+    const dash = sel.length
+      ? commonOf(dashables, el => el.dash === true) : state.dashed;
+    const double = sel.length
+      ? commonOf(arrows, el => el.heads === 'both') : state.doubleHead;
     // A los DOS lados: este es el punto de sincronía, no solo el del modal.
-    $('stroke-modal-dash').checked = dash;
-    $('check-dash').checked = dash;
-    $('stroke-modal-double').checked = double;
-    $('check-double-head').checked = double;
+    if (dash !== undefined) {
+      $('stroke-modal-dash').checked = dash;
+      $('check-dash').checked = dash;
+    }
+    if (double !== undefined) {
+      $('stroke-modal-double').checked = double;
+      $('check-double-head').checked = double;
+    }
     // El lápiz y la línea no llevan punta: el campo se atenúa en vez de
     // desaparecer, como hace updateFacadeFieldsEnabled con la cubierta. Un
     // semicírculo (heads:'none') tampoco la lleva NUNCA — mismo criterio que
     // syncPanelSections; sin la exclusión, la casilla quedaba habilitada e
     // inerte con uno seleccionado (auditoría v2.10.1).
     const heads = state.tool === TOOLS.ARROW || state.tool === TOOLS.CURVE_ARROW ||
-      (single && (single.type === 'arrow' || single.type === 'curveArrow') &&
-        single.heads !== 'none');
+      arrows.some(el => el.heads !== 'none');
     $('stroke-modal-double-row').classList.toggle('modal__field--off', !heads);
     $('stroke-modal-double').disabled = !heads;
     // Y el discontinuo se atenúa para el lápiz, con el criterio del panel
@@ -3926,7 +3944,7 @@
     // discontinua, el trazo salía continuo y encima cambiaba en silencio
     // state.dashed — la siguiente LÍNEA nacía discontinua sin pedirlo.
     const dashable = DASHABLE_TYPES.includes(state.tool) || state.tool === TOOLS.ARC ||
-      (single && DASHABLE_TYPES.includes(single.type));
+      dashables.length > 0;
     $('stroke-modal-dash-row').classList.toggle('modal__field--off', !dashable);
     $('stroke-modal-dash').disabled = !dashable;
     renderStrokePreview();
@@ -4479,35 +4497,57 @@
 
     const applyTextShadowType = id => {
       const shadow = textShadowById(id).id;
-      // Al poner sombra se estampa también su color: sin él el elemento se
-      // dibujaría con el gris por defecto aunque el usuario tuviera otro
-      // elegido en el selector de al lado.
-      const patch = shadow === 'none'
-        ? { shadow: 'none' }
-        : { shadow, shadowColor: state.textShadowColor };
-      applyTextStyle(patch, () => {
+      // Cambia el TIPO y nada más. Hasta la v2.16.3 estampaba también
+      // `state.textShadowColor`, y eso pisaba el color propio del elemento:
+      // con selección el picker de al lado escribe en el ELEMENTO y no en el
+      // default (semántica dual), así que el state seguía en gris y pasar de
+      // «suave» a «halo» revertía el rojo recién elegido. Sin color propio,
+      // renderer y exportadores ya caen en DEFAULT_SHADOW_COLOR —que es
+      // justo lo que el picker enseña para ese texto—, así que no estampar
+      // nada es lo que mantiene de acuerdo al control con el dibujo. Al
+      // CREAR sí se estampa, en textStyleDefaults(): ahí el default manda.
+      applyTextStyle({ shadow }, () => {
         state.textShadow = shadow;
         savePrefs();
       });
     };
 
+    // Todo el arrastre por el degradado es UN paso de undo, igual que el
+    // color de trazo y el de relleno: el diálogo nativo dispara un 'input'
+    // por cada tono que se pisa, y el saveUndo() por evento con el que nació
+    // este control (v2.16.0) llenaba el historial de tonos intermedios y
+    // expulsaba el trabajo anterior, que con el límite de 50 desaparecía sin
+    // aviso. El default se persiste al cerrar el gesto, no en cada tono.
+    let shadowColorGestureSnap = null;
     const applyTextShadowColor = hex => {
       // Solo tiñe los textos que YA tienen sombra: dársela a los que no la
       // llevan sería un efecto sorpresa desde un control de color.
       const texts = selTexts().filter(i => state.elements[i].shadow &&
         state.elements[i].shadow !== 'none');
       if (texts.length) {
-        saveUndo();
+        if (!shadowColorGestureSnap) shadowColorGestureSnap = snapshot();
         texts.forEach(i => {
           state.elements[i] = { ...state.elements[i], shadowColor: hex };
         });
       } else if (!state.selection.length) {
         state.textShadowColor = hex;
-        savePrefs();
       }
       syncTextControls();
       redraw();
     };
+    function commitTextShadowColorGesture() {
+      if (!shadowColorGestureSnap) {
+        if (!state.selection.length) savePrefs();
+        return;
+      }
+      const snap = shadowColorGestureSnap;
+      shadowColorGestureSnap = null;
+      const unchanged = snap.length === state.elements.length &&
+        snap.every((el, i) => el === state.elements[i] ||
+          el.shadowColor === state.elements[i].shadowColor);
+      if (unchanged) state.elements = snap;
+      else pushUndo(snap);
+    }
 
     // Los dos selectores de sombra se rellenan desde TEXT_SHADOWS, nunca
     // duplicando el catálogo en el HTML.
@@ -4526,6 +4566,7 @@
     });
     ['text-shadow-color', 'text-modal-shadow-color'].forEach(id => {
       $(id).addEventListener('input', e => applyTextShadowColor(e.target.value));
+      $(id).addEventListener('change', commitTextShadowColorGesture);
     });
 
     // Tamaño del emoji: propio (state.emojiSize), no el de letra — agrandar

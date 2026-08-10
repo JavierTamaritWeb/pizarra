@@ -4,6 +4,29 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.16.3] — 2026-08-10
+
+### Corregido
+
+Los tres defectos que una revisión del código encontró en el estilo de texto
+recién estrenado y en su gemelo del trazo.
+
+- **Elegir el color de la sombra ya no borra el historial de deshacer.** El
+  selector de color del sistema avisa de cada tono que se pisa al arrastrar, no
+  solo del elegido al final, y la app guardaba un paso de deshacer en cada uno:
+  un solo arrastre llenaba el historial (que tiene un tope de 50) de tonos
+  intermedios y expulsaba todo el trabajo anterior. Ahora **todo el arrastre es
+  un único paso**, como ya ocurría en el color de trazo, el de relleno, el
+  grosor, la opacidad y el giro.
+- **Cambiar el tipo de sombra ya no revierte su color.** Elegir rojo para la
+  sombra de un texto y pasar después de «suave» a «halo» devolvía la sombra al
+  gris por defecto. El cambio de tipo cambia solo el tipo.
+- **Con varios objetos seleccionados, «Trazo discontinuo» y «Doble punta» ya no
+  mienten.** Al seleccionar tres flechas discontinuas y pulsar la herramienta
+  Flecha para editarlas, ambas casillas aparecían desmarcadas aunque las tres lo
+  estuvieran; ahora enseñan el valor que comparten, como el resto del panel
+  desde la 2.12.0.
+
 ## [2.16.2] — 2026-08-10
 
 ### Corregido

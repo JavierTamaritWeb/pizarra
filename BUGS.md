@@ -28,6 +28,81 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### v2.16.3 — un arrastre por el color de la sombra vaciaba el historial de deshacer
+
+- **Síntoma:** con un texto con sombra seleccionado, arrastrar el cursor por el
+  selector de color de la sombra **borraba el historial de deshacer**. Después,
+  Ctrl+Z iba revirtiendo tonos intermedios de uno en uno, y todo el trabajo
+  anterior había desaparecido sin aviso.
+- **Causa:** el diálogo nativo de un `<input type="color">` no manda un solo
+  aviso al soltar: dispara un `input` **por cada tono que se pisa**, decenas en
+  un arrastre normal. `applyTextShadowColor` llamaba a `saveUndo()` en cada uno,
+  y como `UNDO_LIMIT` es 50 y `pushUndo` hace `shift()` al superarlo, un único
+  gesto expulsaba casi todas las entradas útiles. La app ya tenía este patrón
+  resuelto en los otros cinco controles continuos (color de trazo, color de
+  relleno, grosor, opacidad y giro), y el comentario del color de relleno
+  advierte literalmente de esto; el control nuevo de la v2.16.0 se escribió sin
+  aplicarlo. De paso, la rama sin selección llamaba a `savePrefs()` por cada
+  tono, machacando `localStorage` durante todo el arrastre.
+- **Fix:** `applyTextShadowColor` (src/js/app.js) adopta el patrón de gesto de
+  sus hermanos: un `snapshot()` al primer `input` y un solo `pushUndo` en
+  `commitTextShadowColorGesture`, enganchado al `change`. Si el gesto termina
+  donde empezó se restauran las referencias originales sin apilar nada, y el
+  default de creación se persiste al cerrar el gesto, no en cada tono.
+- **Guardia:** `tests/app-interaction.test.js` — *«un arrastre por el color de
+  la sombra es UN paso de deshacer, no uno por tono»* dispara **60 tonos**
+  (más que el límite de 50, que es lo que hace la prueba discriminante:
+  con el bug ese solo gesto vaciaba el historial) y comprueba que un Ctrl+Z
+  revierte el gesto entero y que el paso anterior **sigue vivo**. Y
+  *«ningún picker de color apila más de un paso de undo por gesto»* extiende la
+  comprobación a los tres selectores de color a la vez, para que el próximo no
+  repita el patrón.
+
+### v2.16.3 — cambiar el tipo de sombra borraba el color elegido para ella
+
+- **Síntoma:** con un texto seleccionado se elegía rojo para su sombra y, al
+  cambiar el tipo de «suave» a «halo», la sombra volvía al gris por defecto.
+- **Causa:** `applyTextShadowType` estampaba siempre `state.textShadowColor`
+  junto al tipo, y el spread del patch gana al valor del elemento. Pero
+  `state.textShadowColor` **no se actualiza cuando hay selección**: ahí el
+  picker escribe en el elemento y no en el default (semántica dual), así que el
+  state seguía en gris y pisaba el rojo recién elegido. Además contradecía al
+  propio picker, que para un texto sin color propio enseña
+  `DEFAULT_SHADOW_COLOR` — el mismo gris al que ya caen renderer y
+  exportadores.
+- **Fix:** `applyTextShadowType` (src/js/app.js) cambia **solo el tipo**. Sin
+  color propio el elemento se dibuja con `DEFAULT_SHADOW_COLOR`, que es justo lo
+  que el control enseña, así que no estampar nada es lo que mantiene de acuerdo
+  el picker con el dibujo — y de paso el elemento serializa más ligero. Al
+  **crear** sí se estampa, en `textStyleDefaults()`, que es donde el default
+  manda y donde el picker sí muestra `state.textShadowColor`.
+- **Guardia:** `tests/app-interaction.test.js` — *«cambiar el TIPO de sombra
+  conserva el color propio del texto»*.
+
+### v2.16.3 — con varios seleccionados, dos casillas del panel mentían
+
+- **Síntoma:** seleccionar tres flechas discontinuas y con doble punta y pulsar
+  la herramienta Flecha para editarlas mostraba **«Trazo discontinuo» y «Doble
+  punta» desmarcadas**, aunque las tres lo estuvieran. Marcarlas apilaba además
+  un paso de deshacer que no deshacía nada visible.
+- **Causa:** `syncStrokeControls` escribe en `#check-dash` y
+  `#check-double-head`, que son del **panel**, no del modal. Con una
+  multiselección su `single` es `null` y caía a `state.dashed`/`state.doubleHead`
+  —los defaults de creación—, pisando en cada frame el valor común que
+  `redrawNow` acababa de calcular bien con `commonOf` (regla v2.12.0). Bastaba
+  con tener abierto `#modal-stroke` para que ganara siempre el valor falso,
+  porque `syncPanelSections` vuelve a llamar a la función al final de cada
+  repintado. Era la única de las tres funciones hermanas sin la regla:
+  `syncShapeControls` tiene un `return` temprano y `syncTextControls` usa
+  `commonOf`.
+- **Fix:** `syncStrokeControls` (src/js/app.js) calcula grosor, color,
+  discontinuo y doble punta con `commonOf` sobre los elementos a los que cada
+  control **afecta**, y no escribe nada cuando no hay valor común. De paso, las
+  dos filas del modal se habilitan mirando toda la selección y no solo el
+  elemento único.
+- **Guardia:** `tests/app-interaction.test.js` — *«con varios seleccionados el
+  panel enseña su valor común, no los defaults»*.
+
 ### v2.16.2 — el modal de texto dejaba la app bloqueada en ventanas bajas
 
 - **Síntoma:** reportado por el usuario como «no funciona, cuando intentas

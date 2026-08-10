@@ -2869,3 +2869,172 @@ test('con el Emoji activo se ocultan negrita y sombra: ahí no significan nada',
   assert.equal(app.$('row-text-shadow').hidden, true);
   assert.equal(app.$('row-text-shadow-color').hidden, true);
 });
+
+/* ══════════════════════════════════════════════════════════════
+   Auditoría v2.16.3: los tres defectos que la revisión encontró en
+   el estilo de texto recién estrenado y en su gemelo del trazo.
+   ══════════════════════════════════════════════════════════════ */
+
+test('un arrastre por el color de la sombra es UN paso de deshacer, no uno por tono', () => {
+  const app = withText();
+  app.selectTool('select');
+  app.click(205, 210);
+  const shadow = app.$('text-shadow');
+  shadow.value = 'soft';
+  shadow.__fire('change', { target: shadow });
+  app.flush();
+
+  // 60 tonos en un solo gesto: MÁS que el límite de 50 del historial. El
+  // diálogo nativo dispara un 'input' por cada tono que se pisa al arrastrar,
+  // así que con el saveUndo() por evento con el que nació el control (v2.16.0)
+  // este único arrastre expulsaba del historial todo el trabajo anterior.
+  const color = app.$('text-shadow-color');
+  for (let i = 1; i <= 60; i++) {
+    color.value = '#0000' + String(i).padStart(2, '0');
+    color.__fire('input', { target: color });
+  }
+  color.__fire('change', { target: color });
+  app.flush();
+  assert.equal(app.elements()[0].shadowColor, '#000060', 'el gesto tiñe el texto');
+
+  app.key('z', { ctrlKey: true });
+  app.flush();
+  const el = app.elements()[0];
+  assert.ok(!('shadowColor' in el), 'un solo Ctrl+Z revierte el gesto ENTERO');
+  assert.equal(el.shadow, 'soft', 'y se detiene justo antes de él');
+
+  app.key('z', { ctrlKey: true });
+  app.flush();
+  assert.ok(!('shadow' in app.elements()[0]),
+    'el paso anterior sigue vivo: 60 tonos no pueden vaciar el historial');
+});
+
+test('ningún picker de color apila más de un paso de undo por gesto', () => {
+  // El del trazo y el del relleno ya lo cumplían —cada uno con su comentario
+  // advirtiéndolo—, y aun así el de la sombra nació sin el patrón. La guarda
+  // cubre a los tres juntos para que el próximo picker no lo repita.
+  const casos = [
+    {
+      nombre: 'trazo',
+      picker: 'color-picker',
+      campo: 'color',
+      preparar: app => {
+        app.selectTool('rect');
+        app.drag(100, 100, 200, 200);
+        app.selectTool('select');
+        app.click(150, 150);
+      },
+    },
+    {
+      nombre: 'relleno',
+      picker: 'fill-color-picker',
+      campo: 'fillColor',
+      preparar: app => {
+        app.selectTool('rect');
+        app.drag(100, 100, 200, 200);
+        app.selectTool('select');
+        app.click(150, 150);
+      },
+    },
+    {
+      nombre: 'sombra',
+      picker: 'text-shadow-color',
+      campo: 'shadowColor',
+      preparar: app => {
+        withText(app, 200, 200, 'Hola');
+        app.selectTool('select');
+        app.click(205, 210);
+        const s = app.$('text-shadow');
+        s.value = 'soft';
+        s.__fire('change', { target: s });
+      },
+    },
+  ];
+  for (const caso of casos) {
+    const app = loadApp();
+    caso.preparar(app);
+    app.flush();
+    const antes = app.elements()[0][caso.campo];
+    const picker = app.$(caso.picker);
+    for (let i = 1; i <= 12; i++) {
+      picker.value = '#0000' + String(i).padStart(2, '0');
+      picker.__fire('input', { target: picker });
+    }
+    picker.__fire('change', { target: picker });
+    app.flush();
+    assert.equal(app.elements()[0][caso.campo], '#000012',
+      `${caso.nombre}: el gesto sí aplica el último tono`);
+    app.key('z', { ctrlKey: true });
+    app.flush();
+    assert.equal(app.elements()[0][caso.campo], antes,
+      `${caso.nombre}: un solo Ctrl+Z devuelve al color previo al gesto`);
+  }
+});
+
+test('cambiar el TIPO de sombra conserva el color propio del texto', () => {
+  const app = withText();
+  app.selectTool('select');
+  app.click(205, 210);
+  const shadow = app.$('text-shadow');
+  shadow.value = 'soft';
+  shadow.__fire('change', { target: shadow });
+  const color = app.$('text-shadow-color');
+  color.value = '#ff0000';
+  color.__fire('input', { target: color });
+  color.__fire('change', { target: color });
+  app.flush();
+  assert.equal(app.elements()[0].shadowColor, '#ff0000');
+
+  shadow.value = 'glow';
+  shadow.__fire('change', { target: shadow });
+  app.flush();
+  const el = app.elements()[0];
+  assert.equal(el.shadow, 'glow', 'cambia el tipo...');
+  assert.equal(el.shadowColor, '#ff0000',
+    '...y NO el color: con selección el picker escribe en el elemento, así que'
+    + ' el default de creación no puede pisarlo al cambiar de sombra');
+});
+
+test('con varios seleccionados el panel enseña su valor común, no los defaults', () => {
+  const app = loadApp();
+  // Tres flechas discontinuas y de doble punta.
+  const dash = app.$('check-dash');
+  dash.checked = true;
+  dash.__fire('change', { target: dash });
+  const doble = app.$('check-double-head');
+  doble.checked = true;
+  doble.__fire('change', { target: doble });
+  app.selectTool('arrow');
+  app.drag(100, 100, 200, 100);
+  app.drag(100, 150, 200, 150);
+  app.drag(100, 200, 200, 200);
+  app.flush();
+  assert.equal(app.elements().length, 3);
+  assert.equal(app.elements()[0].dash, true);
+  assert.equal(app.elements()[0].heads, 'both');
+
+  // Los defaults de creación se apagan DESPUÉS: lo dibujado no cambia.
+  dash.checked = false;
+  dash.__fire('change', { target: dash });
+  doble.checked = false;
+  doble.__fire('change', { target: doble });
+  app.flush();
+  assert.equal(app.elements()[0].dash, true, 'apagar el default no toca lo dibujado');
+
+  // Seleccionar las tres y pulsar su herramienta abre #modal-stroke con la
+  // selección viva (v2.10.0). Ahí syncStrokeControls caía a los defaults y los
+  // escribía en las casillas del PANEL, pisando en cada frame el valor común
+  // que redrawNow acababa de calcular: las tres flechas se anunciaban
+  // continuas y sin punta doble.
+  app.selectTool('select');
+  app.key('a', { ctrlKey: true });
+  app.selectTool('arrow');
+  app.flush();
+  assert.equal(app.$('modal-stroke').open, true, 'el modal está abierto');
+  assert.equal(app.$('check-dash').checked, true,
+    'el panel enseña el discontinuo que comparten las tres');
+  assert.equal(app.$('check-double-head').checked, true,
+    'y su doble punta');
+  assert.equal(app.$('stroke-modal-dash').checked, true, 'el gemelo del modal, igual');
+  assert.equal(app.$('stroke-modal-double').checked, true);
+});
