@@ -4,11 +4,11 @@
 
 **Wireframes, diagramas y bocetos con estética dibujada a mano — en el navegador y sin instalar nada.**
 
-[![Versión](https://img.shields.io/badge/versión-2.11.0-blueviolet?style=flat-square)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-2.12.0-blueviolet?style=flat-square)](CHANGELOG.md)
 [![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?style=flat-square&logo=javascript&logoColor=000)](src/js/)
 [![Estilos](https://img.shields.io/badge/estilos-SCSS%20·%20BEM%20·%20Gulp%205-cf649a?style=flat-square&logo=sass&logoColor=fff)](src/scss/)
 [![Dependencias](https://img.shields.io/badge/dependencias%20en%20runtime-0-brightgreen?style=flat-square)](#arquitectura)
-[![Tests](https://img.shields.io/badge/tests-520%20unitarios%20%2B%2047%20e2e-brightgreen?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-527%20unitarios%20%2B%2047%20e2e-brightgreen?style=flat-square)](#tests)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue?style=flat-square)](LICENSE)
 
 <img src="src/img/screenshot-pizarra.png" alt="La interfaz de Pizarra: barra de herramientas a la izquierda, lienzo con un wireframe de landing page dibujado a mano en el centro y panel de ajustes a la derecha" width="900">
@@ -131,6 +131,7 @@ Cada pieza de jardín nace con una **etiqueta** dentro del mismo grupo (se mueve
 - **Copiar y pegar** (`Ctrl/Cmd+C` / `V`), también entre pestañas: lo pegado aparece desplazado, queda seleccionado y las flechas ancladas se re-vinculan a sus clones.
 - **Posición y tamaño exactos**: con algo seleccionado, el panel deja escribir X, Y, ancho y alto —y el **texto** del elemento cuando lo tiene: el contenido de un texto o el rótulo de un botón, un input, una navbar o una tarjeta—. Antes solo se podía arrastrar y estirar a ojo.
 - **Todo lo dibujado se puede recolorear**: elegir un color con algo seleccionado lo aplica a la selección, igual que el grosor o el relleno.
+- **Varios elementos se editan a la vez**: con más de uno seleccionado, la caja combinada trae **tiradores** —arrastrar una esquina escala el conjunto en proporción, arrastrar por dentro lo mueve— y los controles del panel enseñan el valor que **todos** comparten, dejándose como están cuando discrepan. Cambiar color, grosor o relleno afecta a toda la selección de una vez.
 - **Undo/redo** con historial de 50 pasos.
 - **Cuadrícula** con ajuste opcional (`Alt` lo desactiva al vuelo) y **zoom 30–300 %** con auto-ajuste al espacio disponible en pantallas anchas.
 - **Fondo y color de cuadrícula** personalizables, con persistencia entre sesiones.
@@ -249,7 +250,7 @@ Cuatro convenciones que conviene conocer:
 
 ## Tests
 
-**520 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
+**527 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
 de runtime:
 
 ```bash

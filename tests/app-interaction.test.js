@@ -2469,3 +2469,134 @@ test('«Select»: el doble clic sobre un texto suelto NO abre el editor (solo se
   assert.equal(input.hidden, true, 'el editor no debe abrirse con «Select»');
   assert.equal(app.elements()[0].value, 'hola', 'el texto queda intacto');
 });
+
+/* ── Regresión (v2.12.0): pulsar «Mover» vaciaba la selección. Enmarcabas
+   varios objetos con «Select», pulsabas Mover para moverlos y el arrastre
+   solo movía aquel sobre el que caía el puntero: la selección ya no existía.
+   Mover y «Select» son las dos herramientas que trabajan SOBRE la selección
+   (SELECTION_TOOLS), así que ninguna la vacía al elegirla. ── */
+
+test('seleccionar varios con «Select» y pulsar Mover los mueve TODOS a la vez', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(50, 50, 150, 150);
+  app.drag(300, 50, 400, 150);
+  app.selectTool('pick');
+  app.drag(20, 20, 500, 200);          // marquesina sobre los dos
+  app.selectTool('select');            // ← pulsar «Mover»: la selección sobrevive
+  app.drag(100, 100, 200, 100);        // arrastrar desde encima de uno de ellos
+  const xs = app.elements().map(e => Math.round(e.x)).sort((a, b) => a - b);
+  assert.deepEqual(xs, [150, 400], 'los dos rects debían moverse 100px como unidad');
+});
+
+test('y al revés: con varios seleccionados en Mover, pulsar «Select» tampoco los suelta', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(50, 50, 150, 150);
+  app.drag(300, 50, 400, 150);
+  app.selectTool('select');
+  app.drag(20, 20, 500, 200);          // marquesina de Mover sobre los dos
+  app.selectTool('pick');
+  app.key('Delete');
+  assert.equal(app.elements().length, 0,
+    'la selección debe seguir viva tras cambiar a «Select»');
+});
+
+test('una herramienta de creación sigue vaciando la selección al elegirla', () => {
+  // El arreglo es para las dos de Edición, no una vuelta al «no vaciar nunca»:
+  // con un rect seleccionado, pulsar Círculo deselecciona como siempre.
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(50, 50, 150, 150);
+  app.selectTool('select');
+  app.click(100, 100);
+  app.selectTool('circle');
+  app.key('Delete');
+  assert.equal(app.elements().length, 1, 'Supr no debe borrar nada: no hay selección');
+});
+
+/* ══════════════════════════════════════════════════════════════
+   Editar VARIOS elementos a la vez (v2.12.0). Color, grosor y
+   relleno ya se aplicaban a toda la selección, pero el panel no
+   lo enseñaba y el ratón no podía escalarla si no era un grupo.
+   ══════════════════════════════════════════════════════════════ */
+
+/** Dibuja dos rects sueltos y los deja seleccionados con Mover. */
+function twoSelectedRects() {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(50, 50, 150, 150);
+  app.drag(300, 50, 400, 150);
+  app.selectTool('select');
+  app.drag(20, 20, 500, 200);          // marquesina sobre los dos
+  return app;
+}
+
+/** Mueve un control del panel como lo haría el usuario (input + change). */
+function setControl(app, id, value) {
+  const el = app.$(id);
+  el.value = value;
+  el.__fire('input', { target: el });
+  el.__fire('change', { target: el });
+  app.flush();
+}
+
+test('varios elementos sueltos se redimensionan arrastrando la esquina de su marco', () => {
+  const app = twoSelectedRects();
+  // La caja combinada es (50,50)-(400,150): se agarra su esquina inferior derecha.
+  app.drag(400, 150, 750, 400);
+  const els = app.elements();
+  assert.ok(els.every(e => e.w > 150),
+    `los dos rects debían crecer, no solo uno (${els.map(e => Math.round(e.w))})`);
+  // Uniforme, como el resize de grupo: un estirón libre rompería invariantes
+  // de piezas que la selección puede contener (un polígono exige w === h).
+  els.forEach(e => assert.ok(Math.abs(e.w / e.h - 1) < 0.01,
+    'el rect era cuadrado y debe seguir siéndolo: la escala es uniforme'));
+  const { Exporter } = require('./helpers/load.js').loadAll();
+  assert.equal(app.elements().filter(el => !Exporter.isValidElement(el)).length, 0,
+    'toda pieza escalada debe seguir siendo válida para reimportar');
+});
+
+test('arrastrar por el centro del marco combinado sigue moviendo, no escalando', () => {
+  const app = twoSelectedRects();
+  const before = app.elements().map(e => Math.round(e.w));
+  app.drag(225, 100, 325, 100);        // por dentro, lejos de las esquinas
+  const els = app.elements();
+  assert.deepEqual(els.map(e => Math.round(e.w)), before, 'mover no cambia el tamaño');
+  assert.deepEqual(els.map(e => Math.round(e.x)).sort((a, b) => a - b), [150, 400],
+    'los dos se desplazaron 100px');
+});
+
+test('con varios seleccionados, color, grosor y relleno se cambian a la vez', () => {
+  const app = twoSelectedRects();
+  setControl(app, 'color-picker', '#ff0000');
+  setControl(app, 'stroke-slider', '7');
+  const check = app.$('check-fill');
+  check.checked = true;
+  check.__fire('change', { target: check });
+  app.flush();
+  const els = app.elements();
+  assert.deepEqual(els.map(e => e.color), ['#ff0000', '#ff0000'], 'los dos recoloreados');
+  assert.deepEqual(els.map(e => e.lineWidth), [7, 7], 'los dos con el grosor nuevo');
+  assert.deepEqual(els.map(e => e.fill), [true, true], 'los dos rellenados');
+});
+
+test('el panel enseña el valor común de la selección, y no lo inventa si discrepan', () => {
+  const app = twoSelectedRects();
+  setControl(app, 'color-picker', '#ff0000');   // los dos rojos
+  setControl(app, 'stroke-slider', '7');
+  app.click(700, 700);                          // deseleccionar
+  app.drag(20, 20, 500, 200);                   // volver a seleccionarlos
+  assert.equal(app.$('color-picker').value, '#ff0000',
+    'con los dos rojos, el panel debe decir rojo (antes enseñaba el default)');
+  assert.equal(String(app.$('stroke-slider').value), '7', 'y el grosor común');
+
+  // Ahora uno azul: sin valor común, el control se queda como estaba en vez
+  // de enseñar el del primero como si fuera el de todos.
+  app.click(350, 100);
+  setControl(app, 'color-picker', '#0000ff');
+  const antes = app.$('color-picker').value;
+  app.drag(20, 20, 500, 200);
+  assert.equal(app.$('color-picker').value, antes,
+    'con colores dispares el picker no debe inventar un color de la selección');
+});

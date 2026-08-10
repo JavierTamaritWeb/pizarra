@@ -4,6 +4,37 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.12.0] — 2026-08-10
+
+### Añadido
+
+- **Editar varios elementos a la vez, de verdad.** Con varios seleccionados
+  —aunque no sean un edificio ni un grupo—, la caja combinada ahora se dibuja
+  **con tiradores**: arrastrar una esquina escala todo el conjunto de forma
+  uniforme, igual que ya hacían los grupos, mientras que arrastrar por dentro
+  lo sigue moviendo. Antes solo se podía redimensionar tecleando las medidas.
+- **El panel dice la verdad con varios seleccionados.** Color, grosor,
+  discontinuo, doble punta, tamaño de letra y todo el bloque de relleno ya se
+  aplicaban a la selección entera, pero los controles seguían enseñando lo
+  último visto —el negro y el 2 px de los defaults— aunque los tres elementos
+  fueran rojos y gruesos, y eso hacía parecer que el panel no iba con ellos.
+  Ahora enseñan el valor que **todos** comparten; cuando discrepan, el control
+  se queda como está en vez de mostrar el del primero como si fuera el de
+  todos. Cada control se calcula sobre los elementos a los que afecta: una
+  flecha junto a un rectángulo no vacía la casilla de «Doble punta».
+
+### Corregido
+
+- **Pulsar «Mover» ya no suelta la selección múltiple.** Seleccionar varios
+  objetos —enmarcándolos con «Select», o por cualquier otra vía— y pulsar
+  **Mover** para desplazarlos movía **solo** el objeto bajo el puntero: al
+  elegir la herramienta se vaciaba la selección, herencia del «vaciar siempre»
+  anterior a la 2.10.0. Mover y «Select» son las dos herramientas que trabajan
+  *sobre* la selección —una la desplaza, redimensiona y duplica; la otra la
+  construye—, así que ninguna la vacía al elegirla, en los dos sentidos. Las
+  de creación, el Borrador, Emoji y los catálogos siguen vaciando como
+  siempre.
+
 ## [2.11.0] — 2026-08-10
 
 ### Añadido

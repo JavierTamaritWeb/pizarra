@@ -325,6 +325,17 @@
       necesita que la multi-selección sea un edificio: con dos rects sueltos
       los campos enseñaban valores rancios y teclear no hacía nada, cuando el
       panel promete la caja combinada (auditoría v2.10.1). */
+  /** Valor que comparten TODOS los elementos de `els` según `get`, o
+      `undefined` si discrepan (o si la lista está vacía). Es lo que permite a
+      un control del panel decir la verdad con varios seleccionados: enseña el
+      valor común cuando lo hay y se queda como está cuando no, en vez de
+      enseñar el del primero como si fuera el de todos. */
+  function commonOf(els, get) {
+    if (!els.length) return undefined;
+    const first = get(els[0]);
+    return els.every(el => get(el) === first) ? first : undefined;
+  }
+
   function selectionBounds() {
     const sel = state.selection.map(i => state.elements[i]).filter(Boolean);
     if (!sel.length) return null;
@@ -1142,6 +1153,8 @@
     if (groupBox) {
       // Edificio seleccionado como unidad: una sola caja combinada, CON
       // handles — escalan el grupo entero de forma uniforme (resizeGroupTo).
+      // Aquí NO se dibuja además la caja de cada pieza: son decenas, y el
+      // grupo se manipula como una sola cosa.
       Renderer.drawSelection(ctx, groupBox, handlesOn);
     } else {
       state.selection.forEach(i => {
@@ -1150,6 +1163,16 @@
         const isArrow = el.type === 'arrow' || el.type === 'curveArrow';
         Renderer.drawSelection(ctx, getElementBounds(el), handlesOn && single && !isArrow);
       });
+      // Multi-selección suelta (varios elementos que no son un edificio):
+      // además de resaltar cada uno —que es lo que dice CUÁLES están
+      // seleccionados, cosa que la caja combinada no puede: cubre huecos y
+      // vecinos— se dibuja la caja combinada CON tiradores, para poder
+      // redimensionar el conjunto igual que un grupo (v2.12.0). Antes solo
+      // los edificios los tenían, así que seleccionar tres formas a mano
+      // dejaba el ratón sin forma de escalarlas.
+      if (state.selection.length > 1) {
+        Renderer.drawSelection(ctx, selectionBounds(), handlesOn);
+      }
     }
     // Handles de flecha: curvatura (turquesa, con polilínea de control como
     // guía) y extremos (naranja, arrastrables para mover/anclar)
@@ -1220,40 +1243,69 @@
     rotateBtn.textContent = rotatable.length === 1 && state.selection.length === 1
       ? `↻ Rotar ${ShapeRotation.step(state.elements[rotatable[0]].type)}°`
       : '↻ Rotar selección';
-    // Semántica dual de los controles del panel: con selección única muestran
-    // los valores del elemento; sin selección, los defaults de creación.
-    // (Con multi-selección no se tocan: conservan lo último mostrado.)
-    if (single) {
-      const sel = state.elements[state.selection[0]];
-      showColor(sel.color);
+    /* Semántica dual de los controles del panel: con selección muestran los
+       valores de lo seleccionado; sin selección, los defaults de creación.
+
+       Con VARIOS seleccionados se enseña el valor que TODOS comparten, y si
+       discrepan el control se deja como está: no existe un valor único que
+       enseñar, e inventar el del primero haría creer que los demás también
+       son así. Hasta la 2.12.0 la multi-selección no tocaba NINGÚN control,
+       así que el panel seguía enseñando lo último visto —el negro y el 2px de
+       los defaults— aunque los tres elementos seleccionados fueran rojos y
+       gruesos; tocar un control sí los cambiaba los tres, pero nada en
+       pantalla lo decía, y eso es lo que hacía parecer que el panel no
+       aplicaba a la selección. Cada control se calcula sobre los elementos a
+       los que AFECTA (las flechas para la doble punta, los rellenables para
+       el relleno…), no sobre la selección entera: un rect junto a una flecha
+       no debe dejar la casilla de doble punta en blanco. */
+    if (hasSel) {
+      const sel = state.selection.map(i => state.elements[i]);
+      const arrows = sel.filter(el => el.type === 'arrow' || el.type === 'curveArrow');
+      const dashables = sel.filter(el => DASHABLE_TYPES.includes(el.type));
+      const texts = sel.filter(el => el.type === 'text');
+      const fillables = sel.filter(el => FILLABLE_TYPES.includes(el.type));
+      const color = commonOf(sel, el => el.color);
+      if (color !== undefined) showColor(color);
       $('stroke-label').textContent = 'Trazo';
       $('stroke-slider').min = '1';
       $('stroke-slider').max = '8';
       $('stroke-slider').setAttribute('aria-label', 'Grosor del trazo');
-      $('stroke-slider').value = sel.lineWidth;
-      $('stroke-val').textContent = String(sel.lineWidth);
-      if (sel.type === 'arrow' || sel.type === 'curveArrow') {
-        $('check-double-head').checked = sel.heads === 'both';
+      const lineWidth = commonOf(sel, el => el.lineWidth);
+      if (lineWidth !== undefined) {
+        $('stroke-slider').value = lineWidth;
+        $('stroke-val').textContent = String(lineWidth);
       }
-      if (sel.type === 'line' || sel.type === 'arrow' || sel.type === 'curveArrow') {
-        $('check-dash').checked = sel.dash === true;
-      }
-      if (sel.type === 'text') {
+      const doubleHead = commonOf(arrows, el => el.heads === 'both');
+      if (doubleHead !== undefined) $('check-double-head').checked = doubleHead;
+      const dash = commonOf(dashables, el => el.dash === true);
+      if (dash !== undefined) $('check-dash').checked = dash;
+      if (texts.length) {
         $('font-label').textContent = 'Texto';
         $('font-slider').min = '10';
-        $('font-slider').value = String(sel.fontSize);
-        $('font-val').textContent = String(sel.fontSize);
+        const fontSize = commonOf(texts, el => el.fontSize);
+        if (fontSize !== undefined) {
+          $('font-slider').value = String(fontSize);
+          $('font-val').textContent = String(fontSize);
+        }
       }
-      if (FILLABLE_TYPES.includes(sel.type)) {
-        $('check-fill').checked = sel.fill === true;
-        $('check-fill-transparent').checked = sel.fillTransparent === true;
-        const opacity = sel.fillOpacity !== undefined ? sel.fillOpacity : 0.4;
-        $('fill-opacity-slider').value = Math.round(opacity * 100);
-        $('fill-opacity-val').textContent = String(Math.round(opacity * 100));
-        $('fill-opacity-slider').disabled = sel.fillTransparent !== true;
+      if (fillables.length) {
+        const fill = commonOf(fillables, el => el.fill === true);
+        if (fill !== undefined) $('check-fill').checked = fill;
+        const transparent = commonOf(fillables, el => el.fillTransparent === true);
+        if (transparent !== undefined) {
+          $('check-fill-transparent').checked = transparent;
+          $('fill-opacity-slider').disabled = !transparent;
+        }
+        const opacity = commonOf(fillables,
+          el => (el.fillOpacity !== undefined ? el.fillOpacity : 0.4));
+        if (opacity !== undefined) {
+          $('fill-opacity-slider').value = Math.round(opacity * 100);
+          $('fill-opacity-val').textContent = String(Math.round(opacity * 100));
+        }
         // Sin fillColor propio el relleno es el tinte del trazo: se muestra
         // ese color como punto de partida del picker
-        $('fill-color-picker').value = hex6(sel.fillColor || sel.color);
+        const fillColor = commonOf(fillables, el => hex6(el.fillColor || el.color));
+        if (fillColor !== undefined) $('fill-color-picker').value = fillColor;
       }
     } else if (!hasSel) {
       const erasing = state.tool === TOOLS.ERASER;
@@ -1828,12 +1880,14 @@
         }
       }
 
-      // 1-bis. Handles de resize del grupo (un edificio o una planta
-      // seleccionados como unidad). Van ANTES del arrastre por marco
-      // combinado de abajo: los handles caen justo sobre las esquinas de ese
-      // marco, así que sin esta precedencia agarrar una esquina movería el
-      // grupo en vez de escalarlo, y no habría forma de redimensionarlo.
-      const groupResizeBox = selectionGroupBounds();
+      // 1-bis. Handles de resize de CUALQUIER multi-selección: un edificio o
+      // una planta seleccionados como unidad, y también varios elementos
+      // sueltos elegidos a mano (v2.12.0) — escalar «lo que hay seleccionado»
+      // no tiene por qué exigir que sea un grupo. Van ANTES del arrastre por
+      // marco combinado de abajo: los handles caen justo sobre las esquinas de
+      // ese marco, así que sin esta precedencia agarrar una esquina movería la
+      // selección en vez de escalarla, y no habría forma de redimensionarla.
+      const groupResizeBox = state.selection.length > 1 ? selectionBounds() : null;
       if (groupResizeBox) {
         const groupCorner = hitHandle(pos, groupResizeBox);
         if (groupCorner) {
@@ -3233,9 +3287,12 @@
     // la semántica dual de los controles hace el resto, posición incluida.
     // Empezar a crear en el lienzo la suelta (onMouseDown). Los catálogos, el
     // Borrador y Emoji siguen vaciando como siempre: no editan elementos.
+    // Mover y «Select» tampoco vacían nunca (SELECTION_TOOLS): son las dos
+    // herramientas que trabajan SOBRE la selección, así que pasar de una a
+    // otra —enmarcar con «Select» y mover con Mover— la conserva entera.
     const editType = MODAL_EDIT_TYPE[id];
-    const keepSelection = !!editType &&
-      state.selection.some(i => (state.elements[i] || {}).type === editType);
+    const keepSelection = SELECTION_TOOLS.includes(id) || (!!editType &&
+      state.selection.some(i => (state.elements[i] || {}).type === editType));
     state.tool = id;
     if (!keepSelection) setSelection([]);
     updateToolbarActive();
@@ -3587,6 +3644,14 @@
     [TOOLS.CURVE_ARROW]: 'curveArrow', [TOOLS.ARC]: 'curveArrow',
     [TOOLS.TEXT]: 'text',
   };
+  /** Las dos herramientas de Edición que TRABAJAN sobre la selección: nunca la
+      vacían al elegirlas. Mover la desplaza, redimensiona y duplica; «Select»
+      la construye. Vaciarla al pulsarlas —lo que hacía selectTool hasta la
+      2.12.0, herencia del «vaciar siempre» de antes de la 2.10.0— rompía el
+      reparto natural entre ambas: enmarcabas varios objetos con «Select»,
+      pulsabas Mover para moverlos y el arrastre solo movía aquel sobre el que
+      caía el puntero, porque la selección ya no existía. */
+  const SELECTION_TOOLS = [TOOLS.SELECT, TOOLS.PICK];
   SHAPE_TOOLS.forEach(t => { MODAL_EDIT_TYPE[t] = t; });
   UI_MODAL_TOOLS.forEach(t => { MODAL_EDIT_TYPE[t] = t; });
   /** Formas cuyo giro se guarda como ángulo y, por tanto, se puede fijar antes

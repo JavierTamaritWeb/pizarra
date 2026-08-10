@@ -28,6 +28,32 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### v2.12.0 — pulsar «Mover» soltaba la selección múltiple
+
+- **Síntoma:** seleccionar varios objetos (enmarcándolos con «Select», o con
+  cualquier otra vía: marquesina, Shift, «Los clics acumulan») y pulsar
+  **Mover** para desplazarlos: el arrastre movía **solo** el objeto sobre el
+  que caía el puntero, y el resto se quedaba donde estaba. Reportado por el
+  usuario nada más estrenar «Select», que es la herramienta que hace evidente
+  el reparto —enmarcar con una, mover con la otra—.
+- **Causa:** `selectTool` vaciaba la selección salvo que la herramienta
+  estuviera en `MODAL_EDIT_TYPE` (la tabla de «pulsar la herramienta del
+  elemento seleccionado lo edita», v2.10.0). Ni Mover ni «Select» están ahí
+  —no tienen modal de ajustes—, así que ambas caían en el `setSelection([])`
+  heredado del «vaciar siempre» anterior a la 2.10.0. Con la selección ya
+  vacía, el arrastre entraba por la rama 4 de `onMouseDown` (clic sobre un
+  elemento: seleccionar e iniciar drag) y movía ese uno.
+- **Fix:** `SELECTION_TOOLS` (app.js) — Mover y «Select» son las dos
+  herramientas que trabajan **sobre** la selección (una la desplaza,
+  redimensiona y duplica; la otra la construye), así que ninguna la vacía al
+  elegirla. El resto no cambia: las de creación, el Borrador, Emoji y los
+  catálogos siguen vaciando como siempre.
+- **Guardia:** `tests/app-interaction.test.js` › *"seleccionar varios con
+  «Select» y pulsar Mover los mueve TODOS a la vez"*, *"y al revés: con varios
+  seleccionados en Mover, pulsar «Select» tampoco los suelta"* y *"una
+  herramienta de creación sigue vaciando la selección al elegirla"* (esta
+  última fija que el arreglo son las dos de Edición, no una vuelta atrás).
+
 ### Auditoría v2.10.1 — el lado tecleado perdía contra una caja fraccionaria
 
 - **Síntoma:** con un pentágono (o cualquier caja de medidas fraccionarias —
