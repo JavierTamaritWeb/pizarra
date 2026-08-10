@@ -29,7 +29,11 @@
   // Si añades un `.panel__x` con `display` y lo ocultas desde JS, añádelo aquí.
   &__section[hidden],
   &__check[hidden],
-  &__field[hidden] {
+  &__field[hidden],
+  // Quinta: la fila del color de sombra (v2.16.0) es un .panel__canvas-colors,
+  // que es display:flex — se oculta con el Emoji activo, donde una sombra no
+  // significa nada.
+  &__canvas-colors[hidden] {
     display: none;
   }
 

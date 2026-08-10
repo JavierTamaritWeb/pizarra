@@ -106,6 +106,12 @@
     // global como los dos de arriba: no viaja en los elementos ni en el
     // undo, y persiste en prefs.
     sketchFontId: SKETCH_FONTS[0].id,
+    // Estilo del texto. A diferencia de la letra, estos SÍ viajan en cada
+    // elemento (un título en negrita junto a una nota normal), así que aquí
+    // solo son el default con el que nace el siguiente.
+    textBold: false,
+    textShadow: 'none',
+    textShadowColor: DEFAULT_SHADOW_COLOR,
     elements:    [],
     undoStack:   [],
     redoStack:   [],
@@ -350,6 +356,23 @@
   function repaintWithFont() {
     redraw();
     if ($('modal-text').open) renderTextPreview();
+  }
+
+  /**
+   * Estilo con el que nace el próximo texto. Devuelve SOLO los campos que
+   * dicen algo: sin negrita y sin sombra el elemento sale exactamente como
+   * los de siempre, que es lo que mantiene idénticos los proyectos anteriores
+   * —y lo que hace que `isValidElement` no vea campos nuevos donde no toca—.
+   * El color de sombra únicamente acompaña a una sombra real.
+   */
+  function textStyleDefaults() {
+    const out = {};
+    if (state.textBold) out.bold = true;
+    if (state.textShadow !== 'none') {
+      out.shadow = state.textShadow;
+      out.shadowColor = state.textShadowColor;
+    }
+    return out;
   }
 
   /** El selector de letra manuscrita existe dos veces: en el panel («Lienzo»)
@@ -955,6 +978,9 @@
         canvasBg: state.canvasBg,
         gridColor: state.gridColor,
         sketchFontId: state.sketchFontId,
+        textBold: state.textBold,
+        textShadow: state.textShadow,
+        textShadowColor: state.textShadowColor,
         overlapMode: state.overlapMode,
         eraserSize: state.eraserSize,
         buildFloors: state.buildFloors,
@@ -1025,6 +1051,15 @@
       // otras familias) dejaría el lienzo pidiendo una fuente inexistente.
       if (SKETCH_FONTS.some(f => f.id === prefs.sketchFontId)) {
         state.sketchFontId = prefs.sketchFontId;
+      }
+      if (typeof prefs.textBold === 'boolean') state.textBold = prefs.textBold;
+      // Contra el catálogo, como la letra: un id de otra versión dejaría el
+      // default apuntando a una sombra que ya no existe.
+      if (TEXT_SHADOWS.some(sh => sh.id === prefs.textShadow)) {
+        state.textShadow = prefs.textShadow;
+      }
+      if (HEX_RE.test(prefs.textShadowColor)) {
+        state.textShadowColor = prefs.textShadowColor;
       }
       if (['normal', 'hidden-dashed'].includes(prefs.overlapMode)) {
         state.overlapMode = prefs.overlapMode;
@@ -1619,6 +1654,14 @@
     $('panel-sec-garden').hidden = !GARDEN_TOOLS.includes(tool);
     $('row-dash').hidden = !dashable;
     $('row-double-head').hidden = !headed;
+    // Con el Emoji activo y sin selección, la sección «Texto» se retitula para
+    // gobernar el tamaño DEL EMOJI: negrita y sombra no significan nada ahí, y
+    // dejarlas visibles sería repetir el error del deslizador muerto que la
+    // 2.10.1 tuvo que arreglar.
+    const styling = !(tool === TOOLS.EMOJI && !state.selection.length);
+    $('row-text-bold').hidden = !styling;
+    $('row-text-shadow').hidden = !styling;
+    $('row-text-shadow-color').hidden = !styling;
     // El ⚙ de «Trazo» abre el modal del borrador o el del trazo; con cualquier
     // otra herramienta no hay nada que abrir y desaparece. Va aquí y no en la
     // rama sin-selección de redrawNow para que siga estando con algo
@@ -2914,6 +2957,7 @@
       color: state.color,
       fontSize: state.fontSize,
       lineWidth: state.lineWidth,
+      ...textStyleDefaults(),
     });
     redraw();
   }
@@ -4054,6 +4098,36 @@
     $('text-modal-size').value = String(size);
     $('text-modal-size-val').textContent = String(size);
     $('text-modal-color').value = hex6(single ? single.color : state.color);
+    // Negrita y sombra: con textos seleccionados mandan ellos —el valor que
+    // TODOS comparten, y si discrepan se deja el control como está, misma
+    // regla que el resto del panel—; sin selección, los defaults de creación.
+    const texts = state.selection
+      .map(i => state.elements[i])
+      .filter(el => el && el.type === 'text');
+    const bold = texts.length
+      ? commonOf(texts, el => el.bold === true)
+      : state.textBold;
+    const shadow = texts.length
+      ? commonOf(texts, el => textShadowById(el.shadow).id)
+      : state.textShadow;
+    const shadowColor = texts.length
+      ? commonOf(texts, el => hex6(el.shadowColor || DEFAULT_SHADOW_COLOR))
+      : state.textShadowColor;
+    if (bold !== undefined) {
+      $('check-bold').checked = bold;
+      $('text-modal-bold').checked = bold;
+    }
+    if (shadow !== undefined) {
+      $('text-shadow').value = shadow;
+      $('text-modal-shadow').value = shadow;
+    }
+    if (shadowColor !== undefined) {
+      $('text-shadow-color').value = hex6(shadowColor);
+      $('text-modal-shadow-color').value = hex6(shadowColor);
+    }
+    // El editor flotante escribe con lo que se va a obtener: si no, se teclea
+    // en redonda y el texto aparece en negrita al confirmar.
+    textInput.style.fontWeight = (bold === true) ? 'bold' : 'normal';
     renderTextPreview();
   }
 
@@ -4079,6 +4153,9 @@
       state.elements[state.selection[0]].type === 'text'
       ? state.elements[state.selection[0]] : null;
     const size = Number($('text-modal-size').value) || state.fontSize;
+    const style = single
+      ? { bold: single.bold, shadow: single.shadow, shadowColor: single.shadowColor }
+      : textStyleDefaults();
     Renderer.renderElement(pctx, {
       type: 'text',
       x: 14, y: (h - size) / 2,
@@ -4086,6 +4163,7 @@
       color: single ? single.color : state.color,
       fontSize: size,
       lineWidth: single ? single.lineWidth : state.lineWidth,
+      ...style,
     });
   }
 
@@ -4360,6 +4438,94 @@
     // al soltar, igual que hace el de grosor con el tamaño del borrador.
     $('font-slider').addEventListener('change', () => {
       if (state.tool === TOOLS.EMOJI && !state.selection.length) savePrefs();
+    });
+
+    /* ── Estilo del texto: negrita y sombra (v2.16.0) ────────────────────
+       Los tres controles existen dos veces (panel y #modal-text) y siguen la
+       semántica dual de siempre: con textos seleccionados los editan —un paso
+       de undo por gesto—, y sin selección fijan el default de creación, que
+       persiste en prefs. Un cuerpo por control, como los gemelos de
+       Edificios; `selTexts()` es el filtro común, para que una selección sin
+       textos no escriba NADA, ni elemento ni default. */
+    const selTexts = () => state.selection.filter(i =>
+      state.elements[i] && state.elements[i].type === 'text');
+
+    /** Aplica `patch` a los textos seleccionados (un undo), o al default. */
+    function applyTextStyle(patch, setDefault) {
+      const texts = selTexts();
+      if (texts.length) {
+        saveUndo();
+        texts.forEach(i => {
+          const copy = { ...state.elements[i], ...patch };
+          // Los campos que no dicen nada se BORRAN en vez de guardarse en
+          // falso: así un texto sin negrita ni sombra vuelve a serializarse
+          // exactamente como los de siempre y el JSON no engorda con
+          // `bold:false` en cada elemento.
+          if (copy.bold === false) delete copy.bold;
+          if (copy.shadow === 'none') { delete copy.shadow; delete copy.shadowColor; }
+          state.elements[i] = copy;
+        });
+      } else if (!state.selection.length) {
+        setDefault();
+      }
+      syncTextControls();
+      redraw();
+    }
+
+    const applyBold = on => applyTextStyle({ bold: on }, () => {
+      state.textBold = on;
+      savePrefs();
+    });
+
+    const applyTextShadowType = id => {
+      const shadow = textShadowById(id).id;
+      // Al poner sombra se estampa también su color: sin él el elemento se
+      // dibujaría con el gris por defecto aunque el usuario tuviera otro
+      // elegido en el selector de al lado.
+      const patch = shadow === 'none'
+        ? { shadow: 'none' }
+        : { shadow, shadowColor: state.textShadowColor };
+      applyTextStyle(patch, () => {
+        state.textShadow = shadow;
+        savePrefs();
+      });
+    };
+
+    const applyTextShadowColor = hex => {
+      // Solo tiñe los textos que YA tienen sombra: dársela a los que no la
+      // llevan sería un efecto sorpresa desde un control de color.
+      const texts = selTexts().filter(i => state.elements[i].shadow &&
+        state.elements[i].shadow !== 'none');
+      if (texts.length) {
+        saveUndo();
+        texts.forEach(i => {
+          state.elements[i] = { ...state.elements[i], shadowColor: hex };
+        });
+      } else if (!state.selection.length) {
+        state.textShadowColor = hex;
+        savePrefs();
+      }
+      syncTextControls();
+      redraw();
+    };
+
+    // Los dos selectores de sombra se rellenan desde TEXT_SHADOWS, nunca
+    // duplicando el catálogo en el HTML.
+    ['text-shadow', 'text-modal-shadow'].forEach(id => {
+      const sel = $(id);
+      TEXT_SHADOWS.forEach(sh => {
+        const opt = document.createElement('option');
+        opt.value = sh.id;
+        opt.textContent = sh.name;
+        sel.appendChild(opt);
+      });
+      sel.addEventListener('change', e => applyTextShadowType(e.target.value));
+    });
+    ['check-bold', 'text-modal-bold'].forEach(id => {
+      $(id).addEventListener('change', e => applyBold(e.target.checked));
+    });
+    ['text-shadow-color', 'text-modal-shadow-color'].forEach(id => {
+      $(id).addEventListener('input', e => applyTextShadowColor(e.target.value));
     });
 
     // Tamaño del emoji: propio (state.emojiSize), no el de letra — agrandar

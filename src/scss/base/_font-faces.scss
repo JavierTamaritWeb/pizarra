@@ -65,7 +65,7 @@
 @font-face {
   font-family: "Caveat";
   src: url("../fonts/Caveat-Regular.woff2") format("woff2");
-  font-weight: 400 700;
+  font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
@@ -102,6 +102,40 @@
   font-family: "Montserrat Alternates";
   src: url("../fonts/MontserratAlternates-Regular.woff2") format("woff2");
   font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+// ── Negritas reales (v2.16.0) ────────────────────────────────────────────
+// Solo tres de las manuscritas tienen corte de negrita propio; las otras tres
+// —Architects Daughter, Patrick Hand, Indie Flower— son familias de UN solo
+// grosor y Google Fonts no sirve un 700 para ellas, así que el navegador la
+// SINTETIZA (engorda el trazo él mismo). Es lo correcto: fingir un @font-face
+// de 700 apuntando al fichero de 400 sería peor, porque el navegador lo daría
+// por bueno y la negrita saldría idéntica a la normal —exactamente el error
+// que tenía Caveat, declarada «400 700» sobre un fichero que solo trae 400—.
+// OpenDyslexic ya tenía su Bold arriba, con la interfaz.
+
+@font-face {
+  font-family: "Caveat";
+  src: url("../fonts/Caveat-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Kalam";
+  src: url("../fonts/Kalam-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Montserrat Alternates";
+  src: url("../fonts/MontserratAlternates-Bold.woff2") format("woff2");
+  font-weight: 700;
   font-style: normal;
   font-display: swap;
 }

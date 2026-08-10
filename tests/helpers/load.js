@@ -44,6 +44,7 @@ const KNOWN_GLOBALS = [
   'GARDEN_PLANT_VIEWS', 'GARDEN_STAGES', 'GARDEN_LABEL_MODES',
   'COLORS', 'CANVAS_W', 'CANVAS_H',
   'SKETCHY_FONT', 'SKETCH_FONTS', 'sketchFont', 'sketchFontById', 'setSketchFont',
+  'TEXT_SHADOWS', 'textShadowById', 'DEFAULT_SHADOW_COLOR', 'SHADOW_REF_SIZE',
   'UI_DEFAULTS', 'EMOJI_GROUPS', 'EMOJI_MIN_SIZE', 'EMOJI_MAX_SIZE',
   'Sketchy', 'ArcMath', 'CurvePath', 'ShapeRotation', 'RegularPolygon',
   'Trapezoid', 'Eraser', 'Building', 'Garden', 'Renderer', 'Exporter', 'Templates',

@@ -1236,3 +1236,62 @@ test('con OpenDyslexic el exportado no enlaza ninguna fuente web', () => {
     ctx.setSketchFont('architects');
   }
 });
+
+/* Negrita y sombra del texto (v2.16.0): los cinco formatos tienen que decir lo
+   mismo. PNG/JPG reusan el Renderer; SVG y HTML se escriben a mano, así que
+   son los que pueden divergir. */
+test('el SVG exporta la negrita y la sombra del texto', () => {
+  const ctx = freshCtx();
+  const base = { type: 'text', x: 10, y: 20, value: 'Hola', fontSize: 18, color: '#111111', lineWidth: 2, seed: 1 };
+  ctx.Exporter.svg([{ ...base, bold: true, shadow: 'hard', shadowColor: '#ff0000' }]);
+  const svg = lastBlob(ctx).content;
+  assert.match(svg, /font-weight="bold"/, 'la negrita viaja como font-weight');
+  assert.match(svg, /<filter id="sh-hard-[^"]*"/, 'la sombra, como un filtro propio');
+  assert.match(svg, /feDropShadow dx="1" dy="1" stdDeviation="0"/,
+    'dura = desplazada y sin difuminar, con las medidas del catálogo');
+  assert.match(svg, /flood-color="#ff0000"/, 'y con el color elegido');
+  assert.match(svg, /filter="url\(#sh-hard-/, 'el <text> debe usarlo');
+});
+
+test('sin estilo, el SVG del texto sale exactamente como siempre', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.svg([{ type: 'text', x: 10, y: 20, value: 'Hola', fontSize: 18, color: '#111111', lineWidth: 2, seed: 1 }]);
+  const svg = lastBlob(ctx).content;
+  assert.doesNotMatch(svg, /font-weight/, 'nada de font-weight de más');
+  assert.doesNotMatch(svg, /<filter/, 'ni filtros vacíos');
+  assert.doesNotMatch(svg, /filter="url/, 'ni referencias a ninguno');
+});
+
+test('la sombra crece con el tamaño de letra, en canvas y en SVG por igual', () => {
+  const ctx = freshCtx();
+  const base = { type: 'text', x: 10, y: 20, value: 'H', color: '#111111', lineWidth: 2, seed: 1, shadow: 'soft' };
+  ctx.Exporter.svg([{ ...base, fontSize: 36 }]);   // el doble del tamaño de referencia
+  const svg = lastBlob(ctx).content;
+  assert.match(svg, /feDropShadow dx="4" dy="4"/,
+    'a 36px (2× la referencia) el desplazamiento se dobla');
+  // stdDeviation es la MITAD del radio de desenfoque del canvas: con el mismo
+  // número la sombra del SVG saldría del doble de difusa que en pantalla.
+  assert.match(svg, /stdDeviation="4"/, 'blur 4 × 2 = 8 de radio → sigma 4');
+});
+
+test('el HTML exporta la negrita y la sombra como CSS', () => {
+  const ctx = freshCtx();
+  const base = { type: 'text', x: 10, y: 20, value: 'Hola', fontSize: 18, color: '#111111', lineWidth: 2, seed: 1 };
+  ctx.Exporter.html([{ ...base, bold: true, shadow: 'glow', shadowColor: '#00ff00' }]);
+  const html = lastBlob(ctx).content;
+  assert.match(html, /font-weight:bold;/);
+  assert.match(html, /text-shadow:0px 0px 8px #00ff00;/,
+    'halo = sin desplazar y muy difuminado');
+});
+
+test('un color de sombra con basura no puede cerrar la declaración CSS', () => {
+  const ctx = freshCtx();
+  // isValidElement rechaza esto al importar, pero el exportador no debe
+  // confiar en que todo lo que llega haya pasado por ahí.
+  ctx.Exporter.html([{ type: 'text', x: 10, y: 20, value: 'Hola', fontSize: 18,
+    color: '#111111', lineWidth: 2, seed: 1, shadow: 'soft',
+    shadowColor: 'red;}</style><script>alert(1)</script>' }]);
+  const html = lastBlob(ctx).content;
+  assert.doesNotMatch(html, /<script>/, 'ni etiquetas nuevas');
+  assert.doesNotMatch(html, /text-shadow:[^;]*;[^"]*}/, 'ni reglas inyectadas');
+});

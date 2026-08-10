@@ -552,6 +552,41 @@ const SKETCH_FONTS = Object.freeze([
     stack: "'Montserrat Alternates', 'Segoe UI', system-ui, sans-serif" },
 ]);
 
+/**
+ * Sombreados del texto. Tres, y bien distintos entre sí: al tamaño de un
+ * boceto, variantes parecidas se ven iguales y sobran.
+ *   · suave — desplazada y difuminada: profundidad discreta
+ *   · dura  — desplazada sin difuminar: el cartel serigrafiado
+ *   · halo  — sin desplazar y muy difuminada: resplandor alrededor, que es lo
+ *             que hace legible un texto claro sobre un dibujo denso
+ * `dx/dy/blur` van en píxeles de lienzo a tamaño 18 (el de referencia) y se
+ * escalan con la letra en Renderer, para que la sombra de un título no sea la
+ * misma manchita que la de una nota al pie.
+ */
+const TEXT_SHADOWS = Object.freeze([
+  { id: 'none',  name: 'Sin sombra', dx: 0, dy: 0, blur: 0 },
+  { id: 'soft',  name: 'Suave',      dx: 2, dy: 2, blur: 4 },
+  // El desplazamiento de la dura es DELIBERADAMENTE pequeño: sin desenfoque
+  // que la funda, una separación mayor deja de leerse como sombra y pasa a
+  // leerse como la palabra escrita dos veces. Con 3 —el valor con el que nació
+  // y que en un título de 44px se convierte en 7px— el efecto era exactamente
+  // ese; comprobado en navegador comparando 3, 2, 1,5 y 1.
+  { id: 'hard',  name: 'Dura',       dx: 1, dy: 1, blur: 0 },
+  { id: 'glow',  name: 'Halo',       dx: 0, dy: 0, blur: 8 },
+]);
+
+/** Color por defecto de la sombra. Gris medio: sobre papel claro da relieve
+    sin ensuciar, y sobre fondo oscuro sigue leyéndose. */
+const DEFAULT_SHADOW_COLOR = '#7d8295';
+
+/** Tamaño de letra para el que están medidos los dx/dy/blur de TEXT_SHADOWS. */
+const SHADOW_REF_SIZE = 18;
+
+/** Entrada de sombra por id (la primera —sin sombra— si no existe). */
+function textShadowById(id) {
+  return TEXT_SHADOWS.find(s => s.id === id) || TEXT_SHADOWS[0];
+}
+
 /* Letra manuscrita activa. Es MUTABLE a propósito: SKETCHY_FONT se calcula una
    sola vez al arrancar, así que sin esto elegir otra familia no habría podido
    cambiar nada ya dibujado. Todo lo que escribe en el lienzo —renderer,

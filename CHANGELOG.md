@@ -4,6 +4,34 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.16.0] — 2026-08-10
+
+### Añadido
+
+- **Negrita en el texto**, con el corte real de la familia donde lo hay
+  —Caveat, Kalam, Montserrat Alternates y OpenDyslexic traen el suyo— y
+  sintetizada por el navegador en las tres que sencillamente no tienen negrita
+  (Architects Daughter, Patrick Hand e Indie Flower son familias de un solo
+  grosor).
+- **Tres sombreados para el texto**, con **color propio**: *suave*
+  (desplazada y difuminada), *dura* (desplazada y nítida) y *halo* (resplandor
+  alrededor, que es lo que hace legible un texto claro sobre un dibujo denso).
+  Las medidas se escalan con el tamaño de letra, así que la sombra de un
+  titular no es la misma manchita que la de una nota al pie.
+- Los tres controles viven en el panel «Texto» y, gemelos, en «Ajustes del
+  texto», con la semántica de siempre: **con textos seleccionados los editan**
+  y sin selección fijan el estilo con el que nacerá el próximo. Viajan en los
+  cinco formatos de exportación —`font-weight` y un filtro `feDropShadow` en
+  el SVG, `text-shadow` en el HTML— y sobreviven al JSON.
+
+### Corregido
+
+- **La negrita de Caveat salía idéntica a la redonda.** Su `@font-face`
+  declaraba el rango «400 700» sobre un fichero que solo trae el 400, así que
+  el navegador lo daba por bueno y ni siquiera la sintetizaba. Ahora cada
+  negrita declarada tiene su propio fichero, y una guarda comprueba que no
+  vuelva a apuntar al de la redonda.
+
 ## [2.15.0] — 2026-08-10
 
 ### Añadido

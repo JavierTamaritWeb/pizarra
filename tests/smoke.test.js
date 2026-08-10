@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.15.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.16.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.15\.0</);
-  assert.match(html, /css\/styles\.css\?v=2\.15\.0/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.15\.0/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.15\.0/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.15\.0/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.15\.0/);
+  assert.match(html, /class="topbar__badge">v2\.16\.0</);
+  assert.match(html, /css\/styles\.css\?v=2\.16\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.16\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.16\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.16\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.16\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -115,7 +115,8 @@ test('el panel tiene sus secciones contextuales y el CSS que las oculta', () => 
   const css = fs.readFileSync(path.resolve(__dirname, '..', 'css', 'styles.css'), 'utf8');
   const hiddenRule = /\{\s*display:\s*none/;
   for (const sel of ['\\.panel__section\\[hidden\\]', '\\.panel__check\\[hidden\\]',
-    '\\.panel__field\\[hidden\\]', '\\.panel__gear\\[hidden\\]']) {
+    '\\.panel__field\\[hidden\\]', '\\.panel__gear\\[hidden\\]',
+    '\\.panel__canvas-colors\\[hidden\\]']) {
     assert.match(css, new RegExp(sel + '[^{]*' + hiddenRule.source),
       `sin ${sel.replace(/\\/g, '')} el atributo hidden no oculta nada`);
   }
@@ -484,4 +485,55 @@ test('la letra por defecto del catálogo es la misma que --font-sketch', () => {
     'la primera entrada del catálogo es el default y debe decir lo que --font-sketch');
   assert.equal(norm(ctx.SKETCHY_FONT), norm(ctx.SKETCH_FONTS[0].stack),
     'y SKETCHY_FONT (el resguardo del arnés) tiene que coincidir con ella');
+});
+
+// La negrita solo es REAL en las familias que traen su propio corte de 700.
+// Declarar un @font-face de 700 apuntando al fichero de 400 sería peor que no
+// declararlo: el navegador lo daría por bueno y la negrita saldría idéntica a
+// la normal, en vez de sintetizarla. Es el error que tuvo Caveat («400 700»
+// sobre un fichero que solo trae 400) hasta la v2.16.0.
+test('cada negrita declarada tiene su propio fichero, distinto del regular', () => {
+  const css = fs.readFileSync(path.resolve(__dirname, '..', 'css', 'styles.css'), 'utf8');
+  const root = path.resolve(__dirname, '..');
+  const faces = css.match(/@font-face\s*\{[^}]*\}/g) || [];
+  const porFamilia = new Map();
+  for (const face of faces) {
+    const fam = (face.match(/font-family:\s*"([^"]+)"/) || [])[1];
+    const file = (face.match(/url\("\.\.\/fonts\/([^"]+)"\)/) || [])[1];
+    const peso = (face.match(/font-weight:\s*([^;]+);/) || [])[1].trim();
+    if (!fam || !file) continue;
+    if (!porFamilia.has(fam)) porFamilia.set(fam, []);
+    porFamilia.get(fam).push({ file, peso });
+  }
+  let negritas = 0;
+  for (const [fam, cortes] of porFamilia) {
+    const bold = cortes.filter(c => c.peso.includes('700') && !c.file.includes('Italic'));
+    const regular = cortes.find(c => c.peso === '400' && !c.file.includes('Italic'));
+    for (const b of bold) {
+      negritas++;
+      assert.ok(fs.existsSync(path.join(root, 'fonts', b.file)),
+        `falta el fichero de negrita fonts/${b.file}`);
+      assert.notEqual(b.file, regular && regular.file,
+        `la negrita de ${fam} apunta al mismo fichero que la redonda: saldría idéntica`);
+    }
+  }
+  assert.ok(negritas >= 4,
+    'deben declararse las negritas reales (Caveat, Kalam, Montserrat Alternates y OpenDyslexic)');
+});
+
+// Los tres sombreados y sus dos juegos de controles.
+test('los sombreados del texto tienen sus controles gemelos', () => {
+  const ctx = load('src/js/config.js');
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const ids = [...ctx.TEXT_SHADOWS].map(s => s.id);
+  assert.deepEqual(ids, ['none', 'soft', 'hard', 'glow'],
+    'tres sombras más «sin sombra», en ese orden');
+  // Panel y modal: mismos tres controles, para que ninguno quede solo en un sitio.
+  for (const id of ['check-bold', 'text-shadow', 'text-shadow-color',
+    'text-modal-bold', 'text-modal-shadow', 'text-modal-shadow-color']) {
+    assert.match(html, new RegExp(`id="${id}"`), `falta el control #${id}`);
+  }
+  // Los <select> se rellenan desde el catálogo: vacíos en el HTML a propósito.
+  assert.match(html, /<select[^>]*id="text-shadow"[^>]*><\/select>/,
+    'el selector de sombra lo rellena app.js desde TEXT_SHADOWS');
 });

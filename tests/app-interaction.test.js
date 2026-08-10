@@ -2739,3 +2739,133 @@ test('una letra guardada que ya no existe no deja el lienzo sin fuente', () => {
   assert.equal(app.$('sketch-font').value, SKETCH_FONTS[0].id);
   assert.match(app.context.sketchFont(), /Architects Daughter/);
 });
+
+/* ══════════════════════════════════════════════════════════════
+   Estilo del texto: negrita y sombras (v2.16.0). Los tres controles
+   viven dos veces (panel y #modal-text) con la semántica dual.
+   ══════════════════════════════════════════════════════════════ */
+
+/** Escribe un texto en el lienzo y devuelve la app. */
+function withText(app = loadApp(), x = 200, y = 200, valor = 'Hola') {
+  app.selectTool('text');
+  app.click(x, y);
+  const input = app.$('text-input');
+  input.value = valor;
+  input.__fire('blur', { target: input });
+  app.flush();
+  return app;
+}
+
+test('sin selección, negrita y sombra son el estilo con el que NACE el texto', () => {
+  const app = loadApp();
+  app.selectTool('text');
+  const bold = app.$('check-bold');
+  bold.checked = true;
+  bold.__fire('change', { target: bold });
+  const shadow = app.$('text-modal-shadow');
+  shadow.value = 'hard';
+  shadow.__fire('change', { target: shadow });
+  app.flush();
+
+  withText(app, 300, 300, 'Titular');
+  const el = app.elements()[0];
+  assert.equal(el.bold, true, 'nace en negrita');
+  assert.equal(el.shadow, 'hard', 'y con la sombra elegida');
+  assert.ok(el.shadowColor, 'la sombra lleva su color: sin él se dibujaría con otro');
+});
+
+test('con un texto seleccionado, los mismos controles lo editan', () => {
+  const app = withText();
+  app.selectTool('select');
+  app.click(205, 210);
+  const bold = app.$('text-modal-bold');
+  bold.checked = true;
+  bold.__fire('change', { target: bold });
+  const shadow = app.$('text-shadow');
+  shadow.value = 'glow';
+  shadow.__fire('change', { target: shadow });
+  const color = app.$('text-modal-shadow-color');
+  color.value = '#ff0000';
+  color.__fire('input', { target: color });
+  app.flush();
+
+  const el = app.elements()[0];
+  assert.equal(el.bold, true);
+  assert.equal(el.shadow, 'glow');
+  assert.equal(el.shadowColor, '#ff0000');
+  // Y no ha tocado el default de creación: es edición, no configuración.
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs') || '{}');
+  assert.notEqual(prefs.textShadow, 'glow', 'editar no debe reescribir el default');
+});
+
+test('quitar el estilo lo BORRA del elemento, no lo guarda en falso', () => {
+  // Un texto sin negrita ni sombra debe serializarse como los de siempre: es
+  // lo que mantiene idénticos los proyectos anteriores y no engorda el JSON.
+  const app = withText();
+  app.selectTool('select');
+  app.click(205, 210);
+  const bold = app.$('check-bold');
+  bold.checked = true;
+  bold.__fire('change', { target: bold });
+  const shadow = app.$('text-shadow');
+  shadow.value = 'soft';
+  shadow.__fire('change', { target: shadow });
+  app.flush();
+  assert.equal(app.elements()[0].bold, true);
+
+  bold.checked = false;
+  bold.__fire('change', { target: bold });
+  shadow.value = 'none';
+  shadow.__fire('change', { target: shadow });
+  app.flush();
+  const el = app.elements()[0];
+  assert.ok(!('bold' in el), 'sin negrita no debe quedar el campo');
+  assert.ok(!('shadow' in el), 'ni el de sombra');
+  assert.ok(!('shadowColor' in el), 'ni su color huérfano');
+});
+
+test('el estilo del texto sobrevive al round-trip de JSON', () => {
+  const app = withText();
+  app.selectTool('select');
+  app.click(205, 210);
+  const bold = app.$('check-bold');
+  bold.checked = true;
+  bold.__fire('change', { target: bold });
+  const shadow = app.$('text-shadow');
+  shadow.value = 'soft';
+  shadow.__fire('change', { target: shadow });
+  app.flush();
+  const { Exporter } = require('./helpers/load.js').loadAll();
+  const el = app.elements()[0];
+  assert.equal(Exporter.isValidElement(el), true,
+    'un texto con estilo debe poder reimportarse');
+  assert.equal(Exporter.isValidElement({ ...el, shadow: 'inventada' }), false,
+    'una sombra fuera del catálogo no: acabaría en el markup exportado');
+  assert.equal(Exporter.isValidElement({ ...el, shadowColor: 'rojo' }), false,
+    'ni un color que no sea hexadecimal');
+  assert.equal(Exporter.isValidElement({ ...el, bold: 'sí' }), false);
+});
+
+test('el color de la sombra no se la pone a un texto que no la tiene', () => {
+  const app = withText();
+  app.selectTool('select');
+  app.click(205, 210);
+  const color = app.$('text-shadow-color');
+  color.value = '#00ff00';
+  color.__fire('input', { target: color });
+  app.flush();
+  const el = app.elements()[0];
+  assert.ok(!('shadow' in el), 'tocar el color no debe estrenar una sombra');
+  assert.ok(!('shadowColor' in el), 'ni dejar el color suelto');
+});
+
+test('con el Emoji activo se ocultan negrita y sombra: ahí no significan nada', () => {
+  const app = loadApp();
+  app.selectTool('text');
+  assert.equal(app.$('row-text-bold').hidden, false, 'con Texto sí se ofrecen');
+  app.selectTool('emoji');
+  app.flush();
+  assert.equal(app.$('row-text-bold').hidden, true);
+  assert.equal(app.$('row-text-shadow').hidden, true);
+  assert.equal(app.$('row-text-shadow-color').hidden, true);
+});

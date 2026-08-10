@@ -149,6 +149,44 @@ const Exporter = (() => {
   }
 
   /**
+   * Sombra de un texto en SVG: `feDropShadow` hace las tres variantes con solo
+   * cambiar desplazamiento y desenfoque, igual que el canvas hace con
+   * shadowOffset/shadowBlur, así que las dos salidas no pueden divergir.
+   * Devuelve el <filter> y el atributo que lo aplica ('' si no hay sombra).
+   */
+  function _svgTextShadow(el) {
+    const s = textShadowById(el.shadow);
+    if (s.id === 'none') return { def: '', attr: '' };
+    const k = (el.fontSize || SHADOW_REF_SIZE) / SHADOW_REF_SIZE;
+    const dx = _round(s.dx * k), dy = _round(s.dy * k);
+    // stdDeviation es la desviación típica del desenfoque, la mitad del radio
+    // que usa el canvas: con el mismo número la sombra del SVG saldría del
+    // doble de difusa que en pantalla.
+    const sd = _round((s.blur * k) / 2);
+    const color = _escapeXml(String(el.shadowColor || DEFAULT_SHADOW_COLOR));
+    const id = `sh-${s.id}-${String(dx).replace('.', '_')}-${String(dy).replace('.', '_')}-${String(sd).replace('.', '_')}-${color.replace(/[^a-zA-Z0-9]/g, '')}`;
+    const def = `<filter id="${id}" x="-50%" y="-50%" width="200%" height="200%">` +
+      `<feDropShadow dx="${dx}" dy="${dy}" stdDeviation="${sd}" flood-color="${color}"/></filter>\n`;
+    return { def, attr: ` filter="url(#${id})"` };
+  }
+
+  /** Sombra de un texto como declaración CSS `text-shadow` (o '' si no lleva).
+      Mismas medidas escaladas que el canvas y el SVG. */
+  function _htmlTextShadow(el) {
+    const s = textShadowById(el.shadow);
+    if (s.id === 'none') return '';
+    const k = (el.fontSize || SHADOW_REF_SIZE) / SHADOW_REF_SIZE;
+    // Sin ';' ni '<' el valor no puede cerrar la declaración ni la etiqueta.
+    const color = String(el.shadowColor || DEFAULT_SHADOW_COLOR).replace(/[<>{};"']/g, '');
+    return `text-shadow:${_round(s.dx * k)}px ${_round(s.dy * k)}px ${_round(s.blur * k)}px ${color};`;
+  }
+
+  /** Redondeo a 2 decimales, para no llenar el SVG de ruido flotante. */
+  function _round(n) {
+    return Math.round(n * 100) / 100;
+  }
+
+  /**
    * Las 2 <line> de una punta de flecha (solo valores numéricos calculados;
    * `s` ya viene con color/grosor escapados). Geometría de Sketchy.arrowHead.
    */
@@ -266,7 +304,16 @@ const Exporter = (() => {
         case 'text': {
           // Multilínea: un <tspan> por línea con el mismo interlineado que el canvas
           const lines = String(el.value).split('\n');
-          out += `<text x="${el.x}" y="${el.y + el.fontSize}" fill="${color}" font-family="${FONT_FALLBACK()}" font-size="${el.fontSize}">`;
+          const weight = el.bold ? ' font-weight="bold"' : '';
+          // La sombra va como <filter> propio, declarado justo antes del
+          // <text> que lo usa: así el markup de un elemento sigue siendo
+          // autocontenido (lo comparten el export SVG y el <svg> incrustado
+          // del HTML, que se ensamblan por separado). El id lleva las medidas,
+          // de modo que dos textos con la misma sombra generan filtros
+          // idénticos y equivalentes, nunca uno pisando al otro.
+          const sh = _svgTextShadow(el);
+          out += sh.def;
+          out += `<text x="${el.x}" y="${el.y + el.fontSize}" fill="${color}" font-family="${FONT_FALLBACK()}" font-size="${el.fontSize}"${weight}${sh.attr}>`;
           lines.forEach((ln, i) => {
             out += `<tspan x="${el.x}" dy="${i === 0 ? 0 : el.fontSize + 4}">${_escapeXml(ln)}</tspan>`;
           });
@@ -445,7 +492,7 @@ body { font-family: ${FONT_CSS()}; background: #fff; }
           break;
         }
         case 'text':
-          out += `  <p style="left:${el.x}px;top:${el.y}px;color:${color};font-size:${el.fontSize}px;white-space:pre-wrap;line-height:${el.fontSize + 4}px;">${_escapeHtml(el.value)}</p>\n`;
+          out += `  <p style="left:${el.x}px;top:${el.y}px;color:${color};font-size:${el.fontSize}px;white-space:pre-wrap;line-height:${el.fontSize + 4}px;${el.bold ? 'font-weight:bold;' : ''}${_htmlTextShadow(el)}">${_escapeHtml(el.value)}</p>\n`;
           break;
         case 'button':
           out += `  <button style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};border-radius:8px;background:${tint('15')};color:${color};font-family:inherit;cursor:pointer;">${_escapeHtml(el.label || 'Botón')}</button>\n`;
@@ -631,7 +678,16 @@ body { font-family: ${FONT_CSS()}; background: #fff; }
     }
     if (el.type === 'text') {
       // fontSize > 0: con uno negativo el canvas ignora la asignación de font
-      // (el texto sale con la fuente que quedara) y el SVG no lo renderiza
+      // (el texto sale con la fuente que quedara) y el SVG no lo renderiza.
+      // bold/shadow/shadowColor son opcionales y su AUSENCIA es el aspecto de
+      // siempre; se validan porque acaban en el markup exportado: una sombra
+      // inventada colaría un id de filtro arbitrario en el SVG y un color no
+      // hexadecimal, texto libre dentro de un atributo de estilo.
+      if (el.bold !== undefined && typeof el.bold !== 'boolean') return false;
+      if (el.shadow !== undefined &&
+          !TEXT_SHADOWS.some(s => s.id === el.shadow)) return false;
+      if (el.shadowColor !== undefined &&
+          !(typeof el.shadowColor === 'string' && HEX_COLOR.test(el.shadowColor))) return false;
       return _isNum(el.x) && _isNum(el.y) && typeof el.value === 'string' &&
              _isNum(el.fontSize) && el.fontSize > 0;
     }

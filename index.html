@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=2.15.0" />
+  <link rel="stylesheet" href="css/styles.css?v=2.16.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.15.0" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.16.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v2.15.0</span>
+        <span class="topbar__badge">v2.16.0</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes" aria-expanded="false" aria-controls="side-panel">
@@ -174,6 +174,22 @@
         <section class="panel__section" id="panel-sec-text">
           <label class="panel__title panel__title--block" for="font-slider"><span id="font-label">Texto</span>: <span id="font-val">18</span>px</label>
           <input class="panel__slider" type="range" id="font-slider" min="10" max="96" value="18" />
+          <!-- Estilo del texto. Se ocultan con el Emoji activo: ahí la sección
+               se retitula para gobernar SU tamaño, y negrita o sombra sobre un
+               emoji no significan nada. -->
+          <label class="panel__check" id="row-text-bold">
+            <input type="checkbox" id="check-bold" /> Negrita
+          </label>
+          <label class="panel__field" id="row-text-shadow" for="text-shadow">
+            <span class="panel__title">Sombra</span>
+            <select class="panel__select" id="text-shadow"></select>
+          </label>
+          <div class="panel__canvas-colors" id="row-text-shadow-color">
+            <label class="panel__canvas-color">
+              <input class="panel__color-picker" type="color" id="text-shadow-color" value="#7d8295" />
+              Color de la sombra
+            </label>
+          </div>
         </section>
 
         <!-- Edificios (defaults de creación para Fachada/Alzado/Perfil/Tejados).
@@ -709,6 +725,19 @@
             <select class="panel__select" id="text-modal-font"
                     aria-label="Letra con la que escribe el lienzo"></select>
           </label>
+          <label class="panel__check">
+            <input type="checkbox" id="text-modal-bold" /> Negrita
+          </label>
+          <label class="panel__field" for="text-modal-shadow">
+            <span class="modal__field-label">Sombra</span>
+            <select class="panel__select" id="text-modal-shadow"
+                    aria-label="Tipo de sombra del texto"></select>
+          </label>
+          <label class="panel__field" for="text-modal-shadow-color">
+            <span class="modal__field-label">Color de la sombra</span>
+            <input class="panel__color-picker" type="color" id="text-modal-shadow-color"
+                   value="#7d8295" aria-label="Color de la sombra del texto" />
+          </label>
           <!-- Ver el bloque homólogo de #modal-stroke: div sin clase, solo con selección. -->
           <div id="text-modal-geo" hidden>
             <span class="modal__field-label">Posición y tamaño</span>
@@ -1155,19 +1184,19 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=2.15.0"></script>
-  <script src="src/js/sketchy.js?v=2.15.0"></script>
-  <script src="src/js/arc.js?v=2.15.0"></script>
-  <script src="src/js/curve-path.js?v=2.15.0"></script>
-  <script src="src/js/shape-rotation.js?v=2.15.0"></script>
-  <script src="src/js/regular-polygon.js?v=2.15.0"></script>
-  <script src="src/js/trapezoid.js?v=2.15.0"></script>
-  <script src="src/js/eraser.js?v=2.15.0"></script>
-  <script src="src/js/building.js?v=2.15.0"></script>
-  <script src="src/js/garden.js?v=2.15.0"></script>
-  <script src="src/js/renderer.js?v=2.15.0"></script>
-  <script src="src/js/exporter.js?v=2.15.0"></script>
-  <script src="src/js/templates.js?v=2.15.0"></script>
-  <script src="src/js/app.js?v=2.15.0"></script>
+  <script src="src/js/config.js?v=2.16.0"></script>
+  <script src="src/js/sketchy.js?v=2.16.0"></script>
+  <script src="src/js/arc.js?v=2.16.0"></script>
+  <script src="src/js/curve-path.js?v=2.16.0"></script>
+  <script src="src/js/shape-rotation.js?v=2.16.0"></script>
+  <script src="src/js/regular-polygon.js?v=2.16.0"></script>
+  <script src="src/js/trapezoid.js?v=2.16.0"></script>
+  <script src="src/js/eraser.js?v=2.16.0"></script>
+  <script src="src/js/building.js?v=2.16.0"></script>
+  <script src="src/js/garden.js?v=2.16.0"></script>
+  <script src="src/js/renderer.js?v=2.16.0"></script>
+  <script src="src/js/exporter.js?v=2.16.0"></script>
+  <script src="src/js/templates.js?v=2.16.0"></script>
+  <script src="src/js/app.js?v=2.16.0"></script>
 </body>
 </html>

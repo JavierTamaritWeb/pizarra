@@ -11,6 +11,40 @@ const Renderer = (() => {
     return Number.isFinite(el.size) ? el.size : el.lineWidth * 4;
   }
 
+  /* ── Estilo del texto: grosor y sombra (v2.16.0) ──────────────────────
+     Los dos son opcionales y su AUSENCIA es el aspecto de siempre, así que
+     los proyectos anteriores se dibujan exactamente igual. */
+
+  /** `ctx.font` de un elemento de texto, con su grosor. Tres de las siete
+      familias no tienen corte de negrita y el navegador la sintetiza; eso
+      es cosa suya y aquí no se distingue. */
+  function textFont(el) {
+    return `${el.bold ? 'bold ' : ''}${el.fontSize}px ${sketchFont()}`;
+  }
+
+  /**
+   * Configura la sombra del contexto para un elemento de texto (y la apaga si
+   * no lleva). Las medidas de TEXT_SHADOWS están tomadas a SHADOW_REF_SIZE y
+   * se escalan con la letra: si no, la sombra de un título de 60px sería la
+   * misma manchita de 2px que la de una nota, y a tamaño grande no se vería.
+   * Quien llama debe haber hecho save() — restore() la deja limpia.
+   */
+  function applyTextShadow(ctx, el) {
+    const s = textShadowById(el.shadow);
+    if (s.id === 'none') {
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+      return;
+    }
+    const k = (el.fontSize || SHADOW_REF_SIZE) / SHADOW_REF_SIZE;
+    ctx.shadowColor = el.shadowColor || DEFAULT_SHADOW_COLOR;
+    ctx.shadowBlur = s.blur * k;
+    ctx.shadowOffsetX = s.dx * k;
+    ctx.shadowOffsetY = s.dy * k;
+  }
+
   /* ── Caché de imágenes (elementos type:image con src data-URL) ── */
 
   const _imgCache = new Map();
@@ -659,13 +693,16 @@ const Renderer = (() => {
         break;
 
       case 'text':
-        ctx.font = `${el.fontSize}px ${sketchFont()}`;
+        ctx.save();
+        ctx.font = textFont(el);
         ctx.fillStyle = el.color;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
+        applyTextShadow(ctx, el);
         el.value.split('\n').forEach((ln, i) => {
           ctx.fillText(ln, el.x, el.y + i * (el.fontSize + 4));
         });
+        ctx.restore();
         break;
 
       case 'eraser': {
@@ -819,6 +856,8 @@ const Renderer = (() => {
     renderElements,
     renderScene,
     eraserSize,
+    textFont,
+    applyTextShadow,
     buildOverlapPlan,
     overlapRuns,
     isOverlapShape,
