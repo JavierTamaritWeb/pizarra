@@ -3065,18 +3065,21 @@ test('pulsar «Select» abre sus ajustes con la casilla de acumular', () => {
     'pick', 'cerrar no devuelve a la herramienta anterior');
 });
 
-test('Mover no abre el modal al elegirla, pero llega a él por el ⚙', () => {
+test('Mover abre los mismos ajustes, y su ⚙ los reabre', () => {
   const app = loadApp();
-  // Mover es la herramienta que más se pulsa —tras dibujar, al pegar, con
-  // Ctrl+A—: un modal en cada paso estorbaría. Pero su clic obedece al mismo
-  // ajuste, así que el ⚙ tiene que llevarla allí o el ajuste queda fuera de
-  // alcance desde ella.
+  // La casilla gobierna el clic de las DOS herramientas de Edición, así que
+  // las dos la enseñan al elegirlas (v2.18.0).
   app.selectTool('select');
-  assert.equal(app.$('modal-select').open, false, 'elegir Mover no abre nada');
-  assert.equal(app.$('btn-eraser-size').hidden, false, 'pero el ⚙ está');
+  assert.equal(app.$('modal-select').open, true, 'elegir Mover abre sus ajustes');
+  const cerrar = app.$('modal-select').querySelector('.modal__cancel');
+  cerrar.__fire('click', { target: cerrar });
+  app.flush();
+  assert.equal(app.$('modal-select').open, false);
+
+  assert.equal(app.$('btn-eraser-size').hidden, false, 'el ⚙ sigue ahí');
   app.$('btn-eraser-size').__fire('click', { target: app.$('btn-eraser-size') });
   app.flush();
-  assert.equal(app.$('modal-select').open, true, 'y abre los ajustes de selección');
+  assert.equal(app.$('modal-select').open, true, 'y lo reabre sin soltar la herramienta');
   assert.equal(app.$('modal-eraser').open, false, 'no el del borrador');
   assert.equal(app.$('modal-stroke').open, false, 'ni el del trazo');
 });
@@ -3093,4 +3096,21 @@ test('Ctrl+A y pegar no abren el modal de selección', () => {
   assert.equal(app.$('sidebar').querySelector('.sidebar__tool--active').dataset.tool,
     'select', 'Ctrl+A pasa a Mover');
   assert.equal(app.$('modal-select').open, false, 'sin abrir ningún modal');
+});
+
+test('cancelar un catálogo que cae en Mover no encadena el modal de selección', () => {
+  // Cancelar un catálogo cuya herramienta ANTERIOR era otro catálogo cae en
+  // Mover: volver a la anterior reabriría un catálogo, que no es lo que pide
+  // quien cancela. Desde la v2.18.0 Mover abre sus ajustes al elegirla, así que
+  // ese retorno tiene que ser `silent` o saldría un segundo modal encima del
+  // que se acaba de cerrar — justo lo que `silent` existe para evitar.
+  const app = loadApp();
+  app.selectTool('planta');
+  app.selectTool('puerta');            // toolBeforeModal = 'planta'
+  app.$('modal-door').close();         // cancelar sin elegir tipo
+  app.flush();
+  assert.equal(app.$('sidebar').querySelector('.sidebar__tool--active').dataset.tool,
+    'select', 'cancelar una reentrada cae en Mover');
+  assert.equal(app.$('modal-select').open, false,
+    'y no abre sus ajustes encima del catálogo recién cerrado');
 });

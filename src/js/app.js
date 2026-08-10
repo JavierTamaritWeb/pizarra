@@ -3129,8 +3129,9 @@
         color: state.color, lineWidth: state.lineWidth,
         seed: newSeed(),
       });
-      // Queda seleccionada con Mover para arrastrarla/redimensionarla al momento
-      selectTool(TOOLS.SELECT);
+      // Queda seleccionada con Mover para arrastrarla/redimensionarla al momento.
+      // En silencio: pegar una imagen no es pedir los ajustes de selección.
+      selectTool(TOOLS.SELECT, { silent: true });
       setSelection([state.elements.length - 1]);
       redraw();
     };
@@ -3188,7 +3189,7 @@
         const els = data.elements.filter(Exporter.isValidElement);
         if (!els.length) return;
         // Pegar activa la herramienta Mover: los clones quedan seleccionados
-        if (state.tool !== TOOLS.SELECT) selectTool(TOOLS.SELECT);
+        if (state.tool !== TOOLS.SELECT) selectTool(TOOLS.SELECT, { silent: true });
         saveUndo();
         insertClones(els, 20, 20);
         redraw();
@@ -3473,11 +3474,16 @@
     // devolver a la herramienta anterior (el borrador es usable sin elegir
     // nada en el modal), así que no pasa por opensVariantModal.
     if (id === TOOLS.ERASER && !silent) openEraserSizeModal();
-    // «Select» abre los suyos por la misma razón (v2.17.0). Mover NO: su clic
-    // obedece al mismo ajuste, pero es la herramienta que más se pulsa —tras
-    // dibujar, para pegar, con Ctrl+A— y un modal en cada paso estorbaría; el
-    // ⚙ del panel lo abre desde ella.
-    if (id === TOOLS.PICK && !silent) openSelectModal();
+    // Las dos herramientas de Edición abren los ajustes de selección: la
+    // casilla gobierna el clic de ambas, así que ambas la enseñan al elegirlas
+    // (v2.18.0; la 2.17.0 la reservó a «Select» y dejaba a Mover dependiendo
+    // del ⚙). Es la razón por la que las cuatro activaciones AUTOMÁTICAS de
+    // Mover —pegar una imagen, pegar elementos, Ctrl+A y volver de un catálogo
+    // cancelado— pasan `silent`: ahí nadie ha pulsado la herramienta, y un
+    // <dialog showModal> dejaría inerte el lienzo justo después de pegar o de
+    // seleccionarlo todo. El del catálogo, además, encadenaría un modal encima
+    // del que se acaba de cerrar.
+    if (SELECTION_TOOLS.includes(id) && !silent) openSelectModal();
     // Las herramientas de dibujo abren sus ajustes de trazo al elegirlas, igual
     // que el Borrador abre el suyo y Planta o Balcón su catálogo: es la misma
     // promesa para todas las herramientas que tienen algo que ajustar. Volver a
@@ -3776,11 +3782,9 @@
       y cerrarlo NO devuelve a la herramienta anterior —«Select» ya es usable
       sin elegir nada—, así que no pasa por opensVariantModal.
 
-      Su única casilla gobierna TAMBIÉN los clics de Mover, que comparte la
-      semántica de selección; vive aquí porque «Select» es la herramienta cuyo
-      trabajo es justamente construir la selección. Desde Mover se llega
-      pulsando «Select» —ninguna de las dos vacía la selección al elegirla
-      (SELECTION_TOOLS)— o con el mismo ⚙, que se muestra para las dos. */
+      Lo abren las DOS herramientas de Edición (SELECTION_TOOLS): su casilla
+      gobierna el clic de ambas, así que ambas la enseñan al elegirlas. El ⚙
+      del panel, visible con las dos, lo reabre sin soltar la herramienta. */
   function openSelectModal() {
     syncSelectControls();
     $('modal-select').showModal();
@@ -5285,7 +5289,9 @@
     // Ctrl/Cmd+A: seleccionar todo (con la herramienta Mover)
     if ((e.ctrlKey || e.metaKey) && k === 'a') {
       e.preventDefault();
-      selectTool(TOOLS.SELECT);
+      // Silencioso: un atajo de teclado no debe sacar un diálogo que, encima,
+      // deja inerte el lienzo que se acaba de seleccionar entero.
+      selectTool(TOOLS.SELECT, { silent: true });
       setSelection(state.elements.map((el, i) => el.type === 'eraser' ? -1 : i).filter(i => i >= 0));
       redraw();
       return;
@@ -5476,7 +5482,7 @@
       // segundo modal encima del que se acaba de cerrar. Antes de las
       // v2.9.0 esa distinción no hacía falta porque casi ninguna herramienta
       // abría nada; mandar a Seleccionar a todas sería el camino fácil y peor.
-      if (opensVariantModal(prev)) selectTool(TOOLS.SELECT);
+      if (opensVariantModal(prev)) selectTool(TOOLS.SELECT, { silent: true });
       else selectTool(prev, { silent: true });
     });
   }

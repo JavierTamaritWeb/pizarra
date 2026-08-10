@@ -4,6 +4,21 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.18.0] — 2026-08-10
+
+### Cambiado
+
+- **Mover también abre los ajustes de selección al elegirla**, con la misma
+  casilla «Los clics acumulan selección» que «Select». El ajuste gobierna el
+  clic de las dos herramientas, así que ahora las dos lo enseñan; en la 2.17.0
+  Mover dependía del ⚙ del panel, que sigue estando para reabrirlo sin soltar
+  la herramienta.
+- Las cuatro veces que la aplicación activa Mover **por su cuenta** —al pegar
+  una imagen, al pegar elementos, con Ctrl+A y al volver de un catálogo
+  cancelado— siguen sin abrir nada: ahí nadie ha pulsado la herramienta, y un
+  diálogo dejaría el lienzo inerte justo después de pegar o de seleccionarlo
+  todo.
+
 ## [2.17.0] — 2026-08-10
 
 ### Cambiado

@@ -72,17 +72,19 @@ test('pulsar una herramienta de dibujo abre sus ajustes de trazo', async ({ page
   await page.locator('#modal-stroke .modal__cancel').click();
   await expect(page.locator('#stroke-slider')).toHaveValue('6');
 
-  // Mover sigue sin abrir nada al elegirla —es la herramienta que más se
-  // pulsa—, pero desde la 2.17.0 su ⚙ lleva a los ajustes de selección, que su
-  // clic también obedece: sin él, ese ajuste quedaría fuera de alcance desde
-  // ella. Ni asoma el del trazo.
+  // Mover abre los ajustes de selección, como «Select»: la casilla gobierna el
+  // clic de las dos (v2.18.0). Y su ⚙ los reabre — ni asoma el del trazo.
   await page.locator('.sidebar__tool[data-tool="select"]').click();
+  const selModal = page.locator('#modal-select');
+  await expect(selModal).toHaveAttribute('open', '');
   await expect(modal).not.toHaveAttribute('open', '');
+  await selModal.locator('.modal__cancel').click();
+  await expect(selModal).not.toHaveAttribute('open', '');
   await expect(gear).toBeVisible();
   await gear.click();
-  await expect(page.locator('#modal-select')).toHaveAttribute('open', '');
+  await expect(selModal).toHaveAttribute('open', '');
   await expect(modal).not.toHaveAttribute('open', '');
-  await page.locator('#modal-select .modal__cancel').click();
+  await selModal.locator('.modal__cancel').click();
 
   // Y con el borrador el mismo ⚙ lleva a su propio modal, no al de trazo.
   await selectTool(page, 'eraser');
