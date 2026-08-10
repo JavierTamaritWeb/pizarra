@@ -39,3 +39,57 @@
   font-style: italic;
   font-display: swap;
 }
+
+// ── Manuscritas del lienzo (SIL OFL 1.1; licencia en
+//    fonts/LICENSE-handwriting-fonts.txt) ─────────────────────────────────
+// Autoalojadas por el mismo motivo que OpenDyslexic, y desde la v2.13.0
+// también Architects Daughter, que hasta entonces venía de Google Fonts: el
+// README promete abrir index.html y dibujar, y con la fuente en la red eso
+// sólo era cierto con conexión —sin ella el lienzo caía a "Segoe Print" o a
+// la cursiva del sistema y el trazo dejaba de parecerse a lo que la app
+// promete—. Los .woff2 son el subconjunto latino servido por Google Fonts,
+// suficiente para el español (incluye U+00C0–00FF).
+// Las cuatro compañeras existen para que la letra del boceto se pueda
+// elegir: el catálogo vive en SKETCH_FONTS (src/js/config.js) y CADA entrada
+// necesita su @font-face aquí, o el lienzo caería en silencio al siguiente
+// resguardo de la pila. Lo ata una guarda en tests/smoke.test.js.
+
+@font-face {
+  font-family: "Architects Daughter";
+  src: url("../fonts/ArchitectsDaughter-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Caveat";
+  src: url("../fonts/Caveat-Regular.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Patrick Hand";
+  src: url("../fonts/PatrickHand-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Kalam";
+  src: url("../fonts/Kalam-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Indie Flower";
+  src: url("../fonts/IndieFlower-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}

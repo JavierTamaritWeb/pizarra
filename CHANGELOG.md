@@ -4,6 +4,31 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.13.0] — 2026-08-10
+
+### Añadido
+
+- **La letra manuscrita se elige, entre cinco.** Además de la de siempre
+  (Architects Daughter) llegan **Caveat**, **Patrick Hand**, **Kalam** e
+  **Indie Flower**. El selector vive en el panel («Lienzo» → Letra manuscrita)
+  y, gemelo, dentro de **«Ajustes del texto»**, que es donde se mira al
+  escribir: la muestra del modal cambia al instante. Cada opción de la lista
+  se rotula **con su propia letra**, que es lo único que distingue una
+  manuscrita de otra antes de elegirla. La elección es un ajuste global del
+  boceto, como el fondo o la cuadrícula, y sobrevive a la recarga.
+
+### Cambiado
+
+- **La aplicación ya no pide ninguna fuente por red.** Las cinco manuscritas
+  viajan autoalojadas en `fonts/` (SIL OFL 1.1, subconjunto latino), así que
+  desaparecen los dos `preconnect` y el `<link>` a Google Fonts del `<head>`:
+  Pizarra dibuja con su letra de siempre **sin conexión** y abierta con
+  `file://`, que es justo lo que el README promete. Antes, sin red, el lienzo
+  caía a la cursiva del sistema. Los archivos **exportados** sí siguen pidiendo
+  la fuente a Google, y es deliberado: un `.svg` o un `.html` suelto viaja sin
+  la carpeta `fonts/` al lado, así que una ruta relativa se rompería en cuanto
+  saliera de aquí; la URL se arma con la familia activa.
+
 ## [2.12.1] — 2026-08-10
 
 ### Corregido

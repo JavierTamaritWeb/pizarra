@@ -43,7 +43,8 @@ const KNOWN_GLOBALS = [
   'PATH_TYPES', 'HERB_TYPES', 'CLIMBER_TYPES',
   'GARDEN_PLANT_VIEWS', 'GARDEN_STAGES', 'GARDEN_LABEL_MODES',
   'COLORS', 'CANVAS_W', 'CANVAS_H',
-  'SKETCHY_FONT', 'UI_DEFAULTS', 'EMOJI_GROUPS', 'EMOJI_MIN_SIZE', 'EMOJI_MAX_SIZE',
+  'SKETCHY_FONT', 'SKETCH_FONTS', 'sketchFont', 'sketchFontById', 'setSketchFont',
+  'UI_DEFAULTS', 'EMOJI_GROUPS', 'EMOJI_MIN_SIZE', 'EMOJI_MAX_SIZE',
   'Sketchy', 'ArcMath', 'CurvePath', 'ShapeRotation', 'RegularPolygon',
   'Trapezoid', 'Eraser', 'Building', 'Garden', 'Renderer', 'Exporter', 'Templates',
 ];

@@ -14,10 +14,10 @@
   <link rel="apple-touch-icon" sizes="180x180" href="src/img/apple-touch-icon.png" />
   <link rel="manifest" href="site.webmanifest" />
   <meta name="theme-color" content="#0f1019" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=2.12.1" />
+  <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
+       (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
+       red, así que dibuja igual sin conexión y abierta con file://. -->
+  <link rel="stylesheet" href="css/styles.css?v=2.13.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.12.1" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.13.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v2.12.1</span>
+        <span class="topbar__badge">v2.13.0</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes" aria-expanded="false" aria-controls="side-panel">
@@ -272,6 +272,15 @@
               Cuadrícula
             </label>
           </div>
+          <!-- Letra manuscrita del lienzo: ajuste global del boceto, como el
+               fondo o la cuadrícula (no viaja en los elementos, sí en prefs).
+               Las opciones las rellena app.js desde SKETCH_FONTS, para que el
+               catálogo no exista en dos sitios; cada <option> se previsualiza
+               con su propia familia. -->
+          <label class="panel__field" for="sketch-font">
+            <span class="panel__title">Letra manuscrita</span>
+            <select class="panel__select" id="sketch-font"></select>
+          </label>
           <label class="panel__field" for="overlap-mode">
             <span class="panel__title">Solapamiento</span>
             <select class="panel__select" id="overlap-mode">
@@ -674,8 +683,8 @@
        texto seleccionado o, sin selección, el default de creación. -->
   <dialog class="modal" id="modal-text" aria-labelledby="modal-text-title">
       <h3 class="modal__heading" id="modal-text-title">Ajustes del texto</h3>
-      <p class="modal__sub">La muestra se dibuja con el tamaño y el color actuales.
-        El tamaño sigue estando en el panel «Texto».</p>
+      <p class="modal__sub">La muestra se dibuja con el tamaño, el color y la letra actuales.
+        El tamaño sigue estando en el panel «Texto», y la letra en «Lienzo».</p>
       <div class="modal__build">
         <canvas class="modal__preview" id="text-preview" width="176" height="168"
                 role="img" aria-label="Vista previa del texto con los ajustes actuales"></canvas>
@@ -690,6 +699,15 @@
             <span class="modal__field-label">Color</span>
             <input class="panel__color-picker" type="color" id="text-modal-color" value="#1a1a2e"
                    aria-label="Color del texto" />
+          </label>
+          <!-- Gemelo del selector del panel («Lienzo» → Letra manuscrita):
+               es donde se mira al escribir, y la muestra de al lado enseña el
+               cambio al momento. Ajuste global del boceto, no del elemento:
+               ambos pasan por applySketchFont. -->
+          <label class="panel__field" for="text-modal-font">
+            <span class="modal__field-label">Letra manuscrita</span>
+            <select class="panel__select" id="text-modal-font"
+                    aria-label="Letra manuscrita del lienzo"></select>
           </label>
           <!-- Ver el bloque homólogo de #modal-stroke: div sin clase, solo con selección. -->
           <div id="text-modal-geo" hidden>
@@ -1137,19 +1155,19 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=2.12.1"></script>
-  <script src="src/js/sketchy.js?v=2.12.1"></script>
-  <script src="src/js/arc.js?v=2.12.1"></script>
-  <script src="src/js/curve-path.js?v=2.12.1"></script>
-  <script src="src/js/shape-rotation.js?v=2.12.1"></script>
-  <script src="src/js/regular-polygon.js?v=2.12.1"></script>
-  <script src="src/js/trapezoid.js?v=2.12.1"></script>
-  <script src="src/js/eraser.js?v=2.12.1"></script>
-  <script src="src/js/building.js?v=2.12.1"></script>
-  <script src="src/js/garden.js?v=2.12.1"></script>
-  <script src="src/js/renderer.js?v=2.12.1"></script>
-  <script src="src/js/exporter.js?v=2.12.1"></script>
-  <script src="src/js/templates.js?v=2.12.1"></script>
-  <script src="src/js/app.js?v=2.12.1"></script>
+  <script src="src/js/config.js?v=2.13.0"></script>
+  <script src="src/js/sketchy.js?v=2.13.0"></script>
+  <script src="src/js/arc.js?v=2.13.0"></script>
+  <script src="src/js/curve-path.js?v=2.13.0"></script>
+  <script src="src/js/shape-rotation.js?v=2.13.0"></script>
+  <script src="src/js/regular-polygon.js?v=2.13.0"></script>
+  <script src="src/js/trapezoid.js?v=2.13.0"></script>
+  <script src="src/js/eraser.js?v=2.13.0"></script>
+  <script src="src/js/building.js?v=2.13.0"></script>
+  <script src="src/js/garden.js?v=2.13.0"></script>
+  <script src="src/js/renderer.js?v=2.13.0"></script>
+  <script src="src/js/exporter.js?v=2.13.0"></script>
+  <script src="src/js/templates.js?v=2.13.0"></script>
+  <script src="src/js/app.js?v=2.13.0"></script>
 </body>
 </html>

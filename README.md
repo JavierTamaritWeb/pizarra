@@ -4,11 +4,11 @@
 
 **Wireframes, diagramas y bocetos con estética dibujada a mano — en el navegador y sin instalar nada.**
 
-[![Versión](https://img.shields.io/badge/versión-2.12.1-blueviolet?style=flat-square)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-2.13.0-blueviolet?style=flat-square)](CHANGELOG.md)
 [![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?style=flat-square&logo=javascript&logoColor=000)](src/js/)
 [![Estilos](https://img.shields.io/badge/estilos-SCSS%20·%20BEM%20·%20Gulp%205-cf649a?style=flat-square&logo=sass&logoColor=fff)](src/scss/)
 [![Dependencias](https://img.shields.io/badge/dependencias%20en%20runtime-0-brightgreen?style=flat-square)](#arquitectura)
-[![Tests](https://img.shields.io/badge/tests-532%20unitarios%20%2B%2047%20e2e-brightgreen?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-540%20unitarios%20%2B%2048%20e2e-brightgreen?style=flat-square)](#tests)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue?style=flat-square)](LICENSE)
 
 <img src="src/img/screenshot-pizarra.png" alt="La interfaz de Pizarra: barra de herramientas a la izquierda, lienzo con un wireframe de landing page dibujado a mano en el centro y panel de ajustes a la derecha" width="900">
@@ -73,6 +73,7 @@ Para *usar* la app no hay nada que instalar ni compilar: el CSS ya viene compila
 | **Relleno** | Color propio por forma, modo sólido o translúcido y opacidad del 0 al 100 %. Vaciar una forma no le hace perder el color: al volver a rellenarla recupera el mismo. |
 | **Solapamiento** | El modo **Bordes ocultos** vuelve discontinuos solo los tramos del contorno inferior que otra forma tapa, respetando el orden de capas. |
 | **Componentes UI** | Botón, input, imagen, navbar y tarjeta, con etiquetas editables (doble clic). |
+| **Letra manuscrita a elegir** | Cinco familias autoalojadas —Architects Daughter, Caveat, Patrick Hand, Kalam e Indie Flower— seleccionables desde el panel («Lienzo») o desde «Ajustes del texto», con muestra en vivo y cada nombre escrito con su propia letra. La app **no pide ninguna fuente por red**: funciona igual sin conexión. |
 | **Emoji e imágenes** | Catálogo de 60 emoji en cinco categorías; imágenes pegadas con `Ctrl/Cmd+V` o arrastradas desde el escritorio. |
 | **«Select», solo selección** | El clic selecciona cualquier elemento (el grupo completo; doble clic desciende a la pieza) y el arrastre dibuja **siempre** marquesina, incluso empezando encima de un elemento — el gesto que con Mover lo desplazaría. Nada se mueve jamás con ella: en un lienzo denso se enmarca sin miedo y el panel edita lo seleccionado como siempre. |
 | **Borrador real** | Borra **lo que se ve**, no la caja: una forma sin relleno se borra por su contorno, así que barrer entre las ventanas de una fachada no se lleva el muro. Recta, flecha y trazo a mano se **recortan** en vez de desaparecer enteros —pasar por la mitad de una línea, o por donde se cruzan dos trazos, solo borra ese tramo—; el resto de elementos se elimina de verdad —lo borrado no reaparece al mover el dibujo ni viaja oculto dentro del archivo exportado— y cada pasada se deshace como una sola acción. Tamaño ajustable de 4 a 100 px: al elegir la herramienta se abre un modal con previsualización, reabrible luego con el botón ⚙ del panel. |
@@ -245,12 +246,12 @@ Cuatro convenciones que conviene conocer:
 
 - **`1rem` = 10px.** La raíz baja al 62.5% y todas las distancias de la interfaz están en `rem` — si subes el tamaño de fuente del navegador, la interfaz escala contigo. Los breakpoints de las media queries siguen en px a propósito, y el lienzo también (sus coordenadas son px de canvas fijados por JS).
 - **Los tokens de diseño viven en [`src/scss/abstracts/_variables.scss`](src/scss/abstracts/_variables.scss)** (colores, dimensiones, movimiento) y `base/_tokens.scss` los emite como custom properties — que deben seguir siéndolo en el CSS final, porque la sidebar se redimensiona en runtime y el lienzo lee `--font-sketch` con `getComputedStyle`.
-- **Las tipografías se cambian en un único sitio**: [`src/scss/abstracts/_fonts.scss`](src/scss/abstracts/_fonts.scss) declara `$font-ui` y `$font-sketch`, y de ahí salen las custom properties que usan el CSS **y el propio lienzo** (`config.js` lee `--font-sketch` en runtime). La interfaz usa **OpenDyslexic** (autoalojada en `fonts/`, pensada para lectores con dislexia); el lienzo mantiene Architects Daughter. El fichero documenta los puntos manuales que quedan (las URLs de fuentes externas).
+- **Las tipografías se cambian en un único sitio**: [`src/scss/abstracts/_fonts.scss`](src/scss/abstracts/_fonts.scss) declara `$font-ui` y `$font-sketch`, y de ahí salen las custom properties que usan el CSS **y el propio lienzo** (`config.js` lee `--font-sketch` en runtime). La interfaz usa **OpenDyslexic** (pensada para lectores con dislexia) y el lienzo, una de las cinco manuscritas del catálogo `SKETCH_FONTS`. **Las nueve tipografías van autoalojadas en `fonts/`**, así que la app no pide nada por red: dibuja igual sin conexión y abierta con `file://`. Cada familia manuscrita nueva necesita su `@font-face` y su `.woff2`, y hay guardas que lo comprueban.
 - **El orden de `@use` en `main.scss` es la cascada.** Cada bloque BEM tiene su parcial y lleva dentro sus propias media queries; no se reordena ni se alfabetiza.
 
 ## Tests
 
-**532 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
+**540 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
 de runtime:
 
 ```bash
@@ -260,7 +261,7 @@ node --test tests/exporter.test.js    # un archivo
 
 Los módulos se cargan en un contexto `node:vm` con stubs de canvas y DOM, incluido `src/js/app.js` completo: los tests lanzan gestos reales —puntero, teclado, modales— y leen el resultado del autoguardado, sin ningún hook de test en el código de producción.
 
-**47 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco, acciones por defecto del navegador, los flujos completos de Verjas y Cancela y el Jardín botánico en escritorio, móvil y anchos intermedios.
+**48 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco, acciones por defecto del navegador, los flujos completos de Verjas y Cancela y el Jardín botánico en escritorio, móvil y anchos intermedios.
 
 ```bash
 npm install && npm run e2e:install    # una vez (descarga Chromium)

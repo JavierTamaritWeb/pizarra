@@ -1171,3 +1171,44 @@ test('Exporter.importJSON: un fallo de lectura alerta y resuelve null', async ()
   assert.equal(await p, null);
   assert.deepEqual([...ctx.alerts], ['No se pudo leer el archivo']);
 });
+
+/* La letra manuscrita se puede cambiar en caliente (v2.13.0). FONT_FALLBACK,
+   FONT_CSS y la URL de la fuente eran constantes calculadas al cargar el
+   módulo: el archivo exportado habría salido siempre con la familia de
+   arranque, dijera lo que dijera el lienzo. */
+test('los exportados usan la letra manuscrita EN USO, no la de arranque', () => {
+  const ctx = freshCtx();
+  const el = { type: 'text', x: 10, y: 20, value: 'Hola', fontSize: 16, color: '#111111', lineWidth: 2, seed: 1 };
+  try {
+    ctx.setSketchFont('caveat');
+    ctx.Exporter.svg([el]);
+    const svg = lastBlob(ctx).content;
+    assert.match(svg, /font-family="Caveat/, 'el SVG debe escribir con la familia elegida');
+    assert.match(svg, /fonts\.googleapis\.com\/css2\?family=Caveat/,
+      'y pedir esa misma familia: un .svg suelto no lleva la carpeta fonts/ al lado');
+    assert.doesNotMatch(svg, /Architects\+Daughter/, 'no la de arranque');
+
+    ctx.Exporter.html([el]);
+    const html = lastBlob(ctx).content;
+    assert.match(html, /font-family: 'Caveat'/, 'y lo mismo en el HTML exportado');
+    assert.match(html, /fonts\.googleapis\.com\/css2\?family=Caveat/);
+  } finally {
+    ctx.setSketchFont('architects');   // no contaminar los demás tests
+  }
+});
+
+test('el nombre de familia de dos palabras viaja bien codificado en la URL', () => {
+  const ctx = freshCtx();
+  const el = { type: 'text', x: 10, y: 20, value: 'Hola', fontSize: 16, color: '#111111', lineWidth: 2, seed: 1 };
+  try {
+    ctx.setSketchFont('patrick');
+    ctx.Exporter.svg([el]);
+    const svg = lastBlob(ctx).content;
+    // '+' y no '%20': es lo que entiende la API de Google Fonts.
+    assert.match(svg, /family=Patrick\+Hand/, 'el espacio va como + en la URL');
+    // Y el & del query va escapado como entidad: dentro del SVG es XML.
+    assert.match(svg, /&amp;display=swap/, 'un & crudo malformaría el XML');
+  } finally {
+    ctx.setSketchFont('architects');
+  }
+});

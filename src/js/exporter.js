@@ -57,7 +57,7 @@ const Exporter = (() => {
   function svg(elements, options = {}) {
     let out = `<svg xmlns="http://www.w3.org/2000/svg" width="${CANVAS_W}" height="${CANVAS_H}" viewBox="0 0 ${CANVAS_W} ${CANVAS_H}">\n`;
     out += `<rect width="100%" height="100%" fill="white"/>\n`;
-    out += `<style>@import url('https://fonts.googleapis.com/css2?family=Architects+Daughter&amp;display=swap');</style>\n`;
+    out += `<style>@import url('${FONT_URL().replace(/&/g, '&amp;')}');</style>\n`;
 
     out += _svgScene(elements, options.overlapMode);
 
@@ -65,14 +65,28 @@ const Exporter = (() => {
     _downloadBlob('wireframe.svg', new Blob([out], { type: 'image/svg+xml' }));
   }
 
-  // La misma familia que SKETCHY_FONT (config.js) pero sin comillas: va en
-  // atributos XML font-family="..." del SVG exportado, donde una comilla
+  // La familia manuscrita EN USO (sketchFont(), config.js) pero sin comillas:
+  // va en atributos XML font-family="..." del SVG exportado, donde una comilla
   // (simple del fallback o doble de --font-sketch) malformaría el atributo;
   // <, > y & malformarían el propio XML.
-  const FONT_FALLBACK = SKETCHY_FONT.replace(/["'<>&]/g, '');
+  // Son funciones y no constantes desde la v2.13.0: la letra del lienzo se
+  // puede cambiar en caliente, y calculadas al cargar el módulo el archivo
+  // exportado habría salido siempre con la de arranque.
+  const FONT_FALLBACK = () => sketchFont().replace(/["'<>&]/g, '');
   // Y para el <style> del HTML exportado: sin '<' no se puede cerrar la
   // etiqueta, y sin llaves ni ';' no se inyectan reglas/declaraciones ajenas.
-  const FONT_CSS = SKETCHY_FONT.replace(/[<>{};]/g, '');
+  const FONT_CSS = () => sketchFont().replace(/[<>{};]/g, '');
+  /* Los exportados SIGUEN pidiendo la fuente a Google Fonts, y es deliberado:
+     la app ya no lo hace —las cinco viajan en fonts/—, pero un .svg o un .html
+     exportado es un archivo suelto que se manda por correo o se sube a un
+     sitio, sin la carpeta fonts/ al lado, así que una ruta relativa se
+     rompería en cuanto saliera de aquí. La URL se arma con la familia activa
+     (las cinco están en Google Fonts, todas OFL), y sin conexión el archivo
+     cae a la misma pila de resguardos manuscritos. */
+  const FONT_URL = () =>
+    'https://fonts.googleapis.com/css2?family=' +
+    encodeURIComponent(sketchFont().split(',')[0].replace(/['"]/g, '').trim())
+      .replace(/%20/g, '+') + '&display=swap';
   const DEFAULT_FILL_OPACITY = 0.4;
 
   /** Tipos sin representación HTML propia: van en un <svg> incrustado.
@@ -107,7 +121,7 @@ const Exporter = (() => {
     const t = el.labelT !== undefined ? el.labelT : 0.5;
     if (el.type === 'curveArrow' && CurvePath.isChain(el)) {
       const p = CurvePath.pointAt(el, t);
-      return `<text x="${p.x}" y="${p.y}" fill="${color}" stroke="#ffffff" stroke-width="4" paint-order="stroke" font-family="${FONT_FALLBACK}" font-size="13" text-anchor="middle" dominant-baseline="middle">${_escapeXml(el.label)}</text>\n`;
+      return `<text x="${p.x}" y="${p.y}" fill="${color}" stroke="#ffffff" stroke-width="4" paint-order="stroke" font-family="${FONT_FALLBACK()}" font-size="13" text-anchor="middle" dominant-baseline="middle">${_escapeXml(el.label)}</text>\n`;
     }
     const mt = 1 - t;
     let mx, my;
@@ -123,7 +137,7 @@ const Exporter = (() => {
       mx = mt * el.x1 + t * el.x2;
       my = mt * el.y1 + t * el.y2;
     }
-    return `<text x="${mx}" y="${my}" fill="${color}" stroke="#ffffff" stroke-width="4" paint-order="stroke" font-family="${FONT_FALLBACK}" font-size="13" text-anchor="middle" dominant-baseline="middle">${_escapeXml(el.label)}</text>\n`;
+    return `<text x="${mx}" y="${my}" fill="${color}" stroke="#ffffff" stroke-width="4" paint-order="stroke" font-family="${FONT_FALLBACK()}" font-size="13" text-anchor="middle" dominant-baseline="middle">${_escapeXml(el.label)}</text>\n`;
   }
 
   /**
@@ -244,7 +258,7 @@ const Exporter = (() => {
         case 'text': {
           // Multilínea: un <tspan> por línea con el mismo interlineado que el canvas
           const lines = String(el.value).split('\n');
-          out += `<text x="${el.x}" y="${el.y + el.fontSize}" fill="${color}" font-family="${FONT_FALLBACK}" font-size="${el.fontSize}">`;
+          out += `<text x="${el.x}" y="${el.y + el.fontSize}" fill="${color}" font-family="${FONT_FALLBACK()}" font-size="${el.fontSize}">`;
           lines.forEach((ln, i) => {
             out += `<tspan x="${el.x}" dy="${i === 0 ? 0 : el.fontSize + 4}">${_escapeXml(ln)}</tspan>`;
           });
@@ -255,12 +269,12 @@ const Exporter = (() => {
         // UI components → simple rects with labels in SVG
         case 'button':
           out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="8" stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="${tint('15')}"/>\n`;
-          out += `<text x="${el.x + el.w / 2}" y="${el.y + el.h / 2 + 5}" fill="${color}" font-family="${FONT_FALLBACK}" font-size="14" text-anchor="middle">${_escapeXml(el.label || 'Botón')}</text>\n`;
+          out += `<text x="${el.x + el.w / 2}" y="${el.y + el.h / 2 + 5}" fill="${color}" font-family="${FONT_FALLBACK()}" font-size="14" text-anchor="middle">${_escapeXml(el.label || 'Botón')}</text>\n`;
           break;
 
         case 'input':
           out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="4" stroke="${tint('80')}" stroke-width="${lw}" fill="none"/>\n`;
-          out += `<text x="${el.x + 10}" y="${el.y + el.h / 2 + 4}" fill="${tint('60')}" font-family="${FONT_FALLBACK}" font-size="13">${_escapeXml(el.label || 'Escribe aquí...')}</text>\n`;
+          out += `<text x="${el.x + 10}" y="${el.y + el.h / 2 + 4}" fill="${tint('60')}" font-family="${FONT_FALLBACK()}" font-size="13">${_escapeXml(el.label || 'Escribe aquí...')}</text>\n`;
           break;
 
         case 'imagePlaceholder':
@@ -271,20 +285,20 @@ const Exporter = (() => {
 
         case 'nav':
           out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="${tint('0a')}"/>\n`;
-          out += `<text x="${el.x + 20}" y="${el.y + el.h / 2 + 4}" fill="${color}" font-family="${FONT_FALLBACK}" font-size="12">${_escapeXml(el.label || 'Logo')}</text>\n`;
+          out += `<text x="${el.x + 20}" y="${el.y + el.h / 2 + 4}" fill="${color}" font-family="${FONT_FALLBACK()}" font-size="12">${_escapeXml(el.label || 'Logo')}</text>\n`;
           // Los mismos tres enlaces que pintan el canvas (renderer._nav) y el
           // export HTML, en las mismas posiciones (paso de 70px, hueco de 40
           // para la hamburguesa). El SVG simplifica FORMAS a propósito, pero un
           // texto que los otros dos formatos enseñan no puede faltar aquí.
           ['Inicio', 'Nosotros', 'Contacto'].forEach((link, i) => {
-            out += `<text x="${el.x + el.w - 250 + i * 70}" y="${el.y + el.h / 2 + 4}" fill="${color}" font-family="${FONT_FALLBACK}" font-size="12">${link}</text>\n`;
+            out += `<text x="${el.x + el.w - 250 + i * 70}" y="${el.y + el.h / 2 + 4}" fill="${color}" font-family="${FONT_FALLBACK()}" font-size="12">${link}</text>\n`;
           });
           break;
 
         case 'card':
           out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="10" ${s}/>\n`;
           out += `<line x1="${el.x + 4}" y1="${el.y + el.h * 0.45 + 4}" x2="${el.x + el.w - 4}" y2="${el.y + el.h * 0.45 + 4}" ${s}/>\n`;
-          out += `<text x="${el.x + 12}" y="${el.y + el.h * 0.45 + 24}" fill="${color}" font-family="${FONT_FALLBACK}" font-size="14" font-weight="bold">${_escapeXml(el.label || 'Título')}</text>\n`;
+          out += `<text x="${el.x + 12}" y="${el.y + el.h * 0.45 + 24}" fill="${color}" font-family="${FONT_FALLBACK()}" font-size="14" font-weight="bold">${_escapeXml(el.label || 'Título')}</text>\n`;
           break;
     }
 
@@ -370,10 +384,10 @@ const Exporter = (() => {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Wireframe Export</title>
-<link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&display=swap" rel="stylesheet">
+<link href="${FONT_URL()}" rel="stylesheet">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: ${FONT_CSS}; background: #fff; }
+body { font-family: ${FONT_CSS()}; background: #fff; }
 .wireframe { position: relative; width: ${CANVAS_W}px; height: ${CANVAS_H}px; margin: 20px auto; border: 1px solid #ccc; }
 .wireframe > * { position: absolute; }
 </style>

@@ -6,15 +6,21 @@
 //     literal de fallback debe seguir diciendo lo mismo que $font-sketch
 //     (lo ata el guard de tests/smoke.test.js)
 //   · src/js/exporter.js → FONT_FALLBACK, derivada de SKETCHY_FONT sin comillas
-// PUNTOS MANUALES (URLs de fuentes, fuera del pipeline CSS):
-//   [ ] index.html          <link> de Google Fonts (Architects Daughter)
-//   [ ] src/js/exporter.js  @import dentro del SVG exportado (exportSVG)
-//   [ ] src/js/exporter.js  <link> del <head> del HTML exportado (exportHTML)
+// Desde la v2.13.0 no queda ningún punto manual: index.html ya no enlaza
+// Google Fonts —las cinco manuscritas viajan autoalojadas en fonts/, con sus
+// @font-face en base/_font-faces.scss— y las dos URLs de los exportados las
+// arma FONT_URL() (exporter.js) con la familia activa. Lo que SÍ hay que
+// mantener a la par: cada entrada de SKETCH_FONTS (src/js/config.js) necesita
+// su @font-face y su .woff2, y la primera entrada debe decir lo mismo que
+// $font-sketch (guardas en tests/smoke.test.js).
 // ============================================================
 
 // Interfaz de la app (topbar, panel, modales). OpenDyslexic es autoalojada:
 // sus @font-face viven en base/_font-faces.scss y los .woff2 en fonts/.
 $font-ui: ("OpenDyslexic", "Segoe UI", system-ui, sans-serif);
 
-// Trazo manuscrito: el lienzo (ctx.font), el overlay de texto y los exports
+// Trazo manuscrito POR DEFECTO: el lienzo (ctx.font), el overlay de texto y
+// los exports. Es solo el valor inicial —desde la v2.13.0 la letra se elige
+// entre las cinco de SKETCH_FONTS, y setSketchFont() reescribe --font-sketch
+// en caliente—, así que debe coincidir con la PRIMERA entrada de ese catálogo.
 $font-sketch: ("Architects Daughter", "Segoe Print", "Comic Neue", cursive);

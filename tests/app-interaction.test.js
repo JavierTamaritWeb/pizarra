@@ -2688,3 +2688,53 @@ test('un elemento que YA estaba fuera puede volver hacia dentro', () => {
   app.drag(1190, 100, 900, 100);         // arrastrar hacia dentro
   assert.ok(app.elements()[0].x < atEdge - 100, 'debe poder volver hacia el centro');
 });
+
+/* ══════════════════════════════════════════════════════════════
+   Letra manuscrita elegible (v2.13.0). Las cinco familias viajan
+   autoalojadas; el selector vive en el panel y en #modal-text.
+   ══════════════════════════════════════════════════════════════ */
+
+test('los dos selectores de letra ofrecen el catálogo entero y son gemelos', () => {
+  const app = loadApp();
+  const { SKETCH_FONTS } = loadAll();
+  const ids = [...SKETCH_FONTS].map(f => f.id);
+  for (const sel of ['sketch-font', 'text-modal-font']) {
+    const opts = [...app.$(sel).children].map(o => o.value);
+    assert.deepEqual([...opts], ids,
+      `#${sel} debe ofrecer las mismas familias, y en el mismo orden`);
+  }
+  // Cambiar uno mueve el otro: es el mismo ajuste global, no dos.
+  const panel = app.$('sketch-font');
+  panel.value = 'kalam';
+  panel.__fire('change', { target: panel });
+  app.flush();
+  assert.equal(app.$('text-modal-font').value, 'kalam',
+    'el gemelo del modal debe seguir al del panel');
+});
+
+test('la letra elegida se usa al dibujar y sobrevive a la recarga', () => {
+  const app = loadApp();
+  const sel = app.$('text-modal-font');
+  sel.value = 'indie';
+  sel.__fire('change', { target: sel });
+  app.flush();
+  // Lo que de verdad importa: con qué escribe el lienzo.
+  assert.match(app.context.sketchFont(), /Indie Flower/,
+    'el lienzo debe pasar a escribir con la familia elegida');
+
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.sketchFontId, 'indie', 'la elección persiste en prefs');
+  const reloaded = loadApp({ prefs });
+  assert.equal(reloaded.$('sketch-font').value, 'indie',
+    'y se restaura en los dos selectores');
+  assert.equal(reloaded.$('text-modal-font').value, 'indie');
+  assert.match(reloaded.context.sketchFont(), /Indie Flower/);
+});
+
+test('una letra guardada que ya no existe no deja el lienzo sin fuente', () => {
+  // Un prefs de otra versión (o manipulado): se ignora y manda el default.
+  const app = loadApp({ prefs: { sketchFontId: 'papiro-inexistente' } });
+  const { SKETCH_FONTS } = loadAll();
+  assert.equal(app.$('sketch-font').value, SKETCH_FONTS[0].id);
+  assert.match(app.context.sketchFont(), /Architects Daughter/);
+});

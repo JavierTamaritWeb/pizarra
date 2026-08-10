@@ -509,6 +509,66 @@ const SKETCHY_FONT = (() => {
   }
 })();
 
+/**
+ * Letras manuscritas que puede usar el lienzo. Las cinco viajan autoalojadas
+ * en fonts/ (SIL OFL 1.1), así que elegir una no pide nada por red.
+ *
+ * `stack` es la pila COMPLETA, con los mismos resguardos del sistema que
+ * $font-sketch: si el .woff2 no cargara (una copia incompleta del repo), el
+ * lienzo sigue escribiendo a mano en vez de caer a una sans.
+ *
+ * La primera entrada es la de siempre y el valor por defecto; su `stack` debe
+ * coincidir con --font-sketch (scss/abstracts/_fonts.scss), que es de donde
+ * sale SKETCHY_FONT — lo ata tests/smoke.test.js, igual que exige un
+ * @font-face por entrada.
+ */
+const SKETCH_FONTS = Object.freeze([
+  { id: 'architects', name: 'Architects Daughter',
+    stack: "'Architects Daughter', 'Segoe Print', 'Comic Neue', cursive" },
+  { id: 'caveat', name: 'Caveat',
+    stack: "'Caveat', 'Segoe Print', 'Comic Neue', cursive" },
+  { id: 'patrick', name: 'Patrick Hand',
+    stack: "'Patrick Hand', 'Segoe Print', 'Comic Neue', cursive" },
+  { id: 'kalam', name: 'Kalam',
+    stack: "'Kalam', 'Segoe Print', 'Comic Neue', cursive" },
+  { id: 'indie', name: 'Indie Flower',
+    stack: "'Indie Flower', 'Segoe Print', 'Comic Neue', cursive" },
+]);
+
+/* Letra manuscrita activa. Es MUTABLE a propósito: SKETCHY_FONT se calcula una
+   sola vez al arrancar, así que sin esto elegir otra familia no habría podido
+   cambiar nada ya dibujado. Todo lo que escribe en el lienzo —renderer,
+   previsualizaciones, exportadores— pasa por sketchFont(), nunca por la
+   constante, para que el cambio alcance hasta el último rótulo. */
+let sketchFontStack = SKETCHY_FONT;
+
+/** Pila tipográfica manuscrita en uso. */
+function sketchFont() {
+  return sketchFontStack;
+}
+
+/** Entrada del catálogo por id (la primera si no existe). */
+function sketchFontById(id) {
+  return SKETCH_FONTS.find(f => f.id === id) || SKETCH_FONTS[0];
+}
+
+/**
+ * Cambia la letra manuscrita. Además de la pila que usa el lienzo, actualiza
+ * --font-sketch: el editor de texto flotante es un <textarea> real y toma su
+ * familia de esa custom property, así que sin esto escribirías con una letra
+ * y verías otra en cuanto soltaras. Devuelve la entrada aplicada.
+ */
+function setSketchFont(id) {
+  const font = sketchFontById(id);
+  sketchFontStack = font.stack;
+  try {
+    if (typeof document !== 'undefined' && document.documentElement) {
+      document.documentElement.style.setProperty('--font-sketch', font.stack);
+    }
+  } catch (e) { /* sin DOM (harness node:vm): basta con la pila */ }
+  return font;
+}
+
 /** Default dimensions when a UI component is placed with a tiny drag */
 const UI_DEFAULTS = {
   [TOOLS.BUTTON]:            { w: 120, h: 40 },

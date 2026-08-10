@@ -96,7 +96,7 @@ const Renderer = (() => {
   function _arrowLabel(ctx, el) {
     if (!el.label) return;
     const mid = _arrowMid(el);
-    ctx.font = `13px ${SKETCHY_FONT}`;
+    ctx.font = `13px ${sketchFont()}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.strokeStyle = '#ffffff';
@@ -389,7 +389,7 @@ const Renderer = (() => {
     ctx.fillStyle = _tint(color, '15');
     Sketchy.roundedRect(ctx, x, y, w, h, 8);
     ctx.fill();
-    ctx.font = `${Math.min(16, h * 0.5)}px ${SKETCHY_FONT}`;
+    ctx.font = `${Math.min(16, h * 0.5)}px ${sketchFont()}`;
     ctx.fillStyle = color;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -400,7 +400,7 @@ const Renderer = (() => {
     ctx.strokeStyle = _tint(color, '80');
     ctx.lineWidth = lw;
     Sketchy.roundedRect(ctx, x, y, w, h, 4);
-    ctx.font = `${Math.min(13, h * 0.45)}px ${SKETCHY_FONT}`;
+    ctx.font = `${Math.min(13, h * 0.45)}px ${sketchFont()}`;
     ctx.fillStyle = _tint(color, '60');
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
@@ -438,7 +438,7 @@ const Renderer = (() => {
     ctx.fill();
     // Logo
     Sketchy.roundedRect(ctx, x + 10, y + (h - 20) / 2, 60, 20, 4);
-    ctx.font = `12px ${SKETCHY_FONT}`;
+    ctx.font = `12px ${sketchFont()}`;
     ctx.fillStyle = color;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
@@ -472,7 +472,7 @@ const Renderer = (() => {
     ctx.fillRect(x + 4, y + 4, w - 8, imgH);
     Sketchy.line(ctx, x + 4, y + imgH + 4, x + w - 4, y + imgH + 4);
     // Title
-    ctx.font = `bold 14px ${SKETCHY_FONT}`;
+    ctx.font = `bold 14px ${sketchFont()}`;
     ctx.fillStyle = color;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
@@ -659,7 +659,7 @@ const Renderer = (() => {
         break;
 
       case 'text':
-        ctx.font = `${el.fontSize}px ${SKETCHY_FONT}`;
+        ctx.font = `${el.fontSize}px ${sketchFont()}`;
         ctx.fillStyle = el.color;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';

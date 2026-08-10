@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.12.1 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.13.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.12\.1</);
-  assert.match(html, /css\/styles\.css\?v=2\.12\.1/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.12\.1/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.12\.1/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.12\.1/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.12\.1/);
+  assert.match(html, /class="topbar__badge">v2\.13\.0</);
+  assert.match(html, /css\/styles\.css\?v=2\.13\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.13\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.13\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.13\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.13\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -420,4 +420,60 @@ test('no hay imágenes fuera de src/img/', () => {
     .filter(e => e.name !== 'img')
     .flatMap(e => e.isDirectory() ? walk(path.join(root, 'src', e.name)) : []);
   assert.deepEqual(inSrc, [], 'mueve estas imágenes a src/img/');
+});
+
+/* ══════════════════════════════════════════════════════════════
+   Tipografías manuscritas autoalojadas (v2.13.0). El lienzo ya no
+   pide nada a Google Fonts: las cinco familias viajan en fonts/.
+   Nada de esto lo ve el arnés vm —son ficheros, CSS compilado y el
+   <head>—, y todo falla en silencio: una familia sin @font-face o
+   sin .woff2 no rompe nada, el lienzo se limita a dibujar con el
+   resguardo del sistema y el boceto deja de parecerse a lo que la
+   app promete.
+   ══════════════════════════════════════════════════════════════ */
+
+test('la app no pide ninguna fuente por red', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  assert.doesNotMatch(html, /fonts\.googleapis\.com/,
+    'index.html no debe enlazar Google Fonts: las manuscritas están en fonts/');
+  assert.doesNotMatch(html, /fonts\.gstatic\.com/,
+    'ni preconectar con gstatic, que era su único motivo');
+  assert.match(html, /id="sketch-font"/, 'falta el selector de letra manuscrita');
+});
+
+test('cada letra manuscrita del catálogo tiene su @font-face y su .woff2', () => {
+  const ctx = load('src/js/config.js');
+  const css = fs.readFileSync(path.resolve(__dirname, '..', 'css', 'styles.css'), 'utf8');
+  const root = path.resolve(__dirname, '..');
+  assert.ok(ctx.SKETCH_FONTS.length >= 5, 'el catálogo debe traer las cinco familias');
+  for (const f of ctx.SKETCH_FONTS) {
+    assert.equal(typeof f.id, 'string');
+    assert.equal(typeof f.name, 'string');
+    // La familia declarada en el @font-face es la PRIMERA de la pila: las
+    // demás son resguardos del sistema, que nadie autoaloja.
+    const family = f.stack.split(',')[0].replace(/['"]/g, '').trim();
+    const face = new RegExp(
+      `@font-face\\s*\\{[^}]*font-family:\\s*"${family}"[^}]*src:\\s*url\\("\\.\\./fonts/([^"]+\\.woff2)"`);
+    const m = css.match(face);
+    assert.ok(m, `sin @font-face para «${family}» el lienzo cae al resguardo sin avisar`);
+    assert.ok(fs.existsSync(path.join(root, 'fonts', m[1])),
+      `falta el fichero fonts/${m[1]} que declara el CSS`);
+  }
+  // Y las cinco pilas terminan en los mismos resguardos manuscritos, para que
+  // una copia incompleta del repo siga escribiendo a mano y no en una sans.
+  for (const f of ctx.SKETCH_FONTS) {
+    assert.match(f.stack, /cursive$/, `la pila de ${f.name} debe acabar en cursive`);
+  }
+});
+
+test('la letra por defecto del catálogo es la misma que --font-sketch', () => {
+  const ctx = load('src/js/config.js');
+  const css = fs.readFileSync(path.resolve(__dirname, '..', 'css', 'styles.css'), 'utf8');
+  const token = css.match(/--font-sketch:\s*([^;]+);/);
+  assert.ok(token, 'falta --font-sketch en el CSS compilado');
+  const norm = s => s.replace(/['"]/g, '').replace(/\s+/g, ' ').trim();
+  assert.equal(norm(ctx.SKETCH_FONTS[0].stack), norm(token[1]),
+    'la primera entrada del catálogo es el default y debe decir lo que --font-sketch');
+  assert.equal(norm(ctx.SKETCHY_FONT), norm(ctx.SKETCH_FONTS[0].stack),
+    'y SKETCHY_FONT (el resguardo del arnés) tiene que coincidir con ella');
 });

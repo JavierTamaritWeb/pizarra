@@ -49,3 +49,38 @@ test('«Select»: el botón existe, el clic selecciona y la marquesina nace enci
   await page.keyboard.press('Delete');
   await expect.poll(async () => (await elements(page)).length).toBe(0);
 });
+
+/* Tipografías manuscritas autoalojadas (v2.13.0). El arnés vm no puede ver
+   nada de esto: si una fuente cargó, si el lienzo la usa de verdad y si la
+   app pide algo por red. Todo falla en silencio —el canvas dibuja con el
+   resguardo del sistema y nadie se entera—, así que se comprueba aquí. */
+test('las manuscritas se sirven desde el repo y elegir una cambia lo que dibuja el lienzo', async ({ page }) => {
+  const externas = [];
+  page.on('request', r => {
+    if (/googleapis|gstatic/.test(r.url())) externas.push(r.url());
+  });
+  await openApp(page);
+
+  // 1. La app no pide ninguna fuente por red, y la de arranque ya está cargada
+  //    (el <canvas> no dispara la descarga: hay que pedirla a mano).
+  expect(externas).toEqual([]);
+  await expect.poll(async () => page.evaluate(
+    () => [...document.fonts].some(f => f.family === 'Architects Daughter' && f.status === 'loaded')
+  )).toBe(true);
+
+  // 2. Elegir otra letra la carga y CAMBIA las métricas reales del lienzo:
+  //    la prueba de que ctx.font la está usando, no un resguardo.
+  const ancho = () => page.evaluate(() => {
+    const c = document.createElement('canvas').getContext('2d');
+    c.font = "24px 'Kalam'";
+    return Math.round(c.measureText('Pizarra manuscrita').width);
+  });
+  const antes = await ancho();
+  await page.selectOption('#sketch-font', 'kalam');
+  await settle(page);
+  await expect.poll(ancho, { timeout: 5000 }).not.toBe(antes);
+  expect(externas).toEqual([]);
+
+  // 3. El gemelo de «Ajustes del texto» sigue al del panel: es el mismo ajuste.
+  await expect(page.locator('#text-modal-font')).toHaveValue('kalam');
+});

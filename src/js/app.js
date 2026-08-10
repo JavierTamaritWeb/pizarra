@@ -102,6 +102,10 @@
     pendingUnselect: null,   // clic sin arrastre sobre algo seleccionado: se quita en mouseup
     canvasBg:    DEFAULT_CANVAS_BG,
     gridColor:   DEFAULT_GRID_COLOR,
+    // Letra manuscrita del boceto (id de SKETCH_FONTS). Ajuste cosmético
+    // global como los dos de arriba: no viaja en los elementos ni en el
+    // undo, y persiste en prefs.
+    sketchFontId: SKETCH_FONTS[0].id,
     elements:    [],
     undoStack:   [],
     redoStack:   [],
@@ -211,7 +215,7 @@
     if (el.type === 'text') {
       const lines = el.value.split('\n');
       ctx.save();
-      ctx.font = `${el.fontSize}px ${SKETCHY_FONT}`;
+      ctx.font = `${el.fontSize}px ${sketchFont()}`;
       const w = Math.max(...lines.map(ln => ctx.measureText(ln).width));
       ctx.restore();
       return { x: el.x, y: el.y, w, h: lines.length * (el.fontSize + 4) };
@@ -325,6 +329,52 @@
       necesita que la multi-selección sea un edificio: con dos rects sueltos
       los campos enseñaban valores rancios y teclear no hacía nada, cuando el
       panel promete la caja combinada (auditoría v2.10.1). */
+  /**
+   * Un `<canvas>` NO dispara la descarga de una webfont: `ctx.font` con una
+   * familia que todavía no está cargada dibuja con el resguardo de la pila y
+   * no lo reintenta. Y la única parte del DOM que usa la manuscrita es el
+   * editor de texto flotante, oculto casi siempre, así que nada la pedía por
+   * su cuenta: el boceto habría salido con la cursiva del sistema hasta un
+   * repintado afortunado. Se pide explícitamente y se repinta al llegar.
+   */
+  function ensureSketchFontLoaded(font) {
+    try {
+      if (!document.fonts || typeof document.fonts.load !== 'function') return;
+      const family = font.stack.split(',')[0].trim();
+      document.fonts.load(`16px ${family}`).then(repaintWithFont, () => {});
+    } catch (e) { /* sin FontFaceSet: el navegador la cargará por su cuenta */ }
+  }
+
+  /** Repinta lo que escribe con la manuscrita: el lienzo y, si está abierta,
+      la muestra del modal de texto —que es justo donde se está mirando—. */
+  function repaintWithFont() {
+    redraw();
+    if ($('modal-text').open) renderTextPreview();
+  }
+
+  /** El selector de letra manuscrita existe dos veces: en el panel («Lienzo»)
+      y en #modal-text, que es donde se mira al escribir. Mismo contrato que
+      los gemelos de Edificios: un solo cuerpo reparte a los dos. */
+  const SKETCH_FONT_SELECTS = ['sketch-font', 'text-modal-font'];
+
+  /**
+   * Punto ÚNICO de cambio de la letra manuscrita: la pila que usa el lienzo
+   * (sketchFont), `--font-sketch` para el editor flotante, los DOS selectores
+   * —cada uno previsualizado con la familia elegida— y el repintado.
+   */
+  function applySketchFont(id) {
+    const font = setSketchFont(id);
+    state.sketchFontId = font.id;
+    SKETCH_FONT_SELECTS.forEach(sid => {
+      const sel = $(sid);
+      if (!sel) return;
+      sel.value = font.id;
+      sel.style.fontFamily = font.stack;
+    });
+    ensureSketchFontLoaded(font);
+    repaintWithFont();
+  }
+
   /** Píxeles de un objeto que deben seguir dentro del lienzo al moverlo. */
   const KEEP_VISIBLE = 24;
 
@@ -904,6 +954,7 @@
       localStorage.setItem(PREFS_KEY, JSON.stringify({
         canvasBg: state.canvasBg,
         gridColor: state.gridColor,
+        sketchFontId: state.sketchFontId,
         overlapMode: state.overlapMode,
         eraserSize: state.eraserSize,
         buildFloors: state.buildFloors,
@@ -970,6 +1021,11 @@
       if (!prefs || typeof prefs !== 'object') return;
       if (HEX_RE.test(prefs.canvasBg)) state.canvasBg = prefs.canvasBg;
       if (HEX_RE.test(prefs.gridColor)) state.gridColor = prefs.gridColor;
+      // Validada contra el catálogo: un id inventado (o de una versión con
+      // otras familias) dejaría el lienzo pidiendo una fuente inexistente.
+      if (SKETCH_FONTS.some(f => f.id === prefs.sketchFontId)) {
+        state.sketchFontId = prefs.sketchFontId;
+      }
       if (['normal', 'hidden-dashed'].includes(prefs.overlapMode)) {
         state.overlapMode = prefs.overlapMode;
       }
@@ -2129,7 +2185,7 @@
       freeAngle: state.pathAnyAngle || state.pathFreeAngle,
       measureText: (value, fontSize) => {
         ctx.save();
-        ctx.font = `${fontSize}px ${SKETCHY_FONT}`;
+        ctx.font = `${fontSize}px ${sketchFont()}`;
         const w = ctx.measureText(value).width;
         ctx.restore();
         return w;
@@ -2367,7 +2423,7 @@
 
     octx.save();
     octx.setLineDash([]);
-    octx.font = `bold ${ANGLE_BADGE.font}px ${SKETCHY_FONT}`;
+    octx.font = `bold ${ANGLE_BADGE.font}px ${sketchFont()}`;
     octx.textAlign = 'left';
     octx.textBaseline = 'middle';
     const tw = octx.measureText(label).width;
@@ -2877,7 +2933,7 @@
     // El render de `text` ancla en la esquina superior izquierda; se descuenta
     // media caja para que el emoji quede centrado en el punto pulsado
     ctx.save();
-    ctx.font = `${fontSize}px ${SKETCHY_FONT}`;
+    ctx.font = `${fontSize}px ${sketchFont()}`;
     const w = ctx.measureText(emoji).width;
     ctx.restore();
     saveUndo();
@@ -4333,6 +4389,26 @@
       state.gridColor = e.target.value;
       savePrefs();
       redraw();
+    });
+
+    // Letra manuscrita del lienzo, en sus dos sitios (panel y #modal-text).
+    // Las opciones se construyen desde SKETCH_FONTS —no duplicadas en el
+    // HTML, que es donde se desincronizan los catálogos— y cada una se
+    // rotula CON SU PROPIA letra: en una lista de nombres es lo único que
+    // distingue una manuscrita de otra antes de elegirla.
+    SKETCH_FONT_SELECTS.forEach(id => {
+      const sel = $(id);
+      SKETCH_FONTS.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.id;
+        opt.textContent = f.name;
+        opt.style.fontFamily = f.stack;
+        sel.appendChild(opt);
+      });
+      sel.addEventListener('change', e => {
+        applySketchFont(e.target.value);
+        savePrefs();
+      });
     });
 
     // Checkboxes
@@ -6525,6 +6601,11 @@
     syncUiControls();
     $('emoji-modal-size').value = String(state.emojiSize);
     $('emoji-modal-size-val').textContent = String(state.emojiSize);
+    // Va DESPUÉS de wireControls (el selector ya tiene sus opciones) y aplica
+    // la letra restaurada de prefs, pidiendo su descarga: sin esto la primera
+    // pintada usaría el resguardo del sistema aunque el .woff2 esté aquí al
+    // lado, porque el lienzo no dispara la carga de una webfont.
+    applySketchFont(state.sketchFontId);
     updateCursor();
     fitZoomToViewport();
     redraw();
