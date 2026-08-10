@@ -114,6 +114,7 @@
     dragSnapshot: null,
     didDrag:     false,
     marquee:     null,  // rectángulo de selección en curso {x1,y1,x2,y2}
+    pickDown:    null,  // gesto de «Select» pendiente de resolver {idx, alt}
     resizing:    null,  // resize en curso {corner, from, original, snapshot, did}
   };
 
@@ -1774,6 +1775,17 @@
     r.did = true;
   }
 
+  // Shift+click con Mover o con «Select»: toggle en la selección — el grupo
+  // completo (edificio/planta), o solo la pieza con Alt+Shift+click.
+  function shiftToggleAt(idx, alt) {
+    if (idx < 0) return;
+    const grp = alt ? [idx] : groupIndicesOf(idx);
+    setSelection(state.selection.includes(idx)
+      ? state.selection.filter(i => !grp.includes(i))
+      : [...state.selection, ...grp]);
+    redraw();
+  }
+
   function onMouseDown(e) {
     const pos = getPos(e);
 
@@ -1863,13 +1875,7 @@
       // 3. Shift+click: toggle en la selección — el edificio completo (grupo),
       //    o solo la pieza con Alt+Shift+click
       if (e.shiftKey) {
-        if (idx >= 0) {
-          const grp = e.altKey ? [idx] : groupIndicesOf(idx);
-          setSelection(state.selection.includes(idx)
-            ? state.selection.filter(i => !grp.includes(i))
-            : [...state.selection, ...grp]);
-          redraw();
-        }
+        shiftToggleAt(idx, e.altKey);
         return;
       }
 
@@ -1898,6 +1904,26 @@
         setSelection([]);
         state.marquee = { x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y };
       }
+      redraw();
+      return;
+    }
+
+    // Herramienta «Select» (solo selección): el clic selecciona —con la misma
+    // semántica de grupos, Alt y «Los clics acumulan» que Mover— y el arrastre
+    // dibuja SIEMPRE marquesina, incluso empezando encima de un elemento, que
+    // es justo el gesto que Mover no puede ofrecer sin mover. Nada se desplaza
+    // jamás con esta herramienta. El gesto entero se resuelve en el bloque de
+    // marquee de onMouseUp (vía state.pickDown): hasta soltar no se sabe si
+    // fue clic o marco, así que aquí no se toca la selección — un marco que
+    // sustituye ya lo hará setSelection, y un clic necesita la selección
+    // vieja intacta para poder acumular o retirar.
+    if (state.tool === TOOLS.PICK) {
+      if (e.shiftKey) {
+        shiftToggleAt(hitTest(pos), e.altKey);
+        return;
+      }
+      state.pickDown = { idx: hitTest(pos), alt: e.altKey };
+      state.marquee = { x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y };
       redraw();
       return;
     }
@@ -2376,7 +2402,9 @@
     // Fin de marquee: seleccionar los elementos que intersecan el rectángulo
     if (state.marquee) {
       const m = state.marquee;
+      const down = state.pickDown;
       state.marquee = null;
+      state.pickDown = null;
       octx.clearRect(0, 0, CANVAS_W, CANVAS_H);
       const rx = Math.min(m.x1, m.x2), ry = Math.min(m.y1, m.y2);
       const rw = Math.abs(m.x2 - m.x1), rh = Math.abs(m.y2 - m.y1);
@@ -2388,6 +2416,24 @@
           if (b.x < rx + rw && b.x + b.w > rx && b.y < ry + rh && b.y + b.h > ry) sel.push(i);
         });
         setSelection(sel);
+      } else if (down) {
+        // Clic sin arrastre con «Select»: la misma semántica de clic que
+        // Mover — el grupo completo, Alt aísla la pieza, y con «Los clics
+        // acumulan selección» el clic añade, o retira si ya estaba — pero
+        // sin arrancar nunca un arrastre de movimiento. Con Mover este caso
+        // no llega aquí: su clic se resuelve en onMouseDown y su marquee
+        // solo nace en el vacío, con la selección ya vaciada.
+        if (down.idx >= 0) {
+          const grp = down.alt ? [down.idx] : groupIndicesOf(down.idx);
+          if (down.alt) setSelection([down.idx]);
+          else if (!state.selection.includes(down.idx)) {
+            setSelection(state.multiSelect ? [...state.selection, ...grp] : grp);
+          } else if (state.multiSelect) {
+            setSelection(state.selection.filter(i => !grp.includes(i)));
+          }
+        } else {
+          setSelection([]);
+        }
       }
       redraw();
       return;
@@ -2755,11 +2801,15 @@
   const LABELED_TYPES = [TOOLS.BUTTON, TOOLS.INPUT, TOOLS.NAV, TOOLS.CARD];
 
   mainCanvas.addEventListener('dblclick', e => {
-    if (state.tool !== TOOLS.SELECT) return;
+    // «Select» comparte el descenso a pieza (más abajo), pero no los editores
+    // ni el reset de curvatura: es una herramienta de solo selección y un
+    // doble clic no debe modificar nada.
+    const picking = state.tool === TOOLS.PICK;
+    if (state.tool !== TOOLS.SELECT && !picking) return;
     const pos = getPos(e);
     // Doble click sobre un handle de curvatura: resetear la curvatura
     // (cuadrática → control por defecto; cúbica → S canónica)
-    if (state.selection.length === 1) {
+    if (!picking && state.selection.length === 1) {
       const sel = state.elements[state.selection[0]];
       // Doble click sobre el handle de etiqueta desplazada: re-centrarla.
       // Con labelT ausente no se intercepta (el flujo cae al editor de texto)
@@ -2828,6 +2878,8 @@
       redraw();
       return;
     }
+    // Con «Select», aquí se acaba: nada de abrir editores de texto.
+    if (picking) return;
     const el = state.elements[idx];
     if (el.type === 'text') {
       state.editingIdx = idx;
@@ -2990,6 +3042,9 @@
   function updateCursor() {
     mainCanvas.classList.toggle('canvas-area__canvas--move', state.tool === TOOLS.SELECT);
     mainCanvas.classList.toggle('canvas-area__canvas--eraser', state.tool === TOOLS.ERASER);
+    // «Select»: flecha normal — ni la cruz de dibujar ni el `move` de Mover,
+    // porque esta herramienta ni crea ni desplaza.
+    mainCanvas.classList.toggle('canvas-area__canvas--pick', state.tool === TOOLS.PICK);
   }
 
   /* ── Acciones sobre la selección ── */

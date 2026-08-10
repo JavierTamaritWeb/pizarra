@@ -424,6 +424,12 @@ input[type=range]::-moz-range-thumb {
   cursor: none;
 }
 
+/* «Select» (solo selección): flecha normal — ni la cruz de dibujar ni el
+   `move` de Mover, porque esta herramienta ni crea ni desplaza */
+.canvas-area__canvas--pick {
+  cursor: default;
+}
+
 .canvas-area__overlay {
   position: absolute;
   top: 0;

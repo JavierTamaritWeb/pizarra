@@ -2387,3 +2387,85 @@ test('arrastrar por dentro del marco sigue moviendo el grupo, no escalándolo', 
     'mover no debe cambiar el tamaño');
   assert.ok(Math.abs((after.x - before.x) - 50) < 0.5, 'debe haberse desplazado 50px en x');
 });
+
+/* ══════════════════════════════════════════════════════════════
+   «Select» (v2.11.0) — herramienta de SOLO selección: el clic
+   selecciona con la misma semántica que Mover y el arrastre dibuja
+   SIEMPRE marquesina, incluso naciendo encima de un elemento — el
+   gesto que con Mover lo movería. Nada se desplaza jamás con ella.
+   ══════════════════════════════════════════════════════════════ */
+
+test('«Select»: el clic selecciona (Supr borra) y el clic en vacío deselecciona', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(50, 50, 150, 150);
+  app.drag(300, 50, 400, 150);
+  app.selectTool('pick');
+  app.click(100, 100);           // selecciona el primero
+  app.click(700, 500);           // vacío: deselecciona
+  app.key('Delete');
+  assert.equal(app.elements().length, 2, 'tras el clic en vacío, Supr no borra nada');
+  app.click(100, 100);
+  app.key('Delete');
+  const els = app.elements();
+  assert.equal(els.length, 1, 'el clic seleccionó el rect y Supr lo borró');
+  assert.equal(els[0].x, 300, 'sobrevive el otro rect');
+});
+
+test('«Select»: arrastrar desde ENCIMA de un elemento no lo mueve — dibuja marquesina', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(50, 50, 150, 150);
+  app.drag(300, 50, 400, 150);
+  app.selectTool('pick');
+  // El arrastre nace sobre el primer rect y cruza hasta cubrir el segundo:
+  // con Mover esto desplazaría el rect; con «Select» enmarca y selecciona.
+  app.drag(100, 100, 450, 200);
+  const els = app.elements();
+  assert.deepEqual(els.map(e => e.x).sort((a, b) => a - b), [50, 300],
+    'ningún elemento debe haberse movido');
+  app.key('Delete');
+  assert.equal(app.elements().length, 0, 'la marquesina seleccionó los dos');
+});
+
+test('«Select»: el clic selecciona el grupo completo y el doble clic desciende a la pieza', () => {
+  const { app, count } = withFacade();
+  app.selectTool('pick');
+  app.click(100, 100);           // el edificio entero
+  app.dblclick(100, 100);        // desciende a la pieza bajo el cursor
+  app.key('Delete');
+  assert.equal(app.elements().length, count - 1,
+    'se borra solo la pieza aislada por doble clic');
+});
+
+test('«Select» respeta «Los clics acumulan selección»: añade, y el clic repetido retira', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(50, 50, 90, 90);
+  app.drag(300, 300, 340, 340);
+  app.selectTool('pick');
+  toggle(app, 'check-multi-select');
+  app.click(70, 70);
+  app.click(320, 320);           // añade: no sustituye
+  app.click(320, 320);           // clic repetido: retira
+  app.key('Delete');
+  const els = app.elements();
+  assert.equal(els.length, 1, 'solo seguía seleccionado el primero');
+  assert.equal(els[0].x, 300, 'sobrevive el retirado de la selección');
+});
+
+test('«Select»: el doble clic sobre un texto suelto NO abre el editor (solo selecciona)', () => {
+  const app = loadApp();
+  app.selectTool('text');
+  app.click(200, 200);
+  const input = app.$('text-input');
+  input.value = 'hola';
+  input.__fire('blur', { target: input });
+  app.flush();
+  assert.equal(app.elements().length, 1, 'hay un texto');
+  app.selectTool('pick');
+  app.dblclick(202, 208);        // sobre el texto
+  app.flush();
+  assert.equal(input.hidden, true, 'el editor no debe abrirse con «Select»');
+  assert.equal(app.elements()[0].value, 'hola', 'el texto queda intacto');
+});

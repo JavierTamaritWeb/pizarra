@@ -18,10 +18,10 @@ test('config.js — TOOLS', async t => {
     assert.equal(Object.isFrozen(ctx.TOOLS), true);
   });
 
-  await t.test('TOOLS tiene exactamente los 40 ids esperados', () => {
+  await t.test('TOOLS tiene exactamente los 41 ids esperados', () => {
     const expected = [
       'pencil', 'line', 'rect', 'roundedRect', 'circle', 'arrow',
-      'curveArrow', 'arc', 'text', 'eraser', 'select', 'imagePlaceholder',
+      'curveArrow', 'arc', 'text', 'eraser', 'select', 'pick', 'imagePlaceholder',
       'button', 'input', 'nav', 'card', 'image', 'emoji',
       'square', 'trapezoid', 'triangle', 'pentagon', 'hexagon',
       // Edificios (creación): Fachada y Tejado unifican sus tipos en sendos modales
@@ -30,11 +30,11 @@ test('config.js — TOOLS', async t => {
       'jardin', 'arbol', 'arbusto', 'flor', 'decoracion', 'camino', 'aromatica', 'trepadora',
     ];
     const values = Object.values(ctx.TOOLS);
-    assert.equal(values.length, 40);
+    assert.equal(values.length, 41);
     assert.deepEqual([...values].sort(), [...expected].sort());
-    // Las claves también son 40 y únicas
-    assert.equal(Object.keys(ctx.TOOLS).length, 40);
-    assert.equal(new Set(values).size, 40);
+    // Las claves también son 41 y únicas
+    assert.equal(Object.keys(ctx.TOOLS).length, 41);
+    assert.equal(new Set(values).size, 41);
   });
 });
 
@@ -245,6 +245,18 @@ test('config.js — ningún atajo de herramienta pisa una acción ya reservada',
       RESERVED_PLAIN_KEYS[tool.key], undefined,
       `el atajo "${tool.key}" de ${tool.name} choca con «${RESERVED_PLAIN_KEYS[tool.key]}» (app.js)`);
   }
+});
+
+test('config.js — el grupo Edición es Mover, «Select» y Borrador, y solo «Select» va sin atajo', () => {
+  const ctx = load('src/js/config.js');
+  const ed = ctx.TOOL_GROUPS.find(g => g.label === 'Edición');
+  assert.ok(ed, 'falta el grupo Edición en el sidebar');
+  // El orden es el que se pinta: Mover abre el sidebar y «Select» (solo
+  // selección: clic o marquesina, nunca mueve) vive entre Mover y Borrador.
+  assert.deepEqual([...ed.tools.map(t => t.id)], ['select', 'pick', 'eraser']);
+  // «Select» entró sin atajo por lo mismo que Balcón: las 26 letras y los 10
+  // dígitos están asignados y `f q d s` son acciones de la flecha curva.
+  assert.deepEqual([...ed.tools.filter(t => !t.key).map(t => t.id)], ['pick']);
 });
 
 test('config.js — el sidebar de Edificios y BUILDING_TOOLS son la misma lista', () => {

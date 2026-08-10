@@ -4,11 +4,11 @@
 
 **Wireframes, diagramas y bocetos con estética dibujada a mano — en el navegador y sin instalar nada.**
 
-[![Versión](https://img.shields.io/badge/versión-2.10.1-blueviolet?style=flat-square)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-2.11.0-blueviolet?style=flat-square)](CHANGELOG.md)
 [![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?style=flat-square&logo=javascript&logoColor=000)](src/js/)
 [![Estilos](https://img.shields.io/badge/estilos-SCSS%20·%20BEM%20·%20Gulp%205-cf649a?style=flat-square&logo=sass&logoColor=fff)](src/scss/)
 [![Dependencias](https://img.shields.io/badge/dependencias%20en%20runtime-0-brightgreen?style=flat-square)](#arquitectura)
-[![Tests](https://img.shields.io/badge/tests-514%20unitarios%20%2B%2046%20e2e-brightgreen?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-520%20unitarios%20%2B%2047%20e2e-brightgreen?style=flat-square)](#tests)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue?style=flat-square)](LICENSE)
 
 <img src="src/img/screenshot-pizarra.png" alt="La interfaz de Pizarra: barra de herramientas a la izquierda, lienzo con un wireframe de landing page dibujado a mano en el centro y panel de ajustes a la derecha" width="900">
@@ -74,6 +74,7 @@ Para *usar* la app no hay nada que instalar ni compilar: el CSS ya viene compila
 | **Solapamiento** | El modo **Bordes ocultos** vuelve discontinuos solo los tramos del contorno inferior que otra forma tapa, respetando el orden de capas. |
 | **Componentes UI** | Botón, input, imagen, navbar y tarjeta, con etiquetas editables (doble clic). |
 | **Emoji e imágenes** | Catálogo de 60 emoji en cinco categorías; imágenes pegadas con `Ctrl/Cmd+V` o arrastradas desde el escritorio. |
+| **«Select», solo selección** | El clic selecciona cualquier elemento (el grupo completo; doble clic desciende a la pieza) y el arrastre dibuja **siempre** marquesina, incluso empezando encima de un elemento — el gesto que con Mover lo desplazaría. Nada se mueve jamás con ella: en un lienzo denso se enmarca sin miedo y el panel edita lo seleccionado como siempre. |
 | **Borrador real** | Borra **lo que se ve**, no la caja: una forma sin relleno se borra por su contorno, así que barrer entre las ventanas de una fachada no se lleva el muro. Recta, flecha y trazo a mano se **recortan** en vez de desaparecer enteros —pasar por la mitad de una línea, o por donde se cruzan dos trazos, solo borra ese tramo—; el resto de elementos se elimina de verdad —lo borrado no reaparece al mover el dibujo ni viaja oculto dentro del archivo exportado— y cada pasada se deshace como una sola acción. Tamaño ajustable de 4 a 100 px: al elegir la herramienta se abre un modal con previsualización, reabrible luego con el botón ⚙ del panel. |
 | **Plantillas** | Landing page, dashboard y formulario, para empezar con estructura. |
 
@@ -135,7 +136,7 @@ Cada pieza de jardín nace con una **etiqueta** dentro del mismo grupo (se mueve
 - **Fondo y color de cuadrícula** personalizables, con persistencia entre sesiones.
 - **Autoguardado** en `localStorage`: el trabajo sobrevive al refresco.
 - **Panel contextual**: el panel derecho muestra solo lo que la herramienta activa y la selección usan — «Relleno» con una forma, «Edificios» con Fachada, «Jardín» con un árbol— y agrupa el resto en **Trazo**, **Lienzo** y **Selección**. Con el lápiz pasa de 28 controles a la vista a unos 13, que es lo que más se nota en el cajón de las pantallas estrechas. Nada desaparece: reaparece con su herramienta, y **al seleccionar un elemento vuelven los controles que lo editan**.
-- **Cada herramienta abre sus ajustes al pulsarla**, como ya hacían el Borrador y los catálogos. Lápiz, Línea, Flecha, Flecha curva y Semicírculo muestran grosor, color, discontinuo y doble punta; las **ocho formas** añaden el relleno entero —rellenar, translúcido, opacidad y color— y, las que guardan su orientación como ángulo, un **giro** con el paso propio de cada una (45° el cuadrado, 36° el pentágono, 30° el hexágono…), de modo que la forma nace ya orientada en vez de tener que dibujarla y girarla a golpe de clic. **Texto** ajusta tamaño de letra y color; **Botón, Input, Imagen, Navbar y Tarjeta** comparten un modal con color, grosor y el **rótulo** con el que nacerán —escribe «Enviar» y coloca tres botones que ya lo digan—; el catálogo de **Emoji** elige también el tamaño (32–96 px), independiente del de letra. Todos llevan **muestra en vivo** dibujada con el renderer real. Cerrar deja la herramienta lista, y el ⚙ de la cabecera «Trazo» reabre los ajustes sin cambiar de herramienta. Los mismos ajustes siguen en el panel, sincronizados; la única herramienta sin modal es Mover.
+- **Cada herramienta abre sus ajustes al pulsarla**, como ya hacían el Borrador y los catálogos. Lápiz, Línea, Flecha, Flecha curva y Semicírculo muestran grosor, color, discontinuo y doble punta; las **ocho formas** añaden el relleno entero —rellenar, translúcido, opacidad y color— y, las que guardan su orientación como ángulo, un **giro** con el paso propio de cada una (45° el cuadrado, 36° el pentágono, 30° el hexágono…), de modo que la forma nace ya orientada en vez de tener que dibujarla y girarla a golpe de clic. **Texto** ajusta tamaño de letra y color; **Botón, Input, Imagen, Navbar y Tarjeta** comparten un modal con color, grosor y el **rótulo** con el que nacerán —escribe «Enviar» y coloca tres botones que ya lo digan—; el catálogo de **Emoji** elige también el tamaño (32–96 px), independiente del de letra. Todos llevan **muestra en vivo** dibujada con el renderer real. Cerrar deja la herramienta lista, y el ⚙ de la cabecera «Trazo» reabre los ajustes sin cambiar de herramienta. Los mismos ajustes siguen en el panel, sincronizados; las únicas herramientas sin modal son Mover y «Select».
 - **Pulsar la herramienta de un elemento seleccionado lo edita**: la selección se conserva si es del tipo que esa herramienta crea, y su modal abre mostrando y editando ese elemento — color, relleno, giro, rótulo y también **posición y tamaño**, con los mismos límites que los tiradores (un polígono regular se mantiene cuadrado, un grupo escala en proporción). Empezar a dibujar suelta la selección: crear y editar no se pisan.
 - **Interfaz responsive**: la barra de herramientas pasa a dos columnas desde 1201 px y el panel se convierte en un cajón deslizable por debajo de 1100 px.
 
@@ -248,7 +249,7 @@ Cuatro convenciones que conviene conocer:
 
 ## Tests
 
-**514 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
+**520 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
 de runtime:
 
 ```bash
@@ -258,7 +259,7 @@ node --test tests/exporter.test.js    # un archivo
 
 Los módulos se cargan en un contexto `node:vm` con stubs de canvas y DOM, incluido `src/js/app.js` completo: los tests lanzan gestos reales —puntero, teclado, modales— y leen el resultado del autoguardado, sin ningún hook de test en el código de producción.
 
-**46 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco, acciones por defecto del navegador, los flujos completos de Verjas y Cancela y el Jardín botánico en escritorio, móvil y anchos intermedios.
+**47 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco, acciones por defecto del navegador, los flujos completos de Verjas y Cancela y el Jardín botánico en escritorio, móvil y anchos intermedios.
 
 ```bash
 npm install && npm run e2e:install    # una vez (descarga Chromium)

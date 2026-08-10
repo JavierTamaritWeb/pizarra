@@ -20,6 +20,7 @@ const TOOLS = Object.freeze({
   EMOJI:            'emoji', // herramienta de creación: produce elementos text
   ERASER:           'eraser',
   SELECT:           'select',
+  PICK:             'pick', // «Select»: solo selección — clic o marquesina, nunca mueve
   IMAGE_PLACEHOLDER:'imagePlaceholder',
   IMAGE:            'image', // imagen real pegada (sin botón en el sidebar)
   BUTTON:           'button',
@@ -356,6 +357,13 @@ const TOOL_GROUPS = [
     label: 'Edición',
     tools: [
       { id: TOOLS.SELECT, icon: '👆', name: 'Mover', key: 'v' },
+      // «Select» es SOLO selección: el clic selecciona cualquier elemento (con
+      // la misma semántica de grupos que Mover) y el arrastre siempre dibuja
+      // marquesina, incluso empezando ENCIMA de un elemento — el gesto que con
+      // Mover lo movería. Nada se desplaza jamás con esta herramienta, así que
+      // en un lienzo denso se puede enmarcar sin miedo. Sin atajo: las 26
+      // letras y los 10 dígitos están cogidos (misma situación que Balcón).
+      { id: TOOLS.PICK, icon: '⬚', name: 'Select' },
       // El Borrador vive aquí y no en «Dibujo»: no crea nada, quita lo que ya
       // está dibujado, que es lo mismo que hace el resto de este grupo.
       { id: TOOLS.ERASER, icon: '🧽', name: 'Borrador', key: 'e' },

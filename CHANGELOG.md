@@ -4,6 +4,21 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.11.0] — 2026-08-10
+
+### Añadido
+
+- **Nueva herramienta «Select» en Edición** (entre Mover y Borrador): solo
+  selección — el clic selecciona cualquier elemento con la misma semántica que
+  Mover (el grupo completo, Alt aísla la pieza, doble clic desciende, Shift y
+  «Los clics acumulan selección» funcionan igual) y el arrastre dibuja
+  **siempre** marquesina, incluso empezando encima de un elemento: el gesto
+  que con Mover lo desplazaría. Nada se mueve jamás con ella, así que en un
+  lienzo denso se puede enmarcar sin miedo; una vez seleccionado, el panel
+  edita posición, tamaño, color o texto como siempre. Sin atajo de teclado
+  (las 26 letras y los 10 dígitos están asignados) y con cursor de flecha
+  propio: ni la cruz de dibujar ni el `move` de Mover.
+
 ## [2.10.1] — 2026-08-10
 
 ### Corregido

@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.10.1 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.11.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.10\.1</);
-  assert.match(html, /css\/styles\.css\?v=2\.10\.1/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.10\.1/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.10\.1/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.10\.1/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.10\.1/);
+  assert.match(html, /class="topbar__badge">v2\.11\.0</);
+  assert.match(html, /css\/styles\.css\?v=2\.11\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.11\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.11\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.11\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.11\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -119,6 +119,11 @@ test('el panel tiene sus secciones contextuales y el CSS que las oculta', () => 
     assert.match(css, new RegExp(sel + '[^{]*' + hiddenRule.source),
       `sin ${sel.replace(/\\/g, '')} el atributo hidden no oculta nada`);
   }
+  // El cursor de «Select» es CSS puro (el arnés vm no lo ve): flecha normal,
+  // ni la cruz de dibujar ni el `move` de Mover — la herramienta ni crea ni
+  // desplaza, y el cursor es lo que lo promete.
+  assert.match(css, /\.canvas-area__canvas--pick\s*\{\s*cursor:\s*default/,
+    'falta el cursor de la herramienta «Select» en el CSS compilado');
 });
 
 // Mismo contrato que los gemelos de Edificios: el grosor vive a la vez en el
