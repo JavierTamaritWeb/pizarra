@@ -2600,3 +2600,91 @@ test('el panel enseña el valor común de la selección, y no lo inventa si disc
   assert.equal(app.$('color-picker').value, antes,
     'con colores dispares el picker no debe inventar un color de la selección');
 });
+
+/* ── Regresión (v2.12.1): lanzar un objeto fuera del lienzo lo perdía.
+   Seguía en la escena y en el archivo exportado, pero invisible e
+   inalcanzable: ni el clic ni una marquesina que cubriera todo el lienzo
+   llegan ahí fuera, así que solo Ctrl+Z lo recuperaba —y solo si te dabas
+   cuenta en el momento—. Ahora clampDelta deja siempre KEEP_VISIBLE px
+   dentro, en las tres vías que mueven una selección. ── */
+
+/** ¿Asoma la caja del elemento por el lienzo de 1200×800? */
+const onCanvas = e => {
+  const x = e.x !== undefined ? e.x : Math.min(e.x1, e.x2);
+  const y = e.y !== undefined ? e.y : Math.min(e.y1, e.y2);
+  const w = e.w !== undefined ? e.w : Math.abs(e.x2 - e.x1);
+  const h = e.h !== undefined ? e.h : Math.abs(e.y2 - e.y1);
+  return x + w > 0 && x < 1200 && y + h > 0 && y < 800;
+};
+
+test('lanzar un objeto fuera del lienzo lo frena en el borde, y sigue siendo alcanzable', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(50, 50, 150, 150);
+  app.selectTool('select');
+  app.click(100, 100);
+  app.drag(100, 100, 2000, 1600);        // lanzarlo lejos, muy fuera
+  const el = app.elements()[0];
+  assert.ok(onCanvas(el), `el rect debe seguir asomando (x=${Math.round(el.x)}, y=${Math.round(el.y)})`);
+  // Y «alcanzable» es literal: una marquesina sobre el lienzo vuelve a cogerlo.
+  app.click(600, 400);                   // deseleccionar
+  app.drag(1, 1, 1199, 799);
+  app.key('Delete');
+  assert.equal(app.elements().length, 0, 'debe poder volver a seleccionarse y borrarse');
+});
+
+test('el freno del borde vale también para las teclas de flecha', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(50, 50, 150, 150);
+  app.selectTool('select');
+  app.click(100, 100);
+  for (let i = 0; i < 40; i++) app.key('ArrowLeft', { shiftKey: true });   // 40 × 20px
+  assert.ok(onCanvas(app.elements()[0]), 'mantener la flecha no debe expulsar el elemento');
+});
+
+test('el freno del borde no deforma un grupo: se para entero', () => {
+  const { app, count } = withFacade();
+  app.selectTool('select');
+  app.click(150, 150);
+  const before = app.elements();
+  app.drag(150, 150, 3000, 2000);
+  const after = app.elements();
+  assert.equal(after.length, count, 'no se pierde ninguna pieza');
+  assert.ok(after.some(onCanvas), 'el edificio debe seguir a la vista');
+  // Todas las piezas se han desplazado LO MISMO: el freno actúa sobre la caja
+  // combinada, nunca pieza a pieza (eso desmontaría la composición).
+  const deltas = after.map((e, i) => Math.round(dx(before[i], e)));
+  assert.equal(new Set(deltas).size, 1,
+    `todas las piezas debían moverse igual, hubo ${new Set(deltas).size} desplazamientos distintos`);
+});
+
+test('una X tecleada fuera del lienzo también se frena, y el campo lo confiesa', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(50, 50, 150, 150);
+  app.selectTool('select');
+  app.click(100, 100);
+  const x = app.$('el-x');
+  x.value = '9000';
+  x.__fire('change', { target: x });
+  app.flush();
+  const el = app.elements()[0];
+  assert.ok(onCanvas(el), 'teclear una X imposible no puede perder el elemento');
+  assert.equal(app.$('el-x').value, String(Math.round(el.x)),
+    'el campo debe resincronizarse a donde el elemento ha quedado de verdad');
+});
+
+test('un elemento que YA estaba fuera puede volver hacia dentro', () => {
+  // Un JSON de antes de esta versión puede traerlos: el freno solo limita el
+  // movimiento que empeora, así que traerlo de vuelta sigue siendo posible.
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(50, 50, 150, 150);
+  app.selectTool('select');
+  app.click(100, 100);
+  app.drag(100, 100, 2000, 100);         // pegado al borde derecho
+  const atEdge = app.elements()[0].x;
+  app.drag(1190, 100, 900, 100);         // arrastrar hacia dentro
+  assert.ok(app.elements()[0].x < atEdge - 100, 'debe poder volver hacia el centro');
+});

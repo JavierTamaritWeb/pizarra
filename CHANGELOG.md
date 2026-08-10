@@ -4,6 +4,22 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.12.1] — 2026-08-10
+
+### Corregido
+
+- **Lanzar un objeto fuera del lienzo ya no lo pierde.** Arrastrar algo deprisa
+  más allá del borde lo hacía desaparecer, y no solo de la vista: seguía en la
+  escena y dentro del JSON exportado, pero invisible e inalcanzable —el clic no
+  llega ahí fuera y la marquesina solo se dibuja sobre el lienzo, así que ni
+  seleccionándolo todo volvía—, de modo que la única vía de vuelta era deshacer
+  en el momento. Ahora el movimiento se frena dejando siempre **24 px del
+  objeto dentro** (o el objeto entero, si es más pequeño). Las teclas de flecha
+  y las casillas de X/Y de «Posición y tamaño» lo perdían igual y pasan por el
+  mismo freno. Un grupo se detiene **entero**, sin desmontarse contra el borde,
+  y lo que ya estuviera fuera —un proyecto guardado con una versión anterior—
+  puede seguir viniendo hacia dentro.
+
 ## [2.12.0] — 2026-08-10
 
 ### Añadido

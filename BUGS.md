@@ -28,6 +28,41 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### v2.12.1 — lanzar un objeto fuera del lienzo lo perdía
+
+- **Síntoma:** seleccionar algo y arrastrarlo deprisa fuera del lienzo lo hacía
+  **desaparecer**. Y no era solo visual: el elemento seguía en la escena
+  (contaba en «Elementos») y viajaba dentro del JSON y de las exportaciones,
+  pero quedaba invisible e **inalcanzable** — el clic no llega ahí fuera y una
+  marquesina solo puede dibujarse sobre el lienzo, así que ni seleccionándolo
+  todo volvía—. La única vía de vuelta era Ctrl+Z, y solo si te dabas cuenta
+  en el momento. Reportado con el arrastre; la sonda demostró que las **teclas
+  de flecha** (mantener `Shift`+flecha) y **teclear una X o Y** en «Posición y
+  tamaño» lo perdían exactamente igual, solo que más despacio.
+- **Causa:** nada sujetaba el desplazamiento. `onMouseDown` hace
+  `setPointerCapture`, así que el arrastre sigue vivo fuera del lienzo y
+  `getPos` devuelve coordenadas muy por encima de `CANVAS_W`/`CANVAS_H`;
+  `onMouseMove` las aplicaba tal cual. El lienzo tiene un tamaño fijo
+  (1200×800) pero nada relacionaba las coordenadas de los elementos con él.
+- **Fix:** `clampDelta` (app.js) recorta el desplazamiento para que siempre
+  queden `KEEP_VISIBLE` (24) px del objeto dentro del lienzo —o el objeto
+  entero, si es más pequeño—, y `moveSelectionBy` lo aplica en las tres vías.
+  Dos decisiones deliberadas: (1) se sujeta la caja **combinada** de la
+  selección, nunca pieza a pieza, o un edificio frenado se desmontaría contra
+  el borde; (2) solo se limita el movimiento que **empeora**, así que un
+  elemento que ya estuviera fuera —un JSON anterior a esta versión— puede
+  volver hacia dentro, y mover una selección que lo contenga no le da un
+  tirón que rompa su posición relativa. `dragLast` guarda la posición **real**
+  del puntero, no la recortada: al volver hacia dentro el objeto lo acompaña
+  desde el primer píxel, sin zona muerta.
+- **Guardia:** `tests/app-interaction.test.js` › *"lanzar un objeto fuera del
+  lienzo lo frena en el borde, y sigue siendo alcanzable"* (que además lo
+  vuelve a seleccionar con marquesina, porque «alcanzable» es el síntoma real),
+  *"el freno del borde vale también para las teclas de flecha"*, *"el freno del
+  borde no deforma un grupo: se para entero"*, *"una X tecleada fuera del
+  lienzo también se frena, y el campo lo confiesa"* y *"un elemento que YA
+  estaba fuera puede volver hacia dentro"*.
+
 ### v2.12.0 — pulsar «Mover» soltaba la selección múltiple
 
 - **Síntoma:** seleccionar varios objetos (enmarcándolos con «Select», o con

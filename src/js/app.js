@@ -325,6 +325,48 @@
       necesita que la multi-selección sea un edificio: con dos rects sueltos
       los campos enseñaban valores rancios y teclear no hacía nada, cuando el
       panel promete la caja combinada (auditoría v2.10.1). */
+  /** Píxeles de un objeto que deben seguir dentro del lienzo al moverlo. */
+  const KEEP_VISIBLE = 24;
+
+  /**
+   * Recorta un desplazamiento (dx,dy) para que la caja `b` no pueda salir
+   * ENTERA del lienzo: siempre quedan `KEEP_VISIBLE` px dentro (o el objeto
+   * completo, si es más pequeño que eso). Sacar algo del todo no era un gesto
+   * útil sino la forma de perderlo: seguía en la escena y en el archivo
+   * exportado, pero invisible e inalcanzable — ni el clic ni una marquesina
+   * que cubra todo el lienzo llegan ahí, así que solo Ctrl+Z lo recuperaba, y
+   * únicamente si te dabas cuenta en el momento.
+   *
+   * Sujeta solo el movimiento que EMPEORA: algo que ya estuviera fuera (un
+   * proyecto importado, un JSON de antes de esta versión) puede seguir
+   * viniendo hacia dentro, y mover una selección que lo contenga no le da un
+   * tirón hacia el borde —lo que rompería su posición relativa con el resto—.
+   * Se aplica sobre la caja COMBINADA de la selección, nunca pieza a pieza:
+   * así el conjunto se frena como una unidad y conserva su composición.
+   */
+  function clampDelta(b, dx, dy) {
+    const keepX = Math.min(KEEP_VISIBLE, b.w);
+    const keepY = Math.min(KEEP_VISIBLE, b.h);
+    const x = Math.min(Math.max(b.x + dx, Math.min(b.x, keepX - b.w)),
+                       Math.max(b.x, CANVAS_W - keepX));
+    const y = Math.min(Math.max(b.y + dy, Math.min(b.y, keepY - b.h)),
+                       Math.max(b.y, CANVAS_H - keepY));
+    return { dx: x - b.x, dy: y - b.y };
+  }
+
+  /** Mueve la selección entera (dx,dy), frenada por clampDelta. Devuelve el
+      desplazamiento realmente aplicado, que puede ser (0,0) en el borde. */
+  function moveSelectionBy(dx, dy) {
+    const box = selectionBounds();
+    if (!box) return { dx: 0, dy: 0 };
+    const d = clampDelta(box, dx, dy);
+    if (!d.dx && !d.dy) return d;
+    state.selection.forEach(i => {
+      state.elements[i] = moveElement(state.elements[i], d.dx, d.dy);
+    });
+    return d;
+  }
+
   /** Valor que comparten TODOS los elementos de `els` según `get`, o
       `undefined` si discrepan (o si la lista está vacía). Es lo que permite a
       un control del panel decir la verdad con varios seleccionados: enseña el
@@ -1463,7 +1505,12 @@
     // deshacer fantasma — el primer Ctrl+Z parecía muerto — y el campo se
     // quedaba prometiendo un alto que el elemento no tiene: se resincroniza
     // para que vuelva a decir la verdad.
-    const dx = to.x - from.x, dy = to.y - from.y;
+    // Una X o una Y tecleadas fuera del lienzo pierden el elemento igual que
+    // lanzarlo con el ratón, así que pasan por el mismo freno; el campo se
+    // resincroniza abajo y enseña dónde ha quedado de verdad.
+    const moved = clampDelta({ ...from, w: to.w, h: to.h },
+      to.x - from.x, to.y - from.y);
+    const dx = moved.dx, dy = moved.dy;
     const sx = from.w ? to.w / from.w : 1;
     const sy = from.h ? to.h / from.h : 1;
     if (!dx && !dy && sx === 1 && sy === 1) {
@@ -1475,7 +1522,7 @@
       // Primero la escala (referida a la caja de origen) y luego el
       // desplazamiento: al revés, el factor se aplicaría sobre una caja movida.
       const scaled = scaleElement(state.elements[i], from, { ...from, w: to.w, h: to.h });
-      state.elements[i] = moveElement(scaled, to.x - from.x, to.y - from.y);
+      state.elements[i] = moveElement(scaled, dx, dy);
     });
     redraw();
   }
@@ -2384,9 +2431,11 @@
       const dx = pos.x - state.dragLast.x;
       const dy = pos.y - state.dragLast.y;
       if (dx || dy) {
-        state.selection.forEach(i => {
-          state.elements[i] = moveElement(state.elements[i], dx, dy);
-        });
+        // Frenado en el borde: lanzar algo fuera del lienzo lo perdía. El
+        // puntero sigue libre (dragLast guarda su posición REAL, no la
+        // recortada), así que en cuanto vuelve hacia dentro el objeto lo
+        // acompaña, sin zona muerta que recorrer.
+        moveSelectionBy(dx, dy);
         state.dragLast = pos;
         state.didDrag = true;
         redraw();
@@ -4932,9 +4981,9 @@
       // extiende el mismo paso, en vez de apilar uno por repetición y expulsar
       // todo el historial anterior (el stack está limitado a 50).
       if (!e.repeat) saveUndo();
-      state.selection.forEach(i => {
-        state.elements[i] = moveElement(state.elements[i], NUDGE[e.key][0] * f, NUDGE[e.key][1] * f);
-      });
+      // Mismo freno que el arrastre: mantener una flecha pulsada sacaba la
+      // selección del lienzo igual de irrecuperablemente, solo que despacio.
+      moveSelectionBy(NUDGE[e.key][0] * f, NUDGE[e.key][1] * f);
       redraw();
       return;
     }
