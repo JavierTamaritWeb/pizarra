@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.13.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.14.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.13\.0</);
-  assert.match(html, /css\/styles\.css\?v=2\.13\.0/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.13\.0/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.13\.0/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.13\.0/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.13\.0/);
+  assert.match(html, /class="topbar__badge">v2\.14\.0</);
+  assert.match(html, /css\/styles\.css\?v=2\.14\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.14\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.14\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.14\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.14\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -459,11 +459,19 @@ test('cada letra manuscrita del catálogo tiene su @font-face y su .woff2', () =
     assert.ok(fs.existsSync(path.join(root, 'fonts', m[1])),
       `falta el fichero fonts/${m[1]} que declara el CSS`);
   }
-  // Y las cinco pilas terminan en los mismos resguardos manuscritos, para que
-  // una copia incompleta del repo siga escribiendo a mano y no en una sans.
+  // Toda pila acaba en una familia genérica, para que una copia incompleta del
+  // repo siga escribiendo con algo razonable: `cursive` en las manuscritas (a
+  // mano y no en una sans) y `sans-serif` en OpenDyslexic, donde lo útil si
+  // fallara es una sans legible, no otra letra a mano.
   for (const f of ctx.SKETCH_FONTS) {
-    assert.match(f.stack, /cursive$/, `la pila de ${f.name} debe acabar en cursive`);
+    assert.match(f.stack, /(cursive|sans-serif)$/,
+      `la pila de ${f.name} debe acabar en una familia genérica`);
   }
+  // Y las que no están en Google Fonts se declaran como tales: si no, el
+  // exportado pediría por URL una familia inexistente y fallaría en silencio.
+  const propias = ctx.SKETCH_FONTS.filter(f => !f.google).map(f => f.name);
+  assert.deepEqual([...propias], ['OpenDyslexic'],
+    'solo OpenDyslexic es propia de la app; el resto vienen de Google Fonts');
 });
 
 test('la letra por defecto del catálogo es la misma que --font-sketch', () => {

@@ -4,11 +4,31 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.14.0] — 2026-08-10
+
+### Añadido
+
+- **OpenDyslexic también dibuja el lienzo.** Se suma como sexta opción del
+  selector de letra, junto a las cinco manuscritas. Hasta ahora la elección
+  pensada para lectores con dislexia se quedaba en la interfaz —topbar, panel,
+  modales— y el dibujo seguía en cursiva, que es justo donde más cuesta leer;
+  ahora los textos, los rótulos de los componentes y las etiquetas del jardín
+  pueden escribirse con ella. Ya viajaba autoalojada, así que no añade ni un
+  byte de descarga.
+
+### Corregido
+
+- **Un exportado con OpenDyslexic ya no enlaza una fuente inexistente.**
+  OpenDyslexic no está en Google Fonts, y la URL que los `.svg` y `.html`
+  exportados piden se arma con la familia activa: habría salido un enlace roto
+  que falla en silencio. Ahora las familias propias de la app se declaran como
+  tales y el exportado omite el enlace, quedándose con su pila de resguardos.
+
 ## [2.13.0] — 2026-08-10
 
 ### Añadido
 
-- **La letra manuscrita se elige, entre cinco.** Además de la de siempre
+- **La letra manuscrita se elige, entre cinco** (seis desde la 2.14.0). Además de la de siempre
   (Architects Daughter) llegan **Caveat**, **Patrick Hand**, **Kalam** e
   **Indie Flower**. El selector vive en el panel («Lienzo» → Letra manuscrita)
   y, gemelo, dentro de **«Ajustes del texto»**, que es donde se mira al

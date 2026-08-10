@@ -4,11 +4,11 @@
 
 **Wireframes, diagramas y bocetos con estética dibujada a mano — en el navegador y sin instalar nada.**
 
-[![Versión](https://img.shields.io/badge/versión-2.13.0-blueviolet?style=flat-square)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-2.14.0-blueviolet?style=flat-square)](CHANGELOG.md)
 [![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?style=flat-square&logo=javascript&logoColor=000)](src/js/)
 [![Estilos](https://img.shields.io/badge/estilos-SCSS%20·%20BEM%20·%20Gulp%205-cf649a?style=flat-square&logo=sass&logoColor=fff)](src/scss/)
 [![Dependencias](https://img.shields.io/badge/dependencias%20en%20runtime-0-brightgreen?style=flat-square)](#arquitectura)
-[![Tests](https://img.shields.io/badge/tests-540%20unitarios%20%2B%2048%20e2e-brightgreen?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-541%20unitarios%20%2B%2048%20e2e-brightgreen?style=flat-square)](#tests)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue?style=flat-square)](LICENSE)
 
 <img src="src/img/screenshot-pizarra.png" alt="La interfaz de Pizarra: barra de herramientas a la izquierda, lienzo con un wireframe de landing page dibujado a mano en el centro y panel de ajustes a la derecha" width="900">
@@ -73,7 +73,7 @@ Para *usar* la app no hay nada que instalar ni compilar: el CSS ya viene compila
 | **Relleno** | Color propio por forma, modo sólido o translúcido y opacidad del 0 al 100 %. Vaciar una forma no le hace perder el color: al volver a rellenarla recupera el mismo. |
 | **Solapamiento** | El modo **Bordes ocultos** vuelve discontinuos solo los tramos del contorno inferior que otra forma tapa, respetando el orden de capas. |
 | **Componentes UI** | Botón, input, imagen, navbar y tarjeta, con etiquetas editables (doble clic). |
-| **Letra manuscrita a elegir** | Cinco familias autoalojadas —Architects Daughter, Caveat, Patrick Hand, Kalam e Indie Flower— seleccionables desde el panel («Lienzo») o desde «Ajustes del texto», con muestra en vivo y cada nombre escrito con su propia letra. La app **no pide ninguna fuente por red**: funciona igual sin conexión. |
+| **Letra del lienzo a elegir** | Cinco manuscritas autoalojadas —Architects Daughter, Caveat, Patrick Hand, Kalam e Indie Flower— más **OpenDyslexic**, para que la letra pensada para lectores con dislexia llegue también al dibujo y no se quede en la interfaz. Se eligen desde el panel («Lienzo») o desde «Ajustes del texto», con muestra en vivo y cada nombre escrito con su propia letra. La app **no pide ninguna fuente por red**: funciona igual sin conexión. |
 | **Emoji e imágenes** | Catálogo de 60 emoji en cinco categorías; imágenes pegadas con `Ctrl/Cmd+V` o arrastradas desde el escritorio. |
 | **«Select», solo selección** | El clic selecciona cualquier elemento (el grupo completo; doble clic desciende a la pieza) y el arrastre dibuja **siempre** marquesina, incluso empezando encima de un elemento — el gesto que con Mover lo desplazaría. Nada se mueve jamás con ella: en un lienzo denso se enmarca sin miedo y el panel edita lo seleccionado como siempre. |
 | **Borrador real** | Borra **lo que se ve**, no la caja: una forma sin relleno se borra por su contorno, así que barrer entre las ventanas de una fachada no se lleva el muro. Recta, flecha y trazo a mano se **recortan** en vez de desaparecer enteros —pasar por la mitad de una línea, o por donde se cruzan dos trazos, solo borra ese tramo—; el resto de elementos se elimina de verdad —lo borrado no reaparece al mover el dibujo ni viaja oculto dentro del archivo exportado— y cada pasada se deshace como una sola acción. Tamaño ajustable de 4 a 100 px: al elegir la herramienta se abre un modal con previsualización, reabrible luego con el botón ⚙ del panel. |
@@ -251,7 +251,7 @@ Cuatro convenciones que conviene conocer:
 
 ## Tests
 
-**540 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
+**541 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
 de runtime:
 
 ```bash

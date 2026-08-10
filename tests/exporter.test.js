@@ -1212,3 +1212,27 @@ test('el nombre de familia de dos palabras viaja bien codificado en la URL', () 
     ctx.setSketchFont('architects');
   }
 });
+
+/* OpenDyslexic es la letra de la propia app y NO está en Google Fonts: pedirla
+   por esa URL daría un 404 mudo dentro del archivo exportado. */
+test('con OpenDyslexic el exportado no enlaza ninguna fuente web', () => {
+  const ctx = freshCtx();
+  const el = { type: 'text', x: 10, y: 20, value: 'Hola', fontSize: 16, color: '#111111', lineWidth: 2, seed: 1 };
+  try {
+    ctx.setSketchFont('dyslexic');
+    ctx.Exporter.svg([el]);
+    const svg = lastBlob(ctx).content;
+    assert.doesNotMatch(svg, /googleapis/, 'no debe pedir una familia que no existe ahí');
+    assert.match(svg, /font-family="OpenDyslexic/, 'pero sí debe escribir con ella');
+    assert.ok(svg.startsWith('<svg') && svg.trimEnd().endsWith('</svg>'),
+      'y el SVG sigue bien formado sin el bloque <style>');
+
+    ctx.Exporter.html([el]);
+    const html = lastBlob(ctx).content;
+    assert.doesNotMatch(html, /googleapis/);
+    assert.match(html, /font-family: 'OpenDyslexic'/);
+    assert.doesNotMatch(html, /<link href="" /, 'ni un <link> vacío en su lugar');
+  } finally {
+    ctx.setSketchFont('architects');
+  }
+});

@@ -57,7 +57,8 @@ const Exporter = (() => {
   function svg(elements, options = {}) {
     let out = `<svg xmlns="http://www.w3.org/2000/svg" width="${CANVAS_W}" height="${CANVAS_H}" viewBox="0 0 ${CANVAS_W} ${CANVAS_H}">\n`;
     out += `<rect width="100%" height="100%" fill="white"/>\n`;
-    out += `<style>@import url('${FONT_URL().replace(/&/g, '&amp;')}');</style>\n`;
+    const fontUrl = FONT_URL();
+    if (fontUrl) out += `<style>@import url('${fontUrl.replace(/&/g, '&amp;')}');</style>\n`;
 
     out += _svgScene(elements, options.overlapMode);
 
@@ -77,16 +78,23 @@ const Exporter = (() => {
   // etiqueta, y sin llaves ni ';' no se inyectan reglas/declaraciones ajenas.
   const FONT_CSS = () => sketchFont().replace(/[<>{};]/g, '');
   /* Los exportados SIGUEN pidiendo la fuente a Google Fonts, y es deliberado:
-     la app ya no lo hace —las cinco viajan en fonts/—, pero un .svg o un .html
-     exportado es un archivo suelto que se manda por correo o se sube a un
-     sitio, sin la carpeta fonts/ al lado, así que una ruta relativa se
-     rompería en cuanto saliera de aquí. La URL se arma con la familia activa
-     (las cinco están en Google Fonts, todas OFL), y sin conexión el archivo
-     cae a la misma pila de resguardos manuscritos. */
-  const FONT_URL = () =>
-    'https://fonts.googleapis.com/css2?family=' +
-    encodeURIComponent(sketchFont().split(',')[0].replace(/['"]/g, '').trim())
-      .replace(/%20/g, '+') + '&display=swap';
+     la app ya no lo hace —las tipografías viajan en fonts/—, pero un .svg o un
+     .html exportado es un archivo suelto que se manda por correo o se sube a
+     un sitio, sin la carpeta fonts/ al lado, así que una ruta relativa se
+     rompería en cuanto saliera de aquí. La URL se arma con la familia activa y
+     sin conexión el archivo cae a su pila de resguardos.
+
+     Devuelve null para las familias que NO están en Google Fonts —OpenDyslexic
+     es la de la propia app—: pedirla por esa URL daría un 404 mudo, y el
+     exportado se queda mejor con sus resguardos que con un enlace roto. Los
+     dos exportadores omiten el <link>/@import cuando es null. */
+  const FONT_URL = () => {
+    const family = sketchFont().split(',')[0].replace(/['"]/g, '').trim();
+    const entry = SKETCH_FONTS.find(f => f.name === family);
+    if (entry && !entry.google) return null;
+    return 'https://fonts.googleapis.com/css2?family=' +
+      encodeURIComponent(family).replace(/%20/g, '+') + '&display=swap';
+  };
   const DEFAULT_FILL_OPACITY = 0.4;
 
   /** Tipos sin representación HTML propia: van en un <svg> incrustado.
@@ -384,7 +392,7 @@ const Exporter = (() => {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Wireframe Export</title>
-<link href="${FONT_URL()}" rel="stylesheet">
+${FONT_URL() ? `<link href="${FONT_URL()}" rel="stylesheet">` : '<!-- letra propia de la app: sin fuente web que pedir -->'}
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: ${FONT_CSS()}; background: #fff; }

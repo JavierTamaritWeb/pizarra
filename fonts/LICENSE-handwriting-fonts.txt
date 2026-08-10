@@ -1,10 +1,14 @@
 Tipografías manuscritas del lienzo de Pizarra
 =============================================
 
-Las cinco familias que dibuja el lienzo se distribuyen bajo la SIL Open Font
-License 1.1 y viajan autoalojadas en esta carpeta (ficheros .woff2, subconjunto
-latino, descargados de Google Fonts). La aplicación no pide ninguna fuente por
-red: funciona igual sin conexión y abierta con file://.
+Las cinco familias manuscritas que puede dibujar el lienzo se distribuyen bajo
+la SIL Open Font License 1.1 y viajan autoalojadas en esta carpeta (ficheros
+.woff2, subconjunto latino, descargados de Google Fonts). La aplicación no pide
+ninguna fuente por red: funciona igual sin conexión y abierta con file://.
+
+La sexta opción del selector es OpenDyslexic, la tipografía de la interfaz
+—elegida por legibilidad para lectores con dislexia—, que tiene su propia
+licencia en LICENSE-OpenDyslexic.txt.
 
   Architects Daughter  Copyright (c) 2010, Kimberly Geswein (kimberlygeswein.com)
   Caveat               Copyright 2014 The Caveat Project Authors

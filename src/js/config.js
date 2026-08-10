@@ -523,16 +523,26 @@ const SKETCHY_FONT = (() => {
  * @font-face por entrada.
  */
 const SKETCH_FONTS = Object.freeze([
-  { id: 'architects', name: 'Architects Daughter',
+  { id: 'architects', name: 'Architects Daughter', google: true,
     stack: "'Architects Daughter', 'Segoe Print', 'Comic Neue', cursive" },
-  { id: 'caveat', name: 'Caveat',
+  { id: 'caveat', name: 'Caveat', google: true,
     stack: "'Caveat', 'Segoe Print', 'Comic Neue', cursive" },
-  { id: 'patrick', name: 'Patrick Hand',
+  { id: 'patrick', name: 'Patrick Hand', google: true,
     stack: "'Patrick Hand', 'Segoe Print', 'Comic Neue', cursive" },
-  { id: 'kalam', name: 'Kalam',
+  { id: 'kalam', name: 'Kalam', google: true,
     stack: "'Kalam', 'Segoe Print', 'Comic Neue', cursive" },
-  { id: 'indie', name: 'Indie Flower',
+  { id: 'indie', name: 'Indie Flower', google: true,
     stack: "'Indie Flower', 'Segoe Print', 'Comic Neue', cursive" },
+  /* OpenDyslexic no es manuscrita: es la letra de la interfaz, elegida por
+     legibilidad para lectores con dislexia, y está aquí para poder escribir
+     TAMBIÉN el lienzo con ella —hasta ahora la accesibilidad se quedaba en la
+     interfaz y el dibujo seguía en cursiva—. Dos diferencias que se derivan
+     de eso: sus resguardos son los de la interfaz (si fallara, lo útil es una
+     sans legible, no otra manuscrita), y `google` es falso porque NO está en
+     Google Fonts: los exportados no pueden pedirla por URL (ver FONT_URL en
+     exporter.js) y caen a esa misma pila. */
+  { id: 'dyslexic', name: 'OpenDyslexic', google: false,
+    stack: "'OpenDyslexic', 'Segoe UI', system-ui, sans-serif" },
 ]);
 
 /* Letra manuscrita activa. Es MUTABLE a propósito: SKETCHY_FONT se calcula una
