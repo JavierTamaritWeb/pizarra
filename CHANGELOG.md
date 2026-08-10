@@ -4,6 +4,19 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.16.2] — 2026-08-10
+
+### Corregido
+
+- **El modal de «Ajustes del texto» podía bloquear la aplicación.** En una
+  ventana de altura corriente, los controles añadidos en la 2.16.0 hacían que
+  el modal no cupiera y su botón **«Cerrar» quedaba fuera de la pantalla**.
+  Como un diálogo modal vuelve inerte todo lo que hay detrás, el lienzo dejaba
+  de responder y no se podía dibujar ni escribir: la app parecía rota nada más
+  elegir la herramienta Texto. Ahora el botón de cierre se queda **anclado al
+  fondo** del diálogo mientras su contenido se desplaza, en los cinco modales
+  de ajustes.
+
 ## [2.16.0] — 2026-08-10
 
 ### Añadido

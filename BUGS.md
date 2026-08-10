@@ -28,6 +28,40 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### v2.16.2 — el modal de texto dejaba la app bloqueada en ventanas bajas
+
+- **Síntoma:** reportado por el usuario como «no funciona, cuando intentas
+  teclear texto no funciona». Al elegir la herramienta **Texto** se abre su
+  modal de ajustes; en una ventana de altura corriente ese modal no cabía y su
+  botón **«Cerrar» quedaba por debajo del borde de la pantalla**. Como un
+  `<dialog showModal>` vuelve **inerte** todo lo que hay detrás, el lienzo
+  dejaba de responder: no se podía clicar, ni dibujar, ni escribir. La
+  aplicación entera parecía rota, y nada indicaba que el diálogo se podía
+  desplazar para llegar al botón.
+- **Causa:** la v2.16.0 añadió tres controles al modal (negrita, sombra y
+  color de sombra) y su alto natural pasó de los ~500 px que caben en un
+  portátil con la barra de marcadores abierta. El diálogo ya tenía
+  `max-height` y `overflow-y: auto`, así que técnicamente se podía desplazar,
+  pero el botón viajaba con el contenido y no había forma de verlo. Nada lo
+  detectó: el arnés `node:vm` no tiene layout y los specs de e2e usaban
+  viewports altos, donde el modal sí cabe.
+- **Fix:** `.modal__cancel` (src/scss/components/_modal.scss) pasa a ser
+  **pegajoso al fondo** del diálogo. Es regla del bloque, no de ese modal: le
+  habría pasado a cualquiera que creciera. Tres detalles que costaron dos
+  intentos: `bottom` debe ser **0 y nunca negativo** —un valor negativo le
+  devuelve justo el permiso de quedarse por debajo del borde—, un margen
+  inferior negativo lo despega y deja asomar por el hueco el control de
+  detrás, y como un elemento pegajoso se ancla al borde de su bloque
+  contenedor (la caja de **contenido**), hace falta una segunda sombra sin
+  desenfoque que tape los 2.8 rem de relleno que quedan a sus pies.
+- **Guardia:** `e2e/modal-fit.spec.js` — los cinco modales de ajustes, en una
+  ventana **deliberadamente baja** (1160×560, que es donde el fallo se
+  reproduce: con los 700 de `NARROW` el modal cabe y la guarda no guardaría
+  nada). Comprueba que el botón cae dentro de la ventana, que se puede
+  **pulsar de verdad** (Playwright falla si algo lo tapa) y que al cerrarlo el
+  lienzo vuelve a responder, que es el síntoma tal como se reportó. Verificado
+  que la guarda falla al revertir el arreglo.
+
 ### v2.12.1 — lanzar un objeto fuera del lienzo lo perdía
 
 - **Síntoma:** seleccionar algo y arrastrarlo deprisa fuera del lienzo lo hacía

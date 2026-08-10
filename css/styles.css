@@ -740,8 +740,30 @@ input[type=range]::-moz-range-thumb {
   margin-bottom: 2rem;
 }
 
+/* El botón de salida se queda pegado al fondo del diálogo mientras su
+   contenido hace scroll. Sin esto, un modal más alto que la ventana dejaba
+   «Cerrar» POR DEBAJO del viewport: como `<dialog showModal>` vuelve inerte
+   todo lo de detrás, el lienzo dejaba de responder y la aplicación entera
+   parecía rota —no se podía ni escribir— sin que nada indicara que el diálogo
+   se podía desplazar. Le pasó a #modal-text al crecerle los ajustes de estilo
+   en la v2.16.0, y le habría pasado a cualquier otro que creciera: por eso la
+   regla es del bloque, no de ese modal.
+   `bottom` ha de ser 0, NUNCA negativo: un valor negativo le devuelve el
+   permiso de quedarse por debajo del borde, que es justo el fallo.
+   Las dos sombras no son decoración, son máscaras del mismo color que el
+   diálogo: un elemento pegajoso se ancla al borde de su bloque contenedor —la
+   caja de CONTENIDO—, no al del diálogo, así que quedan 2.8rem de relleno por
+   debajo por los que se vería asomar el control siguiente. La primera sombra
+   difumina lo que se desliza por encima; la segunda, sin desenfoque y
+   desplazada justo ese relleno, tapa el hueco de abajo. */
 .modal__cancel {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
   margin-top: 1.2rem;
+  padding-block: 1rem;
+  background: var(--bg-surface);
+  box-shadow: 0 -0.8rem 1.2rem 0.4rem var(--bg-surface), 0 2.8rem 0 0 var(--bg-surface);
 }
 
 /* Export grid */
