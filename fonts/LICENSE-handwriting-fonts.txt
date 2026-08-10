@@ -6,7 +6,8 @@ la SIL Open Font License 1.1 y viajan autoalojadas en esta carpeta (ficheros
 .woff2, subconjunto latino, descargados de Google Fonts). La aplicación no pide
 ninguna fuente por red: funciona igual sin conexión y abierta con file://.
 
-La sexta opción del selector es OpenDyslexic, la tipografía de la interfaz
+A ellas se suma Montserrat Alternates (geométrica, también OFL 1.1 y también
+descargada de Google Fonts), y OpenDyslexic, la tipografía de la interfaz
 —elegida por legibilidad para lectores con dislexia—, que tiene su propia
 licencia en LICENSE-OpenDyslexic.txt.
 
@@ -17,6 +18,8 @@ licencia en LICENSE-OpenDyslexic.txt.
                        (mail@patrickwagesreiter.at)
   Kalam                Copyright (c) 2014, Indian Type Foundry (info@indiantypefoundry.com)
   Indie Flower         Copyright 2010 The Indie Flower Authors (kimberlygeswein.com)
+  Montserrat Alt.      Copyright 2011 The Montserrat Project Authors
+                       (https://github.com/JulietaUla/Montserrat)
 
 El texto íntegro de la licencia, común a las cinco, es el siguiente.
 

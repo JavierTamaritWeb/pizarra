@@ -4,6 +4,22 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.15.0] — 2026-08-10
+
+### Añadido
+
+- **Montserrat Alternates**, séptima letra del lienzo: una geométrica con las
+  formas alternativas que le dan carácter, para bocetos de aire más tipográfico
+  que dibujado. Autoalojada como el resto (OFL 1.1), así que la app sigue sin
+  pedir nada por red.
+
+### Cambiado
+
+- **El selector pasa a llamarse «Letra del lienzo».** Se llamaba «Letra
+  manuscrita» cuando todas lo eran; con OpenDyslexic y Montserrat Alternates
+  dentro, dos de las siete no lo son y el rótulo prometía algo que la lista ya
+  no cumplía.
+
 ## [2.14.0] — 2026-08-10
 
 ### Añadido

@@ -93,3 +93,15 @@
   font-style: normal;
   font-display: swap;
 }
+
+// Montserrat Alternates (v2.15.0): geométrica, no manuscrita, con las formas
+// alternativas que le dan carácter. Entra por el mismo camino que las demás
+// —autoalojada y en SKETCH_FONTS— y, como OpenDyslexic, sus resguardos son
+// sans: si fallara, lo coherente con su dibujo es otra geométrica, no cursiva.
+@font-face {
+  font-family: "Montserrat Alternates";
+  src: url("../fonts/MontserratAlternates-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}

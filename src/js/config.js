@@ -543,6 +543,13 @@ const SKETCH_FONTS = Object.freeze([
      exporter.js) y caen a esa misma pila. */
   { id: 'dyslexic', name: 'OpenDyslexic', google: false,
     stack: "'OpenDyslexic', 'Segoe UI', system-ui, sans-serif" },
+  /* Montserrat Alternates tampoco es manuscrita: es una geométrica con formas
+     alternativas, para bocetos de aire más tipográfico que dibujado. Sus
+     resguardos son sans por lo mismo que los de OpenDyslexic —si fallara, lo
+     coherente con su dibujo es otra geométrica, no una cursiva— pero sí está
+     en Google Fonts, así que los exportados pueden pedirla. */
+  { id: 'montserrat-alt', name: 'Montserrat Alternates', google: true,
+    stack: "'Montserrat Alternates', 'Segoe UI', system-ui, sans-serif" },
 ]);
 
 /* Letra manuscrita activa. Es MUTABLE a propósito: SKETCHY_FONT se calcula una

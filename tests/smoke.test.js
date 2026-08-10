@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.14.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.15.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.14\.0</);
-  assert.match(html, /css\/styles\.css\?v=2\.14\.0/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.14\.0/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.14\.0/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.14\.0/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.14\.0/);
+  assert.match(html, /class="topbar__badge">v2\.15\.0</);
+  assert.match(html, /css\/styles\.css\?v=2\.15\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.15\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.15\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.15\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.15\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -441,11 +441,11 @@ test('la app no pide ninguna fuente por red', () => {
   assert.match(html, /id="sketch-font"/, 'falta el selector de letra manuscrita');
 });
 
-test('cada letra manuscrita del catálogo tiene su @font-face y su .woff2', () => {
+test('cada letra del catálogo tiene su @font-face y su .woff2', () => {
   const ctx = load('src/js/config.js');
   const css = fs.readFileSync(path.resolve(__dirname, '..', 'css', 'styles.css'), 'utf8');
   const root = path.resolve(__dirname, '..');
-  assert.ok(ctx.SKETCH_FONTS.length >= 5, 'el catálogo debe traer las cinco familias');
+  assert.ok(ctx.SKETCH_FONTS.length >= 5, 'el catálogo no puede quedarse sin familias');
   for (const f of ctx.SKETCH_FONTS) {
     assert.equal(typeof f.id, 'string');
     assert.equal(typeof f.name, 'string');
@@ -461,8 +461,8 @@ test('cada letra manuscrita del catálogo tiene su @font-face y su .woff2', () =
   }
   // Toda pila acaba en una familia genérica, para que una copia incompleta del
   // repo siga escribiendo con algo razonable: `cursive` en las manuscritas (a
-  // mano y no en una sans) y `sans-serif` en OpenDyslexic, donde lo útil si
-  // fallara es una sans legible, no otra letra a mano.
+  // mano y no en una sans) y `sans-serif` en las que no lo son —OpenDyslexic,
+  // Montserrat Alternates—, donde lo coherente con su dibujo es otra sans.
   for (const f of ctx.SKETCH_FONTS) {
     assert.match(f.stack, /(cursive|sans-serif)$/,
       `la pila de ${f.name} debe acabar en una familia genérica`);

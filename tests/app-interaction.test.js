@@ -2690,8 +2690,9 @@ test('un elemento que YA estaba fuera puede volver hacia dentro', () => {
 });
 
 /* ══════════════════════════════════════════════════════════════
-   Letra manuscrita elegible (v2.13.0). Las cinco familias viajan
-   autoalojadas; el selector vive en el panel y en #modal-text.
+   Letra del lienzo elegible (v2.13.0). Las familias viajan autoalojadas
+   y el selector vive en el panel y en #modal-text. El rótulo dejó de
+   decir «manuscrita» en la 2.15.0: dos de las siete no lo son.
    ══════════════════════════════════════════════════════════════ */
 
 test('los dos selectores de letra ofrecen el catálogo entero y son gemelos', () => {
