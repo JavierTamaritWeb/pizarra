@@ -71,6 +71,20 @@ test('index publica v2.20.0 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /entre 4 y 100 px \(16 px por defecto\)/);
 });
 
+// La ayuda de la app seguía diciendo que «Los clics acumulan selección» era la
+// casilla «del panel», de donde salió en la v2.17.0. La guarda de al lado —que
+// el id viejo no vuelva— no lo veía: la casilla existe, solo que en otro sitio,
+// así que el texto podía mentir indefinidamente sin romper nada.
+test('la ayuda no manda al panel a buscar la casilla de selección', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const linea = html.match(/<li>Multi-selección:[\s\S]*?<\/li>/);
+  assert.ok(linea, 'falta la línea de multi-selección en la ayuda');
+  assert.doesNotMatch(linea[0], /acumulan selección<\/strong> del panel/,
+    'la casilla dejó el panel en la v2.17.0');
+  assert.match(linea[0], /Mover/, 'la ayuda debe nombrar las herramientas que la abren');
+  assert.match(linea[0], /Select/);
+});
+
 // v2.20.0: el papel del lienzo (pizarra azulada + cuadrícula casi blanca) está
 // escrito DOS veces —la constante de app.js y el atributo `value` del mando en
 // index.html— y solo la primera manda. Si divergen, el mando enseña un color

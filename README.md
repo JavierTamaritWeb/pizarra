@@ -8,10 +8,10 @@
 [![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?style=flat-square&logo=javascript&logoColor=000)](src/js/)
 [![Estilos](https://img.shields.io/badge/estilos-SCSS%20·%20BEM%20·%20Gulp%205-cf649a?style=flat-square&logo=sass&logoColor=fff)](src/scss/)
 [![Dependencias](https://img.shields.io/badge/dependencias%20en%20runtime-0-brightgreen?style=flat-square)](#arquitectura)
-[![Tests](https://img.shields.io/badge/tests-576%20unitarios%20%2B%2055%20e2e-brightgreen?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-577%20unitarios%20%2B%2055%20e2e-brightgreen?style=flat-square)](#tests)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue?style=flat-square)](LICENSE)
 
-<img src="src/img/screenshot-pizarra.png" alt="La interfaz de Pizarra: barra de herramientas a la izquierda, lienzo con un wireframe de landing page dibujado a mano en el centro y panel de ajustes a la derecha" width="900">
+<img src="src/img/screenshot-pizarra.png" alt="La interfaz de Pizarra: barra de herramientas a la izquierda, en el centro un lienzo de papel azulado con cuadrícula blanca y un wireframe de landing page dibujado a mano, y a la derecha el panel de ajustes con la paleta de 36 colores ordenada por el arco iris" width="900">
 
 </div>
 
@@ -70,6 +70,7 @@ Para *usar* la app no hay nada que instalar ni compilar: el CSS ya viene compila
 | **Trazo a mano alzada** | Lápiz, línea, flecha y flecha curva con jitter determinista: cada elemento guarda su semilla y no "tiembla" entre repintados. |
 | **Formas** | Rectángulo, redondeado, elipse, cuadrado, trapecio, triángulo, pentágono y hexágono. Los polígonos regulares se arrastran desde el centro y conservan sus lados iguales; el trapecio admite proporciones libres. |
 | **Semicírculos** | 180° exactos y sin puntas. El arrastre fija el diámetro; después `+`/`−` o su handle ajustan el radio manteniendo la media circunferencia. `Q` convierte una flecha curva en semicírculo y viceversa. |
+| **Paleta de 36 colores** | Ordenada por el **arco iris**: abre con la tinta y los neutros, de oscuro a claro, y siguen los vivos y los **doce pastel** recorriendo cada uno de rojo a rosa por naranja, amarillo, verde, turquesa, azul, añil y violeta. Seis filas de seis, una familia por fila, más el selector libre para cualquier otro color. |
 | **Relleno** | Color propio por forma, modo sólido o translúcido y opacidad del 0 al 100 %. Vaciar una forma no le hace perder el color: al volver a rellenarla recupera el mismo. |
 | **Solapamiento** | El modo **Bordes ocultos** vuelve discontinuos solo los tramos del contorno inferior que otra forma tapa, respetando el orden de capas. |
 | **Componentes UI** | Botón, input, imagen, navbar y tarjeta, con etiquetas editables (doble clic). |
@@ -91,7 +92,7 @@ Para *usar* la app no hay nada que instalar ni compilar: el CSS ya viene compila
 
 Dos secciones para bocetar arquitectura y entorno con la misma estética. Ninguna introduce tipos de elemento nuevos: cada arrastre produce líneas, rectángulos, círculos, curvas y texto corrientes, así que la exportación, el undo y el JSON funcionan igual que con el resto del dibujo.
 
-<img src="src/img/screenshot-edificios-jardin.png" alt="Un alzado de edificio de tres plantas con tejado a dos aguas, rodeado de una parcela con árboles, parterre, fuente y seto, todos etiquetados" width="820">
+<img src="src/img/screenshot-edificios-jardin.png" alt="Un alzado de edificio de tres plantas con tejado a dos aguas, dentro de una parcela rectangular con una encina, una palmera datilera, un ciprés, un seto, un rosal y una fuente, todos etiquetados con su nombre común" width="820">
 
 **Edificios** — planta, fachada, tejado, puerta, ventana, balcón, muro, verjas y cancela. La fachada abre un modal con **miniatura en vivo**, tres vistas y los ajustes de plantas, ventanas por planta, pendiente y cubierta, todos sincronizados con el panel lateral. El balcón trae **8 tipos** y su catálogo, como los del jardín, usa **el dibujo real como icono**. El muro se dibuja en **vista de planta o de alzado**, en piedra, hormigón o ladrillo cara vista, con verja opcional arriba y **dieciocho cancelas** a elegir. La herramienta **Verjas** dibuja paños independientes en planta o alzado, ofrece trece diseños de forja con lanzas —incluidos seis inspirados en tradiciones españolas— y regula su altura entre **0 y 350 cm** mediante una miniatura en vivo. Los trece remates tienen hojas diferentes —lanceolada, aguja, ojiva, rombo, laurel, llama, palmeta, hoja facetada, flor de lis, piramidión, cáliz, corazón y rocalla— sin abandonar el repertorio clásico de los maestros forjadores. La herramienta **Cancela** permite colocar cualquiera de los dieciocho estilos como elemento autónomo, en planta o alzado y con altura regulable de **0 a 350 cm**.
 
@@ -128,7 +129,7 @@ Cada pieza de jardín nace con una **etiqueta** dentro del mismo grupo (se mueve
 
 ### Edición
 
-- **Selección múltiple** con marquee, `Ctrl/Cmd+A` o la casilla **«Los clics acumulan selección»** del panel — cada clic añade, y un clic sobre lo ya seleccionado lo quita (`Shift`+clic es el atajo); el grupo se arrastra desde cualquier punto de su marco combinado, incluido el espacio vacío entre elementos.
+- **Selección múltiple** con marquee, `Ctrl/Cmd+A` o la casilla **«Los clics acumulan selección»**, que aparece al pulsar **Mover** o **«Select»** — las dos herramientas cuyo clic gobierna — y se reabre con el ⚙ sin soltarlas. Cada clic añade, y un clic sobre lo ya seleccionado lo quita (`Shift`+clic es el atajo); el grupo se arrastra desde cualquier punto de su marco combinado, incluido el espacio vacío entre elementos.
 - **Rotación por pasos** (`Shift+R`): cuadrados 45°, trapecios/triángulos/rectángulos 90°, pentágonos 36°, hexágonos 30°. En una selección múltiple cada forma usa su propio paso.
 - **Copiar y pegar** (`Ctrl/Cmd+C` / `V`), también entre pestañas: lo pegado aparece desplazado, queda seleccionado y las flechas ancladas se re-vinculan a sus clones.
 - **Posición y tamaño exactos**: con algo seleccionado, el panel deja escribir X, Y, ancho y alto —y el **texto** del elemento cuando lo tiene: el contenido de un texto o el rótulo de un botón, un input, una navbar o una tarjeta—. Antes solo se podía arrastrar y estirar a ojo.
@@ -136,7 +137,7 @@ Cada pieza de jardín nace con una **etiqueta** dentro del mismo grupo (se mueve
 - **Varios elementos se editan a la vez**: con más de uno seleccionado, la caja combinada trae **tiradores** —arrastrar una esquina escala el conjunto en proporción, arrastrar por dentro lo mueve— y los controles del panel enseñan el valor que **todos** comparten, dejándose como están cuando discrepan. Cambiar color, grosor o relleno afecta a toda la selección de una vez.
 - **Undo/redo** con historial de 50 pasos.
 - **Cuadrícula** con ajuste opcional (`Alt` lo desactiva al vuelo) y **zoom 30–300 %** con auto-ajuste al espacio disponible en pantallas anchas.
-- **Fondo y color de cuadrícula** personalizables, con persistencia entre sesiones.
+- **Papel de plano de obra**: el lienzo nace con fondo de pizarra azulada y la cuadrícula casi blanca encima. Los dos colores son personalizables y persisten entre sesiones — y son **de pantalla**: no viajan a ninguna exportación, así que lo que se imprime sale siempre sobre blanco limpio y sin rejilla.
 - **Autoguardado** en `localStorage`: el trabajo sobrevive al refresco.
 - **Panel contextual**: el panel derecho muestra solo lo que la herramienta activa y la selección usan — «Relleno» con una forma, «Edificios» con Fachada, «Jardín» con un árbol— y agrupa el resto en **Trazo**, **Lienzo** y **Selección**. Con el lápiz pasa de 28 controles a la vista a unos 13, que es lo que más se nota en el cajón de las pantallas estrechas. Nada desaparece: reaparece con su herramienta, y **al seleccionar un elemento vuelven los controles que lo editan**.
 - **Cada herramienta abre sus ajustes al pulsarla**, como ya hacían el Borrador y los catálogos. Lápiz, Línea, Flecha, Flecha curva y Semicírculo muestran grosor, color, discontinuo y doble punta; las **ocho formas** añaden el relleno entero —rellenar, translúcido, opacidad y color— y, las que guardan su orientación como ángulo, un **giro** con el paso propio de cada una (45° el cuadrado, 36° el pentágono, 30° el hexágono…), de modo que la forma nace ya orientada en vez de tener que dibujarla y girarla a golpe de clic. **Texto** ajusta tamaño de letra y color; **Botón, Input, Imagen, Navbar y Tarjeta** comparten un modal con color, grosor y el **rótulo** con el que nacerán —escribe «Enviar» y coloca tres botones que ya lo digan—; el catálogo de **Emoji** elige también el tamaño (32–96 px), independiente del de letra. Todos llevan **muestra en vivo** dibujada con el renderer real. Cerrar deja la herramienta lista, y el ⚙ de la cabecera «Trazo» reabre los ajustes sin cambiar de herramienta. Los mismos ajustes siguen en el panel, sincronizados; las únicas herramientas sin modal son Mover y «Select».
@@ -151,6 +152,8 @@ Cada pieza de jardín nace con una **etiqueta** dentro del mismo grupo (se mueve
 | **SVG** | Vectorial escalable, fiel al render |
 | **HTML** | Página editable con componentes reales + SVG incrustado para los trazos |
 | **JSON** | Proyecto reutilizable — expórtalo e impórtalo después, con validación por tipo de elemento |
+
+**Ningún formato lleva el color del papel ni la cuadrícula**: son ajustes de pantalla, así que el archivo —y lo que se imprima de él— sale sobre blanco limpio, tenga el lienzo el fondo que tenga.
 
 ## Cómo usar Pizarra
 
@@ -252,7 +255,7 @@ Cuatro convenciones que conviene conocer:
 
 ## Tests
 
-**576 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
+**577 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
 de runtime:
 
 ```bash

@@ -1159,6 +1159,23 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 - **Guardia:** `tests/building.test.js` › *"perfil: sin puerta central y con la
   planta baja acompasada"*.
 
+### La ayuda de la app mandaba al panel a buscar una casilla que ya no está ahí
+
+- **Síntoma:** «Ayuda» → «Selección y portapapeles» decía que «Los clics
+  acumulan selección» era «la casilla **del panel**». La casilla dejó el panel
+  en la v2.17.0 y ahora sale al pulsar Mover o «Select». Quien siguiera la
+  ayuda buscaba en el panel un control que no existe allí, y en pantallas
+  estrechas encima tenía que abrir el cajón para comprobarlo.
+- **Causa:** al mover el control se actualizaron el HTML del panel, el modal y
+  los tests, pero no el texto de la ayuda ni el README. Ningún test miraba la
+  ayuda: la casilla seguía existiendo, solo que en otro sitio, así que la
+  guarda de *"la casilla vieja del panel no debe volver"* pasaba igual.
+- **Fix:** `index.html` (línea de la ayuda) y `README.md` — ambos nombran ahora
+  las dos herramientas que la abren y el ⚙ que la reabre.
+- **Guardia:** `tests/smoke.test.js` › *"la ayuda no manda al panel a buscar la
+  casilla de selección"*: la línea de multi-selección tiene que nombrar Mover y
+  «Select», y no puede volver a decir «del panel».
+
 ---
 
 ## Solo verificables manualmente (juicio visual, no lógica)

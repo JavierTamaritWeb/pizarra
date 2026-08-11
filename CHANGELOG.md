@@ -21,6 +21,17 @@ versionado es [SemVer](https://semver.org/lang/es/).
   un umbral fijo de luminancia. Con el papel oscuro, el lienzo **vacío** ya
   contaba 779 401 píxeles de «dibujo»: había dejado de medir lo que su nombre
   promete.
+- **Las dos capturas del README están regeneradas.** La principal era de la
+  **v1.16.1** —catorce versiones atrás—: enseñaba una paleta de 18 colores, un
+  panel con los 28 controles siempre a la vista, ningún grupo «Edición» y los
+  componentes rotulados en inglés. La del jardín llevaba nombres de especie
+  anteriores al catálogo botánico de la v2.7.0.
+
+### Corregido
+
+- **La ayuda de la app mandaba al panel a buscar «Los clics acumulan
+  selección»**, que dejó el panel en la v2.17.0. Ahora nombra las dos
+  herramientas que la abren, Mover y «Select». El README decía lo mismo.
 
 ## [2.19.0] — 2026-08-11
 
