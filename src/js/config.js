@@ -447,12 +447,33 @@ const TOOL_GROUPS = [
   },
 ];
 
+/**
+ * Muestras de color del panel. La rejilla (`.panel__color-grid`) es de SEIS
+ * columnas, así que cada tramo de seis de este array es una fila visible: el
+ * orden de aquí ES la maquetación, y por eso está agrupado en bloques de 6.
+ *
+ * Orden: primero la tinta y los neutros (por luminosidad, empezando por el
+ * color por defecto), y a continuación los cromáticos **ordenados por tono
+ * del arco iris** (rojo → naranja → amarillo → verde → turquesa → azul →
+ * añil → violeta → rosa), primero los vivos y después los pasteles. Dentro de
+ * un mismo tono va antes el más oscuro. Mantener ese criterio al añadir un
+ * color: `tests/config-templates.test.js` comprueba que el tono no retrocede
+ * dentro de cada bloque cromático.
+ */
 const COLORS = [
-  '#1a1a2e', '#16213e', '#0f3460', '#533483',
-  '#e94560', '#f39c12', '#27ae60', '#2980b9',
-  '#8e44ad', '#c0392b', '#1abc9c', '#e74c3c',
-  '#3498db', '#2ecc71', '#f1c40f', '#95a5a6',
-  '#ecf0f1', '#ffffff',
+  // Tinta y neutros, de oscuro a claro. `#1a1a2e` es el color de creación por
+  // defecto (`state.color` en app.js) y por eso abre la paleta.
+  '#1a1a2e', '#16213e', '#0f3460', '#95a5a6', '#ecf0f1', '#ffffff',
+  // Vivos · rojo → amarillo
+  '#c0392b', '#e74c3c', '#d35400', '#e67e22', '#f39c12', '#f1c40f',
+  // Vivos · lima → azul
+  '#7cb342', '#27ae60', '#2ecc71', '#1abc9c', '#2980b9', '#3498db',
+  // Vivos · añil → rosa
+  '#3f51b5', '#533483', '#8e44ad', '#9b59b6', '#d63384', '#e94560',
+  // Pasteles · rojo → verde
+  '#ffb3ab', '#ffcdb2', '#ffe0a3', '#fdfd96', '#d0f0a0', '#b7e4c7',
+  // Pasteles · turquesa → rosa
+  '#a0e7e5', '#a8d8ea', '#b3c7f5', '#c7c3f0', '#dcc0ec', '#f6c3de',
 ];
 
 /**

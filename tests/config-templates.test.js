@@ -79,6 +79,95 @@ test('config.js — COLORS son colores hex válidos (#rrggbb)', () => {
   }
 });
 
+/**
+ * HSL de un `#rrggbb`, para poder razonar sobre «tono» y «pastel» en las
+ * guardas de abajo sin depender de ninguna dependencia.
+ */
+function hsl(hex) {
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  const l = (max + min) / 2;
+  if (d === 0) return { h: 0, s: 0, l };
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  const h = max === r ? ((g - b) / d + (g < b ? 6 : 0))
+    : max === g ? (b - r) / d + 2
+    : (r - g) / d + 4;
+  return { h: h * 60, s, l };
+}
+
+test('config.js — la paleta va por filas de 6 y los cromáticos siguen el arco iris', async t => {
+  const { COLORS } = load('src/js/config.js');
+
+  // La rejilla del panel es `repeat(6, 1fr)`: el array ES la maquetación, y un
+  // color suelto descuadraría todas las familias de una fila en adelante.
+  await t.test('el total es múltiplo de 6 (la rejilla tiene 6 columnas)', () => {
+    assert.equal(COLORS.length % 6, 0, `COLORS tiene ${COLORS.length} colores`);
+  });
+
+  await t.test('no hay colores repetidos', () => {
+    assert.equal(new Set(COLORS).size, COLORS.length);
+  });
+
+  // Bloques declarados en config.js: fila 1 tinta/neutros, filas 2-4 vivos,
+  // filas 5-6 pasteles.
+  const tinta = COLORS.slice(0, 6);
+  const vivos = COLORS.slice(6, 24);
+  const pasteles = COLORS.slice(24);
+
+  await t.test('la tinta abre la paleta con el color por defecto y sube de luminosidad', () => {
+    assert.equal(tinta[0], '#1a1a2e', 'la primera muestra es el color de creación por defecto');
+    const ls = tinta.map(c => hsl(c).l);
+    ls.forEach((l, i) => {
+      if (i) assert.ok(l > ls[i - 1], `la tinta no va de oscuro a claro en ${tinta[i]}`);
+    });
+  });
+
+  // Un grado de tolerancia: dos colores del mismo tono (#c0392b y #e74c3c
+  // difieren en 0,02°) no tienen un orden por tono, y ahí manda la regla
+  // documentada — primero el más oscuro.
+  const MISMO_TONO = 1;
+  for (const [nombre, bloque] of [['vivos', vivos], ['pasteles', pasteles]]) {
+    await t.test(`el tono nunca retrocede dentro de los ${nombre}`, () => {
+      bloque.forEach((c, i) => {
+        if (!i) return;
+        const prev = hsl(bloque[i - 1]), cur = hsl(c);
+        const detalle = `${c} (tono ${cur.h.toFixed(0)}) detrás de `
+          + `${bloque[i - 1]} (tono ${prev.h.toFixed(0)})`;
+        if (Math.abs(cur.h - prev.h) <= MISMO_TONO) {
+          assert.ok(cur.l >= prev.l, `mismo tono, pero el claro va antes: ${detalle}`);
+        } else {
+          assert.ok(cur.h > prev.h, `el arco iris retrocede: ${detalle}`);
+        }
+      });
+    });
+  }
+
+  // Y que la frontera entre los dos bloques signifique algo: si un vivo cayera
+  // entre los pasteles el tono podría seguir ordenado y la fila mentiría.
+  await t.test('los vivos son vivos y los pasteles, pastel', () => {
+    for (const c of vivos) {
+      const { s, l } = hsl(c);
+      assert.ok(l < 0.7, `${c} es demasiado claro para el bloque de vivos`);
+      assert.ok(s > 0.2, `${c} está desaturado para ser un color vivo`);
+    }
+    for (const c of pasteles) {
+      const { s, l } = hsl(c);
+      assert.ok(l >= 0.7, `${c} no es lo bastante claro para ser pastel`);
+      assert.ok(s > 0.2, `${c} está desaturado para ser un pastel`);
+    }
+  });
+
+  // Reordenar y ampliar no debe quitarle a nadie un color que ya usaba.
+  await t.test('siguen estando los 18 colores históricos', () => {
+    const historicos = [
+      '#1a1a2e', '#16213e', '#0f3460', '#533483', '#e94560', '#f39c12',
+      '#27ae60', '#2980b9', '#8e44ad', '#c0392b', '#1abc9c', '#e74c3c',
+      '#3498db', '#2ecc71', '#f1c40f', '#95a5a6', '#ecf0f1', '#ffffff',
+    ];
+    for (const c of historicos) assert.ok(COLORS.includes(c), `falta el color ${c}`);
+  });
+});
+
 test('config.js — CANVAS_W/CANVAS_H', () => {
   const ctx = load('src/js/config.js');
   assert.equal(ctx.CANVAS_W, 1200);

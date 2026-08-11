@@ -4,6 +4,31 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.19.0] — 2026-08-11
+
+### Añadido
+
+- **Doce colores pastel** en la paleta del panel: coral, melocotón, ámbar,
+  amarillo, lima, verde, turquesa, celeste, azul, añil, lila y rosa. Cubren el
+  arco iris entero en tonos claros, que es justo lo que faltaba para sombrear
+  y rellenar sin que el dibujo compitiera con el trazo.
+- **Seis vivos nuevos** que tapan los huecos del arco iris anterior: calabaza,
+  zanahoria, lima, añil, amatista y magenta.
+
+### Cambiado
+
+- **La paleta se ordena por tono del arco iris.** Antes iba en el orden en que
+  se habían ido añadiendo los colores, con los rojos repartidos por tres filas
+  distintas. Ahora abre con la tinta y los neutros —de oscuro a claro,
+  empezando por el color por defecto—, siguen los vivos de rojo a rosa pasando
+  por naranja, amarillo, verde, turquesa, azul, añil y violeta, y cierran los
+  pasteles en ese mismo recorrido. Dentro de un mismo tono va antes el más
+  oscuro.
+- La paleta pasa de 18 colores a **36**, en seis filas de seis: la rejilla del
+  panel tiene seis columnas, así que cada fila es una familia completa.
+- Ningún color desaparece: los 18 de siempre siguen ahí, solo cambian de sitio
+  (`#1a1a2e`, el color de creación por defecto, sigue abriendo la paleta).
+
 ## [2.18.0] — 2026-08-10
 
 ### Cambiado
