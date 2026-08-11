@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.19.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.20.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.19\.0</);
-  assert.match(html, /css\/styles\.css\?v=2\.19\.0/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.19\.0/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.19\.0/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.19\.0/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.19\.0/);
+  assert.match(html, /class="topbar__badge">v2\.20\.0</);
+  assert.match(html, /css\/styles\.css\?v=2\.20\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.20\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.20\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.20\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.20\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -58,7 +58,7 @@ test('index publica v2.19.0 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="modal-text"/);
   assert.match(html, /id="modal-ui"/);
   assert.match(html, /id="modal-select"/);
-  // «Los clics acumulan selección» dejó el panel en la v2.19.0 y es el ajuste
+  // «Los clics acumulan selección» dejó el panel en la v2.17.0 y es el ajuste
   // de «Select». Si volviera a existir la casilla vieja habría dos controles
   // para un mismo estado, y solo uno cableado: el arnés `node:vm` fabrica un
   // <div> vacío para cualquier id desconocido, así que un id huérfano no
@@ -69,6 +69,26 @@ test('index publica v2.19.0 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="stroke-label">Trazo</);
   assert.match(html, /Tamaño del borrador/);
   assert.match(html, /entre 4 y 100 px \(16 px por defecto\)/);
+});
+
+// v2.20.0: el papel del lienzo (pizarra azulada + cuadrícula casi blanca) está
+// escrito DOS veces —la constante de app.js y el atributo `value` del mando en
+// index.html— y solo la primera manda. Si divergen, el mando enseña un color
+// que el lienzo no tiene hasta que alguien lo toca; el arnés `node:vm` no lo
+// vería, porque lee el valor que app.js le acaba de asignar.
+test('los mandos de Fondo y Cuadrícula nacen con el color que dice app.js', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const app = fs.readFileSync(path.resolve(__dirname, '..', 'src/js/app.js'), 'utf8');
+  for (const [constante, id] of [
+    ['DEFAULT_CANVAS_BG', 'canvas-bg-picker'],
+    ['DEFAULT_GRID_COLOR', 'grid-color-picker'],
+  ]) {
+    const enJs = app.match(new RegExp(`const ${constante} = '(#[0-9a-f]{6})'`));
+    assert.ok(enJs, `no se encuentra ${constante} en app.js`);
+    const enHtml = html.match(new RegExp(`id="${id}" value="(#[0-9a-f]{6})"`));
+    assert.ok(enHtml, `no se encuentra el value de #${id} en index.html`);
+    assert.equal(enHtml[1], enJs[1], `#${id} no coincide con ${constante}`);
+  }
 });
 
 // v2.10.0: los cuatro modales de ajustes llevan su bloque «Posición y tamaño»

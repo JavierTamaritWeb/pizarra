@@ -7,8 +7,18 @@
 
   /* ── State ── */
 
-  const DEFAULT_CANVAS_BG = '#ffffff';
-  const DEFAULT_GRID_COLOR = '#cdd3de';
+  // Papel de trabajo: pizarra azulada con la cuadrícula casi blanca encima, el
+  // aire de un plano de obra. Son ajustes cosméticos de PANTALLA — ni el color
+  // ni la cuadrícula viajan a ninguna exportación (`_renderClean` en
+  // exporter.js compone su propio blanco y no dibuja rejilla), así que lo que
+  // se imprime sigue saliendo sobre papel limpio.
+  //
+  // Ojo: `Renderer.drawGrid` tiene su propio color por defecto (`#cdd3de`) y
+  // NO acompaña a este. El del renderer es el que vale cuando nadie pasa
+  // ninguno, y ahí el fondo que hay que suponer es blanco: un `#fcfcfc` sobre
+  // blanco no se vería. La app siempre pasa `state.gridColor`.
+  const DEFAULT_CANVAS_BG = '#686f92';
+  const DEFAULT_GRID_COLOR = '#fcfcfc';
   const ERASER_SIZE_MIN = 4;
   const ERASER_SIZE_MAX = 100;
   const DEFAULT_ERASER_SIZE = 16;

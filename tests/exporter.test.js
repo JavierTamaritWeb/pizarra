@@ -1295,3 +1295,44 @@ test('un color de sombra con basura no puede cerrar la declaración CSS', () => 
   assert.doesNotMatch(html, /<script>/, 'ni etiquetas nuevas');
   assert.doesNotMatch(html, /text-shadow:[^;]*;[^"]*}/, 'ni reglas inyectadas');
 });
+
+/* ============================================================
+   El papel de pantalla no viaja a las exportaciones
+   ============================================================ */
+
+test('ninguna exportación lleva el color del lienzo ni la cuadrícula', async t => {
+  // Desde la v2.20.0 el lienzo nace con papel de pizarra (#686f92) y cuadrícula
+  // casi blanca (#fcfcfc). Son ajustes de PANTALLA: lo que se exporta —lo que
+  // se acaba imprimiendo— tiene que salir sobre blanco limpio y sin rejilla.
+  // Antes esto se cumplía sin que nadie lo mirase, porque el fondo por defecto
+  // era el mismo blanco que compone el exportador; ahora es una promesa que se
+  // puede romper de verdad.
+  const PAPEL = '#686f92', REJILLA = '#fcfcfc';
+  // Un llamador que "ayudase" reenviando el estado del lienzo: el exportador
+  // tiene que ignorarlo, no propagarlo.
+  const opts = { overlapMode: 'normal', background: PAPEL, showGrid: true, gridColor: REJILLA };
+
+  for (const fmt of ['png', 'jpg']) {
+    await t.test(`${fmt}: compone blanco y no dibuja rejilla`, () => {
+      const ctx = freshCtx();
+      // Escena VACÍA: así todo trazo que aparezca en el canvas temporal solo
+      // puede venir de la cuadrícula.
+      ctx.Exporter[fmt]([], opts);
+      const canvas = ctx.document.created.find(e => e.tagName === 'CANVAS');
+      const fills = canvas._ctx.callsTo('set fillStyle').map(c => c.args[0]);
+      assert.deepEqual(fills, ['#ffffff'], `${fmt} solo pinta el fondo, y blanco`);
+      assert.equal(canvas._ctx.callsTo('stroke').length, 0, `${fmt} no traza rejilla`);
+    });
+  }
+
+  for (const fmt of ['svg', 'html']) {
+    await t.test(`${fmt}: fondo blanco en el marcado y ni rastro del papel`, () => {
+      const ctx = freshCtx();
+      ctx.Exporter[fmt]([elLine, elText], opts);
+      const out = lastBlob(ctx).content;
+      assert.ok(!out.includes(PAPEL), `${fmt} no cuela el color del lienzo`);
+      assert.ok(!out.includes(REJILLA), `${fmt} no cuela el color de la cuadrícula`);
+      assert.match(out, /white|#fff\b/, `${fmt} declara un fondo blanco`);
+    });
+  }
+});

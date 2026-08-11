@@ -2091,8 +2091,12 @@ test('«Limpiar todo» también devuelve los defaults de Edificios y Jardín', (
    picker divergía del estado. ── */
 
 test('unas prefs con un hex inválido de 5 dígitos no cuelan; el válido sí', () => {
+  // El fondo por defecto se lee de una app sin prefs en vez de escribirlo aquí:
+  // así el test sigue comprobando «el hex malo cae al default» aunque el
+  // default cambie (y en la v2.20.0 cambió).
+  const porDefecto = loadApp().$('canvas-bg-picker').value;
   const app = loadApp({ prefs: { canvasBg: '#abcde', gridColor: '#123456' } });
-  assert.equal(app.$('canvas-bg-picker').value, '#ffffff', 'el hex de 5 dígitos se rechaza');
+  assert.equal(app.$('canvas-bg-picker').value, porDefecto, 'el hex de 5 dígitos se rechaza');
   assert.equal(app.$('grid-color-picker').value, '#123456', 'el hex válido sí entra');
 });
 

@@ -172,19 +172,31 @@ async function setZoom(page, pct) {
  * Píxeles de tinta del lienzo: prueba que algo se ha dibujado de verdad, no
  * solo que el estado lo diga.
  *
- * Cuenta píxeles OSCUROS, no opacos: el lienzo se pinta con un fondo blanco
- * sólido, así que "alfa > 0" da 1200×800 siempre, tenga o no dibujo. La
- * cuadrícula (#cdd3de) es clara y queda fuera del umbral; el trazo por defecto
- * (#1a1a2e) queda muy dentro.
+ * Cuenta píxeles mucho MÁS OSCUROS QUE EL PAPEL, no opacos: el lienzo se pinta
+ * con un fondo sólido, así que "alfa > 0" da 1200×800 siempre, tenga o no
+ * dibujo.
+ *
+ * El umbral es relativo al papel (60 % de su luminancia) y no un 128 fijo,
+ * porque desde la v2.20.0 el fondo por defecto es una pizarra azulada
+ * (#686f92, luminancia 113): con el umbral fijo el lienzo VACÍO ya contaba
+ * 960 000 píxeles de «tinta» y todo `before + N` pasaba a ser imposible. Al
+ * medirlo contra el papel, la cuadrícula queda fuera con cualquier
+ * combinación —siempre es más clara que el fondo, tanto la casi blanca de
+ * ahora como la gris sobre blanco de antes— y el trazo por defecto (#1a1a2e,
+ * luminancia 27) queda muy dentro. El papel se lee de su propio mando, que es
+ * DOM que el usuario ve, no un hook de test.
  */
 function paintedPixels(page) {
   return page.evaluate(() => {
     const c = document.getElementById('main-canvas');
+    const bg = document.getElementById('canvas-bg-picker').value;
+    const [br, bgr, bb] = [1, 3, 5].map(i => parseInt(bg.slice(i, i + 2), 16));
+    const limite = (0.299 * br + 0.587 * bgr + 0.114 * bb) * 0.6;
     const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
     let n = 0;
     for (let i = 0; i < d.length; i += 4) {
       const lum = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-      if (d[i + 3] > 0 && lum < 128) n++;
+      if (d[i + 3] > 0 && lum < limite) n++;
     }
     return n;
   });

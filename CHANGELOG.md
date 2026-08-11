@@ -4,6 +4,24 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.20.0] — 2026-08-11
+
+### Cambiado
+
+- **El lienzo nace como un plano de obra**: papel de pizarra azulada
+  (`#686f92`) con la cuadrícula casi blanca encima (`#fcfcfc`). Antes era
+  blanco con la rejilla gris.
+- **Lo que se exporta —y por tanto lo que se imprime— sigue saliendo sobre
+  blanco limpio y sin cuadrícula**, en los cinco formatos. El color del papel
+  y la rejilla son ajustes de pantalla y no viajan a ningún archivo. Ya se
+  comportaba así, pero mientras el fondo por defecto era blanco daba lo mismo;
+  ahora es una promesa que se puede romper, y hay una guarda que lo comprueba
+  exportando una escena vacía y colándole a propósito el color del lienzo.
+- El detector de tinta de la suite e2e mide contra el papel en vez de contra
+  un umbral fijo de luminancia. Con el papel oscuro, el lienzo **vacío** ya
+  contaba 779 401 píxeles de «dibujo»: había dejado de medir lo que su nombre
+  promete.
+
 ## [2.19.0] — 2026-08-11
 
 ### Añadido
