@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=2.20.0" />
+  <link rel="stylesheet" href="css/styles.css?v=2.21.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.20.0" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.21.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v2.20.0</span>
+        <span class="topbar__badge">v2.21.0</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes" aria-expanded="false" aria-controls="side-panel">
@@ -88,7 +88,17 @@
            Lo que edita la selección (color, grosor, relleno, discontinuo, doble
            punta, tamaño de texto) vive AQUÍ y no en un modal: `selectTool()`
            vacía la selección y los atajos se desactivan con un `<dialog>`
-           abierto, así que un modal no puede sustituir al panel para editar. -->
+           abierto, así que un modal no puede sustituir al panel para editar.
+
+           Cada sección con ajustes propios lleva SU ⚙ (v2.21.0), que abre
+           siempre los mismos ajustes: los de esa sección. Antes había uno solo,
+           en la cabecera «Trazo», que se re-apuntaba a cinco modales según la
+           herramienta — el mismo botón, en el mismo sitio, abría cinco cosas
+           distintas —, y ESA cabecera se quedó sin ⚙ al repartirlo: sus
+           destinos se alcanzan pulsando la herramienta y, con selección, desde
+           «Posición y tamaño». «Lienzo» tampoco lleva, porque no tiene ajustes
+           en ningún modal. Ninguno cambia de herramienta ni vacía la selección;
+           los de «Edificios» y «Jardín» son la excepción, explicada allí. -->
       <aside class="panel" id="side-panel">
 
         <!-- Elemento: posición y tamaño EXACTOS de lo seleccionado, más su
@@ -100,7 +110,14 @@
              moveElement/scaleElement, así que vale para cualquier tipo —incluidos
              los trazos a mano y los grupos— sin un caso por tipo. -->
         <section class="panel__section" id="panel-sec-element">
-          <h3 class="panel__title">Posición y tamaño</h3>
+          <h3 class="panel__title panel__title--row">
+            <span>Posición y tamaño</span>
+            <!-- El único ⚙ que se oculta desde JS: aquí no manda la herramienta
+                 activa sino el TIPO seleccionado, y no todos tienen ajustes
+                 (una imagen pegada, el `eraser` histórico). -->
+            <button type="button" class="panel__gear" id="btn-element-settings"
+                    title="Ajustar lo seleccionado" hidden>⚙️</button>
+          </h3>
           <div class="panel__nums">
             <label class="panel__num" for="el-x"><span>X</span>
               <input type="number" id="el-x" step="1" /></label>
@@ -117,24 +134,32 @@
           </label>
         </section>
 
-        <!-- Trazo: grosor, color y los dos modificadores de línea. «Color» era
-             una sección aparte, pero es el color DEL TRAZO (lo dice su propio
-             aria-label), así que va aquí. -->
+        <!-- Trazo: color y los dos modificadores de línea. «Color» era una
+             sección aparte, pero es el color DEL TRAZO (lo dice su propio
+             aria-label), así que va aquí.
+
+             SIN GROSOR Y SIN ⚙ (v2.21.0). Aquí vivían dos cosas que se han ido:
+             el ⚙ único que se re-apuntaba a cinco modales según la herramienta,
+             y el deslizador del grosor —que además cambiaba de significado,
+             porque con el Borrador gobernaba SU tamaño y se retitulaba—. Los
+             dos tenían el mismo problema: un control cuyo efecto dependía de
+             algo que pasaba en otra parte de la pantalla. El grosor vive ahora
+             donde se elige la herramienta, en los cinco modales de ajustes
+             (#modal-stroke, #modal-shape, #modal-ui, #modal-text y, como
+             tamaño del borrador, #modal-eraser), que ya lo tenían como gemelo.
+             Se llega a ellos pulsando la herramienta y, con algo seleccionado,
+             desde el ⚙ de «Posición y tamaño». -->
         <section class="panel__section" id="panel-sec-stroke">
-          <h3 class="panel__title panel__title--row">
-            <span><span id="stroke-label">Trazo</span>: <span id="stroke-val">2</span>px</span>
-            <button type="button" class="panel__gear" id="btn-eraser-size"
-                    title="Ajustar el trazo" hidden>⚙️</button>
-          </h3>
-          <input class="panel__slider" type="range" id="stroke-slider"
-                 min="1" max="8" step="1" value="2"
-                 aria-label="Grosor del trazo" />
+          <h3 class="panel__title">Color</h3>
           <div class="panel__color-grid" id="color-grid"></div>
-          <div class="panel__color-custom">
-            <input class="panel__color-picker" type="color" id="color-picker" value="#1a1a2e"
-                   aria-label="Color del trazo personalizado" />
-            <code class="panel__color-hex" id="color-hex">#1a1a2e</code>
-          </div>
+          <!-- Rotulado «Color», como «Fondo» y «Cuadrícula» en Lienzo: el
+               <code> con el hex que había aquí decía el valor, no para qué
+               sirve el mando. El <label> envolvente hace de nombre accesible,
+               así que no lleva aria-label (lo duplicaría). -->
+          <label class="panel__color-custom" for="color-picker">
+            <input class="panel__color-picker" type="color" id="color-picker" value="#1a1a2e" />
+            Color
+          </label>
           <label class="panel__check" id="row-dash">
             <input type="checkbox" id="check-dash" /> Trazo discontinuo
           </label>
@@ -147,7 +172,11 @@
              «Solapamiento» estaba aquí y no es un ajuste de relleno sino un modo
              de render de toda la escena: se ha ido a «Lienzo». -->
         <section class="panel__section" id="panel-sec-fill">
-          <h3 class="panel__title">Relleno</h3>
+          <h3 class="panel__title panel__title--row">
+            <span>Relleno</span>
+            <button type="button" class="panel__gear" id="btn-fill-settings"
+                    title="Ajustar el relleno">⚙️</button>
+          </h3>
           <label class="panel__check">
             <input type="checkbox" id="check-fill" /> Rellenar formas
           </label>
@@ -172,7 +201,14 @@
              hace con el borrador. El max 96 es EMOJI_MAX_SIZE: un emoji puede
              medir hasta 96 y este mismo control lo enseña al seleccionarlo. -->
         <section class="panel__section" id="panel-sec-text">
-          <label class="panel__title panel__title--block" for="font-slider"><span id="font-label">Texto</span>: <span id="font-val">18</span>px</label>
+          <!-- El <label for> se queda DENTRO de la cabecera, como hermano del
+               ⚙ y nunca envolviéndolo: un <label> se tragaría el botón en el
+               nombre accesible del deslizador. -->
+          <h3 class="panel__title panel__title--row">
+            <label for="font-slider"><span id="font-label">Texto</span>: <span id="font-val">18</span>px</label>
+            <button type="button" class="panel__gear" id="btn-text-settings"
+                    title="Ajustar el texto">⚙️</button>
+          </h3>
           <input class="panel__slider" type="range" id="font-slider" min="10" max="96" value="18" />
           <!-- Estilo del texto. Se ocultan con el Emoji activo: ahí la sección
                se retitula para gobernar SU tamaño, y negrita o sombra sobre un
@@ -312,7 +348,14 @@
              «Los clics acumulan selección» vivió aquí hasta la v2.17.0; ahora
              es un ajuste de la herramienta «Select», en #modal-select. -->
         <section class="panel__section panel__section--border" id="panel-sec-selection">
-          <h3 class="panel__title" aria-live="polite">Elementos: <span id="el-count">0</span></h3>
+          <!-- aria-live sobre la fila es seguro: aria-atomic es false por
+               defecto, así que solo se anuncia el contador que cambia, no la
+               cabecera entera, y el ⚙ es estático. -->
+          <h3 class="panel__title panel__title--row" aria-live="polite">
+            <span>Elementos: <span id="el-count">0</span></span>
+            <button type="button" class="panel__gear" id="btn-selection-settings"
+                    title="Ajustar la selección">⚙️</button>
+          </h3>
           <button class="btn btn--ghost btn--block" id="btn-edit-garden" hidden>
             🌿 Editar planta
           </button>
@@ -394,7 +437,7 @@
       <section class="modal__help-group">
         <h4 class="modal__help-title">Selección y portapapeles</h4>
         <ul class="modal__help-list">
-          <li>Multi-selección: arrastre en vacío, o la casilla <strong>«Los clics acumulan selección»</strong> que sale al pulsar <strong>Mover</strong> o <strong>«Select»</strong> (cada clic añade; un clic sobre lo ya seleccionado lo quita) · <kbd>Shift</kbd>+click es el atajo · arrastra el grupo desde cualquier punto de su marco</li>
+          <li>Multi-selección: arrastre en vacío, o la casilla <strong>«Los clics acumulan selección»</strong> que sale al pulsar <strong>Mover</strong> o <strong>«Select»</strong>, y que reabre el ⚙ de <strong>«Elementos»</strong> con cualquier herramienta (cada clic añade; un clic sobre lo ya seleccionado lo quita) · <kbd>Shift</kbd>+click es el atajo · arrastra el grupo desde cualquier punto de su marco</li>
           <li><kbd>Ctrl</kbd>+<kbd>C</kbd> copia la selección · <kbd>Ctrl</kbd>+<kbd>V</kbd> la pega (también entre pestañas)</li>
           <li><kbd>Ctrl</kbd>+<kbd>V</kbd> o arrastrar un archivo: imágenes PNG/JPG</li>
           <li><kbd>Shift</kbd>+<kbd>R</kbd> o <strong>Rotar selección</strong>: cuadrado 45° · trapecio/triángulo/rectángulo 90° · pentágono 36° · hexágono 30°</li>
@@ -419,8 +462,8 @@
           <li><kbd>E</kbd>: activa el <strong>Borrador</strong>; arrastra sobre trazos, rellenos o formas para <strong>eliminarlos</strong> — no los tapa, así que lo borrado no reaparece al mover el dibujo</li>
           <li>Recta, flecha y trazo a mano se <strong>recortan</strong> por donde pasa el círculo, en vez de desaparecer enteros: pasar por el cruce de dos trazos solo borra ese tramo, no las dos líneas completas</li>
           <li>El resto de elementos (formas, texto, imágenes, componentes) se elimina entero, como siempre</li>
-          <li>Al elegirlo se abre un modal para ajustar el tamaño, con previsualización; el botón ⚙ del panel lo reabre sin soltar la herramienta</li>
-          <li>Además, el regulador <strong>"Trazo"</strong> del panel cambia a <strong>"Tamaño del borrador"</strong> mientras está activo</li>
+          <li>Al elegirlo se abre un modal para ajustar el tamaño, con previsualización; el ⚙ de la cabecera <strong>«Trazo»</strong> del panel lo reabre sin soltar la herramienta</li>
+          <li>El tamaño se ajusta solo ahí: el regulador <strong>"Trazo"</strong> del panel, que antes cambiaba a <strong>"Tamaño del borrador"</strong> mientras estaba activo, se retiró en la v2.21.0</li>
           <li>El tamaño se ajusta entre 4 y 100 px (16 px por defecto) y es independiente del lápiz y de las formas</li>
           <li>El círculo del cursor muestra el alcance; cada pasada se deshace y rehace como una sola acción</li>
         </ul>
@@ -589,7 +632,8 @@
        la herramienta y no solo en el panel: por debajo de 1100px el panel es un
        cajón oculto, y el sidebar donde se pulsa la herramienta queda al otro
        lado de la pantalla. Se abre al elegir la herramienta (como todos los
-       ajustes desde la 2.9.0) y se reabre con el ⚙ de la cabecera «Trazo».
+       ajustes desde la 2.9.0) y se reabre volviendo a pulsarla —o con el ⚙ de
+       «Posición y tamaño», si lo seleccionado es un trazo.
 
        Los campos son gemelos de los del panel; `syncStrokeControls()` los
        mantiene al día y conservan la semántica dual (con algo seleccionado
@@ -714,14 +758,15 @@
 
   <!-- ===== MODAL: TEXTO =====
        Los ajustes de la herramienta Texto, con el mismo contrato que
-       #modal-stroke: se abre al elegirla, el ⚙ lo reabre, cerrar deja la
+       #modal-stroke: se abre al elegirla, el ⚙ de «Texto» lo reabre, cerrar deja la
        herramienta puesta (no pasa por opensVariantModal), y los campos son
        gemelos del panel con semántica dual — el deslizador de tamaño edita el
        texto seleccionado o, sin selección, el default de creación. -->
   <dialog class="modal" id="modal-text" aria-labelledby="modal-text-title">
       <h3 class="modal__heading" id="modal-text-title">Ajustes del texto</h3>
       <p class="modal__sub">La muestra se dibuja con el tamaño, el color y la letra actuales.
-        El tamaño sigue estando en el panel «Texto», y la letra en «Lienzo».</p>
+        El tamaño sigue estando en el panel «Texto», y la letra en «Lienzo».
+        El grosor solo aquí: dejó el panel en la v2.21.0.</p>
       <div class="modal__build">
         <canvas class="modal__preview" id="text-preview" width="176" height="168"
                 role="img" aria-label="Vista previa del texto con los ajustes actuales"></canvas>
@@ -731,6 +776,16 @@
             <input class="panel__slider" type="range" id="text-modal-size"
                    min="10" max="96" value="18"
                    aria-label="Tamaño de letra" />
+          </label>
+          <!-- Grosor: llegó aquí en la v2.21.0, al retirar el deslizador del
+               panel. Sin él, un texto seleccionado se quedaba sin ningún sitio
+               desde el que cambiar su trazo. Mismo id-patrón y mismo rango que
+               los otros cuatro gemelos (guardado en smoke.test.js). -->
+          <label class="panel__field" for="text-modal-stroke">
+            <span class="modal__field-label">Grosor: <span id="text-modal-stroke-val">2</span>px</span>
+            <input class="panel__slider" type="range" id="text-modal-stroke"
+                   min="1" max="8" step="1" value="2"
+                   aria-label="Grosor del trazo" />
           </label>
           <label class="panel__field" for="text-modal-color">
             <span class="modal__field-label">Color</span>
@@ -1205,19 +1260,19 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=2.20.0"></script>
-  <script src="src/js/sketchy.js?v=2.20.0"></script>
-  <script src="src/js/arc.js?v=2.20.0"></script>
-  <script src="src/js/curve-path.js?v=2.20.0"></script>
-  <script src="src/js/shape-rotation.js?v=2.20.0"></script>
-  <script src="src/js/regular-polygon.js?v=2.20.0"></script>
-  <script src="src/js/trapezoid.js?v=2.20.0"></script>
-  <script src="src/js/eraser.js?v=2.20.0"></script>
-  <script src="src/js/building.js?v=2.20.0"></script>
-  <script src="src/js/garden.js?v=2.20.0"></script>
-  <script src="src/js/renderer.js?v=2.20.0"></script>
-  <script src="src/js/exporter.js?v=2.20.0"></script>
-  <script src="src/js/templates.js?v=2.20.0"></script>
-  <script src="src/js/app.js?v=2.20.0"></script>
+  <script src="src/js/config.js?v=2.21.0"></script>
+  <script src="src/js/sketchy.js?v=2.21.0"></script>
+  <script src="src/js/arc.js?v=2.21.0"></script>
+  <script src="src/js/curve-path.js?v=2.21.0"></script>
+  <script src="src/js/shape-rotation.js?v=2.21.0"></script>
+  <script src="src/js/regular-polygon.js?v=2.21.0"></script>
+  <script src="src/js/trapezoid.js?v=2.21.0"></script>
+  <script src="src/js/eraser.js?v=2.21.0"></script>
+  <script src="src/js/building.js?v=2.21.0"></script>
+  <script src="src/js/garden.js?v=2.21.0"></script>
+  <script src="src/js/renderer.js?v=2.21.0"></script>
+  <script src="src/js/exporter.js?v=2.21.0"></script>
+  <script src="src/js/templates.js?v=2.21.0"></script>
+  <script src="src/js/app.js?v=2.21.0"></script>
 </body>
 </html>

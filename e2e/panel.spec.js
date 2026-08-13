@@ -46,7 +46,6 @@ test('el panel enseña solo las secciones de la herramienta activa', async ({ pa
 test('pulsar una herramienta de dibujo abre sus ajustes de trazo', async ({ page }) => {
   await openApp(page);
   const modal = page.locator('#modal-stroke');
-  const gear = page.locator('#btn-eraser-size');
 
   // Lo mismo que hacen el Borrador y los catálogos: elegir la herramienta abre
   // su modal. Las cinco de dibujo, sin excepción.
@@ -61,36 +60,85 @@ test('pulsar una herramienta de dibujo abre sus ajustes de trazo', async ({ page
     await expect(page.locator('.sidebar__tool--active')).toHaveAttribute('data-tool', tool);
   }
 
-  // El ⚙ del panel lo reabre sin cambiar de herramienta.
-  await expect(gear).toBeVisible();
-  await gear.click();
+  // «Trazo» perdió su ⚙ en la v2.21.0 (era el botón camaleón, el único que no
+  // abría los ajustes de SU sección sino los de la herramienta activa): se
+  // reabre volviendo a pulsar la herramienta, sin salir de ella.
+  await expect(page.locator('#panel-sec-stroke .panel__gear')).toHaveCount(0);
+  await page.locator('.sidebar__tool[data-tool="arc"]').click();
   await expect(modal).toHaveAttribute('open', '');
 
-  // El grosor del modal y el del panel son el mismo ajuste.
+  // El grosor dejó el panel en la v2.21.0: sus cuatro mandos son los de los
+  // modales de ajustes, y siguen siendo el mismo dato.
   await setSlider(page, 'stroke-modal-slider', 6, { release: true });
-  await expect(page.locator('#stroke-val')).toHaveText('6');
+  await expect(page.locator('#panel-sec-stroke input[type="range"]')).toHaveCount(0);
   await page.locator('#modal-stroke .modal__cancel').click();
-  await expect(page.locator('#stroke-slider')).toHaveValue('6');
+  await page.locator('.sidebar__tool[data-tool="rect"]').click();
+  await expect(page.locator('#shape-modal-slider')).toHaveValue('6');
+  await page.locator('#modal-shape .modal__cancel').click();
 
   // Mover abre los ajustes de selección, como «Select»: la casilla gobierna el
-  // clic de las dos (v2.18.0). Y su ⚙ los reabre — ni asoma el del trazo.
+  // clic de las dos (v2.18.0). Desde la v2.21.0 quien los reabre es el ⚙ de la
+  // cabecera «Elementos», que está con CUALQUIER herramienta — la casilla que
+  // abre gobierna el clic, no el dibujo.
   await page.locator('.sidebar__tool[data-tool="select"]').click();
   const selModal = page.locator('#modal-select');
+  const selGear = page.locator('#btn-selection-settings');
   await expect(selModal).toHaveAttribute('open', '');
   await expect(modal).not.toHaveAttribute('open', '');
   await selModal.locator('.modal__cancel').click();
   await expect(selModal).not.toHaveAttribute('open', '');
-  await expect(gear).toBeVisible();
-  await gear.click();
+  await expect(selGear).toBeVisible();
+  await selGear.click();
   await expect(selModal).toHaveAttribute('open', '');
   await expect(modal).not.toHaveAttribute('open', '');
   await selModal.locator('.modal__cancel').click();
 
-  // Y con el borrador el mismo ⚙ lleva a su propio modal, no al de trazo.
-  await selectTool(page, 'eraser');
-  await gear.click();
+  // Y el Borrador abre el suyo, no el de trazo.
+  await page.locator('.sidebar__tool[data-tool="eraser"]').click();
   await expect(page.locator('#modal-eraser')).toHaveAttribute('open', '');
   await expect(modal).not.toHaveAttribute('open', '');
+});
+
+/* Reparto del ⚙ (v2.21.0). Va aquí y no en el arnés vm por la razón de
+   siempre, agravada: `.panel__gear` declara `display: inline-flex`, que gana al
+   `[hidden]{display:none}` del user-agent, así que el ⚙ de «Posición y tamaño»
+   —el único que se oculta desde JS— podría estar visible SIEMPRE sin que
+   ninguna guarda vm lo notara. Ya pasó exactamente eso con este mismo botón
+   antes de la v2.9.0. */
+test('cada sección enseña su propio ⚙, y el del elemento sigue al tipo seleccionado', async ({ page }) => {
+  await openApp(page);
+  const elGear = page.locator('#btn-element-settings');
+
+  // Lo que está siempre, está desde el primer frame.
+  await expect(page.locator('#btn-selection-settings')).toBeVisible();
+  // Y «Trazo» y «Lienzo» no llevan ⚙: la primera era la casa del botón
+  // camaleón, la segunda no tiene ajustes en ningún modal.
+  await expect(page.locator('#panel-sec-stroke .panel__gear')).toHaveCount(0);
+  await expect(page.locator('#panel-sec-canvas .panel__gear')).toHaveCount(0);
+  // Sin selección no hay elemento que ajustar: su sección se va, y su ⚙ con ella.
+  await expect(elGear).toBeHidden();
+
+  await selectTool(page, 'button');
+  await drag(page, 200, 200, 340, 250);
+  await selectTool(page, 'select');       // Mover conserva la selección
+  await clickCanvas(page, 270, 225);
+  await expect(elGear).toBeVisible();
+  await elGear.click();
+  // La herramienta activa es Mover, cuyo modal es #modal-select: este ⚙ tiene
+  // que abrir el del BOTÓN, que es lo seleccionado.
+  await expect(page.locator('#modal-ui')).toHaveAttribute('open', '');
+  await expect(page.locator('#modal-select')).not.toHaveAttribute('open', '');
+  await expect(page.locator('#modal-ui-title')).toHaveText('Ajustes de Botón');
+  await page.locator('#modal-ui .modal__cancel').click();
+
+  // Con tipos que discrepan no hay UN modal que los edite, y el ⚙ desaparece
+  // DE VERDAD, no solo con el atributo.
+  await selectTool(page, 'rect');
+  await drag(page, 400, 300, 500, 380);
+  await page.keyboard.press('Control+a');
+  await settle(page);
+  await expect(elGear).toBeHidden();
+  await expect(page.locator('#btn-selection-settings')).toBeVisible();
 });
 
 test('pulsar una forma abre sus ajustes, con trazo y relleno', async ({ page }) => {

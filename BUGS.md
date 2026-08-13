@@ -400,10 +400,14 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 - **Fix:** `src/scss/components/_panel.scss` — `&__gear[hidden] { display: none }`,
   y de paso lo mismo para `&__section[hidden]` y `&__check[hidden]`, que la
   reorganización del panel (v2.9.0) iba a necesitar y habrían fallado igual.
-- **Guardia (e2e):** `e2e/panel.spec.js` › *"el ⚙ de «Trazo» abre los ajustes
-  de la herramienta activa"* — comprueba visibilidad real, no la propiedad.
-  Y `tests/smoke.test.js` › *"el panel tiene sus secciones contextuales y el
-  CSS que las oculta"* asserta las reglas en el artefacto compilado.
+- **Guardia (e2e):** `e2e/panel.spec.js` › *"cada sección enseña su propio ⚙, y
+  el del elemento sigue al tipo seleccionado"* — comprueba visibilidad real, no
+  la propiedad. Y `tests/smoke.test.js` › *"el panel tiene sus secciones
+  contextuales y el CSS que las oculta"* asserta las reglas en el artefacto
+  compilado. (La guarda estuvo apuntando a un título de test inexistente hasta
+  la v2.21.0, que además repartió aquel ⚙ único: desde entonces el botón que
+  depende de `.panel__gear[hidden]` es `#btn-element-settings`, el único que
+  sigue ocultándose desde JS.)
 
 ### «Cuadrícula» se salía del panel por el borde de la ventana
 

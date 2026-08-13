@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.20.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.21.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.20\.0</);
-  assert.match(html, /css\/styles\.css\?v=2\.20\.0/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.20\.0/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.20\.0/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.20\.0/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.20\.0/);
+  assert.match(html, /class="topbar__badge">v2\.21\.0</);
+  assert.match(html, /css\/styles\.css\?v=2\.21\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.21\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.21\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.21\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.21\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -66,7 +66,11 @@ test('index publica v2.20.0 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="select-modal-multi"/);
   assert.doesNotMatch(html, /id="check-multi-select"/,
     'la casilla vieja del panel no debe volver');
-  assert.match(html, /id="stroke-label">Trazo</);
+  // El grosor dejó el panel en la v2.21.0: era un mando cuyo significado
+  // dependía de la herramienta activa (con el Borrador gobernaba SU tamaño y se
+  // retitulaba). Vive en los cinco modales de ajustes, uno por herramienta.
+  assert.doesNotMatch(html, /id="stroke-slider"|id="stroke-val"|id="stroke-label"/,
+    'el deslizador de grosor del panel no debe volver');
   assert.match(html, /Tamaño del borrador/);
   assert.match(html, /entre 4 y 100 px \(16 px por defecto\)/);
 });
@@ -147,8 +151,9 @@ test('los modales de ajustes llevan geometría y el emoji su tamaño acotado', (
 //   2. Las secciones que el JS oculta tienen que existir con ese id.
 test('el panel tiene sus secciones contextuales y el CSS que las oculta', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  for (const id of ['panel-sec-stroke', 'panel-sec-fill', 'panel-sec-text',
-    'panel-sec-build', 'panel-sec-garden', 'panel-sec-canvas', 'panel-sec-selection']) {
+  for (const id of ['panel-sec-element', 'panel-sec-stroke', 'panel-sec-fill',
+    'panel-sec-text', 'panel-sec-build', 'panel-sec-garden', 'panel-sec-canvas',
+    'panel-sec-selection']) {
     assert.match(html, new RegExp(`id="${id}"`), `falta la sección #${id}`);
   }
   // Cada bloque del panel que declara `display` necesita su regla `[hidden]`:
@@ -170,6 +175,47 @@ test('el panel tiene sus secciones contextuales y el CSS que las oculta', () => 
     'falta el cursor de la herramienta «Select» en el CSS compilado');
 });
 
+// El reparto del ⚙ (v2.21.0) se comprueba SOBRE EL TEXTO de index.html y no en
+// el arnés: dom-stub.js fabrica un <div> vacío para cualquier id desconocido,
+// así que si un botón se cablea en app.js y se olvida en el HTML, las guardas
+// vm pasan enteras —el listener se engancha al div fantasma y __fire lo
+// dispara— y en la página no hay botón que pulsar.
+test('cada sección con ajustes propios lleva su ⚙ dentro, en el HTML', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const GEARS = {
+    'panel-sec-element': 'btn-element-settings',
+    'panel-sec-fill': 'btn-fill-settings',
+    'panel-sec-text': 'btn-text-settings',
+    'panel-sec-build': 'btn-build-settings',
+    'panel-sec-garden': 'btn-garden-settings',
+    'panel-sec-selection': 'btn-selection-settings',
+  };
+  for (const [sec, btn] of Object.entries(GEARS)) {
+    const start = html.indexOf(`id="${sec}"`);
+    const end = html.indexOf('</section>', start);
+    assert.ok(start > 0 && end > start, `falta la sección #${sec}`);
+    assert.match(html.slice(start, end),
+      new RegExp(`class="panel__gear" id="${btn}"`),
+      `#${sec} necesita su propio ⚙ #${btn} DENTRO de la sección`);
+  }
+  assert.doesNotMatch(html, /id="btn-eraser-size"/,
+    'el ⚙ camaleón que se re-apuntaba a cinco modales se repartió en la v2.21.0');
+  // Dos secciones SIN ⚙, cada una por su motivo:
+  //   · «Trazo» era la casa del botón camaleón, el único cuyo engranaje no abría
+  //     «lo suyo» sino los ajustes de la herramienta activa. Sus destinos se
+  //     alcanzan pulsando la herramienta y, con selección, desde «Posición y
+  //     tamaño»; devolverle un ⚙ es reabrir el problema que la v2.21.0 cerró.
+  //   · «Lienzo» no tiene modal equivalente: un ⚙ ahí no llevaría a ninguna parte.
+  for (const [sec, porque] of [
+    ['panel-sec-stroke', 'era el ⚙ camaleón: se reabre pulsando la herramienta'],
+    ['panel-sec-canvas', 'no tiene ajustes en ningún modal'],
+  ]) {
+    const desde = html.indexOf(`id="${sec}"`);
+    assert.doesNotMatch(html.slice(desde, html.indexOf('</section>', desde)), /panel__gear/,
+      `#${sec} no debe llevar ⚙: ${porque}`);
+  }
+});
+
 // Mismo contrato que los gemelos de Edificios: el grosor vive a la vez en el
 // panel y en #modal-stroke, y syncStrokeControls() asigna el valor a los dos.
 // Con rangos distintos, mover uno recortaría el otro sin avisar.
@@ -180,14 +226,16 @@ test('los controles gemelos del trazo (panel y modal) ofrecen lo mismo', () => {
     assert.ok(tag, `no existe el slider #${id}`);
     return ['min', 'max', 'step'].map(a => (tag[0].match(new RegExp(`${a}="([^"]+)"`)) || [])[1]);
   };
-  assert.deepEqual(rangeOf('stroke-modal-slider'), rangeOf('stroke-slider'),
-    'el grosor del modal y el del panel deben cubrir el mismo rango');
-  assert.deepEqual(rangeOf('shape-modal-slider'), rangeOf('stroke-slider'),
-    'y el de #modal-shape, también');
+  // Los CUATRO mandos del grosor (v2.21.0: el del panel se retiró, y #modal-text
+  // ganó el suyo para que un texto seleccionado no se quedara sin sitio desde el
+  // que cambiar su trazo). Con rangos distintos, mover uno recortaría a otro.
+  const ref = rangeOf('stroke-modal-slider');
+  assert.deepEqual(ref, ['1', '8', '1'], 'el grosor va de 1 a 8 de uno en uno');
+  for (const id of ['shape-modal-slider', 'ui-modal-slider', 'text-modal-stroke']) {
+    assert.deepEqual(rangeOf(id), ref, `#${id} debe cubrir el mismo rango de grosor`);
+  }
   assert.deepEqual(rangeOf('shape-modal-opacity'), rangeOf('fill-opacity-slider'),
     'la opacidad del modal de forma y la del panel, lo mismo');
-  assert.deepEqual(rangeOf('ui-modal-slider'), rangeOf('stroke-slider'),
-    'el grosor de #modal-ui, el mismo rango que el del panel');
   assert.deepEqual(rangeOf('text-modal-size'), rangeOf('font-slider'),
     'el tamaño de letra de #modal-text y el del panel deben cubrir el mismo rango');
 });
@@ -296,7 +344,24 @@ test('los controles del panel tienen nombre accesible y el cajón anuncia su est
   const tag = id => (html.match(new RegExp(`<[a-z]+[^>]*id="${id}"[^>]*>`)) || [null])[0];
   assert.match(html, /<label[^>]*for="font-slider"/, 'el slider de texto necesita <label for>');
   assert.match(html, /<label[^>]*for="zoom-slider"/, 'el slider de zoom necesita <label for>');
-  assert.match(tag('color-picker'), /aria-label="/, 'el picker de color del trazo necesita aria-label');
+  // Los tres pickers de color del panel necesitan nombre accesible, por
+  // `aria-label` o por un <label> que los envuelva —nunca los dos: aria-label
+  // gana, y el nombre dejaría de coincidir con el rótulo que se lee en
+  // pantalla—. #color-picker pasó de hex a rótulo «Color» en la v2.21.0 y con
+  // él cambió de forma; los de «Lienzo» siempre usaron el <label>.
+  // Un <label> nombra al control envolviéndolo o con `for`; los de «Lienzo»
+  // usan lo primero, sin `for`, así que hay que mirar si el input cae dentro de
+  // un <label> abierto y no solo si existe un `for="…"`.
+  const dentroDeLabel = id => {
+    const antes = html.slice(0, html.indexOf(`id="${id}"`));
+    return antes.lastIndexOf('<label') > antes.lastIndexOf('</label>');
+  };
+  for (const id of ['color-picker', 'canvas-bg-picker', 'grid-color-picker']) {
+    const conAria = /aria-label="/.test(tag(id));
+    const conLabel = dentroDeLabel(id) || new RegExp(`<label[^>]*for="${id}"`).test(html);
+    assert.ok(conAria || conLabel, `#${id} necesita nombre accesible (aria-label o <label>)`);
+    assert.ok(!(conAria && conLabel), `#${id} no debe llevar aria-label Y <label>: se pisan`);
+  }
   assert.match(tag('btn-panel-toggle'), /aria-expanded="false"/, 'el toggle del cajón anuncia su estado');
 });
 

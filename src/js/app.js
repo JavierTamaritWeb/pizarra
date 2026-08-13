@@ -1409,15 +1409,10 @@
       const fillables = sel.filter(el => FILLABLE_TYPES.includes(el.type));
       const color = commonOf(sel, el => el.color);
       if (color !== undefined) showColor(color);
-      $('stroke-label').textContent = 'Trazo';
-      $('stroke-slider').min = '1';
-      $('stroke-slider').max = '8';
-      $('stroke-slider').setAttribute('aria-label', 'Grosor del trazo');
-      const lineWidth = commonOf(sel, el => el.lineWidth);
-      if (lineWidth !== undefined) {
-        $('stroke-slider').value = lineWidth;
-        $('stroke-val').textContent = String(lineWidth);
-      }
+      // El grosor ya no se sincroniza aquí: dejó el panel en la v2.21.0 y sus
+      // cinco gemelos viven en los modales, que se sincronizan solos
+      // (syncStrokeControls y compañía, llamadas al final de syncPanelSections
+      // mientras el modal esté abierto).
       const doubleHead = commonOf(arrows, el => el.heads === 'both');
       if (doubleHead !== undefined) $('check-double-head').checked = doubleHead;
       const dash = commonOf(dashables, el => el.dash === true);
@@ -1451,16 +1446,6 @@
         if (fillColor !== undefined) $('fill-color-picker').value = fillColor;
       }
     } else if (!hasSel) {
-      const erasing = state.tool === TOOLS.ERASER;
-      $('stroke-label').textContent = erasing ? 'Tamaño del borrador' : 'Trazo';
-      $('stroke-slider').min = erasing ? String(ERASER_SIZE_MIN) : '1';
-      $('stroke-slider').max = erasing ? String(ERASER_SIZE_MAX) : '8';
-      $('stroke-slider').setAttribute(
-        'aria-label',
-        erasing ? 'Tamaño del borrador' : 'Grosor del trazo',
-      );
-      $('stroke-slider').value = erasing ? state.eraserSize : state.lineWidth;
-      $('stroke-val').textContent = String(erasing ? state.eraserSize : state.lineWidth);
       $('check-double-head').checked = state.doubleHead;
       $('check-dash').checked = state.dashed;
       $('check-fill').checked = state.fillShapes;
@@ -1672,24 +1657,25 @@
     $('row-text-bold').hidden = !styling;
     $('row-text-shadow').hidden = !styling;
     $('row-text-shadow-color').hidden = !styling;
-    // El ⚙ de «Trazo» abre el modal del borrador o el del trazo; con cualquier
-    // otra herramienta no hay nada que abrir y desaparece. Va aquí y no en la
-    // rama sin-selección de redrawNow para que siga estando con algo
-    // seleccionado: los ajustes de trazo también editan la selección.
-    // Mover entra aquí aunque no abra su modal al elegirla: comparte el ajuste
-    // de «Select» y sin el ⚙ sería el único sitio de la app desde el que un
-    // ajuste que SÍ te afecta queda fuera de alcance (v2.17.0).
-    $('btn-eraser-size').hidden = !(tool === TOOLS.ERASER ||
-      STROKE_TOOLS.includes(tool) || SHAPE_TOOLS.includes(tool) ||
-      tool === TOOLS.TEXT || UI_MODAL_TOOLS.includes(tool) ||
-      SELECTION_TOOLS.includes(tool));
-    $('btn-eraser-size').title = tool === TOOLS.ERASER
-      ? 'Ajustar el tamaño del borrador'
-      : SELECTION_TOOLS.includes(tool) ? 'Ajustar la selección'
-      : SHAPE_TOOLS.includes(tool) ? 'Ajustar la forma'
-      : tool === TOOLS.TEXT ? 'Ajustar el texto'
-      : UI_MODAL_TOOLS.includes(tool) ? 'Ajustar el componente'
-      : 'Ajustar el trazo';
+    // Un ⚙ FIJO por sección (v2.21.0): cada uno abre SIEMPRE los ajustes de la
+    // suya. Antes había uno solo, en la cabecera «Trazo», que se re-apuntaba a
+    // cinco modales según state.tool y aparecía y desaparecía con una condición
+    // de seis ramas: el mismo botón, en el mismo sitio, abría cinco diálogos
+    // distintos y no había forma de saber cuál sin pulsarlo. Solo quedan aquí
+    // dos cosas dependientes del contexto, y ninguna cambia el destino:
+    //   · la VISIBILIDAD del de «Posición y tamaño», que depende del TIPO
+    //     seleccionado (una imagen pegada no tiene ajustes que abrir);
+    //   · el RÓTULO del de «Texto», porque el deslizador que tiene al lado se
+    //     retitula solo con el Emoji (#font-label) y el ⚙ debe decir lo mismo.
+    // Los demás heredan la visibilidad de su sección, que ya se oculta sola.
+    // «Trazo» se quedó SIN ⚙: era el sitio del botón camaleón, y el único cuyo
+    // engranaje no abría los ajustes de su sección sino los de la herramienta
+    // activa. Se llega a ellos pulsando la herramienta —la vía primaria— y, con
+    // algo seleccionado, por el ⚙ de «Posición y tamaño».
+    $('btn-element-settings').hidden = !settingsModalForSelection();
+    $('btn-text-settings').title = tool === TOOLS.EMOJI && !state.selection.length
+      ? 'Elegir emoji y tamaño'
+      : 'Ajustar el texto';
     // Con un modal de ajustes abierto, la selección puede cambiar por debajo
     // (Ctrl+A, borrar…): se refresca para que siga enseñando lo que edita. Solo
     // si está abierto — repintar su miniatura en cada frame del arrastre sería
@@ -3473,11 +3459,7 @@
     // Edificios/Jardín volvía a Emoji REABRIENDO este modal encima del que se
     // acababa de cerrar — justo la cadena que silent existe para evitar
     // (auditoría v2.10.1).
-    if (id === TOOLS.EMOJI && !silent) {
-      $('emoji-modal-size').value = String(state.emojiSize);
-      $('emoji-modal-size-val').textContent = String(state.emojiSize);
-      $('modal-emoji').showModal();
-    }
+    if (id === TOOLS.EMOJI && !silent) openEmojiModal();
     // Borrador abre su modal de tamaño, igual que Emoji o Planta abren el
     // suyo: si no, el único acceso es el botón ⚙ del panel, lejos del
     // sidebar y fácil de no ver. A diferencia de esos, cerrarlo NO debe
@@ -3712,7 +3694,6 @@
       se quedaba en el último color elegido y mentía sobre lo seleccionado. */
   function showColor(c) {
     $('color-picker').value = hex6(c);
-    $('color-hex').textContent = c;
     updateColorActive(c);
   }
 
@@ -3764,12 +3745,12 @@
     pctx.restore();
   }
 
-  /** Un solo tamaño, dos mandos: el slider del panel (reutiliza "Trazo") y el
-      del modal se mantienen sincronizados, como los gemelos de Edificios. */
+  /** Punto único del tamaño del borrador. Tuvo dos mandos hasta la v2.21.0: el
+      del modal y el del panel, que era el deslizador de «Trazo» retitulado —un
+      control que cambiaba de significado según la herramienta activa, que es
+      justo lo que se retiró—. Ahora solo vive en #modal-eraser. */
   function applyEraserSize(v) {
     state.eraserSize = v;
-    $('stroke-slider').value = String(v);
-    $('stroke-val').textContent = String(v);
     $('eraser-size-modal-slider').value = String(v);
     $('eraser-size-modal-val').textContent = String(v);
     renderEraserSizePreview();
@@ -3785,6 +3766,24 @@
     $('eraser-size-modal-val').textContent = String(state.eraserSize);
     renderEraserSizePreview();
     $('modal-eraser').showModal();
+  }
+
+  /** Punto único de sincronía del tamaño del emoji con su catálogo. Estas dos
+      líneas estaban copiadas en cuatro sitios (selectTool, applyEmojiSize,
+      «Limpiar todo» e init). */
+  function syncEmojiControls() {
+    $('emoji-modal-size').value = String(state.emojiSize);
+    $('emoji-modal-size-val').textContent = String(state.emojiSize);
+  }
+
+  /** Abre el catálogo de Emoji con su tamaño al día. Lo llaman selectTool (al
+      elegir la herramienta) y el ⚙ de «Texto»: con el Emoji activo y sin
+      selección, el deslizador de esa sección gobierna el tamaño DEL EMOJI
+      (#font-label dice «Emoji»), y su gemelo vive aquí dentro. Mismo contrato
+      que openEraserSizeModal: no pasa por opensVariantModal. */
+  function openEmojiModal() {
+    syncEmojiControls();
+    $('modal-emoji').showModal();
   }
 
   /** Abre los ajustes de «Select». Mismo contrato que el modal del borrador:
@@ -3846,6 +3845,30 @@
   const SELECTION_TOOLS = [TOOLS.SELECT, TOOLS.PICK];
   SHAPE_TOOLS.forEach(t => { MODAL_EDIT_TYPE[t] = t; });
   UI_MODAL_TOOLS.forEach(t => { MODAL_EDIT_TYPE[t] = t; });
+
+  /** Ajustes que gobiernan cada TIPO de elemento: la inversa de MODAL_EDIT_TYPE.
+      La necesita el ⚙ de «Posición y tamaño», la única sección donde no manda
+      la herramienta activa sino lo que está seleccionado. Los tipos ausentes
+      (`image` pegada, el `eraser` histórico) no tienen ajustes propios. */
+  const TYPE_SETTINGS_MODAL = {
+    pencil: openStrokeModal, line: openStrokeModal, arrow: openStrokeModal,
+    curveArrow: openStrokeModal, text: openTextModal,
+  };
+  SHAPE_TOOLS.forEach(t => { TYPE_SETTINGS_MODAL[t] = openShapeModal; });
+  UI_MODAL_TOOLS.forEach(t => { TYPE_SETTINGS_MODAL[t] = openUiModal; });
+
+  /** Los ajustes que gobiernan la selección ENTERA, o null si no hay unos
+      solos. Con tipos distintos devuelve null a propósito: no existe UN modal
+      que los edite y abrir el del primero prometería que los demás son iguales
+      —la misma regla que sigue `commonOf` con los valores del panel—. Un grupo
+      de edificio (rects + líneas) cae ahí, y es lo correcto: sus piezas se
+      editan desde «Trazo» y «Relleno», que tienen su propio ⚙. */
+  function settingsModalForSelection() {
+    const sel = state.selection.map(i => state.elements[i]).filter(Boolean);
+    if (!sel.length) return null;
+    const open = TYPE_SETTINGS_MODAL[sel[0].type] || null;
+    return sel.every(el => TYPE_SETTINGS_MODAL[el.type] === open) ? open : null;
+  }
   /** Formas cuyo giro se guarda como ángulo y, por tanto, se puede fijar antes
       de dibujar. Rectángulo y redondeado quedan fuera a propósito: su giro se
       serializa intercambiando ancho y alto, así que un cuarto de vuelta sobre
@@ -4015,7 +4038,13 @@
     const single = state.selection.length === 1
       ? state.elements[state.selection[0]] : null;
     const el = {
-      type: state.tool === TOOLS.ARROW || state.tool === TOOLS.CURVE_ARROW
+      // El tipo sale de lo SELECCIONADO cuando lo hay, y solo si no, de la
+      // herramienta: desde la v2.21.0 el ⚙ de «Posición y tamaño» abre este
+      // modal con cualquier herramienta activa, así que leyendo únicamente
+      // state.tool una flecha seleccionada se dibujaba como línea sin punta.
+      type: (single
+        ? (single.type === 'arrow' || single.type === 'curveArrow') && single.heads !== 'none'
+        : state.tool === TOOLS.ARROW || state.tool === TOOLS.CURVE_ARROW)
         ? 'arrow' : 'line',
       x1: w * 0.12, y1: h * 0.62, x2: w * 0.88, y2: h * 0.38,
       color: single ? single.color : state.color,
@@ -4117,7 +4146,12 @@
     pctx.fillRect(0, 0, w, h);
     const single = state.selection.length === 1
       ? state.elements[state.selection[0]] : null;
-    const type = SHAPE_TOOLS.includes(state.tool) ? state.tool : TOOLS.RECT;
+    // El tipo sale de lo SELECCIONADO cuando lo hay, igual que `rotType` en
+    // syncShapeControls: desde la v2.21.0 los ⚙ de «Relleno» y de «Posición y
+    // tamaño» abren este modal con cualquier herramienta activa, y leyendo solo
+    // state.tool un pentágono seleccionado se previsualizaba como rectángulo.
+    const type = single && SHAPE_TOOLS.includes(single.type) ? single.type
+      : SHAPE_TOOLS.includes(state.tool) ? state.tool : TOOLS.RECT;
     // Los polígonos regulares exigen w === h (RegularPolygon): caja cuadrada.
     const sq = REGULAR_POLYGON_TYPES.includes(type) || type === TOOLS.CIRCLE;
     const bw = sq ? h * 0.62 : w * 0.66, bh = h * 0.62;
@@ -4158,6 +4192,11 @@
     const size = single && single.type === 'text' ? single.fontSize : state.fontSize;
     $('text-modal-size').value = String(size);
     $('text-modal-size-val').textContent = String(size);
+    // Grosor: quinto gemelo, llegado con la retirada del deslizador del panel
+    // (v2.21.0). Mismo patrón que syncShapeControls y syncUiControls.
+    const width = single ? single.lineWidth : state.lineWidth;
+    $('text-modal-stroke').value = String(width);
+    $('text-modal-stroke-val').textContent = String(width);
     $('text-modal-color').value = hex6(single ? single.color : state.color);
     // Negrita y sombra: con textos seleccionados mandan ellos —el valor que
     // TODOS comparten, y si discrepan se deja el control como está, misma
@@ -4353,13 +4392,13 @@
       $(id).addEventListener('change', commitColorGesture);
     });
 
-    // Stroke slider — semántica dual: con selección edita el grosor de los
-    // elementos seleccionados en vivo; sin selección fija el default de
-    // creación. Todo el deslizamiento cuenta como UN paso de undo: el
-    // snapshot se captura al primer 'input' del gesto y se apila en 'change'.
+    // Grosor — semántica dual: con selección edita el de los elementos
+    // seleccionados en vivo; sin selección fija el default de creación. Todo el
+    // deslizamiento cuenta como UN paso de undo: el snapshot se captura al
+    // primer 'input' del gesto y se apila en 'change'. Desde la v2.21.0 no hay
+    // mando en el panel: los cinco gemelos viven en los modales de ajustes.
     let strokeGestureSnap = null;
     const applyStrokeWidth = v => {
-      $('stroke-val').textContent = String(v);
       if (state.tool === TOOLS.ERASER && !state.selection.length) {
         applyEraserSize(v);
       } else if (state.selection.length) {
@@ -4370,13 +4409,12 @@
         redraw();
       } else {
         state.lineWidth = v;
-        $('stroke-slider').value = String(v);
       }
       syncStrokeControls();
       syncShapeControls();
       syncUiControls();
+      syncTextControls();
     };
-    $('stroke-slider').addEventListener('input', e => applyStrokeWidth(+e.target.value));
     // El cierre del gesto no puede depender solo de 'change': un <input
     // type=range> NO dispara 'change' si el valor comprometido coincide con
     // el previo al gesto (p. ej. arrastrar 2→5→2), lo que dejaría un
@@ -4398,37 +4436,44 @@
         pushUndo(snap);
       }
     }
-    $('stroke-slider').addEventListener('change', commitStrokeGesture);
-    $('stroke-slider').addEventListener('change', () => {
-      if (state.tool === TOOLS.ERASER) savePrefs();
-    });
-    $('stroke-slider').addEventListener('pointerup', commitStrokeGesture);
-    $('stroke-slider').addEventListener('pointercancel', commitStrokeGesture);
-
-    // Gemelos del grosor dentro de #modal-stroke, #modal-shape y #modal-ui:
-    // mismo dato, mismo gesto de undo. No van por wireBuildPair porque
-    // necesitan 'input' en vivo.
-    ['stroke-modal-slider', 'shape-modal-slider', 'ui-modal-slider'].forEach(id => {
+    // Los cuatro mandos del grosor, todos dentro de su modal de ajustes: mismo
+    // dato, mismo gesto de undo. No van por wireBuildPair porque necesitan
+    // 'input' en vivo. #modal-text entró en la v2.21.0, al retirar el
+    // deslizador del panel: sin él, un texto seleccionado se quedaba sin sitio
+    // desde el que cambiar su trazo.
+    ['stroke-modal-slider', 'shape-modal-slider', 'ui-modal-slider',
+      'text-modal-stroke'].forEach(id => {
       $(id).addEventListener('input', e => applyStrokeWidth(+e.target.value));
       $(id).addEventListener('change', commitStrokeGesture);
       $(id).addEventListener('pointerup', commitStrokeGesture);
       $(id).addEventListener('pointercancel', commitStrokeGesture);
     });
 
-    // El ⚙ de la cabecera «Trazo» abre los ajustes de la herramienta activa:
-    // el tamaño con el borrador, la forma con las de Formas, el texto y los
-    // componentes de UI con los suyos, y el trazo con las de dibujo. Solo es
-    // visible cuando hay algo que abrir (syncPanelSections).
-    $('btn-eraser-size').addEventListener('click', () => {
-      if (state.tool === TOOLS.ERASER) openEraserSizeModal();
-      else if (SELECTION_TOOLS.includes(state.tool)) openSelectModal();
-      else if (SHAPE_TOOLS.includes(state.tool)) openShapeModal();
-      else if (state.tool === TOOLS.TEXT) openTextModal();
-      else if (UI_MODAL_TOOLS.includes(state.tool)) openUiModal();
-      else openStrokeModal();
+    // Un ⚙ por sección, cada uno a los ajustes de la SUYA (v2.21.0). Todos
+    // llaman directo a open*Modal(): abrir unos ajustes desde el panel no puede
+    // cambiar de herramienta ni vaciar la selección — es justamente la vía para
+    // retocar sin soltar lo que estás haciendo. Van con arrow y no pelados: un
+    // listener le pasaría el evento como primer argumento (la misma trampa que
+    // documenta applyGeometry).
+    $('btn-element-settings').addEventListener('click', () => {
+      const open = settingsModalForSelection();
+      if (open) open();
     });
-    // Los ⚙ de «Edificios» y «Jardín» reabren el catálogo de la herramienta
-    // activa sin soltarla, igual que el del borrador.
+    // #modal-shape es el único que lleva el bloque Relleno: no hay otro sitio
+    // al que esta sección pueda apuntar.
+    $('btn-fill-settings').addEventListener('click', () => openShapeModal());
+    $('btn-text-settings').addEventListener('click', () => {
+      if (state.tool === TOOLS.EMOJI && !state.selection.length) openEmojiModal();
+      else openTextModal();
+    });
+    // «Los clics acumulan selección» gobierna el clic de Mover y de «Select»:
+    // su sitio es la cabecera que cuenta lo seleccionado, desde donde se alcanza
+    // con CUALQUIER herramienta y no solo con las dos de Edición.
+    $('btn-selection-settings').addEventListener('click', () => openSelectModal());
+    // Los ⚙ de «Edificios» y «Jardín» son la excepción y pasan por selectTool a
+    // propósito (sí cambian de herramienta): un catálogo se RECONSTRUYE al
+    // abrirse —sus iconos se pintan con la geometría, el color y el trazo
+    // actuales— y esa reconstrucción vive dentro de selectTool.
     $('btn-build-settings').addEventListener('click', () => selectTool(TOOLS.BUILD_FACADE));
     $('btn-garden-settings').addEventListener('click', () => selectTool(state.tool));
     $('eraser-size-modal-slider').addEventListener('input', e => {
@@ -4452,8 +4497,7 @@
     // catálogo), el rótulo y el estado.
     function applyEmojiSize(v) {
       state.emojiSize = Math.min(EMOJI_MAX_SIZE, Math.max(EMOJI_MIN_SIZE, v));
-      $('emoji-modal-size').value = String(state.emojiSize);
-      $('emoji-modal-size-val').textContent = String(state.emojiSize);
+      syncEmojiControls();
       $('font-slider').value = String(state.emojiSize);
       $('font-val').textContent = String(state.emojiSize);
     }
@@ -5129,8 +5173,7 @@
       syncGardenLabelControls();
       syncTextControls();
       syncUiControls();
-      $('emoji-modal-size').value = String(state.emojiSize);
-      $('emoji-modal-size-val').textContent = String(state.emojiSize);
+      syncEmojiControls();
       // El zoom vuelve al ajuste automático, no a un 100% fijo: «Limpiar todo»
       // debe dejar la app igual que recién abierta, y ahí el lienzo aprovecha
       // todo el ancho disponible. Olvidar `zoomManual` es parte del reset: si
@@ -6865,8 +6908,7 @@
     syncShapeControls();
     syncTextControls();
     syncUiControls();
-    $('emoji-modal-size').value = String(state.emojiSize);
-    $('emoji-modal-size-val').textContent = String(state.emojiSize);
+    syncEmojiControls();
     // Va DESPUÉS de wireControls (el selector ya tiene sus opciones) y aplica
     // la letra restaurada de prefs, pidiendo su descarga: sin esto la primera
     // pintada usaría el resguardo del sistema aunque el .woff2 esté aquí al

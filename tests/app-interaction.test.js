@@ -602,22 +602,16 @@ test('elegir el borrador abre su modal de tamaño, como Planta o Balcón abren e
 
 test('el modal de tamaño del borrador se sincroniza con el panel y su ajuste se recuerda', () => {
   const app = loadApp();
-  // El ⚙ de la cabecera «Trazo» abre los ajustes de la herramienta activa, así
-  // que solo está con una que lo use: el borrador, las de dibujo y Formas, el
-  // texto, los componentes UI y —desde la 2.17.0— las dos de Edición. El Emoji
-  // no: sus ajustes viven en su propio catálogo (ver la guarda de más abajo
-  // sobre a cuál modal lleva el botón).
-  app.selectTool('emoji');
-  assert.equal(app.$('btn-eraser-size').hidden, true,
-    'con una herramienta que no usa este ⚙, el botón está oculto');
+  // Desde la v2.21.0 «Trazo» no tiene ⚙ (era el botón camaleón): se reabre
+  // volviendo a pulsar la herramienta, que es la vía primaria y la única que
+  // funciona también con el panel cerrado o convertido en cajón.
   app.selectTool('eraser');
-  assert.equal(app.$('btn-eraser-size').hidden, false, 'con el borrador activo, aparece el botón');
-  app.$('modal-eraser').close();   // se abrió solo al elegir la herramienta; lo cerramos para reabrirlo a mano
+  app.$('modal-eraser').close();   // se abrió solo al elegir la herramienta; lo cerramos para reabrirlo
   app.flush();
 
-  app.$('btn-eraser-size').__fire('click', { target: app.$('btn-eraser-size') });
-  app.flush();
-  assert.equal(app.$('modal-eraser').open, true, 'el botón también lo reabre, sin soltar la herramienta');
+  app.selectTool('eraser');
+  assert.equal(app.$('modal-eraser').open, true,
+    'volver a pulsar el Borrador lo reabre, sin salir de la herramienta');
 
   const modalSlider = app.$('eraser-size-modal-slider');
   modalSlider.value = '50';
@@ -625,16 +619,14 @@ test('el modal de tamaño del borrador se sincroniza con el panel y su ajuste se
   modalSlider.__fire('change', { target: modalSlider });
   app.flush();
 
-  assert.equal(app.$('stroke-slider').value, '50', 'el slider del panel refleja el mismo tamaño');
-  assert.equal(app.$('stroke-val').textContent, '50');
+  // El mando del panel se retiró en la v2.21.0: el tamaño vive solo aquí.
+  assert.equal(app.$('eraser-size-modal-val').textContent, '50');
 
   const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
   assert.equal(prefs.eraserSize, 50);
 
   const app2 = loadApp({ prefs });
   app2.selectTool('eraser');
-  app2.$('btn-eraser-size').__fire('click', { target: app2.$('btn-eraser-size') });
-  app2.flush();
   assert.equal(app2.$('eraser-size-modal-slider').value, '50', 'y vuelve puesto al arrancar de nuevo');
 });
 
@@ -755,7 +747,8 @@ test('elegir una forma abre sus ajustes, con trazo y relleno', () => {
   const w = app.$('shape-modal-slider');
   w.value = '5'; w.__fire('input', { target: w });
   app.flush();
-  assert.equal(app.$('stroke-slider').value, '5', 'el grosor también es el mismo');
+  assert.equal(app.$('stroke-modal-slider').value, '5',
+    'el grosor también es el mismo en los demás gemelos');
 
   // Y lo dibujado sale con esos ajustes.
   app.$('modal-shape').close();
@@ -997,7 +990,7 @@ test('Texto abre su modal y el tamaño de letra tiene semántica dual', () => {
   const app = loadApp();
   app.selectTool('text');
   assert.equal(app.$('modal-text').open, true, 'Texto abre sus ajustes al elegirlo');
-  assert.equal(app.$('btn-eraser-size').hidden, false, 'y el ⚙ queda para reabrirlos');
+  assert.equal(app.$('btn-text-settings').hidden, false, 'y el ⚙ de «Texto» queda para reabrirlos');
 
   // Sin selección, cualquiera de los dos gemelos fija el default de creación.
   const modalSize = app.$('text-modal-size');
@@ -1421,12 +1414,14 @@ test('el modal de Trazo y el panel son el mismo ajuste', () => {
   modalSlider.value = '6';
   modalSlider.__fire('input', { target: modalSlider });
   app.flush();
-  assert.equal(app.$('stroke-slider').value, '6', 'el gemelo del panel sigue al del modal');
-  assert.equal(app.$('stroke-val').textContent, '6');
+  // El grosor dejó el panel en la v2.21.0: sus gemelos son ahora los otros
+  // cuatro modales de ajustes, que siguen siendo el mismo dato.
+  assert.equal(app.$('shape-modal-slider').value, '6', 'el gemelo de Formas sigue al de Trazo');
+  assert.equal(app.$('text-modal-stroke').value, '6', 'y el de Texto también');
 
-  const panelSlider = app.$('stroke-slider');
-  panelSlider.value = '3';
-  panelSlider.__fire('input', { target: panelSlider });
+  const shapeSlider = app.$('shape-modal-slider');
+  shapeSlider.value = '3';
+  shapeSlider.__fire('input', { target: shapeSlider });
   app.flush();
   assert.equal(app.$('stroke-modal-val').textContent, '3', 'y al revés');
 
@@ -1435,16 +1430,120 @@ test('el modal de Trazo y el panel son el mismo ajuste', () => {
   app.flush();
   assert.equal(app.$('check-dash').checked, true, 'el discontinuo también viaja a los dos');
 
-  app.selectTool('emoji');
-  assert.equal(app.$('btn-eraser-size').hidden, true, 'el ⚙ se va con una herramienta que no lo usa');
+  // «Trazo» perdió su ⚙ en la v2.21.0 (era el botón que se re-apuntaba a cinco
+  // modales). Se reabre por donde se abrió: pulsando la herramienta.
   app.selectTool('pencil');
-  assert.equal(app.$('btn-eraser-size').hidden, false, 'y vuelve con una de dibujo');
-  app.$('modal-stroke').close();   // se abrió al elegir; se cierra para reabrirlo con el ⚙
+  app.$('modal-stroke').close();
   app.flush();
-  app.$('btn-eraser-size').__fire('click', { target: app.$('btn-eraser-size') });
-  app.flush();
-  assert.equal(app.$('modal-stroke').open, true, 'el ⚙ lo reabre sin cambiar de herramienta');
+  app.selectTool('pencil');
+  assert.equal(app.$('modal-stroke').open, true, 'volver a pulsar el Lápiz lo reabre');
   assert.equal(app.$('modal-eraser').open, false, 'y no abre el del borrador');
+});
+
+/* Reparto del ⚙ (v2.21.0): había UNO solo, en la cabecera «Trazo», que se
+   re-apuntaba a cinco modales según la herramienta; ahora cada sección lleva el
+   suyo y abre siempre los ajustes de esa sección. Estas tres guardas son lo que
+   impide que el reparto se deshaga: la primera fija el destino de cada botón,
+   la segunda que el de la selección sigue al TIPO y no a la herramienta, y la
+   tercera la promesa que los distingue del botón del sidebar. */
+
+const GEAR_MODALS = ['modal-stroke', 'modal-shape', 'modal-text', 'modal-ui',
+  'modal-eraser', 'modal-select', 'modal-emoji'];
+
+/** Cierra los siete diálogos de ajustes y pulsa un ⚙, dejando la escena lista
+    para comprobar cuál se abrió. */
+function pressGear(app, id) {
+  GEAR_MODALS.forEach(m => app.$(m).close());
+  app.flush();
+  app.$(id).__fire('click', { target: app.$(id) });
+  app.flush();
+}
+
+/** Exige que se haya abierto ESE modal y ninguno de los otros seis. */
+function onlyOpen(app, expected, why) {
+  for (const m of GEAR_MODALS) {
+    assert.equal(app.$(m).open, m === expected,
+      `${why}: #${m} debería estar ${m === expected ? 'abierto' : 'cerrado'}`);
+  }
+}
+
+test('cada ⚙ del panel abre los ajustes de SU sección, no los de otra', () => {
+  const app = loadApp();
+
+  // «Relleno»: #modal-shape es el único que lleva ese bloque.
+  app.selectTool('circle');
+  pressGear(app, 'btn-fill-settings');
+  onlyOpen(app, 'modal-shape', 'relleno → forma');
+
+  // «Texto»: el catálogo del emoji SOLO cuando el deslizador es el suyo.
+  app.selectTool('emoji');
+  pressGear(app, 'btn-text-settings');
+  onlyOpen(app, 'modal-emoji', 'emoji sin selección → catálogo');
+  app.selectTool('text');
+  pressGear(app, 'btn-text-settings');
+  onlyOpen(app, 'modal-text', 'texto → texto');
+
+  // «Elementos»: con CUALQUIER herramienta, no solo con las dos de Edición.
+  app.selectTool('pencil');
+  pressGear(app, 'btn-selection-settings');
+  onlyOpen(app, 'modal-select', 'selección → selección');
+});
+
+test('el ⚙ de «Posición y tamaño» abre los ajustes del tipo seleccionado', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 190, 180);
+  app.selectTool('line');
+  app.drag(300, 100, 390, 180);
+  app.selectTool('button');
+  app.drag(500, 100, 590, 150);
+  // Mover conserva la selección y su modal es #modal-select: si el ⚙ mirase la
+  // herramienta activa, abriría ese en los tres casos.
+  app.selectTool('select');
+
+  app.click(145, 140);
+  pressGear(app, 'btn-element-settings');
+  onlyOpen(app, 'modal-shape', 'un rectángulo abre los ajustes de forma');
+
+  app.click(345, 140);
+  pressGear(app, 'btn-element-settings');
+  onlyOpen(app, 'modal-stroke', 'una línea, los de trazo');
+
+  app.click(545, 125);
+  pressGear(app, 'btn-element-settings');
+  onlyOpen(app, 'modal-ui', 'un botón, los del componente');
+  assert.equal(app.$('modal-ui-title').textContent, 'Ajustes de Botón',
+    'y titulados por el tipo SELECCIONADO, no por la herramienta activa');
+
+  // Tipos que discrepan: no hay UN modal que los edite, así que no se ofrece
+  // ninguno — la misma regla que commonOf, no inventar un valor común.
+  GEAR_MODALS.forEach(m => app.$(m).close());
+  app.key('a', { ctrlKey: true });
+  app.flush();
+  assert.equal(app.$('btn-element-settings').hidden, true,
+    'con tipos distintos seleccionados el ⚙ desaparece');
+  app.$('btn-element-settings').__fire('click', { target: app.$('btn-element-settings') });
+  app.flush();
+  GEAR_MODALS.forEach(m => assert.equal(app.$(m).open, false,
+    `y pulsarlo igualmente no abre nada: #${m}`));
+});
+
+test('ningún ⚙ del panel cambia de herramienta ni suelta la selección', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 190, 180);
+  app.selectTool('select');
+  app.click(145, 140);
+  assert.equal(app.elements().length, 1, 'premisa: hay un rectángulo dibujado');
+
+  for (const gear of ['btn-element-settings', 'btn-fill-settings',
+    'btn-selection-settings']) {
+    pressGear(app, gear);
+    assert.equal(app.$('sidebar').querySelector('.sidebar__tool--active').dataset.tool,
+      'select', `#${gear} no puede cambiar de herramienta`);
+    assert.equal(app.$('panel-sec-element').hidden, false,
+      `#${gear} no puede vaciar la selección: es la vía para retocar sin soltarla`);
+  }
 });
 
 test('«Etiquetas» del panel y la de los modales del jardín son el mismo ajuste', () => {
@@ -1555,20 +1654,23 @@ test('el tamaño del borrador cambia su alcance', () => {
     app.drag(100, 100, 200, 200);
     return app;
   };
+  // El tamaño se ajusta en #modal-eraser, que se abre al elegir la herramienta
+  // (desde la v2.21.0 no hay mando en el panel).
+  const setSize = (app, v) => {
+    const s = app.$('eraser-size-modal-slider');
+    s.value = String(v);
+    s.__fire('input', { target: s });
+    app.flush();
+  };
   const small = near();
-  small.$('stroke-slider').value = '4';           // el panel edita el tamaño con el borrador activo
   small.selectTool('eraser');
-  small.$('stroke-slider').value = '4';
-  small.$('stroke-slider').__fire('input', { target: small.$('stroke-slider') });
-  small.flush();
+  setSize(small, 4);
   small.drag(100, 88, 200, 88);                   // 12px por encima del borde
   assert.equal(small.elements().length, 1, 'con 4px no alcanza');
 
   const big = near();
   big.selectTool('eraser');
-  big.$('stroke-slider').value = '60';
-  big.$('stroke-slider').__fire('input', { target: big.$('stroke-slider') });
-  big.flush();
+  setSize(big, 60);
   big.drag(100, 88, 200, 88);
   assert.equal(big.elements().length, 0, 'con 60px sí alcanza');
 });
@@ -1906,17 +2008,14 @@ test('«Limpiar todo» reinicia el tamaño del borrador a 16px', () => {
   modalSlider.__fire('input', { target: modalSlider });
   modalSlider.__fire('change', { target: modalSlider });
   app.flush();
-  assert.equal(app.$('stroke-slider').value, '60', 'premisa: el tamaño cambió antes de limpiar');
+  assert.equal(app.$('eraser-size-modal-val').textContent, '60',
+    'premisa: el tamaño cambió antes de limpiar');
 
   app.$('btn-clear').__fire('click');
   app.flush();
 
-  assert.equal(+app.$('stroke-slider').value, 16, 'el panel vuelve al tamaño por defecto');
-  assert.equal(app.$('stroke-val').textContent, '16');
-
-  app.$('btn-eraser-size').__fire('click', { target: app.$('btn-eraser-size') });
-  app.flush();
-  assert.equal(app.$('eraser-size-modal-slider').value, '16', 'y el modal también, al reabrirlo');
+  app.selectTool('eraser');   // reabre el modal, que es donde vive el tamaño
+  assert.equal(app.$('eraser-size-modal-slider').value, '16', 'vuelve al tamaño por defecto');
   assert.equal(app.$('eraser-size-modal-val').textContent, '16');
 });
 
@@ -2576,7 +2675,7 @@ test('arrastrar por el centro del marco combinado sigue moviendo, no escalando',
 test('con varios seleccionados, color, grosor y relleno se cambian a la vez', () => {
   const app = twoSelectedRects();
   setControl(app, 'color-picker', '#ff0000');
-  setControl(app, 'stroke-slider', '7');
+  setControl(app, 'shape-modal-slider', '7');   // el grosor dejó el panel en la v2.21.0
   const check = app.$('check-fill');
   check.checked = true;
   check.__fire('change', { target: check });
@@ -2590,12 +2689,18 @@ test('con varios seleccionados, color, grosor y relleno se cambian a la vez', ()
 test('el panel enseña el valor común de la selección, y no lo inventa si discrepan', () => {
   const app = twoSelectedRects();
   setControl(app, 'color-picker', '#ff0000');   // los dos rojos
-  setControl(app, 'stroke-slider', '7');
+  const check = app.$('check-fill');
+  check.checked = true;
+  check.__fire('change', { target: check });    // y los dos rellenos
+  app.flush();
   app.click(700, 700);                          // deseleccionar
   app.drag(20, 20, 500, 200);                   // volver a seleccionarlos
   assert.equal(app.$('color-picker').value, '#ff0000',
     'con los dos rojos, el panel debe decir rojo (antes enseñaba el default)');
-  assert.equal(String(app.$('stroke-slider').value), '7', 'y el grosor común');
+  assert.equal(app.$('check-fill').checked, true, 'y el relleno común');
+  // El grosor ya no se comprueba aquí: dejó el panel en la v2.21.0 y sus mandos
+  // están en los modales, que se sincronizan al abrirse. Que un cambio de
+  // grosor alcanza a TODA la selección lo cubre el test de arriba.
 
   // Ahora uno azul: sin valor común, el control se queda como estaba en vez
   // de enseñar el del primero como si fuera el de todos.
@@ -3069,7 +3174,7 @@ test('pulsar «Select» abre sus ajustes con la casilla de acumular', () => {
     'pick', 'cerrar no devuelve a la herramienta anterior');
 });
 
-test('Mover abre los mismos ajustes, y su ⚙ los reabre', () => {
+test('Mover abre los mismos ajustes, y el ⚙ de «Elementos» los reabre', () => {
   const app = loadApp();
   // La casilla gobierna el clic de las DOS herramientas de Edición, así que
   // las dos la enseñan al elegirlas (v2.18.0).
@@ -3080,8 +3185,10 @@ test('Mover abre los mismos ajustes, y su ⚙ los reabre', () => {
   app.flush();
   assert.equal(app.$('modal-select').open, false);
 
-  assert.equal(app.$('btn-eraser-size').hidden, false, 'el ⚙ sigue ahí');
-  app.$('btn-eraser-size').__fire('click', { target: app.$('btn-eraser-size') });
+  // Desde la v2.21.0 ese ⚙ es el de la cabecera «Elementos», y está con
+  // CUALQUIER herramienta: la casilla que abre gobierna el clic, no el dibujo.
+  assert.equal(app.$('btn-selection-settings').hidden, false, 'el ⚙ de «Elementos» sigue ahí');
+  app.$('btn-selection-settings').__fire('click', { target: app.$('btn-selection-settings') });
   app.flush();
   assert.equal(app.$('modal-select').open, true, 'y lo reabre sin soltar la herramienta');
   assert.equal(app.$('modal-eraser').open, false, 'no el del borrador');

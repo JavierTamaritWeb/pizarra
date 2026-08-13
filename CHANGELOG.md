@@ -4,6 +4,58 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.21.0] — 2026-08-13
+
+### Añadido
+
+- **Cada sección del panel con ajustes propios lleva su ⚙**: «Posición y
+  tamaño», «Relleno», «Texto» y «Elementos» estrenan el suyo, junto a los que
+  ya tenían «Edificios» y «Jardín». Cada uno abre siempre los ajustes de **su**
+  sección, sin cambiar de herramienta ni soltar la selección.
+- El ⚙ de **«Posición y tamaño»** abre los ajustes del **tipo seleccionado**,
+  no los de la herramienta activa: con un botón seleccionado y Mover puesto
+  abre los del componente. Con tipos que discrepan no hay unos ajustes que
+  sirvan para todos, así que desaparece en vez de abrir los del primero.
+- El ⚙ de **«Elementos»** abre «Los clics acumulan selección» con **cualquier**
+  herramienta puesta, no solo con las dos de Edición.
+
+### Cambiado
+
+### Cambiado
+
+- La sección del panel se titula **«Color»** en vez de «Trazo», y el selector
+  personalizado se rotula **«Color»** en lugar de mostrar el código hex
+  (`#1a1a2e`) — como «Fondo» y «Cuadrícula» en «Lienzo». Sin el grosor, esa
+  sección es la del color; y el hex decía el valor, no para qué sirve el mando.
+
+### Eliminado
+
+- **El deslizador del grosor del panel** (y su rótulo «Trazo: 2px»). Era un
+  mando que cambiaba de significado según la herramienta: con el Borrador
+  gobernaba **su** tamaño, se retitulaba «Tamaño del borrador» y cambiaba de
+  rango. El grosor vive ahora donde se elige la herramienta, en los cinco
+  modales de ajustes, cuatro de los cuales ya lo tenían como gemelo; **el de
+  Texto lo estrena** para que un texto seleccionado no se quede sin sitio
+  desde el que cambiar su trazo. La sección «Trazo» del panel conserva la
+  paleta de color y las casillas de discontinuo y doble punta.
+- **El ⚙ de la cabecera «Trazo».** Era uno solo que se re-apuntaba a cinco
+  modales distintos según la herramienta activa, y aparecía y desaparecía con
+  una condición de seis ramas: el mismo botón, en el mismo sitio, abría cinco
+  diálogos distintos y no había forma de saber cuál sin pulsarlo. Sus destinos
+  se alcanzan por donde toca: **pulsando la herramienta** en la barra lateral
+  —que además funciona con el panel cerrado o convertido en cajón— y, con algo
+  seleccionado, desde el ⚙ de «Posición y tamaño». «Trazo» y «Lienzo» son
+  ahora las dos únicas secciones sin ⚙, cada una por su motivo.
+
+### Cambiado
+
+- Los ⚙ de «Edificios» y «Jardín» siguen pasando por `selectTool`, que es donde
+  se reconstruye un catálogo; los cuatro nuevos abren su modal directamente.
+- Las muestras de `#modal-stroke` y `#modal-shape` leen el tipo de lo
+  seleccionado antes que el de la herramienta. Ahora que esos modales se abren
+  con cualquier herramienta puesta, un pentágono seleccionado se
+  previsualizaba como rectángulo y una flecha, como línea sin punta.
+
 ## [2.20.0] — 2026-08-11
 
 ### Cambiado

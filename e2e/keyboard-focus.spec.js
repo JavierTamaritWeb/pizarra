@@ -18,7 +18,11 @@ test('tras usar un control del panel, Ctrl+Z sigue deshaciendo', async ({ page }
   await drag(page, 150, 150, 350, 300);
   expect(await elements(page)).toHaveLength(1);
 
-  await setSlider(page, 'stroke-slider', 8, { release: true });
+  // Este era el deslizador del grosor, que dejó el panel en la v2.21.0. Se usa
+  // el del zoom: mismo patrón de gesto (input en vivo + change) y, como el de
+  // «Lienzo» del test de al lado, está siempre y siempre habilitado — el de
+  // opacidad nace `disabled` mientras el relleno no sea translúcido.
+  await setSlider(page, 'zoom-slider', 150, { release: true });
 
   // Sin tocar el lienzo:
   await page.keyboard.press('Control+z');

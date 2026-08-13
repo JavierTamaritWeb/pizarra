@@ -192,11 +192,17 @@
     outline-offset: 0.1rem;
   }
 
+  // Mismo aspecto que `.panel__canvas-color` («Fondo», «Cuadrícula»): desde la
+  // v2.21.0 rotula «Color» en vez de enseñar el hex, así que es un <label>
+  // pulsable y necesita el cursor y el color de texto de sus hermanos.
   &__color-custom {
     margin-top: 0.8rem;
     display: flex;
     align-items: center;
     gap: 0.8rem;
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    cursor: pointer;
   }
 
   &__color-picker {
@@ -207,11 +213,6 @@
     cursor: pointer;
     background: none;
     padding: 0;
-  }
-
-  &__color-hex {
-    font-size: 1.1rem;
-    color: var(--text-muted);
   }
 
   &__canvas-colors {

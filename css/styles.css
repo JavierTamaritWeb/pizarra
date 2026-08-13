@@ -657,6 +657,9 @@ input[type=range]::-moz-range-thumb {
   display: flex;
   align-items: center;
   gap: 0.8rem;
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  cursor: pointer;
 }
 .panel__color-picker {
   width: 3.2rem;
@@ -666,10 +669,6 @@ input[type=range]::-moz-range-thumb {
   cursor: pointer;
   background: none;
   padding: 0;
-}
-.panel__color-hex {
-  font-size: 1.1rem;
-  color: var(--text-muted);
 }
 .panel__canvas-colors {
   margin-top: 0.8rem;
