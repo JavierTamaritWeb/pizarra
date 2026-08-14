@@ -13,6 +13,13 @@ repetir antes de tocar esa zona.
 > entradas de la sección "solo verificables manualmente" son anteriores: al
 > tocar una de esas zonas, conviértela en test en vez de repetir los pasos.
 >
+> **Hay una tercera categoría, desde la v2.25.1: los artefactos y la
+> documentación.** La build de `dist/`, las capturas del README y la propia
+> guía de CLAUDE.md envejecen en silencio —nada falla, simplemente dejan de ser
+> verdad—, y el código no siempre puede comprobarlo por sí mismo. Lo que sí se
+> puede atar, se ata: los recuentos que afirma la Ayuda salen de los catálogos
+> y hay guardas contra las referencias a mandos retirados.
+>
 > **Y ahora hay además una suite end-to-end en un navegador real**
 > (`e2e/`, Playwright — `npm run test:e2e`). Cubre lo que el arnés `node:vm` no
 > puede ver por definición: layout, CSS, foco y acciones por defecto del
@@ -60,6 +67,39 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   mutación. El tercer fallo no lo mata ninguna guarda del arnés vm y sí las e2e:
   sólo se manifiesta con el ciclo de repintado real, que es exactamente la
   frontera que separa `tests/` de `e2e/`.
+
+### v2.25.1 — La Ayuda de la app describía tres cosas que ya no eran verdad
+
+- **Síntoma:** ninguno visible en el dibujo, y por eso duró tanto. La Ayuda (`?`
+  de la barra superior) mandaba al usuario a mandos que no existen y le daba una
+  cifra falsa:
+  1. del **borrador** decía que el ⚙ de la cabecera «Trazo» del panel reabre su
+     modal de tamaño. Esa sección se quedó **sin ⚙** en la v2.21.0 —su botón
+     abría cinco modales distintos según la herramienta activa, que es justo lo
+     que el panel dejó de hacer—; lo reabre volver a pulsar la herramienta;
+  2. del **emoji** decía que su tamaño lo fija el deslizador «Texto». Tiene el
+     suyo propio, en su catálogo y de 32 a 96 px, desde la v2.10.0: se
+     independizó precisamente para que agrandar un emoji no encogiera el texto
+     siguiente;
+  3. del **jardín** decía «40 especies vegetales». Son **49** desde que llegaron
+     aromáticas y trepadoras.
+- **Causa:** la Ayuda es HTML suelto en `index.html` y **nada la ataba al
+  código**. Cada una de las tres frases fue verdad el día que se escribió y
+  ninguna prueba se enteró de que dejaba de serlo, porque no había ninguna que
+  las mirara: el arnés vm sólo consulta la Ayuda para comprobar que el modal
+  existe y se puede cerrar.
+- **Arreglo:** corregidas las tres, y las figuras 3D pasan a tener su propia
+  sección en la Ayuda en vez de dos líneas sueltas en «General».
+- **Guardia:** dos tests en `tests/smoke.test.js`. *«los recuentos que afirman la
+  Ayuda y el README salen de los catálogos»* extrae cada cifra del texto («N
+  especies vegetales», «N figuras», «N diseños de forja»…) y la compara con
+  `config.js`, y exige que sigan existiendo al menos siete cifras, para que
+  borrarlas no sea una forma de aprobar. *«la Ayuda no describe mandos que ya no
+  existen»* comprueba que «Trazo» sigue sin ⚙ en el HTML y que la Ayuda no manda
+  ahí, y que no ata el tamaño del emoji al deslizador de Texto; trabaja sobre el
+  texto **sin etiquetas**, porque la primera versión miraba el marcado y no
+  detectaba la frase con un `<strong>` en medio. Las tres verificadas
+  reintroduciendo su error.
 
 ### v2.25.0 — El ecuador de la esfera salía entero discontinuo
 
@@ -1327,6 +1367,51 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
   «Select», y no puede volver a decir «del panel».
 
 ---
+
+## Solo verificables manualmente (artefactos y documentación)
+
+Lo que se genera aparte del código —la build de `dist/`, las capturas del
+README— y lo que el código no puede comprobar de sí mismo —la guía de
+CLAUDE.md— envejece en silencio: nada falla, simplemente deja de ser verdad.
+Los recuentos y las referencias a mandos concretos sí se atan con tests (ver la
+entrada de la Ayuda, v2.25.1); lo de aquí abajo, no.
+
+### v2.25.1 — La captura del README enseñaba una versión sin las herramientas nuevas
+
+- **Síntoma:** la imagen de cabecera del README mostraba un sidebar **sin las
+  estrellas y sin el grupo 3D**, es decir, prometía una app con menos
+  herramientas de las que tiene. Estaba generada con la v2.22.1.
+- **Causa:** la misma que el `dist/` desfasado de la v2.23.0 — un artefacto que
+  no se regenera solo y cuyo desfase es invisible desde el código—, sólo que
+  aquí el perjudicado es quien llega al repo por primera vez.
+- **Arreglo:** regenerada con la versión actual, con el grupo 3D visible, la
+  herramienta Prisma activa y tres sólidos rellenos en el lienzo, y reescrito su
+  texto alternativo.
+- **Verificación manual** (no hay guarda automática razonable: es una imagen):
+  al añadir o quitar una herramienta del sidebar, **abrir la captura del README
+  y comprobar que el sidebar que enseña es el de ahora**. El nombre tiene que
+  seguir empezando por `screenshot-`, o `IMG_SKIP` (gulpfile.js) deja de
+  excluirla y acaba publicada en `dist/`.
+
+### v2.25.1 — CLAUDE.md daba mal el orden de carga y la lista de un tipo nuevo
+
+- **Síntoma:** dos datos falsos en la guía para desarrollar, los dos del tipo que
+  se consulta justo antes de tocar algo delicado: el **orden de carga de los
+  scripts** listaba todos menos `solid`, y la sección **«Adding a new element
+  type»** omitía tres pasos que hoy no son opcionales.
+- **Causa:** el orden de carga se quedó sin actualizar al añadir el módulo en la
+  v2.24.0. La lista de pasos venía de cuando se escribió y nunca se revisó
+  contra lo que de verdad hace falta hoy.
+- **Arreglo:** corregido el orden, y la lista completada con los tres pasos que
+  faltaban, todos de fallo **silencioso**: `VECTOR_TYPES` y la rama de
+  `isValidElement` en el exportador (sin ellos el elemento no se exporta y se
+  rechaza al reimportar), y `OUTLINE_TYPES`/`eraserDeps` (sin ellos el borrador
+  funciona por caja, el defecto que esa lista existe para evitar). Salieron de
+  haber añadido el polígono libre en la v2.25.0.
+- **Verificación manual:** al añadir un módulo `src/js/*.js`, comprobar que
+  aparece en las cuatro listas que lo nombran — `index.html`, `ALL_FILES` y
+  `KNOWN_GLOBALS` de `tests/helpers/load.js`, y el orden documentado en
+  CLAUDE.md. Las tres primeras las vigilan los tests; la cuarta, no.
 
 ## Solo verificables manualmente (juicio visual, no lógica)
 

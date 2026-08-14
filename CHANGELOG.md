@@ -4,6 +4,23 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.25.3] — 2026-08-14
+
+### Corregido
+
+- Los errores de la **v2.25.1** —las tres frases falsas de la Ayuda, la captura
+  desfasada del README y los dos datos equivocados de `CLAUDE.md`— faltaban en
+  `BUGS.md`, que es el registro que existe para que no se repitan. Ya están, con
+  su síntoma, su causa y su forma de comprobarlos.
+- Y ahora **tienen guarda**: los recuentos que afirman la Ayuda y el README
+  («49 especies vegetales», «31 figuras»…) se comparan con los catálogos de
+  `config.js`, y otro test comprueba que la Ayuda no manda al ⚙ de «Trazo» —que
+  no tiene— ni ata el tamaño del emoji al deslizador de Texto. Antes nada
+  vigilaba el texto de la Ayuda, y por eso envejeció años sin que fallara nada.
+- `BUGS.md` estrena sección para lo que **no se puede automatizar**: los
+  artefactos generados aparte (la build de `dist/`, las capturas) y la
+  documentación de desarrollo.
+
 ## [2.25.2] — 2026-08-14
 
 ### Corregido

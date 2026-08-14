@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.25.2 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.25.3 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.25\.2</);
-  assert.match(html, /css\/styles\.css\?v=2\.25\.2/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.25\.2/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.25\.2/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.25\.2/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.25\.2/);
+  assert.match(html, /class="topbar__badge">v2\.25\.3</);
+  assert.match(html, /css\/styles\.css\?v=2\.25\.3/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.25\.3/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.25\.3/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.25\.3/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.25\.3/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -64,8 +64,8 @@ test('index publica v2.25.2 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="modal-pyramid"/);
   assert.match(html, /id="modal-frustum"/);
   assert.match(html, /id="modal-sphere"/);
-  assert.match(html, /src\/js\/solid\.js\?v=2\.25\.2/);
-  assert.match(html, /src\/js\/airbrush\.js\?v=2\.25\.2/);
+  assert.match(html, /src\/js\/solid\.js\?v=2\.25\.3/);
+  assert.match(html, /src\/js\/airbrush\.js\?v=2\.25\.3/);
   // «Los clics acumulan selección» dejó el panel en la v2.17.0 y es el ajuste
   // de «Select». Si volviera a existir la casilla vieja habría dos controles
   // para un mismo estado, y solo uno cableado: el arnés `node:vm` fabrica un
@@ -501,6 +501,76 @@ test('el slider de Cancela cubre exactamente de 0 a 350 cm', () => {
   assert.equal(attr('max'), Building.GATE_H_MAX_CM);
   assert.ok(attr('value') >= Building.GATE_H_MIN_CM &&
     attr('value') <= Building.GATE_H_MAX_CM);
+});
+
+/*
+ * La Ayuda de la app y el README AFIRMAN cantidades («49 especies vegetales»,
+ * «31 figuras»…). Nada las ataba a los catálogos, así que envejecían solas: la
+ * Ayuda estuvo diciendo 40 especies mientras el jardín tenía 49, y nadie se
+ * entera hasta que alguien las cuenta a mano (v2.25.1). Aquí se atan.
+ */
+test('los recuentos que afirman la Ayuda y el README salen de los catálogos', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const readme = fs.readFileSync(path.resolve(__dirname, '..', 'README.md'), 'utf8');
+  const ctx = loadAll();
+  const n = k => ctx[k].length;
+
+  const especies = n('TREE_TYPES') + n('SHRUB_TYPES') + n('FLOWER_TYPES') +
+    n('HERB_TYPES') + n('CLIMBER_TYPES');
+  const variantes = especies + n('PLOT_SHAPES') + n('DECOR_TYPES') + n('PATH_TYPES');
+  // 3 remates de extrusión × 10 secciones, más la esfera, que no es extrusión
+  const figuras3d = n('SOLID_SECTIONS') * 3 + 1;
+
+  const esperado = {
+    'especies vegetales': especies,
+    'variantes': variantes,
+    'figuras': figuras3d,
+    'diseños de forja': n('FORGE_TYPES'),
+    'estilos de entrada': n('GATE_TYPES'),
+  };
+  let comprobados = 0;
+  for (const [texto, valor] of Object.entries(esperado)) {
+    for (const [nombre, doc] of [['la Ayuda', html], ['el README', readme]]) {
+      const re = new RegExp(`(\\d+)\\s+${texto}`, 'g');
+      for (const m of doc.matchAll(re)) {
+        assert.equal(Number(m[1]), valor,
+          `${nombre} dice ${m[1]} ${texto} y los catálogos tienen ${valor}`);
+        comprobados++;
+      }
+    }
+  }
+  // Si nadie afirma nada, la guarda no guarda: se exige que siga habiendo cifras
+  assert.ok(comprobados >= 7, `sólo se comprobaron ${comprobados} recuentos`);
+});
+
+/*
+ * La Ayuda describía DOS mandos que ya no existen así: el ⚙ de «Trazo», que se
+ * retiró con esa sección en la v2.21.0, y el tamaño del emoji atado al
+ * deslizador de Texto, del que se independizó en la v2.10.0. Ninguna prueba las
+ * ataba al HTML, así que sobrevivieron años a los cambios que las invalidaron.
+ */
+test('la Ayuda no describe mandos que ya no existen', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const ayuda = html.slice(html.indexOf('id="modal-help"'));
+  const fin = ayuda.indexOf('</dialog>');
+  // Sin etiquetas: lo que se comprueba es lo que el usuario LEE, y entre «⚙» y
+  // «Trazo» hay un <strong> que rompería cualquier patrón pegado al marcado.
+  const texto = ayuda.slice(0, fin).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+
+  // «Trazo» es la única sección con ajustes y SIN ⚙, a propósito (v2.21.0): su
+  // botón abría cinco modales distintos según la herramienta. Si la Ayuda
+  // vuelve a mandar ahí, o miente o es que el ⚙ ha vuelto.
+  const seccionTrazo = html.slice(html.indexOf('id="panel-sec-stroke"'));
+  const finSeccion = seccionTrazo.indexOf('</section>');
+  assert.ok(!seccionTrazo.slice(0, finSeccion).includes('panel__gear'),
+    '«Trazo» no debe tener ⚙; si lo tiene, revisa también lo que dice la Ayuda');
+  assert.ok(!/⚙.{0,40}«Trazo»/.test(texto) && !/«Trazo».{0,20}⚙/.test(texto),
+    'la Ayuda no puede mandar al ⚙ de «Trazo»: esa sección no tiene');
+
+  // El emoji tiene tamaño PROPIO desde la v2.10.0
+  assert.ok(html.includes('id="emoji-modal-size"'), 'el emoji tiene su propio deslizador');
+  assert.ok(!/tamaño lo fija el slider Texto/.test(texto),
+    'la Ayuda no puede atar el tamaño del emoji al deslizador de Texto');
 });
 
 // Los cuatro deslizadores de 3D existen repetidos en cuatro modales contra un
