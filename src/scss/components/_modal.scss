@@ -286,6 +286,67 @@ kbd {
   align-content: start;
 }
 
+/* Un selector de color con su paleta debajo, como una sola cosa: separarlos
+   los dejaría en columnas distintas cuando los campos van a dos columnas. */
+.modal__palette {
+  display: grid;
+  gap: 0.6rem;
+}
+
+/* Las muestras miden 2.8rem y las columnas de la rejilla son `1fr`: en el
+   panel, que es estrecho, eso las deja justas; en un modal ancho las repartiría
+   por todo el ancho y la paleta se leería como seis columnas sueltas en vez de
+   como un bloque de color. Aquí se fijan al tamaño de la muestra. Las seis
+   columnas se conservan: cada tanda de seis de COLORS es una fila visible. */
+.modal__palette .panel__color-grid {
+  grid-template-columns: repeat(6, 2.8rem);
+  justify-content: start;
+}
+
+/* ── Modales de ajustes en pantallas anchas ──
+   Los quince diálogos con miniatura (.modal--settings) reúnen muchos mandos:
+   trazo, relleno, paletas, giro y las cuatro cotas. A 46rem —el ancho del
+   modal corriente, pensado para caber en un móvil— salen en una columna larga
+   que obliga a hacer scroll dentro del diálogo. Desde el mismo breakpoint en
+   el que la sidebar se pone a dos columnas hay sitio de sobra: el diálogo se
+   ensancha y sus campos pasan a dos columnas.
+
+   Sigue acotado al viewport con el mismo min()+calc() que el resto, así que
+   una ventana de 1201px de ancho no provoca scroll horizontal. */
+@include bp.from(bp.$sidebar-2col) {
+  .modal--settings {
+    width: #{"min(76rem, calc(100vw - 2.4rem))"};
+  }
+
+  .modal--settings .modal__build-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 2rem;
+
+    /* Sin esto, cada celda se estira hasta el alto de su fila y un campo que
+       comparte fila con una paleta separa su rótulo de su deslizador por seis
+       filas de muestras. */
+    align-items: start;
+  }
+
+  /* El bloque de posición y tamaño va a ancho completo: ya trae sus propias
+     dos columnas dentro. Las paletas NO: miden 18.8rem —seis muestras y sus
+     huecos— y caben de sobra en una columna, así que el trazo y el relleno
+     quedan uno al lado del otro en vez de partir la rejilla en dos filas. */
+  .modal--settings .modal__build-fields > div:not([class]) {
+    grid-column: 1 / -1;
+  }
+
+  /* Los controles nativos conservan un ancho mínimo intrínseco según su texto
+     y desbordarían la columna estrecha (misma razón que en .modal__plant-fields). */
+  .modal--settings .modal__build-fields .panel__field,
+  .modal--settings .modal__build-fields .panel__select,
+  .modal--settings .modal__build-fields .panel__slider,
+  .modal--settings .modal__build-fields .panel__text {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
 /* Jardín botánico: los mismos controles se generan para cinco catálogos.
    En escritorio caben en dos columnas; la miniatura mantiene un plano claro
    para que las tintas naturales no se pierdan sobre el diálogo oscuro. */

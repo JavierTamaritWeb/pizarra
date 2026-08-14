@@ -4288,11 +4288,21 @@
       `updateColorActive` —que consulta por clase, no por id— resalta el color
       activo en las dos sin saber que hay dos. */
   const COLOR_GRIDS = ['color-grid', 'airbrush-color-grid',
-    'prism-color-grid', 'pyramid-color-grid', 'frustum-color-grid', 'sphere-color-grid'];
+    'prism-color-grid', 'pyramid-color-grid', 'frustum-color-grid', 'sphere-color-grid',
+    'stroke-modal-color-grid', 'shape-modal-color-grid', 'text-modal-color-grid',
+    'ui-modal-color-grid'];
+
+  /** Las paletas del RELLENO. Van aparte porque el color activo que enseñan no
+      es el del trazo: sus muestras llevan `.panel__fill-swatch` y las resalta
+      `updateFillColorActive`, no `updateColorActive`. */
+  const FILL_COLOR_GRIDS = ['shape-modal-fill-grid',
+    'prism-fill-grid', 'pyramid-fill-grid', 'frustum-fill-grid', 'sphere-fill-grid'];
 
   function buildColors() {
     COLOR_GRIDS.forEach(buildColorGrid);
+    FILL_COLOR_GRIDS.forEach(buildFillColorGrid);
     updateColorActive();
+    updateFillColorActive();
   }
 
   function buildColorGrid(gridId) {
@@ -4321,6 +4331,42 @@
         }
       });
       grid.appendChild(swatch);
+    });
+  }
+
+  /** Lo que hace un clic en una muestra de relleno. Se asigna en `wireControls`,
+      que es donde viven `applyFillColor` y el commit de su gesto; el handler la
+      resuelve al pulsar, así que no depende del orden de arranque. */
+  let fillSwatchApply = () => {};
+
+  function buildFillColorGrid(gridId) {
+    const grid = $(gridId);
+    grid.innerHTML = '';
+    COLORS.forEach(c => {
+      const swatch = document.createElement('button');
+      swatch.type = 'button';
+      swatch.className = 'panel__fill-swatch';
+      swatch.style.background = c;
+      swatch.dataset.color = c;
+      swatch.setAttribute('aria-label', `Color de relleno ${c}`);
+      // Un clic, un paso de undo: se delega en el mismo applyFillColor del
+      // selector nativo (semántica dual incluida) y se cierra su gesto ahí
+      // mismo, porque una muestra no arrastra por tonos intermedios.
+      swatch.addEventListener('click', () => fillSwatchApply(c));
+      grid.appendChild(swatch);
+    });
+  }
+
+  /** El color de relleno que enseñan las paletas. Sin argumento cae en el
+      default de creación —`state.fillColor || state.color`, que es justo lo que
+      dibujaría ahora— igual que hace el selector nativo de al lado. */
+  function updateFillColorActive(current) {
+    const shown = hex6(current !== undefined
+      ? current : (state.fillColor || state.color));
+    document.querySelectorAll('.panel__fill-swatch').forEach(s => {
+      const active = hex6(s.dataset.color) === shown;
+      s.classList.toggle('panel__fill-swatch--active', active);
+      s.setAttribute('aria-pressed', String(active));
     });
   }
 
@@ -4847,6 +4893,8 @@
     $('fill-opacity-slider').disabled = !transparent;
     $('shape-modal-fill-color').value = fillColor;
     $('fill-color-picker').value = fillColor;
+    // Las paletas del relleno enseñan lo mismo que su selector de al lado.
+    updateFillColorActive(fillColor);
 
     // Giro. El paso lo manda el tipo, así que el deslizador se reconfigura al
     // cambiar de herramienta y el valor se ajusta al múltiplo más cercano: 36°
@@ -5708,6 +5756,9 @@
       $(id).addEventListener('input', e => applyFillColor(e.target.value));
       $(id).addEventListener('change', () => commitFillColorGesture());
     });
+    // Las muestras de las paletas de relleno pasan por el mismo cuerpo y
+    // cierran el gesto en el acto (ver buildFillColorGrid).
+    fillSwatchApply = col => { applyFillColor(col); commitFillColorGesture(); };
 
     // Giro de la forma — semántica dual: con selección gira las formas
     // seleccionadas hasta ese ángulo; sin selección fija el de la próxima. Todo
@@ -7603,6 +7654,9 @@
       syncSolidRotation(cfg);
       renderSolidPreview(cfg);
     });
+    // Las paletas del relleno enseñan lo mismo que su selector de al lado, y
+    // van por clase: una sola llamada cubre las cinco.
+    updateFillColorActive(fillColor);
   }
 
   const _set = (id, prop, value) => { const n = $(id); if (n) n[prop] = value; };

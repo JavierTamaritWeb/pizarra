@@ -4,6 +4,28 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.26.0] — 2026-08-14
+
+### Añadido
+
+- **Paleta de colores dentro de los modales de ajustes.** «Color del trazo»
+  lleva ahora su paleta completa en los ajustes del trazo, de la forma, del
+  texto y de los componentes —los modales 3D y el aerógrafo ya la tenían—, y
+  «Color de relleno» estrena la suya en los ajustes de la forma y en los cuatro
+  modales 3D. Antes había que cerrar los ajustes e ir al panel a buscar el
+  color, o resignarse al selector nativo del sistema.
+- Las muestras del relleno son de una familia propia: se resaltan con el color
+  de relleno activo, no con el del trazo.
+
+### Cambiado
+
+- **Los quince modales con miniatura se ensanchan en pantallas de más de
+  1200px** (76rem en vez de 46rem) y sus campos pasan a dos columnas, en el
+  mismo breakpoint en el que la barra de herramientas se pone a dos columnas.
+  Reúnen trazo, relleno, paletas, giro y las cuatro cotas: en una sola columna
+  obligaban a hacer scroll dentro del diálogo aunque sobrara sitio en la
+  pantalla. Por debajo de ese ancho todo sigue exactamente igual.
+
 ## [2.25.4] — 2026-08-14
 
 ### Corregido

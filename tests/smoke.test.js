@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.25.4 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.26.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.25\.4</);
-  assert.match(html, /css\/styles\.css\?v=2\.25\.4/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.25\.4/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.25\.4/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.25\.4/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.25\.4/);
+  assert.match(html, /class="topbar__badge">v2\.26\.0</);
+  assert.match(html, /css\/styles\.css\?v=2\.26\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.26\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.26\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.26\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.26\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -64,8 +64,8 @@ test('index publica v2.25.4 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="modal-pyramid"/);
   assert.match(html, /id="modal-frustum"/);
   assert.match(html, /id="modal-sphere"/);
-  assert.match(html, /src\/js\/solid\.js\?v=2\.25\.4/);
-  assert.match(html, /src\/js\/airbrush\.js\?v=2\.25\.4/);
+  assert.match(html, /src\/js\/solid\.js\?v=2\.26\.0/);
+  assert.match(html, /src\/js\/airbrush\.js\?v=2\.26\.0/);
   // «Los clics acumulan selección» dejó el panel en la v2.17.0 y es el ajuste
   // de «Select». Si volviera a existir la casilla vieja habría dos controles
   // para un mismo estado, y solo uno cableado: el arnés `node:vm` fabrica un
@@ -874,4 +874,51 @@ test('los sombreados del texto tienen sus controles gemelos', () => {
   // Los <select> se rellenan desde el catálogo: vacíos en el HTML a propósito.
   assert.match(html, /<select[^>]*id="text-shadow"[^>]*><\/select>/,
     'el selector de sombra lo rellena app.js desde TEXT_SHADOWS');
+});
+
+// Las paletas de los modales de ajustes (v2.26.0). Guarda TEXTUAL, y por la
+// razón de siempre: `dom-stub.js` fabrica un <div> vacío para un id que no
+// existe, así que una rejilla cableada en app.js pero ausente del HTML pasa
+// todos los tests del arnés y sencillamente no está en el navegador.
+test('cada paleta cableada en app.js existe en index.html', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const app = fs.readFileSync(path.resolve(__dirname, '..', 'src', 'js', 'app.js'), 'utf8');
+  const listaDe = re => {
+    const m = app.match(re);
+    assert.ok(m, `no se encuentra la lista ${re}`);
+    return [...m[1].matchAll(/'([^']+)'/g)].map(x => x[1]);
+  };
+  const trazo = listaDe(/const COLOR_GRIDS = \[([\s\S]*?)\];/);
+  const relleno = listaDe(/const FILL_COLOR_GRIDS = \[([\s\S]*?)\];/);
+  assert.equal(trazo.length, 10, 'el panel, el aerógrafo, los cuatro 3D y los cuatro de ajustes');
+  assert.equal(relleno.length, 5, '#modal-shape y los cuatro 3D');
+  for (const id of [...trazo, ...relleno]) {
+    assert.match(html, new RegExp(`id="${id}"`), `falta la rejilla #${id} en index.html`);
+  }
+  // Las dos familias no se pisan: las muestras del relleno llevan clase propia
+  // o updateColorActive las resaltaría con el color del trazo.
+  assert.match(app, /className = 'panel__fill-swatch'/);
+  assert.match(app, /querySelectorAll\('\.panel__fill-swatch'\)/);
+});
+
+// El ancho de los modales de ajustes es CSS puro: el arnés vm no tiene layout,
+// así que aquí solo se comprueba que las reglas están en el artefacto (el
+// comportamiento real lo mide e2e/modal-palette.spec.js).
+test('css/styles.css ensancha los modales de ajustes por encima de 1200px', () => {
+  const css = fs.readFileSync(path.resolve(__dirname, '..', 'css', 'styles.css'), 'utf8');
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  // El mismo breakpoint que la sidebar de dos columnas
+  assert.match(css, /@media \(min-width: 1201px\)[\s\S]*?\.modal--settings \{\s*width: min\(76rem/);
+  assert.match(css, /\.modal--settings \.modal__build-fields \{[\s\S]*?grid-template-columns: repeat\(2/);
+  // Las muestras se fijan al tamaño de la muestra: con 1fr la paleta se
+  // desparramaba por todo el modal ancho.
+  assert.match(css, /\.modal__palette \.panel__color-grid \{[\s\S]*?repeat\(6, 2\.8rem\)/);
+  // La muestra del relleno comparte aspecto con la del trazo
+  assert.match(css, /\.panel__color-swatch,\s*\.panel__fill-swatch \{/);
+  // Y la clase la llevan los quince diálogos con miniatura
+  const conMiniatura = (html.match(/<div class="modal__build">/g) || []).length;
+  const marcados = (html.match(/class="modal modal--settings"/g) || []).length;
+  assert.equal(conMiniatura, 15);
+  assert.equal(marcados, conMiniatura,
+    'todo modal con miniatura tiene que llevar modal--settings, o se queda estrecho');
 });

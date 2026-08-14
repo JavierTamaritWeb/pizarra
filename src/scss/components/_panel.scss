@@ -173,7 +173,12 @@
     gap: 0.4rem;
   }
 
-  &__color-swatch {
+  // `__fill-swatch` es la muestra de las paletas de RELLENO de los modales:
+  // mismo aspecto que la del trazo, clase distinta a propósito. El resaltado
+  // del color activo va por clase (updateColorActive / updateFillColorActive),
+  // así que compartirla dejaría las del relleno marcando el color del trazo.
+  &__color-swatch,
+  &__fill-swatch {
     width: 2.8rem;
     height: 2.8rem;
     border-radius: 0.6rem;
@@ -182,11 +187,13 @@
     transition: all var(--ease);
   }
 
-  &__color-swatch:hover {
+  &__color-swatch:hover,
+  &__fill-swatch:hover {
     transform: scale(1.12);
   }
 
-  &__color-swatch--active {
+  &__color-swatch--active,
+  &__fill-swatch--active {
     border-color: var(--color-primary);
     outline: 0.2rem solid rgba(78, 205, 196, 0.25);
     outline-offset: 0.1rem;
