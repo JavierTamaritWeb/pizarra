@@ -114,6 +114,58 @@ test('un clic en una muestra de relleno es UN paso de deshacer', async ({ page }
   }).toBe(true);
 });
 
+/* Los grupos de cada modal de ajustes. Es una tabla y no un recuento porque
+   lo que importa es QUÉ dice cada bloque: un título equivocado o un grupo que
+   se cuela en otro modal no cambia ningún número. */
+const GRUPOS = [
+  ['prisma', 'modal-prism', ['Proyección', 'Trazo', 'Relleno']],
+  ['piramide', 'modal-pyramid', ['Proyección', 'Trazo', 'Relleno']],
+  ['tronco', 'modal-frustum', ['Proyección', 'Trazo', 'Relleno']],
+  ['esfera', 'modal-sphere', ['Proyección', 'Trazo', 'Relleno']],
+  ['pencil', 'modal-stroke', ['Línea', 'Color']],
+  // Con el pentágono, que SÍ guarda su giro como ángulo; con el rectángulo
+  // el bloque «Orientación» no está, y eso se comprueba justo debajo.
+  ['pentagon', 'modal-shape', ['Trazo', 'Relleno', 'Orientación']],
+  ['text', 'modal-text', ['Letra', 'Trazo', 'Sombra']],
+  ['button', 'modal-ui', ['Contenido', 'Trazo']],
+  ['airbrush', 'modal-airbrush', ['Boquilla', 'Pintura', 'Dónde pinta']],
+  ['fachada', 'modal-facade', ['Edificio', 'Cubierta', 'Huecos']],
+  ['muro', 'modal-wall', ['Muro', 'Verja de coronación', 'Entrada']],
+];
+
+test('cada modal de ajustes agrupa sus mandos en bloques con título', async ({ page }) => {
+  await openApp(page, { viewport: WIDE });
+  for (const [tool, modal, titulos] of GRUPOS) {
+    await page.locator(`.sidebar__tool[data-tool="${tool}"]`).click();
+    await expect(page.locator(`#${modal}`)).toBeVisible();
+    // Sin selección, «Posición y tamaño» está oculto: no se cuenta. Y esa es la
+    // comprobación de que .modal__group[hidden] existe — .modal__group declara
+    // `display`, así que sin su regla el bloque se vería siempre.
+    await expect(page.locator(`#${modal} fieldset.modal__group:visible legend`))
+      .toHaveText(titulos);
+    // El reset del fieldset importa: sin él su `min-width: min-content` no deja
+    // encoger la celda del grid y el bloque desborda la columna del modal.
+    const ancho = await page.locator(`#${modal}`).evaluate(d => d.clientWidth);
+    for (const g of await page.locator(`#${modal} .modal__group:visible`).all()) {
+      expect(await g.evaluate(n => n.getBoundingClientRect().width))
+        .toBeLessThanOrEqual(ancho);
+    }
+    await page.locator(`#${modal}`).evaluate(d => d.close());
+  }
+});
+
+test('«Orientación» solo está con las formas que guardan su giro como ángulo', async ({ page }) => {
+  await openApp(page, { viewport: WIDE });
+  // .modal__group declara `display`, así que el [hidden] del user-agent no
+  // basta: sin la regla `.modal__group[hidden]` el rectángulo enseñaría un
+  // recuadro con título y nada dentro.
+  await page.locator('.sidebar__tool[data-tool="rect"]').click();
+  await expect(page.locator('#shape-modal-rotation-row')).toBeHidden();
+  await page.locator('#modal-shape').evaluate(d => d.close());
+  await page.locator('.sidebar__tool[data-tool="hexagon"]').click();
+  await expect(page.locator('#shape-modal-rotation-row')).toBeVisible();
+});
+
 test('los modales 3D agrupan sus mandos en Proyección, Trazo y Relleno', async ({ page }) => {
   await openApp(page, { viewport: WIDE });
   for (const [tool, modal] of [['prisma', 'modal-prism'], ['piramide', 'modal-pyramid'],

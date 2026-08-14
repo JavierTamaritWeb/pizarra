@@ -4,6 +4,26 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.26.2] — 2026-08-14
+
+### Cambiado
+
+- **La organización en bloques llega a todos los modales de ajustes**, no solo
+  a los de figuras 3D: trazo (Línea · Color), forma (Trazo · Relleno ·
+  Orientación), texto (Letra · Trazo · Sombra), componente (Contenido · Trazo),
+  aerógrafo (Boquilla · Pintura · Dónde pinta), fachada (Edificio · Cubierta ·
+  Huecos) y muro (Muro · Verja de coronación · Entrada). «Posición y tamaño» es
+  ahora un bloque más, con el mismo aspecto que los demás.
+- El bloque «Orientación» de la forma aparece y desaparece entero, en vez de
+  dejar un recuadro con título y nada dentro cuando la forma no guarda su giro
+  como ángulo.
+- Dos rótulos que repetían el título de su bloque: la cubierta de la fachada
+  pasa a «Tipo», y el selector libre de color de los ajustes del trazo a
+  «Personalizado» —que es lo que es, frente a los colores de la paleta.
+- Los modales del borrador, la verja, la cancela y el camino se quedan como
+  estaban: con uno o dos mandos, un único recuadro con título no organizaría
+  nada.
+
 ## [2.26.1] — 2026-08-14
 
 ### Cambiado

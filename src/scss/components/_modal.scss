@@ -301,6 +301,12 @@ kbd {
    El reset es obligatorio: el fieldset del navegador trae borde, márgenes y un
    `min-width: min-content` que, dentro de una celda de grid, impide encogerse
    y desborda la columna. */
+/* `display` propio ⇒ el [hidden] del user-agent no basta. Lo necesita
+   #shape-modal-rotation-row, que es un grupo entero que aparece solo con las
+   formas que guardan su giro como ángulo. Misma trampa que documenta
+   _panel.scss para .panel__section y compañía. */
+.modal__group[hidden] { display: none; }
+
 .modal__group {
   display: grid;
   gap: 1rem;

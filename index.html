@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=2.26.1" />
+  <link rel="stylesheet" href="css/styles.css?v=2.26.2" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.26.1" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.26.2" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v2.26.1</span>
+        <span class="topbar__badge">v2.26.2</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes" aria-expanded="false" aria-controls="side-panel">
@@ -678,47 +678,59 @@
         <canvas class="modal__preview" id="stroke-preview" width="176" height="168"
                 role="img" aria-label="Vista previa del trazo con los ajustes actuales"></canvas>
         <div class="modal__build-fields">
-          <label class="panel__field" for="stroke-modal-slider">
-            <span class="modal__field-label">Grosor: <span id="stroke-modal-val">2</span>px</span>
-            <input class="panel__slider" type="range" id="stroke-modal-slider"
-                   min="1" max="8" step="1" value="2"
-                   aria-label="Grosor del trazo" />
-          </label>
+          <!-- Por bloques, como los modales 3D (v2.26.2): cómo es la línea a un
+               lado y de qué color al otro. Son <fieldset> con <legend>, así que
+               la agrupación llega también a un lector de pantalla. -->
+          <fieldset class="modal__group">
+            <legend class="modal__group-title">Línea</legend>
+            <label class="panel__field" for="stroke-modal-slider">
+              <span class="modal__field-label">Grosor: <span id="stroke-modal-val">2</span>px</span>
+              <input class="panel__slider" type="range" id="stroke-modal-slider"
+                     min="1" max="8" step="1" value="2"
+                     aria-label="Grosor del trazo" />
+            </label>
+            <label class="panel__check" id="stroke-modal-dash-row">
+              <input type="checkbox" id="stroke-modal-dash" /> Trazo discontinuo
+            </label>
+            <label class="panel__check" id="stroke-modal-double-row">
+              <input type="checkbox" id="stroke-modal-double" /> Doble punta
+            </label>
+          </fieldset>
+
           <!-- La paleta va con su selector, dentro de .modal__palette: es el
                mando de color que se usa de verdad, y tenerla aquí evita cerrar
                los ajustes para ir a buscarla al panel. Las muestras son las
                mismas que las del panel (`.panel__color-swatch` + data-color),
                así que updateColorActive —que consulta por clase, no por id—
                resalta el color activo en todas a la vez. -->
-          <div class="modal__palette">
-            <label class="panel__field" for="stroke-modal-color">
-              <span class="modal__field-label">Color del trazo</span>
-              <input class="panel__color-picker" type="color" id="stroke-modal-color" value="#1a1a2e"
-                     aria-label="Color del trazo" />
-            </label>
-            <div class="panel__color-grid" id="stroke-modal-color-grid"></div>
-          </div>
-          <label class="panel__check" id="stroke-modal-dash-row">
-            <input type="checkbox" id="stroke-modal-dash" /> Trazo discontinuo
-          </label>
-          <label class="panel__check" id="stroke-modal-double-row">
-            <input type="checkbox" id="stroke-modal-double" /> Doble punta
-          </label>
+          <fieldset class="modal__group">
+            <legend class="modal__group-title">Color</legend>
+            <div class="modal__palette">
+              <label class="panel__field" for="stroke-modal-color">
+                <span class="modal__field-label">Personalizado</span>
+                <input class="panel__color-picker" type="color" id="stroke-modal-color" value="#1a1a2e"
+                       aria-label="Color del trazo" />
+              </label>
+              <div class="panel__color-grid" id="stroke-modal-color-grid"></div>
+            </div>
+          </fieldset>
+
           <!-- Posición y tamaño del elemento SELECCIONADO: solo aparece cuando
-               hay selección (sin ella no hay nada que colocar). El envoltorio
-               es un div SIN clase a propósito: ninguna clase suya declara
-               `display`, así que el [hidden] del user-agent basta — no se
-               reabre la trampa documentada en _panel.scss. Mismo patrón en los
-               otros tres modales de ajustes. -->
-          <div id="stroke-modal-geo" hidden>
-            <span class="modal__field-label">Posición y tamaño</span>
+               hay selección (sin ella no hay nada que colocar). Desde la
+               v2.26.2 es un bloque más, como los demás; y como .modal__group
+               declara `display`, el [hidden] del user-agent NO basta por sí
+               solo: lo apaga la regla `.modal__group[hidden]` de _modal.scss
+               (la trampa que documenta _panel.scss). Mismo patrón en los otros
+               cuatro modales de ajustes. -->
+          <fieldset class="modal__group modal__group--wide" id="stroke-modal-geo" hidden>
+            <legend class="modal__group-title">Posición y tamaño</legend>
             <div class="panel__nums">
               <label class="panel__num" for="stroke-modal-x"><span>X</span><input type="number" id="stroke-modal-x" step="1" /></label>
               <label class="panel__num" for="stroke-modal-y"><span>Y</span><input type="number" id="stroke-modal-y" step="1" /></label>
               <label class="panel__num" for="stroke-modal-w"><span>Ancho</span><input type="number" id="stroke-modal-w" step="1" min="1" /></label>
               <label class="panel__num" for="stroke-modal-h"><span>Alto</span><input type="number" id="stroke-modal-h" step="1" min="1" /></label>
             </div>
-          </div>
+          </fieldset>
         </div>
       </div>
       <button class="btn btn--ghost btn--block modal__cancel">Cerrar</button>
@@ -740,69 +752,90 @@
         <canvas class="modal__preview" id="shape-preview" width="176" height="168"
                 role="img" aria-label="Vista previa de la forma con los ajustes actuales"></canvas>
         <div class="modal__build-fields">
-          <label class="panel__field" for="shape-modal-slider">
-            <span class="modal__field-label">Grosor: <span id="shape-modal-val">2</span>px</span>
-            <input class="panel__slider" type="range" id="shape-modal-slider"
-                   min="1" max="8" step="1" value="2"
-                   aria-label="Grosor del trazo" />
-          </label>
-          <!-- Ver la nota de #modal-stroke: selector + paleta en un .modal__palette. -->
-          <div class="modal__palette">
-            <label class="panel__field" for="shape-modal-color">
-              <span class="modal__field-label">Color del trazo</span>
-              <input class="panel__color-picker" type="color" id="shape-modal-color" value="#1a1a2e"
-                     aria-label="Color del trazo" />
+          <!-- Por bloques, como los modales 3D (v2.26.2): el trazo a un lado y
+               el relleno al otro, cada uno con su color y su paleta juntos.
+               Son <fieldset> con <legend>, así que la agrupación llega también
+               a un lector de pantalla. -->
+          <fieldset class="modal__group">
+            <legend class="modal__group-title">Trazo</legend>
+            <label class="panel__field" for="shape-modal-slider">
+              <span class="modal__field-label">Grosor: <span id="shape-modal-val">2</span>px</span>
+              <input class="panel__slider" type="range" id="shape-modal-slider"
+                     min="1" max="8" step="1" value="2"
+                     aria-label="Grosor del trazo" />
             </label>
-            <div class="panel__color-grid" id="shape-modal-color-grid"></div>
-          </div>
-          <label class="panel__check">
-            <input type="checkbox" id="shape-modal-fill" /> Rellenar formas
-          </label>
-          <label class="panel__check">
-            <input type="checkbox" id="shape-modal-fill-transparent" /> Relleno translúcido
-          </label>
-          <label class="panel__field" for="shape-modal-opacity">
-            <span class="modal__field-label">Opacidad: <span id="shape-modal-opacity-val">40</span>%</span>
-            <input class="panel__slider" type="range" id="shape-modal-opacity"
-                   min="0" max="100" step="1" value="40"
-                   aria-label="Opacidad del relleno translúcido" disabled />
-          </label>
-          <!-- Paleta del RELLENO. Muestras de otra clase (`.panel__fill-swatch`)
-               a propósito: comparten el aspecto pero no el resaltado, porque el
-               color activo del relleno no es el del trazo — updateColorActive
-               consulta `.panel__color-swatch` y las dejaría marcando el color
-               equivocado. Las suyas las lleva updateFillColorActive. -->
-          <div class="modal__palette">
-            <label class="panel__field" for="shape-modal-fill-color">
-              <span class="modal__field-label">Color de relleno</span>
-              <input class="panel__color-picker" type="color" id="shape-modal-fill-color" value="#4ecdc4"
-                     aria-label="Color de relleno" />
+            <!-- Ver la nota de #modal-stroke: selector + paleta en un .modal__palette. -->
+            <div class="modal__palette">
+              <label class="panel__field" for="shape-modal-color">
+                <span class="modal__field-label">Color del trazo</span>
+                <input class="panel__color-picker" type="color" id="shape-modal-color" value="#1a1a2e"
+                       aria-label="Color del trazo" />
+              </label>
+              <div class="panel__color-grid" id="shape-modal-color-grid"></div>
+            </div>
+          </fieldset>
+
+          <fieldset class="modal__group">
+            <legend class="modal__group-title">Relleno</legend>
+            <label class="panel__check">
+              <input type="checkbox" id="shape-modal-fill" /> Rellenar formas
             </label>
-            <div class="panel__color-grid" id="shape-modal-fill-grid"></div>
-          </div>
+            <label class="panel__check">
+              <input type="checkbox" id="shape-modal-fill-transparent" /> Relleno translúcido
+            </label>
+            <label class="panel__field" for="shape-modal-opacity">
+              <span class="modal__field-label">Opacidad: <span id="shape-modal-opacity-val">40</span>%</span>
+              <input class="panel__slider" type="range" id="shape-modal-opacity"
+                     min="0" max="100" step="1" value="40"
+                     aria-label="Opacidad del relleno translúcido" disabled />
+            </label>
+            <!-- Paleta del RELLENO. Muestras de otra clase (`.panel__fill-swatch`)
+                 a propósito: comparten el aspecto pero no el resaltado, porque el
+                 color activo del relleno no es el del trazo — updateColorActive
+                 consulta `.panel__color-swatch` y las dejaría marcando el color
+                 equivocado. Las suyas las lleva updateFillColorActive. -->
+            <div class="modal__palette">
+              <label class="panel__field" for="shape-modal-fill-color">
+                <span class="modal__field-label">Color de relleno</span>
+                <input class="panel__color-picker" type="color" id="shape-modal-fill-color" value="#4ecdc4"
+                       aria-label="Color de relleno" />
+              </label>
+              <div class="panel__color-grid" id="shape-modal-fill-grid"></div>
+            </div>
+          </fieldset>
+
           <!-- Giro: solo para las formas que lo guardan como ángulo (polígonos
                regulares, estrellas y trapecio). El `step` lo pone syncShapeControls
                con el de cada tipo —45° el cuadrado, 36° el pentágono y la estrella
                de 5 puntas, 30° el hexágono y la de 6, 90° triángulo y trapecio—,
-               así que el deslizador solo se para en
-               orientaciones válidas. Sin selección fija cómo nace la próxima
-               forma; con ella, gira la seleccionada. -->
-          <label class="panel__field" for="shape-modal-rotation" id="shape-modal-rotation-row">
-            <span class="modal__field-label">Giro: <span id="shape-modal-rotation-val">0</span>°</span>
-            <input class="panel__slider" type="range" id="shape-modal-rotation"
-                   min="0" max="315" step="45" value="0"
-                   aria-label="Giro de la forma en grados" />
-          </label>
-          <!-- Ver el bloque homólogo de #modal-stroke: div sin clase, solo con selección. -->
-          <div id="shape-modal-geo" hidden>
-            <span class="modal__field-label">Posición y tamaño</span>
+               así que el deslizador solo se para en orientaciones válidas. Sin
+               selección fija cómo nace la próxima forma; con ella, gira la
+               seleccionada.
+               El bloque ENTERO es la fila que se oculta (`#shape-modal-rotation-row`
+               pasó del <label> al <fieldset>): un grupo con el único mando que
+               contiene escondido sería un recuadro vacío con título. Y como
+               .modal__group declara `display`, el [hidden] necesita su regla —la
+               trampa documentada en _panel.scss. -->
+          <fieldset class="modal__group" id="shape-modal-rotation-row">
+            <legend class="modal__group-title">Orientación</legend>
+            <label class="panel__field" for="shape-modal-rotation">
+              <span class="modal__field-label">Giro: <span id="shape-modal-rotation-val">0</span>°</span>
+              <input class="panel__slider" type="range" id="shape-modal-rotation"
+                     min="0" max="315" step="45" value="0"
+                     aria-label="Giro de la forma en grados" />
+            </label>
+          </fieldset>
+
+          <!-- Ver el bloque homólogo de #modal-stroke: un grupo más, solo con selección. -->
+          <fieldset class="modal__group modal__group--wide" id="shape-modal-geo" hidden>
+            <legend class="modal__group-title">Posición y tamaño</legend>
             <div class="panel__nums">
               <label class="panel__num" for="shape-modal-x"><span>X</span><input type="number" id="shape-modal-x" step="1" /></label>
               <label class="panel__num" for="shape-modal-y"><span>Y</span><input type="number" id="shape-modal-y" step="1" /></label>
               <label class="panel__num" for="shape-modal-w"><span>Ancho</span><input type="number" id="shape-modal-w" step="1" min="1" /></label>
               <label class="panel__num" for="shape-modal-h"><span>Alto</span><input type="number" id="shape-modal-h" step="1" min="1" /></label>
             </div>
-          </div>
+          </fieldset>
         </div>
       </div>
       <button class="btn btn--ghost btn--block modal__cancel">Cerrar</button>
@@ -823,63 +856,78 @@
         <canvas class="modal__preview" id="text-preview" width="176" height="168"
                 role="img" aria-label="Vista previa del texto con los ajustes actuales"></canvas>
         <div class="modal__build-fields">
-          <label class="panel__field" for="text-modal-size">
-            <span class="modal__field-label">Tamaño: <span id="text-modal-size-val">18</span>px</span>
-            <input class="panel__slider" type="range" id="text-modal-size"
-                   min="10" max="96" value="18"
-                   aria-label="Tamaño de letra" />
-          </label>
-          <!-- Grosor: llegó aquí en la v2.21.0, al retirar el deslizador del
-               panel. Sin él, un texto seleccionado se quedaba sin ningún sitio
-               desde el que cambiar su trazo. Mismo id-patrón y mismo rango que
-               los otros cuatro gemelos (guardado en smoke.test.js). -->
-          <label class="panel__field" for="text-modal-stroke">
-            <span class="modal__field-label">Grosor: <span id="text-modal-stroke-val">2</span>px</span>
-            <input class="panel__slider" type="range" id="text-modal-stroke"
-                   min="1" max="8" step="1" value="2"
-                   aria-label="Grosor del trazo" />
-          </label>
-          <!-- Ver la nota de #modal-stroke: selector + paleta en un .modal__palette. -->
-          <div class="modal__palette">
-            <label class="panel__field" for="text-modal-color">
-              <span class="modal__field-label">Color del texto</span>
-              <input class="panel__color-picker" type="color" id="text-modal-color" value="#1a1a2e"
-                     aria-label="Color del texto" />
+          <!-- Por bloques, como los modales 3D (v2.26.2): la letra, el trazo y
+               el estilo. Son <fieldset> con <legend>, así que la agrupación
+               llega también a un lector de pantalla. -->
+          <fieldset class="modal__group">
+            <legend class="modal__group-title">Letra</legend>
+            <label class="panel__field" for="text-modal-size">
+              <span class="modal__field-label">Tamaño: <span id="text-modal-size-val">18</span>px</span>
+              <input class="panel__slider" type="range" id="text-modal-size"
+                     min="10" max="96" value="18"
+                     aria-label="Tamaño de letra" />
             </label>
-            <div class="panel__color-grid" id="text-modal-color-grid"></div>
-          </div>
-          <!-- Gemelo del selector del panel («Lienzo» → Letra del lienzo):
-               es donde se mira al escribir, y la muestra de al lado enseña el
-               cambio al momento. Ajuste global del boceto, no del elemento:
-               ambos pasan por applySketchFont. -->
-          <label class="panel__field" for="text-modal-font">
-            <span class="modal__field-label">Letra del lienzo</span>
-            <select class="panel__select" id="text-modal-font"
-                    aria-label="Letra con la que escribe el lienzo"></select>
-          </label>
-          <label class="panel__check">
-            <input type="checkbox" id="text-modal-bold" /> Negrita
-          </label>
-          <label class="panel__field" for="text-modal-shadow">
-            <span class="modal__field-label">Sombra</span>
-            <select class="panel__select" id="text-modal-shadow"
-                    aria-label="Tipo de sombra del texto"></select>
-          </label>
-          <label class="panel__field" for="text-modal-shadow-color">
-            <span class="modal__field-label">Color de la sombra</span>
-            <input class="panel__color-picker" type="color" id="text-modal-shadow-color"
-                   value="#7d8295" aria-label="Color de la sombra del texto" />
-          </label>
-          <!-- Ver el bloque homólogo de #modal-stroke: div sin clase, solo con selección. -->
-          <div id="text-modal-geo" hidden>
-            <span class="modal__field-label">Posición y tamaño</span>
+            <!-- Gemelo del selector del panel («Lienzo» → Letra del lienzo):
+                 es donde se mira al escribir, y la muestra de al lado enseña el
+                 cambio al momento. Ajuste global del boceto, no del elemento:
+                 ambos pasan por applySketchFont. -->
+            <label class="panel__field" for="text-modal-font">
+              <span class="modal__field-label">Letra del lienzo</span>
+              <select class="panel__select" id="text-modal-font"
+                      aria-label="Letra con la que escribe el lienzo"></select>
+            </label>
+            <label class="panel__check">
+              <input type="checkbox" id="text-modal-bold" /> Negrita
+            </label>
+          </fieldset>
+
+          <fieldset class="modal__group">
+            <legend class="modal__group-title">Trazo</legend>
+            <!-- Grosor: llegó aquí en la v2.21.0, al retirar el deslizador del
+                 panel. Sin él, un texto seleccionado se quedaba sin ningún sitio
+                 desde el que cambiar su trazo. Mismo id-patrón y mismo rango que
+                 los otros cuatro gemelos (guardado en smoke.test.js). -->
+            <label class="panel__field" for="text-modal-stroke">
+              <span class="modal__field-label">Grosor: <span id="text-modal-stroke-val">2</span>px</span>
+              <input class="panel__slider" type="range" id="text-modal-stroke"
+                     min="1" max="8" step="1" value="2"
+                     aria-label="Grosor del trazo" />
+            </label>
+            <!-- Ver la nota de #modal-stroke: selector + paleta en un .modal__palette. -->
+            <div class="modal__palette">
+              <label class="panel__field" for="text-modal-color">
+                <span class="modal__field-label">Color del texto</span>
+                <input class="panel__color-picker" type="color" id="text-modal-color" value="#1a1a2e"
+                       aria-label="Color del texto" />
+              </label>
+              <div class="panel__color-grid" id="text-modal-color-grid"></div>
+            </div>
+          </fieldset>
+
+          <fieldset class="modal__group modal__group--wide">
+            <legend class="modal__group-title">Sombra</legend>
+            <label class="panel__field" for="text-modal-shadow">
+              <span class="modal__field-label">Tipo</span>
+              <select class="panel__select" id="text-modal-shadow"
+                      aria-label="Tipo de sombra del texto"></select>
+            </label>
+            <label class="panel__field" for="text-modal-shadow-color">
+              <span class="modal__field-label">Color de la sombra</span>
+              <input class="panel__color-picker" type="color" id="text-modal-shadow-color"
+                     value="#7d8295" aria-label="Color de la sombra del texto" />
+            </label>
+          </fieldset>
+
+          <!-- Ver el bloque homólogo de #modal-stroke: un grupo más, solo con selección. -->
+          <fieldset class="modal__group modal__group--wide" id="text-modal-geo" hidden>
+            <legend class="modal__group-title">Posición y tamaño</legend>
             <div class="panel__nums">
               <label class="panel__num" for="text-modal-x"><span>X</span><input type="number" id="text-modal-x" step="1" /></label>
               <label class="panel__num" for="text-modal-y"><span>Y</span><input type="number" id="text-modal-y" step="1" /></label>
               <label class="panel__num" for="text-modal-w"><span>Ancho</span><input type="number" id="text-modal-w" step="1" min="1" /></label>
               <label class="panel__num" for="text-modal-h"><span>Alto</span><input type="number" id="text-modal-h" step="1" min="1" /></label>
             </div>
-          </div>
+          </fieldset>
         </div>
       </div>
       <button class="btn btn--ghost btn--block modal__cancel">Cerrar</button>
@@ -900,38 +948,50 @@
         <canvas class="modal__preview" id="ui-preview" width="176" height="168"
                 role="img" aria-label="Vista previa del componente con los ajustes actuales"></canvas>
         <div class="modal__build-fields">
-          <label class="panel__field" for="ui-modal-label" id="ui-modal-label-row">
-            <span class="modal__field-label">Rótulo</span>
-            <!-- maxlength = el mismo recorte de 120 que aplican applyLabel y
-                 restorePrefs: sin él, un rótulo más largo encogía al recargar. -->
-            <input class="panel__text" type="text" id="ui-modal-label" maxlength="120"
-                   aria-label="Rótulo del componente" />
-          </label>
-          <label class="panel__field" for="ui-modal-slider">
-            <span class="modal__field-label">Grosor: <span id="ui-modal-val">2</span>px</span>
-            <input class="panel__slider" type="range" id="ui-modal-slider"
-                   min="1" max="8" step="1" value="2"
-                   aria-label="Grosor del trazo" />
-          </label>
-          <!-- Ver la nota de #modal-stroke: selector + paleta en un .modal__palette. -->
-          <div class="modal__palette">
-            <label class="panel__field" for="ui-modal-color">
-              <span class="modal__field-label">Color del trazo</span>
-              <input class="panel__color-picker" type="color" id="ui-modal-color" value="#1a1a2e"
-                     aria-label="Color del componente" />
+          <!-- Por bloques, como los modales 3D (v2.26.2): lo que dice el
+               componente a un lado y cómo está dibujado al otro. Son <fieldset>
+               con <legend>, así que la agrupación llega también a un lector de
+               pantalla. -->
+          <fieldset class="modal__group">
+            <legend class="modal__group-title">Contenido</legend>
+            <label class="panel__field" for="ui-modal-label" id="ui-modal-label-row">
+              <span class="modal__field-label">Rótulo</span>
+              <!-- maxlength = el mismo recorte de 120 que aplican applyLabel y
+                   restorePrefs: sin él, un rótulo más largo encogía al recargar. -->
+              <input class="panel__text" type="text" id="ui-modal-label" maxlength="120"
+                     aria-label="Rótulo del componente" />
             </label>
-            <div class="panel__color-grid" id="ui-modal-color-grid"></div>
-          </div>
-          <!-- Ver el bloque homólogo de #modal-stroke: div sin clase, solo con selección. -->
-          <div id="ui-modal-geo" hidden>
-            <span class="modal__field-label">Posición y tamaño</span>
+          </fieldset>
+
+          <fieldset class="modal__group">
+            <legend class="modal__group-title">Trazo</legend>
+            <label class="panel__field" for="ui-modal-slider">
+              <span class="modal__field-label">Grosor: <span id="ui-modal-val">2</span>px</span>
+              <input class="panel__slider" type="range" id="ui-modal-slider"
+                     min="1" max="8" step="1" value="2"
+                     aria-label="Grosor del trazo" />
+            </label>
+            <!-- Ver la nota de #modal-stroke: selector + paleta en un .modal__palette. -->
+            <div class="modal__palette">
+              <label class="panel__field" for="ui-modal-color">
+                <span class="modal__field-label">Color del trazo</span>
+                <input class="panel__color-picker" type="color" id="ui-modal-color" value="#1a1a2e"
+                       aria-label="Color del componente" />
+              </label>
+              <div class="panel__color-grid" id="ui-modal-color-grid"></div>
+            </div>
+          </fieldset>
+
+          <!-- Ver el bloque homólogo de #modal-stroke: un grupo más, solo con selección. -->
+          <fieldset class="modal__group modal__group--wide" id="ui-modal-geo" hidden>
+            <legend class="modal__group-title">Posición y tamaño</legend>
             <div class="panel__nums">
               <label class="panel__num" for="ui-modal-x"><span>X</span><input type="number" id="ui-modal-x" step="1" /></label>
               <label class="panel__num" for="ui-modal-y"><span>Y</span><input type="number" id="ui-modal-y" step="1" /></label>
               <label class="panel__num" for="ui-modal-w"><span>Ancho</span><input type="number" id="ui-modal-w" step="1" min="1" /></label>
               <label class="panel__num" for="ui-modal-h"><span>Alto</span><input type="number" id="ui-modal-h" step="1" min="1" /></label>
             </div>
-          </div>
+          </fieldset>
         </div>
       </div>
       <button class="btn btn--ghost btn--block modal__cancel">Cerrar</button>
@@ -957,73 +1017,86 @@
         <canvas class="modal__preview" id="airbrush-preview" width="176" height="168"
                 role="img" aria-label="Vista previa del aerógrafo con los ajustes actuales"></canvas>
         <div class="modal__build-fields">
-          <!-- La paleta entera, no solo el selector libre: es el mando de color
-               que se usa de verdad, y tenerlo aquí evita cerrar los ajustes para
-               ir a buscarlo al panel. Cabe en la columna de campos (6 × 2.8rem
-               más los huecos son 18.8rem de los 21.4rem disponibles) y la pintan
-               las mismas muestras que el panel, así que el resaltado del color
-               activo (updateColorActive, que va por clase y no por id) funciona
-               en las dos a la vez. -->
-          <div class="modal__palette" id="airbrush-palette">
-            <span class="modal__field-label">Color</span>
-            <div class="panel__color-grid" id="airbrush-color-grid"></div>
-          </div>
-          <label class="panel__field" for="airbrush-modal-color">
-            <span class="modal__field-label">Otro color</span>
-            <input class="panel__color-picker" type="color" id="airbrush-modal-color" value="#1a1a2e"
-                   aria-label="Color de la pintura" />
-          </label>
-          <label class="panel__field" for="airbrush-modal-radius">
-            <span class="modal__field-label">Anchura: <span id="airbrush-modal-radius-val">48</span>px</span>
-            <!-- min/max = Airbrush.R_MIN/R_MAX ×2 (el mando es el diámetro,
-                 que es lo que se ve; el elemento guarda el radio). -->
-            <input class="panel__slider" type="range" id="airbrush-modal-radius"
-                   min="8" max="120" step="2" value="48"
-                   aria-label="Anchura del aerógrafo" />
-          </label>
-          <label class="panel__field" for="airbrush-modal-grain">
-            <span class="modal__field-label">Grano: <span id="airbrush-modal-grain-val">5</span>px</span>
-            <input class="panel__slider" type="range" id="airbrush-modal-grain"
-                   min="1" max="8" step="1" value="5"
-                   aria-label="Tamaño de la gota" />
-          </label>
-          <label class="panel__field" for="airbrush-modal-density">
-            <span class="modal__field-label">Densidad: <span id="airbrush-modal-density-val">70</span></span>
-            <input class="panel__slider" type="range" id="airbrush-modal-density"
-                   min="10" max="120" step="5" value="70"
-                   aria-label="Densidad de la pulverización" />
-          </label>
-          <label class="panel__field" for="airbrush-modal-opacity">
-            <span class="modal__field-label">Opacidad: <span id="airbrush-modal-opacity-val">100</span>%</span>
-            <input class="panel__slider" type="range" id="airbrush-modal-opacity"
-                   min="10" max="100" step="5" value="100"
-                   aria-label="Opacidad de la pintura" />
-          </label>
-          <label class="panel__field" for="airbrush-area-mode">
-            <span class="modal__field-label">Dónde pinta</span>
-            <select class="panel__select" id="airbrush-area-mode">
-              <option value="all">En todo el lienzo</option>
-              <option value="area">Solo dentro de un área</option>
-            </select>
-          </label>
-          <!-- Div SIN clase, igual que los bloques de geometría: ninguna clase
-               suya declara `display`, así que el [hidden] del user-agent basta
-               y no se reabre la trampa documentada en _panel.scss. -->
-          <div id="airbrush-area-actions" hidden>
-            <p class="modal__sub" id="airbrush-area-status">Sin área marcada</p>
-            <button type="button" class="btn btn--ghost btn--block" id="btn-airbrush-mark">Marcar el área</button>
-            <button type="button" class="btn btn--ghost btn--block" id="btn-airbrush-clear-area">Quitar el área</button>
-          </div>
-          <!-- Ver el bloque homólogo de #modal-stroke: div sin clase, solo con selección. -->
-          <div id="airbrush-modal-geo" hidden>
-            <span class="modal__field-label">Posición y tamaño</span>
+          <!-- Por bloques, como los modales 3D (v2.26.2): la boquilla (cómo
+               sale el espray), la pintura (de qué color y con cuánto cuerpo) y
+               dónde se deja pintar. Son <fieldset> con <legend>, así que la
+               agrupación llega también a un lector de pantalla. -->
+          <fieldset class="modal__group">
+            <legend class="modal__group-title">Boquilla</legend>
+            <label class="panel__field" for="airbrush-modal-radius">
+              <span class="modal__field-label">Anchura: <span id="airbrush-modal-radius-val">48</span>px</span>
+              <!-- min/max = Airbrush.R_MIN/R_MAX ×2 (el mando es el diámetro,
+                   que es lo que se ve; el elemento guarda el radio). -->
+              <input class="panel__slider" type="range" id="airbrush-modal-radius"
+                     min="8" max="120" step="2" value="48"
+                     aria-label="Anchura del aerógrafo" />
+            </label>
+            <label class="panel__field" for="airbrush-modal-grain">
+              <span class="modal__field-label">Grano: <span id="airbrush-modal-grain-val">5</span>px</span>
+              <input class="panel__slider" type="range" id="airbrush-modal-grain"
+                     min="1" max="8" step="1" value="5"
+                     aria-label="Tamaño de la gota" />
+            </label>
+            <label class="panel__field" for="airbrush-modal-density">
+              <span class="modal__field-label">Densidad: <span id="airbrush-modal-density-val">70</span></span>
+              <input class="panel__slider" type="range" id="airbrush-modal-density"
+                     min="10" max="120" step="5" value="70"
+                     aria-label="Densidad de la pulverización" />
+            </label>
+          </fieldset>
+
+          <fieldset class="modal__group">
+            <legend class="modal__group-title">Pintura</legend>
+            <label class="panel__field" for="airbrush-modal-opacity">
+              <span class="modal__field-label">Opacidad: <span id="airbrush-modal-opacity-val">100</span>%</span>
+              <input class="panel__slider" type="range" id="airbrush-modal-opacity"
+                     min="10" max="100" step="5" value="100"
+                     aria-label="Opacidad de la pintura" />
+            </label>
+            <!-- La paleta entera, no solo el selector libre: es el mando de color
+                 que se usa de verdad, y tenerlo aquí evita cerrar los ajustes para
+                 ir a buscarlo al panel. Lo pintan las mismas muestras que el panel,
+                 así que el resaltado del color activo (updateColorActive, que va
+                 por clase y no por id) funciona en las dos a la vez. -->
+            <div class="modal__palette" id="airbrush-palette">
+              <label class="panel__field" for="airbrush-modal-color">
+                <span class="modal__field-label">Color de la pintura</span>
+                <input class="panel__color-picker" type="color" id="airbrush-modal-color" value="#1a1a2e"
+                       aria-label="Color de la pintura" />
+              </label>
+              <div class="panel__color-grid" id="airbrush-color-grid"></div>
+            </div>
+          </fieldset>
+
+          <fieldset class="modal__group modal__group--wide">
+            <legend class="modal__group-title">Dónde pinta</legend>
+            <label class="panel__field" for="airbrush-area-mode">
+              <span class="modal__field-label">Alcance</span>
+              <select class="panel__select" id="airbrush-area-mode">
+                <option value="all">En todo el lienzo</option>
+                <option value="area">Solo dentro de un área</option>
+              </select>
+            </label>
+            <!-- Div SIN clase, igual que los bloques de geometría: ninguna clase
+                 suya declara `display`, así que el [hidden] del user-agent basta
+                 y no se reabre la trampa documentada en _panel.scss. -->
+            <div id="airbrush-area-actions" hidden>
+              <p class="modal__sub" id="airbrush-area-status">Sin área marcada</p>
+              <button type="button" class="btn btn--ghost btn--block" id="btn-airbrush-mark">Marcar el área</button>
+              <button type="button" class="btn btn--ghost btn--block" id="btn-airbrush-clear-area">Quitar el área</button>
+            </div>
+          </fieldset>
+
+          <!-- Ver el bloque homólogo de #modal-stroke: un grupo más, solo con selección. -->
+          <fieldset class="modal__group modal__group--wide" id="airbrush-modal-geo" hidden>
+            <legend class="modal__group-title">Posición y tamaño</legend>
             <div class="panel__nums">
               <label class="panel__num" for="airbrush-modal-x"><span>X</span><input type="number" id="airbrush-modal-x" step="1" /></label>
               <label class="panel__num" for="airbrush-modal-y"><span>Y</span><input type="number" id="airbrush-modal-y" step="1" /></label>
               <label class="panel__num" for="airbrush-modal-w"><span>Ancho</span><input type="number" id="airbrush-modal-w" step="1" min="1" /></label>
               <label class="panel__num" for="airbrush-modal-h"><span>Alto</span><input type="number" id="airbrush-modal-h" step="1" min="1" /></label>
             </div>
-          </div>
+          </fieldset>
         </div>
       </div>
       <button class="btn btn--ghost btn--block modal__cancel">Cerrar</button>
@@ -1072,56 +1145,70 @@
         <canvas class="modal__preview" id="facade-preview" width="176" height="168"
                 role="img" aria-label="Vista previa del edificio con los ajustes actuales"></canvas>
         <div class="modal__build-fields">
-          <label class="panel__field" for="facade-floors">
-            <span class="modal__field-label">Plantas</span>
-            <select class="panel__select" id="facade-floors">
-              <option value="auto">Auto</option>
-              <option value="1">1</option>
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="4">4</option>
-              <option value="5">5</option>
-              <option value="6">6</option>
-              <option value="7">7</option>
-              <option value="8">8</option>
-              <option value="10">10</option>
-              <option value="12">12</option>
-            </select>
-          </label>
-          <label class="panel__field" for="facade-bays">
-            <span class="modal__field-label">Ventanas por planta</span>
-            <select class="panel__select" id="facade-bays">
-              <option value="auto">Auto</option>
-              <option value="1">1</option>
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="4">4</option>
-            </select>
-          </label>
-          <label class="panel__field" for="facade-roof-type">
-            <span class="modal__field-label">Cubierta</span>
-            <select class="panel__select" id="facade-roof-type">
-              <option value="gable">Dos aguas</option>
-              <option value="hip">Cuatro aguas</option>
-              <option value="mansard">Mansarda</option>
-            </select>
-          </label>
-          <label class="panel__field" for="facade-roof-pitch">
-            <span class="modal__field-label">Pendiente: <span id="facade-pitch-val">36</span>%</span>
-            <input class="panel__slider" type="range" id="facade-roof-pitch"
-                   min="20" max="50" step="1" value="36"
-                   aria-label="Pendiente del tejado" />
-          </label>
-          <!-- Huecos: la fachada los dibuja con estos tipos. Las <option> las
-               rellena app.js desde DOOR_TYPES/WINDOW_TYPES (una sola fuente). -->
-          <label class="panel__field" for="facade-door-type">
-            <span class="modal__field-label">Puerta</span>
-            <select class="panel__select" id="facade-door-type"></select>
-          </label>
-          <label class="panel__field" for="facade-window-type">
-            <span class="modal__field-label">Ventana</span>
-            <select class="panel__select" id="facade-window-type"></select>
-          </label>
+          <!-- Por bloques, como los modales 3D (v2.26.2): el cuerpo del
+               edificio, su cubierta y sus huecos. Son <fieldset> con <legend>,
+               así que la agrupación llega también a un lector de pantalla. -->
+          <fieldset class="modal__group">
+            <legend class="modal__group-title">Edificio</legend>
+            <label class="panel__field" for="facade-floors">
+              <span class="modal__field-label">Plantas</span>
+              <select class="panel__select" id="facade-floors">
+                <option value="auto">Auto</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="10">10</option>
+                <option value="12">12</option>
+              </select>
+            </label>
+            <label class="panel__field" for="facade-bays">
+              <span class="modal__field-label">Ventanas por planta</span>
+              <select class="panel__select" id="facade-bays">
+                <option value="auto">Auto</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+              </select>
+            </label>
+          </fieldset>
+
+          <fieldset class="modal__group">
+            <legend class="modal__group-title">Cubierta</legend>
+            <label class="panel__field" for="facade-roof-type">
+              <span class="modal__field-label">Tipo</span>
+              <select class="panel__select" id="facade-roof-type">
+                <option value="gable">Dos aguas</option>
+                <option value="hip">Cuatro aguas</option>
+                <option value="mansard">Mansarda</option>
+              </select>
+            </label>
+            <label class="panel__field" for="facade-roof-pitch">
+              <span class="modal__field-label">Pendiente: <span id="facade-pitch-val">36</span>%</span>
+              <input class="panel__slider" type="range" id="facade-roof-pitch"
+                     min="20" max="50" step="1" value="36"
+                     aria-label="Pendiente del tejado" />
+            </label>
+          </fieldset>
+
+          <fieldset class="modal__group modal__group--wide">
+            <legend class="modal__group-title">Huecos</legend>
+            <!-- Las <option> las rellena app.js desde DOOR_TYPES/WINDOW_TYPES
+                 (una sola fuente, la misma que los modales de Puerta y Ventana). -->
+            <label class="panel__field" for="facade-door-type">
+              <span class="modal__field-label">Puerta</span>
+              <select class="panel__select" id="facade-door-type"></select>
+            </label>
+            <label class="panel__field" for="facade-window-type">
+              <span class="modal__field-label">Ventana</span>
+              <select class="panel__select" id="facade-window-type"></select>
+            </label>
+          </fieldset>
         </div>
       </div>
 
@@ -1141,78 +1228,92 @@
         <canvas class="modal__preview" id="wall-preview" width="176" height="168"
                 role="img" aria-label="Vista previa del muro con los ajustes actuales"></canvas>
         <div class="modal__build-fields">
-          <label class="panel__field" for="wall-material">
-            <span class="modal__field-label">Material</span>
-            <select class="panel__select" id="wall-material">
-              <option value="stone">Piedra</option>
-              <option value="concrete">Hormigón</option>
-              <option value="brick">Ladrillo cara vista</option>
-            </select>
-          </label>
-          <label class="panel__field" for="wall-height">
-            <span class="modal__field-label">Altura</span>
-            <select class="panel__select" id="wall-height">
-              <option value="1">1 m</option>
-              <option value="2">2 m</option>
-            </select>
-          </label>
-          <label class="panel__field" for="wall-gate-type">
-            <span class="modal__field-label">Puerta</span>
-            <select class="panel__select" id="wall-gate-type">
-              <option value="none">Sin puerta</option>
-              <option value="single">Barrotes, una hoja</option>
-              <option value="double">Barrotes, dos hojas</option>
-              <option value="concave">Cóncava pura, barrotes graduados</option>
-              <option value="concaveSwan">Cuello de cisne, doble curva</option>
-              <option value="concavePanel">Cóncava con zócalo ciego</option>
-              <option value="concaveOrnate">Cóncava ornamental y volutas</option>
-              <option value="concaveFan">Cóncava con abanico radial</option>
-              <option value="concaveLyre">Cóncava con lira central</option>
-              <option value="concaveDiamond">Cóncava con rombos ingleses</option>
-              <option value="concaveRings">Cóncava de anillas neoclásicas</option>
-              <option value="concavePalmette">Cóncava de palmetas barrocas</option>
-              <option value="convexPanel">Convexa monumental · Panelada clásica</option>
-              <option value="convexFan">Convexa monumental · Abanico imperial</option>
-              <option value="convexMedallion">Convexa monumental · Doble cenefa</option>
-              <option value="convexBlind">Convexa monumental · Ciega acanalada</option>
-              <option value="solidTransom">Portón ciego con montante superior</option>
-              <option value="openBars">Portón abierto de barrotes con lanzas</option>
-              <option value="openScrolls">Portón abierto ornamental con lanzas</option>
-            </select>
-          </label>
-          <label class="panel__field" for="wall-gate-height">
-            <span class="modal__field-label">Alto de la puerta: <span id="wall-gate-height-val">2,0</span> m</span>
-            <input class="panel__slider" type="range" id="wall-gate-height"
-                   min="0.8" max="3" step="0.1" value="2"
-                   aria-label="Alto de la puerta del muro, en metros" />
-          </label>
-          <label class="panel__check">
-            <input type="checkbox" id="wall-railing" /> Verja de forja arriba
-          </label>
-          <label class="panel__field" for="wall-railing-type">
-            <span class="modal__field-label">Diseño de la verja</span>
-            <select class="panel__select" id="wall-railing-type">
-              <option value="spear">Lanzas clásicas</option>
-              <option value="minimal">Recta minimalista con lanzas</option>
-              <option value="arches">Arcos entrelazados con lanzas</option>
-              <option value="diamonds">Rombos ingleses con lanzas</option>
-              <option value="rings">Anillas neoclásicas con lanzas</option>
-              <option value="scrolls">Volutas barrocas con lanzas</option>
-              <option value="fans">Abanicos ornamentales con lanzas</option>
-              <option value="castilian">Castellana de cuadradillo torsionado</option>
-              <option value="plateresque">Plateresca de medallones y palmetas</option>
-              <option value="herrerian">Herreriana de nudos sobrios</option>
-              <option value="andalusian">Andaluza de roleos en S</option>
-              <option value="catalan">Catalana de espirales y rosetas</option>
-              <option value="valencian">Valenciana barroca de rocalla</option>
-            </select>
-          </label>
-          <label class="panel__field" for="wall-railing-height">
-            <span class="modal__field-label">Alto de la verja: <span id="wall-railing-height-val">0,7</span> m</span>
-            <input class="panel__slider" type="range" id="wall-railing-height"
-                   min="0.3" max="1.5" step="0.1" value="0.7"
-                   aria-label="Alto de la verja superior, en metros" />
-          </label>
+          <!-- Por bloques, como los modales 3D (v2.26.2): la fábrica del muro,
+               su verja de coronación y su entrada. Son <fieldset> con <legend>,
+               así que la agrupación llega también a un lector de pantalla. -->
+          <fieldset class="modal__group">
+            <legend class="modal__group-title">Muro</legend>
+            <label class="panel__field" for="wall-material">
+              <span class="modal__field-label">Material</span>
+              <select class="panel__select" id="wall-material">
+                <option value="stone">Piedra</option>
+                <option value="concrete">Hormigón</option>
+                <option value="brick">Ladrillo cara vista</option>
+              </select>
+            </label>
+            <label class="panel__field" for="wall-height">
+              <span class="modal__field-label">Altura</span>
+              <select class="panel__select" id="wall-height">
+                <option value="1">1 m</option>
+                <option value="2">2 m</option>
+              </select>
+            </label>
+          </fieldset>
+
+          <fieldset class="modal__group">
+            <legend class="modal__group-title">Verja de coronación</legend>
+            <label class="panel__check">
+              <input type="checkbox" id="wall-railing" /> Verja de forja arriba
+            </label>
+            <label class="panel__field" for="wall-railing-type">
+              <span class="modal__field-label">Diseño de la verja</span>
+              <select class="panel__select" id="wall-railing-type">
+                <option value="spear">Lanzas clásicas</option>
+                <option value="minimal">Recta minimalista con lanzas</option>
+                <option value="arches">Arcos entrelazados con lanzas</option>
+                <option value="diamonds">Rombos ingleses con lanzas</option>
+                <option value="rings">Anillas neoclásicas con lanzas</option>
+                <option value="scrolls">Volutas barrocas con lanzas</option>
+                <option value="fans">Abanicos ornamentales con lanzas</option>
+                <option value="castilian">Castellana de cuadradillo torsionado</option>
+                <option value="plateresque">Plateresca de medallones y palmetas</option>
+                <option value="herrerian">Herreriana de nudos sobrios</option>
+                <option value="andalusian">Andaluza de roleos en S</option>
+                <option value="catalan">Catalana de espirales y rosetas</option>
+                <option value="valencian">Valenciana barroca de rocalla</option>
+              </select>
+            </label>
+            <label class="panel__field" for="wall-railing-height">
+              <span class="modal__field-label">Alto de la verja: <span id="wall-railing-height-val">0,7</span> m</span>
+              <input class="panel__slider" type="range" id="wall-railing-height"
+                     min="0.3" max="1.5" step="0.1" value="0.7"
+                     aria-label="Alto de la verja superior, en metros" />
+            </label>
+          </fieldset>
+
+          <fieldset class="modal__group modal__group--wide">
+            <legend class="modal__group-title">Entrada</legend>
+            <label class="panel__field" for="wall-gate-type">
+              <span class="modal__field-label">Puerta</span>
+              <select class="panel__select" id="wall-gate-type">
+                <option value="none">Sin puerta</option>
+                <option value="single">Barrotes, una hoja</option>
+                <option value="double">Barrotes, dos hojas</option>
+                <option value="concave">Cóncava pura, barrotes graduados</option>
+                <option value="concaveSwan">Cuello de cisne, doble curva</option>
+                <option value="concavePanel">Cóncava con zócalo ciego</option>
+                <option value="concaveOrnate">Cóncava ornamental y volutas</option>
+                <option value="concaveFan">Cóncava con abanico radial</option>
+                <option value="concaveLyre">Cóncava con lira central</option>
+                <option value="concaveDiamond">Cóncava con rombos ingleses</option>
+                <option value="concaveRings">Cóncava de anillas neoclásicas</option>
+                <option value="concavePalmette">Cóncava de palmetas barrocas</option>
+                <option value="convexPanel">Convexa monumental · Panelada clásica</option>
+                <option value="convexFan">Convexa monumental · Abanico imperial</option>
+                <option value="convexMedallion">Convexa monumental · Doble cenefa</option>
+                <option value="convexBlind">Convexa monumental · Ciega acanalada</option>
+                <option value="solidTransom">Portón ciego con montante superior</option>
+                <option value="openBars">Portón abierto de barrotes con lanzas</option>
+                <option value="openScrolls">Portón abierto ornamental con lanzas</option>
+              </select>
+            </label>
+            <label class="panel__field" for="wall-gate-height">
+              <span class="modal__field-label">Alto de la puerta: <span id="wall-gate-height-val">2,0</span> m</span>
+              <input class="panel__slider" type="range" id="wall-gate-height"
+                     min="0.8" max="3" step="0.1" value="2"
+                     aria-label="Alto de la puerta del muro, en metros" />
+            </label>
+          </fieldset>
         </div>
       </div>
 
@@ -1803,21 +1904,21 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=2.26.1"></script>
-  <script src="src/js/sketchy.js?v=2.26.1"></script>
-  <script src="src/js/arc.js?v=2.26.1"></script>
-  <script src="src/js/curve-path.js?v=2.26.1"></script>
-  <script src="src/js/shape-rotation.js?v=2.26.1"></script>
-  <script src="src/js/regular-polygon.js?v=2.26.1"></script>
-  <script src="src/js/trapezoid.js?v=2.26.1"></script>
-  <script src="src/js/airbrush.js?v=2.26.1"></script>
-  <script src="src/js/eraser.js?v=2.26.1"></script>
-  <script src="src/js/building.js?v=2.26.1"></script>
-  <script src="src/js/garden.js?v=2.26.1"></script>
-  <script src="src/js/solid.js?v=2.26.1"></script>
-  <script src="src/js/renderer.js?v=2.26.1"></script>
-  <script src="src/js/exporter.js?v=2.26.1"></script>
-  <script src="src/js/templates.js?v=2.26.1"></script>
-  <script src="src/js/app.js?v=2.26.1"></script>
+  <script src="src/js/config.js?v=2.26.2"></script>
+  <script src="src/js/sketchy.js?v=2.26.2"></script>
+  <script src="src/js/arc.js?v=2.26.2"></script>
+  <script src="src/js/curve-path.js?v=2.26.2"></script>
+  <script src="src/js/shape-rotation.js?v=2.26.2"></script>
+  <script src="src/js/regular-polygon.js?v=2.26.2"></script>
+  <script src="src/js/trapezoid.js?v=2.26.2"></script>
+  <script src="src/js/airbrush.js?v=2.26.2"></script>
+  <script src="src/js/eraser.js?v=2.26.2"></script>
+  <script src="src/js/building.js?v=2.26.2"></script>
+  <script src="src/js/garden.js?v=2.26.2"></script>
+  <script src="src/js/solid.js?v=2.26.2"></script>
+  <script src="src/js/renderer.js?v=2.26.2"></script>
+  <script src="src/js/exporter.js?v=2.26.2"></script>
+  <script src="src/js/templates.js?v=2.26.2"></script>
+  <script src="src/js/app.js?v=2.26.2"></script>
 </body>
 </html>
