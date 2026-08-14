@@ -3927,3 +3927,105 @@ test('girar una forma suelta sigue girando sobre su propio centro', () => {
   assert.equal(despues.x, antes.x, 'no se mueve');
   assert.equal(despues.y, antes.y);
 });
+
+/* ── Editar un sólido ya dibujado: color de aristas y de lados ── */
+
+test('pulsar la herramienta 3D con un sólido puesto lo EDITA, no lo deselecciona', () => {
+  // Sin esto, su modal pasaba a configurar el sólido siguiente y el color y el
+  // grosor de las aristas no llegaban nunca a la figura que se tenía delante.
+  const app = loadApp();
+  app.selectTool('prisma');
+  app.drag(300, 300, 400, 400);
+  app.flush();
+  const piezas = app.elements().length;
+  assert.ok(piezas > 2);
+
+  app.selectTool('select');
+  app.click(320, 320);
+  app.flush();
+  app.selectTool('prisma');
+  app.flush();
+  // La selección sobrevive: se comprueba por su efecto, cambiando el color
+  // desde el mando del modal y viendo que llega a las piezas.
+  const picker = app.$('prism-color');
+  picker.value = '#ff0055';
+  picker.__fire('input', { target: picker });
+  picker.__fire('change', { target: picker });
+  app.flush();
+  const els = app.elements();
+  assert.equal(els.length, piezas, 'editar no crea ni destruye piezas');
+  assert.ok(els.every(e => e.color === '#ff0055'),
+    'el color del modal tiene que llegar a TODAS las aristas');
+});
+
+test('rellenar un sólido ya dibujado le CREA las caras, sin moverlo ni cambiar su tamaño', () => {
+  // Las caras laterales son elementos y sólo se emiten al crear la figura: una
+  // dibujada en hueco no las tenía, así que «el color de los lados» no existía.
+  const app = loadApp();
+  app.selectTool('prisma');
+  app.drag(300, 300, 420, 420);
+  app.flush();
+  const antes = app.elements();
+  assert.equal(antes.filter(e => e.type === 'polygon').length, 0,
+    'sin relleno no hay caras, que es justo el problema');
+  const caraAntes = antes.find(e => e.type !== 'line' && e.type !== 'curveArrow');
+
+  app.selectTool('select');
+  app.click(320, 320);
+  app.flush();
+  app.selectTool('prisma');
+  app.flush();
+  const casilla = app.$('prism-fill');
+  casilla.checked = true;
+  casilla.__fire('change', { target: casilla });
+  app.flush();
+
+  const despues = app.elements();
+  const caras = despues.filter(e => e.type === 'polygon');
+  assert.ok(caras.length > 0, 'ahora sí hay caras que colorear');
+  assert.ok(caras.every(c => c.fill === true && c.stroke === false));
+  // Y la figura no se ha movido ni ha cambiado de tamaño: el arrastre
+  // equivalente se reconstruye desde la propia cara frontal.
+  const caraDespues = despues.find(e =>
+    e.type !== 'line' && e.type !== 'curveArrow' && e.type !== 'polygon');
+  assert.ok(Math.abs(caraDespues.x - caraAntes.x) < 1e-6);
+  assert.ok(Math.abs(caraDespues.y - caraAntes.y) < 1e-6);
+  assert.ok(Math.abs(caraDespues.w - caraAntes.w) < 1e-6);
+  assert.ok(Math.abs(caraDespues.h - caraAntes.h) < 1e-6);
+  // Todas las piezas siguen siendo un grupo y conservan sus metadatos
+  const gid = despues[0].buildingGroupId;
+  assert.ok(gid && despues.every(e => e.buildingGroupId === gid && e.solidMeta));
+});
+
+test('regenerar un sólido es UN paso de deshacer y no toca a los demás elementos', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(60, 60, 140, 120);         // un rectángulo suelto, antes del sólido
+  app.flush();
+  app.selectTool('prisma');
+  app.drag(300, 300, 400, 400);
+  app.flush();
+  const antes = app.elements();
+  const sueltoAntes = antes[0];
+
+  app.selectTool('select');
+  app.click(320, 320);
+  app.flush();
+  app.selectTool('prisma');
+  app.flush();
+  const casilla = app.$('prism-fill');
+  casilla.checked = true;
+  casilla.__fire('change', { target: casilla });
+  app.flush();
+  const conCaras = app.elements();
+  assert.ok(conCaras.some(e => e.type === 'polygon'));
+  // El rectángulo suelto sigue intacto y DELANTE del sólido: la sustitución
+  // respeta el orden de dibujo.
+  assert.deepEqual({ ...conCaras[0] }, { ...sueltoAntes });
+
+  app.key('z', { ctrlKey: true });
+  app.flush();
+  const tras = app.elements();
+  assert.equal(tras.length, antes.length, 'un solo paso deshace toda la regeneración');
+  assert.equal(tras.filter(e => e.type === 'polygon').length, 0);
+});

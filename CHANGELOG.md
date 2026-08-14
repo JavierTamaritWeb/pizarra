@@ -4,6 +4,31 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.25.2] — 2026-08-14
+
+### Corregido
+
+Con una figura 3D **ya dibujada** no se podía cambiar el color de las aristas ni
+el de los lados, aunque sí la posición y el tamaño. Eran dos fallos distintos:
+
+- **Pulsar la herramienta 3D con un sólido seleccionado lo deseleccionaba**, así
+  que su modal pasaba a configurar el sólido *siguiente*: el color y el grosor no
+  llegaban nunca a la figura que se tenía delante. Ahora la selección sobrevive,
+  como ya ocurría al pulsar la herramienta de una forma plana seleccionada.
+- **Un sólido dibujado en hueco no tiene caras**, porque las caras laterales son
+  elementos y sólo se emiten al crear la figura. Marcar «Rellenar las caras»
+  después sólo pintaba la cara frontal, de modo que *el color de los lados* no
+  tenía a qué aplicarse. Ahora rellenar **vuelve a crear la figura** con sus
+  caras, en su sitio y a su tamaño, en un solo paso de deshacer — el mismo
+  recurso con el que el Jardín cambia de especie sin recolocar la planta.
+- Y de paso: los mandos del modal 3D leían el valor de **un** elemento, y un
+  sólido son siempre varias piezas, así que caían a los valores de fábrica. Como
+  eso corre en cada repintado, la casilla de relleno se **desmarcaba sola** justo
+  después de marcarla. Ahora enseñan el valor común de la figura.
+
+Los ajustes de proyección (profundidad, ángulo, escorzo y tapa) y el giro de la
+sección también vuelven a crear el sólido seleccionado, al soltar el deslizador.
+
 ## [2.25.1] — 2026-08-14
 
 ### Corregido

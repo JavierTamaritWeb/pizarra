@@ -296,3 +296,80 @@ test('Shift+R y ←/→ giran el sólido entero ya dibujado', async ({ page }) =
   await page.keyboard.press('ArrowRight');
   await expect.poll(medida).toBe('apaisado');
 });
+
+test('un sólido ya dibujado se recolorea entero: aristas y lados', async ({ page }) => {
+  // El escenario que falló en manos del usuario: la figura se dibuja EN HUECO y
+  // después se le quiere cambiar el color. Sus caras no existían —sólo se
+  // emiten al crearla—, así que «el color de los lados» no tenía a qué
+  // aplicarse, y pulsar la herramienta para llegar a sus ajustes deseleccionaba
+  // la figura, de modo que tampoco llegaba el de las aristas.
+  await openApp(page);
+  await seccion(page, 'prisma', 'prism', 'square');
+  await drag(page, 300, 300, 420, 420);
+  await settle(page);
+  const antes = await elements(page);
+  expect(antes.filter(e => e.type === 'polygon'), 'nace sin caras').toHaveLength(0);
+
+  await selectTool(page, 'select');
+  await clickCanvas(page, 320, 320);
+  await settle(page);
+  await page.locator('.sidebar__tool[data-tool="prisma"]').click();
+  await expect(page.locator('#modal-prism')).toBeVisible();
+  // La selección sobrevive: la sección «Posición y tamaño» del panel sigue ahí
+  await expect(page.locator('#panel-sec-element')).toBeVisible();
+
+  // 1) Color de las ARISTAS, desde la paleta del propio modal
+  await page.locator('#prism-color-grid .panel__color-swatch[data-color="#e74c3c"]').click();
+  await expect.poll(async () =>
+    [...new Set((await elements(page)).map(e => e.color))].join(',')).toBe('#e74c3c');
+
+  // 2) Rellenar crea las caras, y la casilla SE QUEDA marcada — con la lectura
+  //    de un solo elemento, el repintado siguiente la desmarcaba sola.
+  await page.locator('#prism-fill').check();
+  await expect(page.locator('#prism-fill')).toBeChecked();
+  await expect.poll(async () =>
+    (await elements(page)).filter(e => e.type === 'polygon').length).toBeGreaterThan(0);
+
+  // 3) Color de los LADOS
+  await page.locator('#prism-fill-transparent').uncheck();
+  await page.locator('#prism-fill-color').fill('#ffcc00');
+  await page.locator('#prism-fill-color').dispatchEvent('input');
+  await page.locator('#prism-fill-color').dispatchEvent('change');
+  await expect.poll(async () => {
+    const caras = (await elements(page)).filter(e => e.type === 'polygon');
+    return caras.length > 0 && caras.every(c => c.fillColor === '#ffcc00');
+  }).toBe(true);
+
+  // Y la figura no se ha movido ni ha cambiado de tamaño
+  const cara = el => el.type !== 'line' && el.type !== 'curveArrow' && el.type !== 'polygon';
+  const f0 = antes.find(cara), f1 = (await elements(page)).find(cara);
+  expect(Math.round(f1.x)).toBe(Math.round(f0.x));
+  expect(Math.round(f1.w)).toBe(Math.round(f0.w));
+});
+
+test('los mandos del modal enseñan lo que tiene la figura, no los valores de fábrica', async ({ page }) => {
+  await openApp(page);
+  await page.locator('.sidebar__tool[data-tool="prisma"]').click();
+  await page.locator('#prism-stroke').fill('7');
+  await page.locator('#prism-stroke').dispatchEvent('input');
+  await page.locator('#prism-stroke').dispatchEvent('change');
+  await page.locator('[data-prism="square"]').click();
+  await settle(page);
+  await drag(page, 300, 300, 420, 420);
+  await settle(page);
+
+  // Se cambia el default a otra cosa, para que «7» sólo pueda venir de la figura
+  await page.locator('.sidebar__tool[data-tool="prisma"]').click();
+  await page.locator('#prism-stroke').fill('2');
+  await page.locator('#prism-stroke').dispatchEvent('input');
+  await page.locator('#prism-stroke').dispatchEvent('change');
+  await page.locator('[data-prism="square"]').click();
+  await settle(page);
+
+  await selectTool(page, 'select');
+  await clickCanvas(page, 320, 320);
+  await settle(page);
+  await page.locator('.sidebar__tool[data-tool="prisma"]').click();
+  await expect(page.locator('#prism-stroke')).toHaveValue('7');
+  await expect(page.locator('#prism-stroke-val')).toHaveText('7');
+});

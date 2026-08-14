@@ -28,6 +28,39 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### v2.25.2 — En una figura 3D no se podía cambiar el color de las aristas ni el de los lados
+
+- **Síntoma:** con un sólido ya dibujado y seleccionado se le podía cambiar la
+  posición y el tamaño, pero no el color. Reportado por el usuario.
+- **Causa:** tres cosas encadenadas.
+  1. `selectTool` vaciaba la selección con las herramientas 3D — no están en
+     `MODAL_EDIT_TYPE`, que empareja herramienta con un tipo de elemento exacto,
+     y un sólido no tiene uno—, así que su modal pasaba a configurar el sólido
+     siguiente y sus mandos no tocaban la figura seleccionada.
+  2. Las **caras laterales son elementos** y sólo se emiten al crear la figura.
+     Un sólido dibujado sin relleno no las tiene, de modo que marcar «Rellenar
+     las caras» después sólo pintaba la cara frontal: no había lados que
+     colorear. Es un defecto de diseño de la v2.25.0 — el relleno se hizo una
+     decisión de creación en vez de una propiedad editable.
+  3. `syncSolidControls` leía el valor de **un** elemento (`selection.length === 1`),
+     y un sólido son siempre varias piezas, así que caía a los valores de
+     fábrica. Como corre en cada repintado, **desmarcaba la casilla de relleno
+     justo después de marcarla**. Es el mismo fallo que tuvo `syncStrokeControls`
+     en la v2.16.3.
+- **Arreglo:** (1) una herramienta 3D conserva la selección cuando ésta es una
+  figura 3D completa (`selectedSolid()`); (2) `regenerateSolid()` vuelve a crear
+  el sólido con el ajuste nuevo, reconstruyendo el arrastre equivalente **desde
+  la propia cara frontal** —así conserva sitio y tamaño aunque lo hayan movido,
+  escalado o girado— con `solidMeta` guardando lo único que no se deduce, el
+  remate y la proyección; (3) `syncSolidControls` usa `commonOf`.
+- **Guardia:** tres tests en `tests/app-interaction.test.js` («pulsar la
+  herramienta 3D con un sólido puesto lo EDITA…», «rellenar un sólido ya
+  dibujado le CREA las caras…», «regenerar un sólido es UN paso de deshacer…») y
+  dos specs en `e2e/solids.spec.js`. Los cinco **verificados fallando** con su
+  mutación. El tercer fallo no lo mata ninguna guarda del arnés vm y sí las e2e:
+  sólo se manifiesta con el ciclo de repintado real, que es exactamente la
+  frontera que separa `tests/` de `e2e/`.
+
 ### v2.25.0 — El ecuador de la esfera salía entero discontinuo
 
 - **Síntoma:** una esfera se dibujaba con sus dos medias elipses del ecuador a

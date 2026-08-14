@@ -3243,6 +3243,7 @@
           const gid = newId();
           for (const el of created) el.buildingGroupId = gid;
           if (GARDEN_TOOLS.includes(state.tool)) applyGardenMeta(created, state.tool, p1, p2, gid);
+          if (SOLID_TOOLS.includes(state.tool)) applySolidMeta(created, state.tool);
         }
         for (const el of created) state.elements.push(el);
       }
@@ -3830,8 +3831,16 @@
     // Mover y «Select» tampoco vacían nunca (SELECTION_TOOLS): son las dos
     // herramientas que trabajan SOBRE la selección, así que pasar de una a
     // otra —enmarcar con «Select» y mover con Mover— la conserva entera.
+    // Las de 3D no tienen un tipo exacto que editar —un sólido son líneas, caras
+    // y una forma—, así que su condición es otra: que la selección SEA una
+    // figura 3D completa. Sin esto, pulsar Prisma con un sólido puesto lo
+    // deseleccionaba y su modal pasaba a configurar el siguiente, de modo que
+    // el color y el grosor de las aristas no llegaban nunca a la figura que se
+    // tenía delante.
     const editType = MODAL_EDIT_TYPE[id];
-    const keepSelection = SELECTION_TOOLS.includes(id) || (!!editType &&
+    const keepSelection = SELECTION_TOOLS.includes(id) ||
+      (SOLID_TOOLS.includes(id) && !!selectedSolid()) ||
+      (!!editType &&
       state.selection.some(i => (state.elements[i] || {}).type === editType));
     // El armado del área pertenece al gesto del aerógrafo: irse a otra
     // herramienta lo cancela, o el siguiente arrastre con el lápiz encontraría
@@ -4084,11 +4093,124 @@
       const q = rot({ x: m.x, y: m.y });          // texto: se mueve, no se inclina
       m.x = q.x; m.y = q.y;
     }
+    // El ángulo de fuga gira con la figura: sin esto, regenerarla después —al
+    // rellenarla, por ejemplo— la devolvería a su orientación original.
+    if (m.solidMeta) {
+      m.solidMeta = {
+        ...m.solidMeta,
+        angle: ((m.solidMeta.angle - sign * 90) % 360 + 360) % 360,
+      };
+    }
     if (m.clip) {
       const mid = rot({ x: m.clip.x + m.clip.w / 2, y: m.clip.y + m.clip.h / 2 });
       m.clip = { x: mid.x - m.clip.h / 2, y: mid.y - m.clip.w / 2, w: m.clip.h, h: m.clip.w };
     }
     return m;
+  }
+
+  /**
+   * Lo que NO se puede deducir mirando las piezas de un sólido ya dibujado: su
+   * remate y su proyección. La sección, la caja y el giro salen de la CARA
+   * FRONTAL, que es un elemento de verdad y viaja con la figura — por eso
+   * mover, escalar o girar el sólido no invalidan estos datos y no hay que
+   * actualizarlos, al contrario que los puntos de inserción de `gardenMeta`.
+   *
+   * La excepción es el ángulo de fuga, que sí gira con la figura: lo ajusta
+   * `rotateAround`.
+   */
+  const SOLID_META_VERSION = 1;
+
+  function applySolidMeta(created, tool) {
+    const meta = {
+      version: SOLID_META_VERSION, tool,
+      depth: state.solidDepth, angle: state.solidAngle,
+      foreshorten: state.solidForeshorten, taper: state.solidTaper,
+    };
+    // Una copia por pieza: los elementos son planos y compartir la referencia
+    // haría que tocar una tocara todas.
+    for (const el of created) el.solidMeta = { ...meta };
+  }
+
+  /** La selección, si es UNA figura 3D completa. Exige que estén TODAS sus
+      piezas: regenerar con media figura seleccionada dejaría la otra media
+      huérfana en el lienzo. */
+  function selectedSolid() {
+    const sel = state.selection;
+    if (sel.length < 2) return null;
+    const first = state.elements[sel[0]];
+    if (!first || !first.solidMeta || !first.buildingGroupId) return null;
+    const gid = first.buildingGroupId;
+    if (!sel.every(i => {
+      const el = state.elements[i];
+      return el && el.buildingGroupId === gid && el.solidMeta;
+    })) return null;
+    if (state.elements.filter(el => el.buildingGroupId === gid).length !== sel.length) return null;
+    const front = sel.map(i => state.elements[i]).find(el =>
+      el.type !== 'line' && el.type !== 'curveArrow' && el.type !== TOOLS.POLYGON);
+    return front ? { indices: [...sel], meta: first.solidMeta, front, gid } : null;
+  }
+
+  /**
+   * Vuelve a crear el sólido seleccionado con un ajuste cambiado, en su sitio y
+   * a su tamaño. Devuelve false si la selección no es un sólido.
+   *
+   * Hace falta porque las CARAS laterales son elementos, y sólo se emiten si el
+   * relleno está activo: un sólido dibujado en hueco no las tiene, así que
+   * «cambiar el color de los lados» era imposible — no había lados que
+   * colorear. Es el mismo recurso que `regenerateGardenGroup` usa para cambiar
+   * de especie sin recolocar la planta.
+   *
+   * El arrastre equivalente se reconstruye desde la CARA FRONTAL, no desde
+   * datos guardados, así que la figura conserva dónde está y cuánto mide
+   * aunque la hayan movido, escalado o girado.
+   */
+  function regenerateSolid(cambios) {
+    const info = selectedSolid();
+    if (!info) return false;
+    const { front, meta } = info;
+    const section = front.type;
+    // Los polígonos regulares nacen del CENTRO: hay que reconstruir ese gesto,
+    // no la caja, o saldrían del doble de tamaño.
+    const cx = front.x + front.w / 2, cy = front.y + front.h / 2;
+    const desdeCentro = RegularPolygon.isType(section);
+    const p1 = desdeCentro ? { x: cx, y: cy } : { x: front.x, y: front.y };
+    const p2 = desdeCentro
+      ? { x: cx + front.w / 2, y: cy }
+      : { x: front.x + front.w, y: front.y + front.h };
+    const o = {
+      color: front.color, lineWidth: front.lineWidth,
+      solidSection: section,
+      solidRotation: front.rotation || 0,
+      solidDepth: meta.depth, solidAngle: meta.angle,
+      solidForeshorten: meta.foreshorten, solidTaper: meta.taper,
+      fill: front.fill === true,
+      fillColor: front.fillColor,
+      fillTransparent: front.fillTransparent === true,
+      fillOpacity: front.fillOpacity,
+      ...cambios,
+    };
+    const nuevos = withSeeds(Solid.elements(meta.tool, p1, p2, o));
+    if (!nuevos.length) return false;
+    saveUndo();
+    const nuevaMeta = {
+      version: SOLID_META_VERSION, tool: meta.tool,
+      depth: o.solidDepth, angle: o.solidAngle,
+      foreshorten: o.solidForeshorten, taper: o.solidTaper,
+    };
+    nuevos.forEach(el => {
+      el.buildingGroupId = info.gid;
+      el.solidMeta = { ...nuevaMeta };
+    });
+    // Se sustituye EN SU SITIO: el sólido conserva su z-order respecto a lo
+    // demás. `orden[0]` es el primer índice seleccionado, así que los elementos
+    // que quedan antes de él son exactamente los que ya estaban delante.
+    const orden = [...info.indices].sort((a, b) => a - b);
+    const at = orden[0];
+    const resto = state.elements.filter((_, i) => !info.indices.includes(i));
+    state.elements = [...resto.slice(0, at), ...nuevos, ...resto.slice(at)];
+    setSelection(nuevos.map((_, k) => at + k));
+    redraw();
+    return true;
   }
 
   /* ── Build sidebar ── */
@@ -5475,7 +5597,19 @@
       syncShapeControls();
     };
     ['check-fill', 'shape-modal-fill', 'prism-fill', 'pyramid-fill', 'frustum-fill', 'sphere-fill'].forEach(id => {
-      $(id).addEventListener('change', e => applyFill(e.target.checked));
+      $(id).addEventListener('change', e => {
+        // Sobre un sólido no basta con marcar `fill`: sus CARAS son elementos y
+        // sólo se emiten al crearlo, así que hay que volver a crearlo. Sin
+        // esto, rellenar una figura dibujada en hueco sólo pintaba su cara
+        // frontal y los lados quedaban fuera de alcance.
+        if (regenerateSolid({ fill: e.target.checked })) {
+          syncShapeControls();
+          syncSolidControls();
+          savePrefs();
+          return;
+        }
+        applyFill(e.target.checked);
+      });
     });
 
     // Relleno translúcido — semántica dual: sólido (off) o con la opacidad
@@ -5804,7 +5938,14 @@
           syncSolidControls();
           scheduleOverlay();
         });
-        input.addEventListener('change', savePrefs);
+        // Con un sólido seleccionado, soltar el deslizador lo vuelve a crear
+        // con el ajuste nuevo. Se hace en `change` y no en `input` a propósito:
+        // regenerar por cada tic del arrastre apilaría decenas de pasos de
+        // deshacer y expulsaría el historial (límite 50).
+        input.addEventListener('change', () => {
+          if (regenerateSolid({ [f.key]: state[f.key] })) syncSolidControls();
+          savePrefs();
+        });
       });
     });
     syncSolidControls();
@@ -7417,21 +7558,29 @@
   function syncSolidControls() {
     // Trazo y relleno tienen la semántica dual de siempre: con una selección
     // enseñan lo suyo, sin ella los valores con los que nacerá el próximo
-    // sólido. Se lee de la misma fuente que syncShapeControls para que los dos
-    // juegos de mandos no puedan discrepar.
-    const single = state.selection.length === 1
-      ? state.elements[state.selection[0]] : null;
-    const fillable = single && FILLABLE_TYPES.includes(single.type) ? single : null;
-    const width = single ? single.lineWidth : state.lineWidth;
-    const color = hex6(single ? single.color : state.color);
-    const on = fillable ? fillable.fill === true : state.fillShapes;
-    const transparent = fillable
-      ? fillable.fillTransparent === true : state.fillTransparent;
-    const pct = Math.round((fillable
-      ? (fillable.fillOpacity !== undefined ? fillable.fillOpacity : 0.4)
-      : state.fillOpacity) * 100);
-    const fillColor = hex6(fillable
-      ? (fillable.fillColor || fillable.color) : (state.fillColor || state.color));
+    // sólido.
+    //
+    // Se lee con `commonOf` y NO del único elemento seleccionado, porque un
+    // sólido son SIEMPRE varias piezas: con la lectura de uno solo esto caía a
+    // los defaults, y como corre en cada repintado volvía a desmarcar la
+    // casilla de relleno justo después de marcarla. Es el mismo fallo que tuvo
+    // syncStrokeControls en la v2.16.3.
+    const sel = state.selection.map(i => state.elements[i]).filter(Boolean);
+    const rellenables = sel.filter(el => FILLABLE_TYPES.includes(el.type));
+    const comun = (lista, get, porDefecto) => {
+      if (!lista.length) return porDefecto;
+      const v = commonOf(lista, get);
+      return v === undefined ? porDefecto : v;
+    };
+    const width = comun(sel, el => el.lineWidth, state.lineWidth);
+    const color = hex6(comun(sel, el => hex6(el.color), hex6(state.color)));
+    const on = comun(rellenables, el => el.fill === true, state.fillShapes);
+    const transparent = comun(rellenables,
+      el => el.fillTransparent === true, state.fillTransparent);
+    const pct = Math.round(comun(rellenables,
+      el => (el.fillOpacity !== undefined ? el.fillOpacity : 0.4), state.fillOpacity) * 100);
+    const fillColor = hex6(comun(rellenables,
+      el => hex6(el.fillColor || el.color), hex6(state.fillColor || state.color)));
 
     SOLID_MODALS.forEach(cfg => {
       const p = cfg.prefix;

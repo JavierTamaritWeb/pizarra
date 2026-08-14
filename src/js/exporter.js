@@ -676,6 +676,23 @@ body { font-family: ${FONT_CSS()}; background: #fff; }
     if (el.id !== undefined && !(typeof el.id === 'string' && ID_RE.test(el.id))) return false;
     // buildingGroupId: id compartido por las piezas de un mismo edificio (agrupación)
     if (el.buildingGroupId !== undefined && !(typeof el.buildingGroupId === 'string' && ID_RE.test(el.buildingGroupId))) return false;
+    // solidMeta: remate y proyección de una figura 3D, lo único que no se puede
+    // deducir de sus piezas (la sección, la caja y el giro salen de la cara
+    // frontal). Vuelve a alimentar geometría al regenerar el sólido, así que se
+    // valida con el mismo rigor que gardenMeta: whitelist cerrada y rangos.
+    if (el.solidMeta !== undefined) {
+      const m = el.solidMeta;
+      const allowed = ['version', 'tool', 'depth', 'angle', 'foreshorten', 'taper'];
+      const inRange = (v, lo, hi) => _isNum(v) && v >= lo && v <= hi;
+      if (!(m && typeof m === 'object' && !Array.isArray(m) &&
+            Object.keys(m).length === allowed.length &&
+            Object.keys(m).every(k => allowed.includes(k)) &&
+            m.version === 1 && SOLID_TOOLS.includes(m.tool) &&
+            inRange(m.depth, Solid.DEPTH_MIN, Solid.DEPTH_MAX) &&
+            inRange(m.angle, Solid.ANGLE_MIN, Solid.ANGLE_MAX) &&
+            inRange(m.foreshorten, Solid.FORESHORTEN_MIN, Solid.FORESHORTEN_MAX) &&
+            inRange(m.taper, Solid.TAPER_MIN, Solid.TAPER_MAX))) return false;
+    }
     // gardenMeta: intención botánica del grupo (permite reabrir y regenerar la
     // planta tras exportar/importar). Whitelist estricta: estas cotas vuelven a
     // alimentar geometría, por lo que no se aceptan strings ni valores libres.
