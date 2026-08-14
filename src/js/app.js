@@ -3876,12 +3876,12 @@
     redraw();
   }
 
-  function rotateSelection() {
+  function rotateSelection(dir = 1) {
     const targets = state.selection.filter(i => ShapeRotation.isType(state.elements[i].type));
     if (!targets.length) return;
     saveUndo();
     targets.forEach(i => {
-      state.elements[i] = ShapeRotation.rotateElement(state.elements[i]);
+      state.elements[i] = ShapeRotation.rotateElement(state.elements[i], dir);
     });
     redraw();
   }
@@ -5858,6 +5858,31 @@
       selectTool(TOOLS.SELECT, { silent: true });
       setSelection(state.elements.map((el, i) => el.type === 'eraser' ? -1 : i).filter(i => i >= 0));
       redraw();
+      return;
+    }
+
+    // ←/→ giran la selección cuando TODA ella guarda su orientación como
+    // ángulo (polígonos regulares, estrellas y trapecio): una pulsación, una
+    // orientación válida, en el sentido de la flecha. Es lo que se quiere hacer
+    // con una de estas formas nada más dibujarla, y Shift+R —el único camino
+    // hasta ahora— gira en un solo sentido y hay que acordarse de él.
+    //
+    // Se cobra el nudge horizontal SOLO de esas formas (queda el ratón, ↑/↓ y
+    // los campos X/Y del panel), y por eso exige que TODA la selección sea
+    // rotable: con un rectángulo o un texto dentro, las cuatro flechas siguen
+    // moviendo, o mover un grupo mixto dependería de qué contiene.
+    // Rect/roundedRect quedan fuera a propósito pese a estar en ShapeRotation:
+    // ahí «girar» es intercambiar ancho y alto, y perder su nudge a cambio de
+    // eso no compensa.
+    if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && state.selection.length &&
+        !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey &&
+        state.selection.every(i => ROTATABLE_TOOLS.includes(state.elements[i].type))) {
+      e.preventDefault();
+      // Mismo freno que el nudge y los toggles: sin filtrar el auto-repeat,
+      // mantener la flecha apila ~30 pasos de undo por segundo y expulsa el
+      // historial entero (límite 50). Aquí además la forma daría vueltas.
+      if (e.repeat) return;
+      rotateSelection(e.key === 'ArrowRight' ? 1 : -1);
       return;
     }
 

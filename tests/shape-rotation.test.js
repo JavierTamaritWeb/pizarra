@@ -117,3 +117,28 @@ test('RegularPolygon aplica la orientación guardada sin deformar los lados', ()
   });
   lengths.forEach(length => assert.ok(Math.abs(length - lengths[0]) < 1e-9));
 });
+
+// v2.23.0: ←/→ giran en los dos sentidos, así que `dir` tiene que ser una
+// inversa exacta y no "casi": si -1 dejara `rotation: 0` en vez de borrar el
+// campo, o el trapecio no devolviera su w/h, deshacer un giro dejaría el
+// elemento serializando distinto al que se giró.
+test('los dos sentidos de giro son inversos exactos', () => {
+  const { ShapeRotation } = rotationContext();
+
+  for (const type of ['square', 'triangle', 'pentagon', 'hexagon',
+    'star5', 'star6', 'trapezoid', 'rect', 'roundedRect']) {
+    const base = { type, x: 10, y: 20, w: 120, h: 80, color: '#000' };
+    const ida = ShapeRotation.rotateElement(base, 1);
+    const vuelta = ShapeRotation.rotateElement(ida, -1);
+    assert.deepEqual({ ...vuelta }, { ...base }, `${type}: girar y desgirar no es la identidad`);
+    assert.ok(!('rotation' in vuelta), `${type}: vuelve sin campo rotation, no con un 0`);
+  }
+
+  // Y -1 es de verdad el otro sentido: un paso atrás desde 0 es 360 - paso.
+  const atras = ShapeRotation.rotateElement({ type: 'hexagon', x: 0, y: 0, w: 60, h: 60 }, -1);
+  assert.equal(atras.rotation, 330);
+  assert.equal(ShapeRotation.rotateElement({ type: 'pentagon', x: 0, y: 0, w: 60, h: 60 }, -1).rotation, 324);
+
+  // Sin argumento sigue girando en sentido horario, como Shift+R desde v1.x.
+  assert.equal(ShapeRotation.rotateElement({ type: 'hexagon', x: 0, y: 0, w: 60, h: 60 }).rotation, 30);
+});

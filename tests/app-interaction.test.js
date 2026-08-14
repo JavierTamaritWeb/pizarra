@@ -3719,3 +3719,57 @@ test('tras «Limpiar todo», el siguiente guardado no resucita los ajustes borra
   assert.equal(app2.$('airbrush-modal-radius').value, '48', 'el mando enseña el diámetro de fábrica');
   assert.equal(app2.$('sketch-font').value, 'architects');
 });
+
+// v2.23.0: con una forma que guarda su orientación como ángulo, ←/→ pasan de
+// una orientación válida a la siguiente. Se cobra el nudge horizontal de esas
+// formas, así que exige que TODA la selección sea rotable: con un rectángulo o
+// un texto dentro, las cuatro flechas siguen moviendo como siempre.
+test('←/→ giran la forma seleccionada, y solo si toda la selección es rotable', () => {
+  const app = loadApp();
+
+  app.selectTool('pentagon');
+  app.drag(300, 300, 380, 380);
+  app.flush();
+  assert.equal(app.elements().length, 1);
+
+  app.selectTool('select');
+  app.click(300, 300);
+  app.flush();
+  const antes = app.elements()[0];
+  assert.equal(antes.rotation, undefined, 'nace sin campo rotation');
+
+  app.key('ArrowRight');
+  app.flush();
+  assert.equal(app.elements()[0].rotation, 36, 'una pulsación, un paso del pentágono');
+  assert.equal(app.elements()[0].x, antes.x, 'girar no mueve');
+  assert.equal(app.elements()[0].y, antes.y);
+
+  app.key('ArrowLeft');
+  app.flush();
+  assert.equal(app.elements()[0].rotation, undefined,
+    '← deshace el paso: los dos sentidos son inversos exactos');
+
+  // ↑/↓ siguen moviendo la misma forma.
+  app.key('ArrowDown');
+  app.flush();
+  assert.equal(app.elements()[0].y, antes.y + 1, '↓ sigue siendo el nudge');
+
+  // Con un rectángulo también seleccionado, ←/→ vuelven a mover.
+  app.selectTool('rect');
+  app.drag(600, 300, 700, 360);
+  app.flush();
+  app.selectTool('pick');
+  app.drag(250, 250, 760, 420);   // marquesina sobre los dos
+  app.flush();
+  assert.equal(app.elements().length, 2);
+
+  const pentagono = app.elements().find(el => el.type === 'pentagon');
+  const rect = app.elements().find(el => el.type === 'rect');
+  app.key('ArrowRight');
+  app.flush();
+  const despues = app.elements();
+  assert.equal(despues.find(el => el.type === 'pentagon').rotation, undefined,
+    'con un rect en la selección, → no gira');
+  assert.equal(despues.find(el => el.type === 'pentagon').x, pentagono.x + 1, 'mueve');
+  assert.equal(despues.find(el => el.type === 'rect').x, rect.x + 1);
+});

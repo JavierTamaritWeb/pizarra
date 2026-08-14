@@ -20,6 +20,17 @@ versionado es [SemVer](https://semver.org/lang/es/).
   el hueco entre dos puntas no cuenta como parte del dibujo.
 - **Sin atajo de teclado**, como Balcón, «Select» o el Aerógrafo: las 26 letras
   y los 10 dígitos ya estaban asignados. Se eligen en el sidebar.
+- **`←` y `→` giran la forma seleccionada**, una orientación válida por
+  pulsación y en el sentido de la flecha, cuando toda la selección guarda su
+  orientación como ángulo: polígonos regulares, estrellas y trapecio. Es lo que
+  se quiere hacer con una de estas formas nada más dibujarla, y hasta ahora el
+  único camino era `Shift+R`, que gira en un solo sentido.
+
+### Cambiado
+
+- En esas formas, `←`/`→` dejan de mover 1 px —`↑`/`↓` sí siguen, igual que el
+  ratón y los campos X/Y del panel—. Con cualquier otra cosa en la selección
+  (un rectángulo, un texto) las cuatro flechas mueven como siempre.
 
 ## [2.22.1] — 2026-08-14
 

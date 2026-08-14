@@ -33,15 +33,21 @@ const ShapeRotation = (() => {
   }
 
   /**
-   * Gira una forma un paso alrededor de su centro.
+   * Gira una forma un paso alrededor de su centro. `dir` es el sentido: 1
+   * horario (el de siempre, y el de Shift+R), -1 antihorario.
    *
    * Los rectángulos siguen alineados con los ejes tras cada cuarto de vuelta,
-   * por lo que basta intercambiar ancho y alto. Los polígonos guardan su
+   * por lo que basta intercambiar ancho y alto —y por eso ahí el sentido da
+   * igual: media vuelta deja la misma caja—. Los polígonos guardan su
    * orientación en grados; al completar una vuelta se elimina el campo para
    * conservar el formato histórico más compacto.
+   *
+   * Los dos sentidos son inversos exactos: girar y desgirar devuelve el
+   * elemento tal cual estaba, campo `rotation` incluido (ausente si era 0).
    */
-  function rotateElement(el) {
+  function rotateElement(el, dir = 1) {
     if (!el || !isType(el.type)) return el;
+    const sign = dir < 0 ? -1 : 1;
 
     if (el.type === 'rect' || el.type === 'roundedRect') {
       const cx = el.x + el.w / 2;
@@ -56,7 +62,7 @@ const ShapeRotation = (() => {
     }
 
     const current = Number.isFinite(el.rotation) ? el.rotation : 0;
-    const rotation = normalize(current + step(el.type));
+    const rotation = normalize(current + sign * step(el.type));
     if (el.type === 'trapezoid') {
       const cx = el.x + el.w / 2;
       const cy = el.y + el.h / 2;

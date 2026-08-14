@@ -132,7 +132,7 @@ Cada pieza de jardín nace con una **etiqueta** dentro del mismo grupo (se mueve
 ### Edición
 
 - **Selección múltiple** con marquee, `Ctrl/Cmd+A` o la casilla **«Los clics acumulan selección»**, que aparece al pulsar **Mover** o **«Select»** — las dos herramientas cuyo clic gobierna — y se reabre con el ⚙ de la cabecera «Elementos» sin soltarlas, con cualquier herramienta puesta. Cada clic añade, y un clic sobre lo ya seleccionado lo quita (`Shift`+clic es el atajo); el grupo se arrastra desde cualquier punto de su marco combinado, incluido el espacio vacío entre elementos.
-- **Rotación por pasos** (`Shift+R`): cuadrados 45°, trapecios/triángulos/rectángulos 90°, pentágonos y estrellas de 5 puntas 36°, hexágonos y estrellas de 6 puntas 30°. En una selección múltiple cada forma usa su propio paso.
+- **Rotación por pasos** (`Shift+R`): cuadrados 45°, trapecios/triángulos/rectángulos 90°, pentágonos y estrellas de 5 puntas 36°, hexágonos y estrellas de 6 puntas 30°. En una selección múltiple cada forma usa su propio paso. Con las formas que guardan su orientación como ángulo —polígonos regulares, estrellas y trapecio— basta con **`←` y `→`**, que pasan de una orientación válida a la siguiente en cada sentido; ahí `↑`/`↓` siguen moviendo.
 - **Copiar y pegar** (`Ctrl/Cmd+C` / `V`), también entre pestañas: lo pegado aparece desplazado, queda seleccionado y las flechas ancladas se re-vinculan a sus clones.
 - **Posición y tamaño exactos**: con algo seleccionado, el panel deja escribir X, Y, ancho y alto —y el **texto** del elemento cuando lo tiene: el contenido de un texto o el rótulo de un botón, un input, una navbar o una tarjeta—. Antes solo se podía arrastrar y estirar a ojo.
 - **Todo lo dibujado se puede recolorear**: elegir un color con algo seleccionado lo aplica a la selección, igual que el grosor o el relleno.
@@ -182,8 +182,9 @@ Cada pieza de jardín nace con una **etiqueta** dentro del mismo grupo (se mueve
 | `Ctrl/Cmd+D` · `Ctrl/Cmd+A` | Duplicar · seleccionar todo |
 | `Ctrl/Cmd+C` · `Ctrl/Cmd+V` | Copiar selección · pegarla (o pegar una imagen del portapapeles) |
 | `Shift+R` | Rotar la selección un paso |
+| `←` `→` | Girar la forma seleccionada, si toda la selección guarda su orientación como ángulo (polígonos regulares, estrellas y trapecio) |
 | `Supr` · `Esc` | Borrar selección · deseleccionar |
-| Flechas (+`Shift`) | Mover la selección 1 px (20 px) |
+| Flechas (+`Shift`) | Mover la selección 1 px (20 px) — con una forma rotable seleccionada, `←`/`→` giran y solo `↑`/`↓` mueven |
 | `F` · `D` · `S` | Invertir giro · invertir dirección · curva en S |
 | `Q` | Convertir flecha curva ↔ semicírculo |
 | `+` · `−` (+`Shift`) | Ajustar curvatura — en semicírculos, el radio (fino) |

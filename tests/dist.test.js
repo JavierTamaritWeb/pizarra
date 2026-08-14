@@ -41,3 +41,22 @@ test('dist/ lleva los mismos scripts que src/js/, css, fuentes, iconos y licenci
   assert.ok(!fs.readdirSync(path.join(dist, 'img')).some(f => /^screenshot-|^icon-source-/.test(f)),
     'las capturas del README y el PNG origen no se publican (IMG_SKIP)');
 });
+
+// v2.23.0: `dist/` se había quedado en la v2.22.1 y la app abierta desde ahí
+// era, entera y funcionando, OTRA versión de la app: la herramienta recién
+// añadida no estaba en el sidebar y nada en pantalla lo insinuaba. No se
+// regenera solo y está gitignorado, así que puede quedarse atrás
+// indefinidamente (ver BUGS.md). El skip compartido lo deja pasar cuando no
+// hay build local, que es un estado legítimo.
+test('dist/ es de la versión que dice package.json', { skip }, () => {
+  const { version } = JSON.parse(
+    fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const html = fs.readFileSync(path.join(dist, 'index.html'), 'utf8');
+
+  const otras = [...new Set([...html.matchAll(/\?v=([\d.]+)/g)].map(m => m[1]))]
+    .filter(v => v !== version);
+  assert.deepEqual(otras, [],
+    `dist/ es de otra versión (${otras.join(', ')} ≠ ${version}): ejecuta npm run build`);
+  assert.ok(html.includes(`topbar__badge">v${version}<`),
+    `la chapa de dist/ no dice v${version}`);
+});
