@@ -77,6 +77,25 @@ test('index publica v2.23.0 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /entre 4 y 100 px \(16 px por defecto\)/);
 });
 
+// `dist/` no está en git y es regenerable, así que se queda callado cuando no
+// existe. Pero si existe y se ha quedado atrás, la app que se abre desde ahí es
+// otra versión de la app: una herramienta recién añadida simplemente no está en
+// el sidebar y no hay nada en pantalla que lo insinúe (v2.23.0, ver BUGS.md).
+test('si dist/ existe, es de la versión que dice package.json', () => {
+  const root = path.resolve(__dirname, '..');
+  const distIndex = path.join(root, 'dist', 'index.html');
+  if (!fs.existsSync(distIndex)) return;   // sin build local, nada que comprobar
+
+  const { version } = JSON.parse(
+    fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const html = fs.readFileSync(distIndex, 'utf8');
+  const viejas = [...new Set(
+    [...html.matchAll(/\?v=([\d.]+)/g)].map(m => m[1]))].filter(v => v !== version);
+  assert.deepEqual(viejas, [],
+    `dist/ es de otra versión (${viejas.join(', ')} ≠ ${version}): ejecuta npm run build`);
+  assert.match(html, new RegExp(`topbar__badge">v${version.replace(/\./g, '\\.')}<`));
+});
+
 // La ayuda de la app seguía diciendo que «Los clics acumulan selección» era la
 // casilla «del panel», de donde salió en la v2.17.0. La guarda de al lado —que
 // el id viejo no vuelva— no lo veía: la casilla existe, solo que en otro sitio,

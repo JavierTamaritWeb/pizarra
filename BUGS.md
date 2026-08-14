@@ -28,6 +28,32 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### v2.23.0 — La build de `dist/` se queda atrás y aparenta que la herramienta nueva no existe
+
+- **Síntoma:** las dos estrellas se habían añadido al grupo «Formas», estaban en
+  `config.js`, pasaban los 640 tests del arnés `node:vm` y los tres `e2e`… y en
+  el navegador del usuario no salían sus botones. Comprobado sirviendo la raíz
+  del repo con Playwright, sí salían — dos veces, con captura del sidebar. El
+  usuario seguía sin verlas.
+- **Causa:** estaba abriendo `dist/index.html`, la build publicable, generada
+  antes del cambio y por tanto **congelada en la v2.22.1**: `dist/js/config.js`
+  no contenía `star5` y `dist/index.html` pedía sus scripts con `?v=2.22.1`.
+  `dist/` está en `.gitignore` y no se regenera solo, así que puede quedarse
+  atrás indefinidamente. Y no hay **ninguna** señal en pantalla: la app abre, se
+  dibuja, funciona entera — simplemente es otra versión de la app, con una
+  herramienta menos en el sidebar. La chapa de versión de la topbar lo dice,
+  pero es lo último que uno mira cuando falta un botón. Es exactamente el tipo
+  de fallo que hace perder la tarde depurando código que ya estaba bien.
+- **Fix:** `npm run build`, que regenera `dist/` con la versión en curso.
+- **Guardia:** `tests/smoke.test.js` — *si dist/ existe, es de la versión que
+  dice package.json* (compara todos los `?v=` y la chapa de la topbar contra
+  `package.json`; se calla si no hay `dist/`, porque es opcional y regenerable).
+  Verificada retrocediendo `dist/index.html` a 2.22.1: falla nombrando las dos
+  versiones y pidiendo el build.
+- **Recordatorio:** al verificar en el navegador un cambio que "no se ve",
+  comprobar **primero desde qué ruta se está abriendo la app** —raíz del repo,
+  `dist/` o `file://`— antes de dar por bueno un "yo sí lo veo".
+
 ### v2.22.1 — «Limpiar todo» dejaba dieciséis ajustes sin resetear
 
 - **Síntoma:** el botón promete la app recién abierta, pero tras pulsarlo

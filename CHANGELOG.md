@@ -4,6 +4,23 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.23.0] — 2026-08-14
+
+### Añadido
+
+- **Estrella de 5 puntas y estrella de 6 puntas**, en el grupo «Formas» detrás
+  del hexágono. Son las regulares clásicas —el pentagrama y la Estrella de
+  David—, no una estrella cualquiera: el radio interior es aquel en el que
+  prolongar el lado de una punta lleva exactamente a otra punta, así que la
+  silueta son rectas completas y no una flor de pétalos rectos.
+- Como el resto de polígonos regulares, **se arrastran desde el centro**,
+  conservan la caja cuadrada y admiten relleno sólido o translúcido, el modo
+  «Bordes ocultos», el giro por pasos (36° la de 5 puntas, 30° la de 6) y las
+  cinco exportaciones. El borrador y la selección respetan su **silueta real**:
+  el hueco entre dos puntas no cuenta como parte del dibujo.
+- **Sin atajo de teclado**, como Balcón, «Select» o el Aerógrafo: las 26 letras
+  y los 10 dígitos ya estaban asignados. Se eligen en el sidebar.
+
 ## [2.22.1] — 2026-08-14
 
 ### Corregido
