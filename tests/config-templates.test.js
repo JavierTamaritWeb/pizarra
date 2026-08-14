@@ -18,23 +18,23 @@ test('config.js — TOOLS', async t => {
     assert.equal(Object.isFrozen(ctx.TOOLS), true);
   });
 
-  await t.test('TOOLS tiene exactamente los 42 ids esperados', () => {
+  await t.test('TOOLS tiene exactamente los 44 ids esperados', () => {
     const expected = [
       'pencil', 'airbrush', 'line', 'rect', 'roundedRect', 'circle', 'arrow',
       'curveArrow', 'arc', 'text', 'eraser', 'select', 'pick', 'imagePlaceholder',
       'button', 'input', 'nav', 'card', 'image', 'emoji',
-      'square', 'trapezoid', 'triangle', 'pentagon', 'hexagon',
+      'square', 'trapezoid', 'triangle', 'pentagon', 'hexagon', 'star5', 'star6',
       // Edificios (creación): Fachada y Tejado unifican sus tipos en sendos modales
       'planta', 'fachada', 'tejado', 'puerta', 'ventana', 'balcon', 'muro', 'verja', 'cancela',
       // Jardín (creación): cada una elige su variante en su propio modal
       'jardin', 'arbol', 'arbusto', 'flor', 'decoracion', 'camino', 'aromatica', 'trepadora',
     ];
     const values = Object.values(ctx.TOOLS);
-    assert.equal(values.length, 42);
+    assert.equal(values.length, 44);
     assert.deepEqual([...values].sort(), [...expected].sort());
-    // Las claves también son 42 y únicas
-    assert.equal(Object.keys(ctx.TOOLS).length, 42);
-    assert.equal(new Set(values).size, 42);
+    // Las claves también son 44 y únicas
+    assert.equal(Object.keys(ctx.TOOLS).length, 44);
+    assert.equal(new Set(values).size, 44);
   });
 });
 
@@ -82,6 +82,25 @@ test('config.js — genera los botones Cuadrado y Trapecio con atajos propios', 
   assert.deepEqual(JSON.parse(JSON.stringify(trapezoid)), {
     id: 'trapezoid', icon: '⏢', name: 'Trapecio', key: '7',
   });
+});
+
+test('config.js — Formas son diez, y solo las dos estrellas van sin atajo', () => {
+  const ctx = load('src/js/config.js');
+  const forms = ctx.TOOL_GROUPS.find(group => group.label === 'Formas');
+  assert.ok(forms, 'falta el grupo Formas en el sidebar');
+  // El orden es el que se pinta: de la caja al polígono, y las estrellas al
+  // final porque son las últimas en llegar y las únicas cóncavas.
+  assert.deepEqual([...forms.tools.map(t => t.id)], [
+    'rect', 'roundedRect', 'circle', 'square', 'trapezoid',
+    'triangle', 'pentagon', 'hexagon', 'star5', 'star6',
+  ]);
+  // Las estrellas entraron sin tecla por lo mismo que Balcón, «Select» y el
+  // Aerógrafo: las 26 letras y los 10 dígitos están asignados, y `f q d s` son
+  // acciones de la flecha curva que se atienden ANTES que TOOL_KEYS. Se fija
+  // aquí para que el hueco no crezca por descuido ni una forma con atajo lo
+  // pierda en una refactorización.
+  assert.deepEqual([...forms.tools.filter(t => !t.key).map(t => t.id)],
+    ['star5', 'star6']);
 });
 
 test('config.js — COLORS son colores hex válidos (#rrggbb)', () => {

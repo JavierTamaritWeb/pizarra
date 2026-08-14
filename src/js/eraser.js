@@ -111,7 +111,7 @@ const Eraser = (function () {
 
   /** Formas cuyo "dibujo" es solo su contorno mientras no estén rellenas. */
   const OUTLINE_TYPES = ['rect', 'roundedRect', 'circle', 'square',
-    'triangle', 'pentagon', 'hexagon', 'trapezoid'];
+    'triangle', 'pentagon', 'hexagon', 'star5', 'star6', 'trapezoid'];
 
   /**
    * ¿El trazo `pts` con radio `r` toca al elemento `el`?

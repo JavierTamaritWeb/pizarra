@@ -703,12 +703,12 @@ test('elegir una herramienta de dibujo abre sus ajustes de trazo', () => {
   }
 });
 
-// Las ocho de Formas abren su propio modal, que además de trazo lleva el
+// Las diez de Formas abren su propio modal, que además de trazo lleva el
 // relleno entero: es la sección del panel que solo les sirve a ellas.
 test('elegir una forma abre sus ajustes, con trazo y relleno', () => {
   const app = loadApp();
   const shapes = ['rect', 'roundedRect', 'circle', 'square',
-    'trapezoid', 'triangle', 'pentagon', 'hexagon'];
+    'trapezoid', 'triangle', 'pentagon', 'hexagon', 'star5', 'star6'];
   for (const tool of shapes) {
     app.selectTool('select');
     app.$('modal-shape').close();
@@ -805,6 +805,40 @@ test('un elemento ya dibujado se puede recolorear, medir y rotular desde el pane
     assert.equal(Math.round(box.h), 120, `${tool}: alto exacto`);
     // Y los campos reflejan lo que hay, no lo último tecleado.
     assert.equal(app.$('el-w').value, '300');
+  }
+});
+
+// Las estrellas no traen ni una rama propia en app.js: entran en
+// REGULAR_POLYGON_TYPES y de ahí heredan nacer desde el CENTRO, la caja
+// cuadrada y el hit-test por silueta. Esta guarda comprueba justo eso a través
+// de gestos reales, que es donde se vería un olvido en cualquiera de las
+// listas por las que pasa el tipo.
+test('las estrellas se arrastran desde el centro y se seleccionan por su silueta', () => {
+  const app = loadApp();
+  for (const tool of ['star5', 'star6']) {
+    app.selectTool(tool);
+    app.$('modal-shape').close();
+    // Arrastre centro → borde: el radio es la distancia, no la diagonal.
+    app.drag(300, 300, 300, 380);
+    const star = app.elements().at(-1);
+    assert.equal(star.type, tool);
+    assert.equal(Math.round(star.w), 160, `${tool}: el arrastre es el radio`);
+    assert.equal(star.w, star.h, `${tool}: caja cuadrada, como todo polígono regular`);
+    assert.equal(Math.round(star.x + star.w / 2), 300, `${tool}: centrada en el origen`);
+    assert.ok(Exporter.isValidElement(star), `${tool}: sobrevive al round-trip JSON`);
+
+    // El clic selecciona por la silueta real, no por el bbox: el hueco entre
+    // dos puntas (media altura, pegado al borde de la caja) no la coge.
+    app.selectTool('select');
+    app.click(224, 300);
+    app.key('Delete');
+    app.flush();
+    assert.equal(app.elements().length, 1,
+      `${tool}: el hueco entre puntas no la selecciona`);
+    app.click(300, 300);
+    app.key('Delete');
+    app.flush();
+    assert.equal(app.elements().length, 0, `${tool}: el centro sí la selecciona`);
   }
 });
 
@@ -1314,7 +1348,11 @@ test('el giro de la forma se elige antes de dibujar y sale en el elemento', () =
 
   // El paso lo manda el tipo: 36° el pentágono, 30° el hexágono, 90° el
   // triángulo, 45° el cuadrado. Un rectángulo no guarda ángulo y no lo ofrece.
-  const pasos = { pentagon: '36', hexagon: '30', triangle: '90', square: '45', trapezoid: '90' };
+  const pasos = {
+    pentagon: '36', hexagon: '30', triangle: '90', square: '45', trapezoid: '90',
+    // Las estrellas repiten el paso de su polígono: medio giro de simetría.
+    star5: '36', star6: '30',
+  };
   for (const [tool, step] of Object.entries(pasos)) {
     app.selectTool(tool);
     assert.equal(app.$('shape-modal-rotation-row').hidden, false, `${tool} debe ofrecer giro`);

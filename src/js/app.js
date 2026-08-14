@@ -792,8 +792,11 @@
 
   // Formas geométricas: las únicas que admiten relleno (los componentes UI
   // traen el suyo propio como parte de su diseño)
+  // Las estrellas entran aquí porque RegularPolygon las trata como un polígono
+  // más: nacen desde el centro, exigen w === h y guardan su giro en grados.
   const REGULAR_POLYGON_TYPES = [
     TOOLS.SQUARE, TOOLS.TRIANGLE, TOOLS.PENTAGON, TOOLS.HEXAGON,
+    TOOLS.STAR5, TOOLS.STAR6,
   ];
   const FILLABLE_TYPES = [
     TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE, TOOLS.TRAPEZOID,
@@ -2625,7 +2628,9 @@
       case TOOLS.SQUARE:
       case TOOLS.TRIANGLE:
       case TOOLS.PENTAGON:
-      case TOOLS.HEXAGON: {
+      case TOOLS.HEXAGON:
+      case TOOLS.STAR5:
+      case TOOLS.STAR6: {
         const box = RegularPolygon.fromCenter(state.startPos, pos);
         const vertices = RegularPolygon.vertices(
           { type: state.tool, ...box, rotation: creationRotation() });
@@ -3765,7 +3770,7 @@
     // cerrarlo NO devuelve a la herramienta anterior: no hay nada que elegir,
     // el trazo ya es usable, así que tampoco pasa por opensVariantModal.
     if (STROKE_TOOLS.includes(id) && !silent) openStrokeModal();
-    // Las ocho de Formas, lo mismo, con trazo y relleno en el mismo sitio.
+    // Las diez de Formas, lo mismo, con trazo y relleno en el mismo sitio.
     if (SHAPE_TOOLS.includes(id) && !silent) openShapeModal();
     // El aerógrafo, igual: es la herramienta con más ajustes del grupo Dibujo y
     // ninguno de ellos vive en el panel, así que el modal es la única forma de
@@ -4224,7 +4229,7 @@
   const STROKE_TOOLS = [
     TOOLS.PENCIL, TOOLS.LINE, TOOLS.ARROW, TOOLS.CURVE_ARROW, TOOLS.ARC,
   ];
-  /** Las ocho de Formas: abren #modal-shape, con trazo, relleno y giro. Cada
+  /** Las diez de Formas: abren #modal-shape, con trazo, relleno y giro. Cada
       herramienta produce un elemento de su mismo id (el Cuadrado incluido: es
       un polígono regular de cuatro lados, no un `rect`). */
   const SHAPE_TOOLS = [

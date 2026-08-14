@@ -18,6 +18,11 @@ const TOOLS = Object.freeze({
   TRIANGLE:         'triangle',
   PENTAGON:         'pentagon',
   HEXAGON:          'hexagon',
+  // Estrellas regulares: tipos de elemento REALES, como el resto de Formas.
+  // Su silueta la da RegularPolygon (un polígono cóncavo de 10 y 12 vértices),
+  // así que no necesitan nada propio en renderer, exporter ni borrador.
+  STAR5:            'star5',
+  STAR6:            'star6',
   ARROW:            'arrow',
   CURVE_ARROW:      'curveArrow',
   ARC:              'arc', // herramienta de creación: produce curveArrow con arc:true
@@ -400,6 +405,11 @@ const TOOL_GROUPS = [
       { id: TOOLS.TRIANGLE,     icon: '△',  name: 'Triángulo regular', key: '3' },
       { id: TOOLS.PENTAGON,     icon: '⬠',  name: 'Pentágono regular', key: '5' },
       { id: TOOLS.HEXAGON,      icon: '⬡',  name: 'Hexágono regular',  key: '6' },
+      // Sin atajo, como Balcón, «Select» y el Aerógrafo: las 26 letras y los
+      // 10 dígitos están asignados, y `f q d s` son acciones de la flecha
+      // curva que se atienden ANTES que TOOL_KEYS.
+      { id: TOOLS.STAR5,        icon: '★',  name: 'Estrella de 5 puntas' },
+      { id: TOOLS.STAR6,        icon: '✶',  name: 'Estrella de 6 puntas' },
     ],
   },
   {

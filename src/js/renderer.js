@@ -169,7 +169,7 @@ const Renderer = (() => {
 
   const OVERLAP_SHAPE_TYPES = new Set([
     'rect', 'roundedRect', 'circle', 'square', 'trapezoid',
-    'triangle', 'pentagon', 'hexagon',
+    'triangle', 'pentagon', 'hexagon', 'star5', 'star6',
   ]);
   const OUTLINE_STEP = 4;
 
@@ -716,6 +716,8 @@ const Renderer = (() => {
       case 'triangle':
       case 'pentagon':
       case 'hexagon':
+      case 'star5':
+      case 'star6':
         _regularPolygon(ctx, el, options);
         break;
 

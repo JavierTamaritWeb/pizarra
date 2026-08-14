@@ -13,6 +13,11 @@ const ShapeRotation = (() => {
     triangle: 90,
     pentagon: 36,
     hexagon: 30,
+    // Las estrellas repiten el paso de su polígono: medio giro de simetría
+    // (360 / 2·puntas), el que las pone de punta abajo en vez de dejarlas
+    // exactamente como estaban.
+    star5: 36,
+    star6: 30,
   });
 
   function isType(type) {

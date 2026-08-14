@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=2.22.1" />
+  <link rel="stylesheet" href="css/styles.css?v=2.23.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.22.1" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.23.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v2.22.1</span>
+        <span class="topbar__badge">v2.23.0</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes" aria-expanded="false" aria-controls="side-panel">
@@ -485,7 +485,8 @@
         <h4 class="modal__help-title">Formas geométricas</h4>
         <ul class="modal__help-list">
           <li><kbd>3</kbd>: triángulo · <kbd>4</kbd>: cuadrado · <kbd>5</kbd>: pentágono · <kbd>6</kbd>: hexágono · <kbd>7</kbd>: trapecio</li>
-          <li>Cuadrado, triángulo, pentágono y hexágono se arrastran desde el <strong>centro</strong> y conservan todos sus lados iguales</li>
+          <li>Cuadrado, triángulo, pentágono, hexágono y las dos estrellas se arrastran desde el <strong>centro</strong> y conservan todos sus lados iguales</li>
+          <li>Las <strong>estrellas de 5 y 6 puntas</strong> son las regulares clásicas —pentagrama y Estrella de David—; no tienen atajo, se eligen en el sidebar</li>
           <li>El trapecio se arrastra entre dos esquinas y puede redimensionarse libremente</li>
           <li>Admiten relleno sólido o translúcido y el modo de bordes ocultos</li>
         </ul>
@@ -698,7 +699,7 @@
   </dialog>
 
   <!-- ===== MODAL: FORMA =====
-       Los ajustes de las ocho herramientas de Formas, junto a la herramienta:
+       Los ajustes de las diez herramientas de Formas, junto a la herramienta:
        el trazo (grosor y color) y el relleno entero, que antes solo vivían en
        el panel. La muestra dibuja LA FORMA de la herramienta activa con esos
        ajustes, así que se ve el resultado antes de arrastrar.
@@ -742,9 +743,10 @@
                    aria-label="Color de relleno" />
           </label>
           <!-- Giro: solo para las formas que lo guardan como ángulo (polígonos
-               regulares y trapecio). El `step` lo pone syncShapeControls con el
-               de cada tipo —45° el cuadrado, 36° el pentágono, 30° el hexágono,
-               90° triángulo y trapecio—, así que el deslizador solo se para en
+               regulares, estrellas y trapecio). El `step` lo pone syncShapeControls
+               con el de cada tipo —45° el cuadrado, 36° el pentágono y la estrella
+               de 5 puntas, 30° el hexágono y la de 6, 90° triángulo y trapecio—,
+               así que el deslizador solo se para en
                orientaciones válidas. Sin selección fija cómo nace la próxima
                forma; con ella, gira la seleccionada. -->
           <label class="panel__field" for="shape-modal-rotation" id="shape-modal-rotation-row">
@@ -1364,20 +1366,20 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=2.22.1"></script>
-  <script src="src/js/sketchy.js?v=2.22.1"></script>
-  <script src="src/js/arc.js?v=2.22.1"></script>
-  <script src="src/js/curve-path.js?v=2.22.1"></script>
-  <script src="src/js/shape-rotation.js?v=2.22.1"></script>
-  <script src="src/js/regular-polygon.js?v=2.22.1"></script>
-  <script src="src/js/trapezoid.js?v=2.22.1"></script>
-  <script src="src/js/airbrush.js?v=2.22.1"></script>
-  <script src="src/js/eraser.js?v=2.22.1"></script>
-  <script src="src/js/building.js?v=2.22.1"></script>
-  <script src="src/js/garden.js?v=2.22.1"></script>
-  <script src="src/js/renderer.js?v=2.22.1"></script>
-  <script src="src/js/exporter.js?v=2.22.1"></script>
-  <script src="src/js/templates.js?v=2.22.1"></script>
-  <script src="src/js/app.js?v=2.22.1"></script>
+  <script src="src/js/config.js?v=2.23.0"></script>
+  <script src="src/js/sketchy.js?v=2.23.0"></script>
+  <script src="src/js/arc.js?v=2.23.0"></script>
+  <script src="src/js/curve-path.js?v=2.23.0"></script>
+  <script src="src/js/shape-rotation.js?v=2.23.0"></script>
+  <script src="src/js/regular-polygon.js?v=2.23.0"></script>
+  <script src="src/js/trapezoid.js?v=2.23.0"></script>
+  <script src="src/js/airbrush.js?v=2.23.0"></script>
+  <script src="src/js/eraser.js?v=2.23.0"></script>
+  <script src="src/js/building.js?v=2.23.0"></script>
+  <script src="src/js/garden.js?v=2.23.0"></script>
+  <script src="src/js/renderer.js?v=2.23.0"></script>
+  <script src="src/js/exporter.js?v=2.23.0"></script>
+  <script src="src/js/templates.js?v=2.23.0"></script>
+  <script src="src/js/app.js?v=2.23.0"></script>
 </body>
 </html>

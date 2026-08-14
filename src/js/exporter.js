@@ -102,6 +102,7 @@ const Exporter = (() => {
   const VECTOR_TYPES = [
     'pencil', 'airbrush', 'line', 'arrow', 'curveArrow', 'circle',
     'square', 'trapezoid', 'triangle', 'pentagon', 'hexagon',
+    'star5', 'star6',
   ];
 
   function _alphaHex(opacity) {
@@ -311,7 +312,9 @@ const Exporter = (() => {
         case 'square':
         case 'triangle':
         case 'pentagon':
-        case 'hexagon': {
+        case 'hexagon':
+        case 'star5':
+        case 'star6': {
           const points = RegularPolygon.vertices(el).map(p => `${p.x},${p.y}`).join(' ');
           out += `<polygon points="${points}" ${sf}/>\n`;
           break;
