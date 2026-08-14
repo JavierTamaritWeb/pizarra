@@ -4,6 +4,35 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.25.1] — 2026-08-14
+
+### Corregido
+
+Repaso de la documentación y de la **Ayuda** de la app. Tres cosas que decía la
+Ayuda ya no eran verdad, y ninguna tenía que ver con las figuras 3D:
+
+- El **borrador** decía que el ⚙ de la cabecera «Trazo» del panel reabre su
+  modal. Esa sección se quedó **sin ⚙** en la v2.21.0: lo reabre volver a pulsar
+  la herramienta.
+- El **emoji** decía que su tamaño lo fija el deslizador «Texto». Tiene el suyo
+  propio, en su catálogo y de 32 a 96 px, desde la v2.10.0: agrandar un emoji no
+  encoge el texto siguiente.
+- El **jardín** hablaba de 40 especies vegetales. Son **49**.
+
+### Añadido
+
+- Las **figuras 3D** tienen ahora su propia sección en la Ayuda, en vez de dos
+  líneas sueltas en «General», y `Shift+R` documenta que una figura compuesta
+  gira entera.
+- La **captura del README** está regenerada con la versión actual: enseña el
+  grupo 3D, las estrellas y tres sólidos rellenos en el lienzo. Estaba en la
+  v2.22.1, anterior a las dos.
+- `CLAUDE.md`: el orden de carga de los scripts incluía todos menos `solid`, y la
+  guía de **«añadir un tipo de elemento»** se ha completado con los tres pasos
+  que omitía y que hoy no son opcionales —`VECTOR_TYPES` y la rama de
+  `isValidElement` en el exportador, y `OUTLINE_TYPES`/`eraserDeps` para que el
+  borrador no funcione por caja—, todos aprendidos al añadir el polígono libre.
+
 ## [2.25.0] — 2026-08-14
 
 ### Añadido

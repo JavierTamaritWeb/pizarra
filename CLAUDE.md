@@ -90,7 +90,7 @@ Rules that keep the compiled output correct — each one broke, or would have br
 
 ## Architecture
 
-Scripts are plain `<script>` tags loaded in dependency order in `index.html` (config → sketchy → arc → curve-path → shape-rotation → regular-polygon → trapezoid → airbrush → eraser → building → garden → renderer → exporter → templates → app). There are no modules/imports — each file exposes a global (`TOOLS`, `Sketchy`, `ArcMath`, `CurvePath`, `ShapeRotation`, `RegularPolygon`, `Trapezoid`, `Airbrush`, `Eraser`, `Building`, `Garden`, `Renderer`, `Exporter`, `Templates`) via IIFE, and later scripts rely on earlier globals. If you add a file, add its `<script>` tag in the right position (and, for the test harness, in `ALL_FILES`/`KNOWN_GLOBALS` of `tests/helpers/load.js`).
+Scripts are plain `<script>` tags loaded in dependency order in `index.html` (config → sketchy → arc → curve-path → shape-rotation → regular-polygon → trapezoid → airbrush → eraser → building → garden → solid → renderer → exporter → templates → app). There are no modules/imports — each file exposes a global (`TOOLS`, `Sketchy`, `ArcMath`, `CurvePath`, `ShapeRotation`, `RegularPolygon`, `Trapezoid`, `Airbrush`, `Eraser`, `Building`, `Garden`, `Solid`, `Renderer`, `Exporter`, `Templates`) via IIFE, and later scripts rely on earlier globals. If you add a file, add its `<script>` tag in the right position (and, for the test harness, in `ALL_FILES`/`KNOWN_GLOBALS` of `tests/helpers/load.js`).
 
 The app is state-driven immediate-mode rendering: a single `state.elements` array of plain objects is the source of truth, and any change triggers a full canvas redraw (`redraw()` in app.js). Elements are serializable plain objects (this is what JSON export/import round-trips), so never store functions or DOM refs on them. They are also treated as immutable: operations replace the element object (`moveElement` returns a copy) rather than mutating it, which lets undo snapshots be shallow copies (`state.elements.slice()`) — preserve that discipline when adding features.
 
@@ -149,7 +149,18 @@ One controlled exception to immutability discipline: `resolveAnchors()` in app.j
 
 ### Adding a new element type
 
-Requires touching several files in sync: add the tool id to `TOOLS` and a sidebar entry in `TOOL_GROUPS` (config.js), a render case in `Renderer.renderElement`, creation logic in app.js `onMouseUp` (and `UI_DEFAULTS` if it's a UI component), bounds handling in `getElementBounds` (app.js) if it isn't x/y/w/h-shaped, and export cases in exporter.js for SVG and HTML (PNG/JPG reuse the Renderer automatically).
+Requires touching several files in sync. The list below is the complete one — it was written after adding `polygon` (v2.25.0), because the short version this section used to carry omitted three things that are **not** optional today, and each of them fails silently:
+
+1. **`TOOLS`** (config.js), plus a `TOOL_GROUPS` entry **only if it gets a sidebar button** — `image` and `polygon` deliberately have none. Never add it to `CREATION_ONLY_TOOLS` (exporter.js): that is the list of tools that are *not* element types, and putting a real type there drops it from `ELEMENT_TYPES` so nothing of it survives an export→import (the trap the AIRBRUSH comment warns about).
+2. **A render case in `Renderer.renderElement`.** PNG/JPG come free from there.
+3. **Creation logic** in app.js `onMouseUp` (and `UI_DEFAULTS` if it's a UI component) — unless another module emits it, as `Solid` does with `polygon`.
+4. **`getElementBounds`** (app.js) if it isn't x/y/w/h-shaped. Skipping this is not a cosmetic bug: the fallback returns `{x: undefined, …}` and takes down selection, the marquee, `selectionBounds`, `applyGeometry` and the eraser's `boundsOf` at once.
+5. **`VECTOR_TYPES` + a `case` in `_svgElement`** (exporter.js). Being in `VECTOR_TYPES` covers **both** SVG and HTML (the type goes inside the embedded `<svg>`), so the HTML `switch` needs nothing.
+6. **A branch in `isValidElement`**, placed *before* the generic final `return`, which demands x/y/w/h > 0 and would otherwise reject the element on import. Copy the `pencil`/`airbrush` pattern for point arrays.
+7. **`OUTLINE_TYPES` (eraser.js) + `eraserDeps()` (app.js)**, or the eraser works by bounding box — the "one sweep through a facade deletes the whole wall" defect that `OUTLINE_TYPES` exists to prevent.
+8. **Decide about `OVERLAP_SHAPE_TYPES`** (renderer.js) explicitly. `polygon` stays out on purpose: `_box(el)` there assumes x/y/w/h and would silently yield `NaN`, and a solid's faces are precisely the ones that must read solid rather than dashed.
+
+`moveElement`, `scaleElement`, `resizeTo` and `applyGeometry` need **nothing** for a type defined by a `points` array — their `m.points` branch is already generic. `tests/helpers/` needs nothing either unless you add a whole new module file.
 
 ### Panel controls: dual semantics
 

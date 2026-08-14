@@ -4,14 +4,14 @@
 
 **Wireframes, diagramas y bocetos con estética dibujada a mano — en el navegador y sin instalar nada.**
 
-[![Versión](https://img.shields.io/badge/versión-2.25.0-blueviolet?style=flat-square)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-2.25.1-blueviolet?style=flat-square)](CHANGELOG.md)
 [![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?style=flat-square&logo=javascript&logoColor=000)](src/js/)
 [![Estilos](https://img.shields.io/badge/estilos-SCSS%20·%20BEM%20·%20Gulp%205-cf649a?style=flat-square&logo=sass&logoColor=fff)](src/scss/)
 [![Dependencias](https://img.shields.io/badge/dependencias%20en%20runtime-0-brightgreen?style=flat-square)](#arquitectura)
 [![Tests](https://img.shields.io/badge/tests-581%20unitarios%20%2B%2056%20e2e-brightgreen?style=flat-square)](#tests)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue?style=flat-square)](LICENSE)
 
-<img src="src/img/screenshot-pizarra.png" alt="La interfaz de Pizarra: barra de herramientas a la izquierda con el Aerógrafo activo, en el centro un lienzo de papel azulado con cuadrícula blanca y un wireframe de landing page dibujado a mano sobre el que una veladura naranja de aerógrafo cruza la zona libre, con el círculo de la boquilla siguiendo al puntero, y a la derecha el panel de ajustes con la paleta de 36 colores ordenada por el arco iris" width="900">
+<img src="src/img/screenshot-pizarra.png" alt="La interfaz de Pizarra: barra de herramientas a la izquierda con el grupo 3D visible y la herramienta Prisma activa, en el centro un lienzo de papel azulado con cuadrícula blanca y un wireframe de landing page dibujado a mano junto a un cubo, una esfera y una pirámide hexagonal en volumen, rellenos de turquesa translúcido y con las aristas de detrás discontinuas, y a la derecha el panel de ajustes con la paleta de 36 colores ordenada por el arco iris" width="900">
 
 </div>
 
