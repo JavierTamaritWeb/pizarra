@@ -18,12 +18,14 @@ test('config.js — TOOLS', async t => {
     assert.equal(Object.isFrozen(ctx.TOOLS), true);
   });
 
-  await t.test('TOOLS tiene exactamente los 48 ids esperados', () => {
+  await t.test('TOOLS tiene exactamente los 49 ids esperados', () => {
     const expected = [
       'pencil', 'airbrush', 'line', 'rect', 'roundedRect', 'circle', 'arrow',
       'curveArrow', 'arc', 'text', 'eraser', 'select', 'pick', 'imagePlaceholder',
       'button', 'input', 'nav', 'card', 'image', 'emoji',
       'square', 'trapezoid', 'triangle', 'pentagon', 'hexagon', 'star5', 'star6',
+      // Polígono libre: tipo de elemento sin botón, como `image`
+      'polygon',
       // Edificios (creación): Fachada y Tejado unifican sus tipos en sendos modales
       'planta', 'fachada', 'tejado', 'puerta', 'ventana', 'balcon', 'muro', 'verja', 'cancela',
       // Jardín (creación): cada una elige su variante en su propio modal
@@ -32,11 +34,11 @@ test('config.js — TOOLS', async t => {
       'prisma', 'piramide', 'tronco', 'esfera',
     ];
     const values = Object.values(ctx.TOOLS);
-    assert.equal(values.length, 48);
+    assert.equal(values.length, 49);
     assert.deepEqual([...values].sort(), [...expected].sort());
-    // Las claves también son 48 y únicas
-    assert.equal(Object.keys(ctx.TOOLS).length, 48);
-    assert.equal(new Set(values).size, 48);
+    // Las claves también son 49 y únicas
+    assert.equal(Object.keys(ctx.TOOLS).length, 49);
+    assert.equal(new Set(values).size, 49);
   });
 });
 

@@ -102,7 +102,7 @@ const Exporter = (() => {
   const VECTOR_TYPES = [
     'pencil', 'airbrush', 'line', 'arrow', 'curveArrow', 'circle',
     'square', 'trapezoid', 'triangle', 'pentagon', 'hexagon',
-    'star5', 'star6',
+    'star5', 'star6', 'polygon',
   ];
 
   function _alphaHex(opacity) {
@@ -323,6 +323,18 @@ const Exporter = (() => {
         case 'trapezoid': {
           const points = Trapezoid.vertices(el).map(p => `${p.x},${p.y}`).join(' ');
           out += `<polygon points="${points}" ${sf}/>\n`;
+          break;
+        }
+
+        case 'polygon': {
+          const points = el.points.map(p => `${p.x},${p.y}`).join(' ');
+          // `stroke: false` es una cara sin contorno (las aristas del sólido se
+          // dibujan aparte, una a una, con su propio discontinuo). Sin este
+          // caso el SVG llevaría el contorno duplicado sobre cada arista.
+          const attrs = el.stroke === false
+            ? `stroke="none" fill="${el.fill ? fillCol : 'none'}"`
+            : sf;
+          out += `<polygon points="${points}" ${attrs}/>\n`;
           break;
         }
 
@@ -701,6 +713,15 @@ body { font-family: ${FONT_CSS()}; background: #fff; }
       (a !== null && typeof a === 'object' && !Array.isArray(a) &&
        typeof a.id === 'string' && ID_RE.test(a.id));
     if (!validAnchor(el.startAnchor) || !validAnchor(el.endAnchor)) return false;
+    // Polígono libre: la lista de puntos ES la geometría. Se exige un triángulo
+    // como mínimo —con menos no hay cara— y `stroke` sólo se serializa en
+    // `false`, porque la ausencia del campo es el aspecto normal (con
+    // contorno), igual que `dash` sólo se serializa en `true`.
+    if (el.type === 'polygon') {
+      if (el.stroke !== undefined && el.stroke !== false) return false;
+      return Array.isArray(el.points) && el.points.length >= 3 &&
+             el.points.every(p => p && _isNum(p.x) && _isNum(p.y));
+    }
     if (el.type === 'pencil' || el.type === 'eraser') {
       return Array.isArray(el.points) && el.points.length > 0 &&
              el.points.every(p => p && _isNum(p.x) && _isNum(p.y));

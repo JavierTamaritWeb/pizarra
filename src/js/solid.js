@@ -49,6 +49,10 @@ const Solid = (function () {
   /** Empate de área: se resuelve a favor de "visible" (ver _faceVisible). */
   const AREA_EPS = 1e-6;
   const TINY = 1e-9;
+  /** Muestras por arco de esquina al armar una cara curva. */
+  const FACE_ARC_STEPS = 4;
+  /** Muestras por media elipse al armar una cara redonda. */
+  const FACE_ELLIPSE_STEPS = 16;
 
   const DEFAULTS = {
     [TOOLS.SOLID_PRISM]:   { w: 130, h: 110 },
@@ -67,6 +71,46 @@ const Solid = (function () {
   /** La ausencia del campo ES el trazo sólido: `dash: false` lo rechaza
       isValidElement, igual que rechaza `opacity: 1` en el aerógrafo. */
   const _dash = (el, hidden) => (hidden ? { ...el, dash: true } : el);
+
+  /**
+   * Cara rellena: un `polygon` libre SIN contorno. Va sin contorno porque las
+   * aristas del sólido se dibujan aparte, una a una — cada una decide por su
+   * cuenta si va discontinua—, y dibujarlo aquí las duplicaría y volvería
+   * sólidas las ocultas. Devuelve null si los puntos degeneran.
+   */
+  function _face(points, o) {
+    const pts = [];
+    for (const p of points) {
+      const last = pts[pts.length - 1];
+      if (!last || Math.hypot(p.x - last.x, p.y - last.y) > TINY) pts.push(p);
+    }
+    while (pts.length > 1 &&
+      Math.hypot(pts[0].x - pts[pts.length - 1].x, pts[0].y - pts[pts.length - 1].y) < TINY) {
+      pts.pop();
+    }
+    if (pts.length < 3) return null;
+    const el = {
+      type: 'polygon', points: pts, color: o.color, lineWidth: o.lineWidth,
+      fill: true, stroke: false,
+    };
+    if (o.fillColor) el.fillColor = o.fillColor;
+    if (o.fillTransparent) el.fillTransparent = true;
+    if (Number.isFinite(o.fillOpacity)) el.fillOpacity = o.fillOpacity;
+    return el;
+  }
+
+  /** Muestreo de un arco de elipse en puntos, para armar caras curvas. */
+  function _ellipsePts(c, a, b, t1, t2, steps) {
+    const out = [];
+    for (let i = 0; i <= steps; i++) {
+      const t = t1 + (t2 - t1) * i / steps;
+      out.push({
+        x: c.x + a.x * Math.cos(t) + b.x * Math.sin(t),
+        y: c.y + a.y * Math.cos(t) + b.y * Math.sin(t),
+      });
+    }
+    return out;
+  }
 
   const _clamp = (v, lo, hi) =>
     (Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo);
@@ -137,7 +181,7 @@ const Solid = (function () {
    * (sólo el redondeado). Es la representación que hace que polígonos,
    * trapecio y rectángulo redondeado pasen por la misma máquina.
    */
-  function _profile(section, box) {
+  function _profile(section, box, rotation) {
     if (section === TOOLS.ROUNDED_RECT) return _roundedProfile(box);
     if (section === TOOLS.RECT) {
       const { x, y, w, h } = box;
@@ -147,14 +191,31 @@ const Solid = (function () {
       };
     }
     if (section === TOOLS.TRAPEZOID) {
-      const pts = Trapezoid.vertices({ ...box, rotation: 0 });
+      const pts = Trapezoid.vertices({ ...box, rotation });
       return { pts, arcs: pts.map(() => null) };
     }
     if (RegularPolygon.isType(section)) {
-      const pts = RegularPolygon.vertices({ type: section, ...box, rotation: 0 });
+      const pts = RegularPolygon.vertices({ type: section, ...box, rotation });
       return { pts, arcs: pts.map(() => null) };
     }
     return null;
+  }
+
+  /** Las secciones que guardan su orientación como ÁNGULO. El rectángulo, el
+      redondeado y el círculo quedan fuera: ahí girar es intercambiar ancho y
+      alto, que ya lo da el arrastre, y `isValidElement` rechaza un `rotation`
+      en esos tipos. */
+  const _rotatable = section =>
+    RegularPolygon.isType(section) || section === TOOLS.TRAPEZOID;
+
+  /** Giro de la sección, cuantizado a un paso VÁLIDO de su tipo: 36° no es una
+      orientación posible de un hexágono, y un trapecio fuera del cuarto de
+      vuelta no pasa la validación de importación. */
+  function _rotationFor(section, value) {
+    if (!_rotatable(section) || !Number.isFinite(value) || !value) return 0;
+    const step = ShapeRotation.step(section);
+    if (!step) return 0;
+    return ShapeRotation.normalize(Math.round(value / step) * step);
   }
 
   function _roundedProfile(box) {
@@ -256,11 +317,13 @@ const Solid = (function () {
     return { x: Math.min(p1.x, p2.x), y: Math.min(p1.y, p2.y), w, h };
   }
 
-  function _frontEl(section, box, o) {
+  function _frontEl(section, box, o, rotation) {
     const el = {
       type: section, x: box.x, y: box.y, w: box.w, h: box.h,
       color: o.color, lineWidth: o.lineWidth, fill: !!o.fill,
     };
+    // La ausencia del campo es la orientación de siempre, igual que en Formas
+    if (rotation) el.rotation = rotation;
     if (o.fill && o.fillColor) el.fillColor = o.fillColor;
     if (o.fill && o.fillTransparent) el.fillTransparent = true;
     if (o.fill && Number.isFinite(o.fillOpacity)) el.fillOpacity = o.fillOpacity;
@@ -303,8 +366,8 @@ const Solid = (function () {
 
   // -------------------------------------------------------------- extrusión
 
-  function _extrude(section, box, d, k, o, front) {
-    const prof = _profile(section, box);
+  function _extrude(section, box, d, k, o, front, rotation) {
+    const prof = _profile(section, box, rotation);
     if (!prof || prof.pts.length < 3) return [front];
     const V = prof.pts, n = V.length;
     const area = _shoelace(V);
@@ -361,6 +424,25 @@ const Solid = (function () {
       parts.push(_dash(_line(V[i], W[i], o), !seen));
     }
 
+    // Caras laterales VISTAS, rellenas. Sólo las vistas: las de detrás
+    // quedarían tapadas en opaco, y en translúcido sólo ensuciarían el tono
+    // sin aportar volumen. El borde de una esquina redondeada se muestrea,
+    // así la cara no deja una cuña sin pintar en cada esquina.
+    if (o.fill) {
+      const borde = (pts, i, mapFn) => {
+        const arc = prof.arcs[i];
+        if (!arc) return [pts[i], pts[(i + 1) % n]];
+        const c = mapFn ? mapFn({ x: arc.cx, y: arc.cy }) : { x: arc.cx, y: arc.cy };
+        const r = mapFn ? arc.r * k : arc.r;
+        return _ellipsePts(c, { x: r, y: 0 }, { x: 0, y: r }, arc.t1, arc.t2, FACE_ARC_STEPS);
+      };
+      for (let i = 0; i < n; i++) {
+        if (!vis[i]) continue;
+        const cara = _face([...borde(V, i, null), ...borde(W, i, map).reverse()], o);
+        if (cara) parts.push(cara);
+      }
+    }
+
     return [...parts, front];
   }
 
@@ -395,11 +477,11 @@ const Solid = (function () {
    * Partirla por sus cortes con el contorno sería exacto y multiplicaría el
    * número de elementos; queda fuera de alcance.
    */
-  function _occlude(parts, section, box) {
+  function _occlude(parts, section, box, rotation) {
     const w = Math.max(1, box.w - 2 * OCCLUDE_MARGIN);
     const h = Math.max(1, box.h - 2 * OCCLUDE_MARGIN);
     const shape = {
-      type: section, rotation: 0, w, h,
+      type: section, rotation: rotation || 0, w, h,
       x: box.x + box.w / 2 - w / 2, y: box.y + box.h / 2 - h / 2,
     };
     const inside = _containsIn(shape);
@@ -481,13 +563,22 @@ const Solid = (function () {
     const a = { x: rx, y: 0 }, b = { x: 0, y: ry };
     // El punto de apoyo en dirección d cae SIEMPRE en tp − π/2, así que la
     // mitad visible es [tp − π, tp] sin ninguna rama que decidir.
-    return [
+    const piezas = [
       _dash(_ellipseArc(Cb, a, b, tp, tp + Math.PI, o), true),
       _ellipseArc(Cb, a, b, tp - Math.PI, tp, o),
       _line(Tp, { x: Tp.x + d.x, y: Tp.y + d.y }, o),
       _line(Tm, { x: Tm.x + d.x, y: Tm.y + d.y }, o),
-      front,
     ];
+    // La banda lateral vista: del arco frontal que mira hacia la fuga al mismo
+    // arco de la tapa, cerrando por las dos generatrices.
+    if (o.fill) {
+      const cara = _face([
+        ..._ellipsePts(C, a, b, tp - Math.PI, tp, FACE_ELLIPSE_STEPS),
+        ..._ellipsePts(Cb, a, b, tp - Math.PI, tp, FACE_ELLIPSE_STEPS).reverse(),
+      ], o);
+      if (cara) piezas.push(cara);
+    }
+    return [...piezas, front];
   }
 
   function _cone(C, rx, ry, d, k, o, front) {
@@ -513,11 +604,29 @@ const Solid = (function () {
     const map = q => ({ x: C.x + k * (q.x - C.x) + d.x, y: C.y + k * (q.y - C.y) + d.y });
     const Tb = T.map(map);
 
+    // Mitad del contorno frontal que mira hacia la fuga: es la que limita la
+    // superficie lateral vista, tanto en el cono como en el tronco.
+    const span0 = ((t[1] - t[0]) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+    const mitades = [[t[0], t[0] + span0], [t[0] + span0, t[0] + 2 * Math.PI]];
+    const lejania = ([ta, tb]) => {
+      const m = (ta + tb) / 2;
+      return rx * Math.cos(m) * d.x + ry * Math.sin(m) * d.y;
+    };
+    const lejos = lejania(mitades[0]) >= lejania(mitades[1]) ? mitades[0] : mitades[1];
+    const aF = { x: rx, y: 0 }, bF = { x: 0, y: ry };
+
     if (k < 1e-6) {
       // Cono: la base está ENTERA visible —el cuerpo queda detrás de ella—,
       // así que no hay ninguna pieza discontinua.
       const apex = { x: C.x + d.x, y: C.y + d.y };
-      return [_line(T[0], apex, o), _line(T[1], apex, o), front];
+      const piezas = [_line(T[0], apex, o), _line(T[1], apex, o)];
+      if (o.fill) {
+        const cara = _face([
+          ..._ellipsePts(C, aF, bF, lejos[0], lejos[1], FACE_ELLIPSE_STEPS), apex,
+        ], o);
+        if (cara) piezas.push(cara);
+      }
+      return [...piezas, front];
     }
 
     const Cb = { x: C.x + d.x, y: C.y + d.y };
@@ -534,7 +643,15 @@ const Solid = (function () {
       const hidden = side !== 0 && Math.sign(cross(Tb[0], Tb[1], P)) === side;
       return _dash(_ellipseArc(Cb, a, b, ta, tb, o), hidden);
     });
-    return [...parts, _line(T[0], Tb[0], o), _line(T[1], Tb[1], o), front];
+    const piezas = [...parts, _line(T[0], Tb[0], o), _line(T[1], Tb[1], o)];
+    if (o.fill) {
+      const cara = _face([
+        ..._ellipsePts(C, aF, bF, lejos[0], lejos[1], FACE_ELLIPSE_STEPS),
+        ..._ellipsePts(Cb, a, b, lejos[0], lejos[1], FACE_ELLIPSE_STEPS).reverse(),
+      ], o);
+      if (cara) piezas.push(cara);
+    }
+    return [...piezas, front];
   }
 
   /**
@@ -567,6 +684,7 @@ const Solid = (function () {
     const o = {
       color: '#000000', lineWidth: 2,
       solidDepth: 75, solidAngle: 30, solidForeshorten: 80, solidTaper: 55,
+      solidRotation: 0,
       ...(opts || {}),
     };
     if (!DEFAULTS[tool]) return [];
@@ -575,23 +693,46 @@ const Solid = (function () {
       : (SOLID_SECTIONS.includes(o.solidSection) ? o.solidSection : TOOLS.RECT);
     const box = _frontBox(tool, section, p1, p2);
     if (!(box.w > 0 && box.h > 0)) return [];
-    const front = _frontEl(section, box, o);
+    const rotation = _rotationFor(section, o.solidRotation);
+    const front = _frontEl(section, box, o, rotation);
     const d = _depth(box, o, tool);
     const k = tool === TOOLS.SOLID_PRISM ? 1
       : tool === TOOLS.SOLID_PYRAMID ? 0
         : _clamp(o.solidTaper, TAPER_MIN, TAPER_MAX) / 100;
     const built = tool === TOOLS.SOLID_SPHERE ? _sphere(box, d, o, front)
       : section === TOOLS.CIRCLE ? _round(box, d, k, o, front)
-        : _extrude(section, box, d, k, o, front);
-    // La cara frontal va SIEMPRE la última: emitida al final, su relleno tapa
-    // lo que pase por detrás, así que activar el relleno no puede estropear el
-    // dibujo. Y el recorte de ocultas se aplica aquí, una sola vez, para que
-    // valga igual a las secciones poligonales y a las redondas.
-    return [..._occlude(built.slice(0, -1), section, box), built[built.length - 1]];
+        : _extrude(section, box, d, k, o, front, rotation);
+    // El recorte de ocultas se aplica aquí, una sola vez, para que valga igual
+    // a las secciones poligonales y a las redondas — y ANTES de ordenar, o una
+    // arista que el recorte acaba de declarar oculta se quedaría dibujada
+    // encima de la cara que la tapa.
+    // La esfera se queda FUERA del recorte, y es el único caso: su ecuador es
+    // una línea sobre la superficie, no una arista de detrás, y va justo por
+    // dentro del círculo, así que el recorte lo daba por oculto y marcaba
+    // discontinuas sus dos mitades. Se notaba poco sin relleno —dos arcos a
+    // trazos siguen leyéndose como una esfera— y con relleno opaco dejaba un
+    // círculo plano, sin ecuador ninguno.
+    const piezas = tool === TOOLS.SOLID_SPHERE
+      ? built.slice(0, -1)
+      : _occlude(built.slice(0, -1), section, box, rotation);
+    // El orden ES el resultado: aristas ocultas, caras rellenas, la cara
+    // frontal y, ENCIMA DE TODO, las aristas vistas. Con relleno opaco las
+    // caras tapan lo que pasa por detrás y la figura se lee maciza; con
+    // relleno translúcido las ocultas se siguen viendo a través, como un
+    // cristal. Sin relleno no hay caras y el orden da igual.
+    //
+    // Las aristas vistas van DESPUÉS de la cara frontal, no antes: las de una
+    // caja caen fuera de ella y el orden no se notaría, pero el ecuador de la
+    // esfera va por dentro y con el relleno delante desaparecía — una esfera
+    // rellena salía como un círculo plano.
+    const ocultas = piezas.filter(el => el.dash);
+    const caras = piezas.filter(el => !el.dash && el.type === TOOLS.POLYGON);
+    const vistas = piezas.filter(el => !el.dash && el.type !== TOOLS.POLYGON);
+    return [...ocultas, ...caras, built[built.length - 1], ...vistas];
   }
 
   return {
-    elements, MIN_SPAN,
+    elements, MIN_SPAN, isRotatableSection: _rotatable,
     DEPTH_MIN, DEPTH_MAX, ANGLE_MIN, ANGLE_MAX,
     FORESHORTEN_MIN, FORESHORTEN_MAX, TAPER_MIN, TAPER_MAX,
   };

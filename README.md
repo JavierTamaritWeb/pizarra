@@ -4,7 +4,7 @@
 
 **Wireframes, diagramas y bocetos con estética dibujada a mano — en el navegador y sin instalar nada.**
 
-[![Versión](https://img.shields.io/badge/versión-2.24.0-blueviolet?style=flat-square)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-2.25.0-blueviolet?style=flat-square)](CHANGELOG.md)
 [![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?style=flat-square&logo=javascript&logoColor=000)](src/js/)
 [![Estilos](https://img.shields.io/badge/estilos-SCSS%20·%20BEM%20·%20Gulp%205-cf649a?style=flat-square&logo=sass&logoColor=fff)](src/scss/)
 [![Dependencias](https://img.shields.io/badge/dependencias%20en%20runtime-0-brightgreen?style=flat-square)](#arquitectura)
@@ -72,6 +72,7 @@ Para *usar* la app no hay nada que instalar ni compilar: el CSS ya viene compila
 | **Formas** | Rectángulo, redondeado, elipse, cuadrado, trapecio, triángulo, pentágono, hexágono y las **estrellas de 5 y 6 puntas**. Los polígonos regulares se arrastran desde el centro y conservan sus lados iguales; el trapecio admite proporciones libres. |
 | **Estrellas** | Las regulares clásicas —pentagrama y Estrella de David—, con el radio interior en el que prolongar el lado de una punta lleva justo a otra punta: rectas completas, no pétalos. Se comportan como un polígono más —relleno, bordes ocultos, giro (36° y 30°) y las cinco exportaciones—, y el borrador y la selección respetan su **silueta**: el hueco entre dos puntas no es dibujo. |
 | **Figuras 3D** | Las mismas diez siluetas, en volumen: **prisma**, **pirámide**, **tronco** y **esfera** dan 31 figuras —caja, cubo, cilindro, cono, tetraedro, prisma hexagonal, tronco de cono, prismas estrellados…—. Lo que arrastras es la **cara frontal** y sale sin deformar, porque la proyección es caballera; las aristas de detrás salen **discontinuas**, como en un croquis técnico. Ángulo de fuga (vuelta completa), escorzo y profundidad —en **porcentaje de la cara**, así que una figura pequeña y otra grande salen con las mismas proporciones— se ajustan en el modal de cada herramienta, con miniatura en vivo. Cada sólido nace como un grupo: se mueve, escala y borra de una pieza. |
+| **Volumen a tu gusto** | Las figuras 3D se **giran**: la sección, antes de dibujar, en los pasos válidos de su tipo; y la figura entera ya puesta, con `Shift+R` o `←`/`→`. El **grosor y el color de las aristas** y el **relleno de las caras** —opaco o translúcido, con su color y su opacidad— se ajustan en el modal de la propia herramienta. En opaco el sólido se lee macizo; en translúcido se ve a través y las aristas de detrás se siguen leyendo. |
 | **Semicírculos** | 180° exactos y sin puntas. El arrastre fija el diámetro; después `+`/`−` o su handle ajustan el radio manteniendo la media circunferencia. `Q` convierte una flecha curva en semicírculo y viceversa. |
 | **Paleta de 36 colores** | Ordenada por el **arco iris**: abre con la tinta y los neutros, de oscuro a claro, y siguen los vivos y los **doce pastel** recorriendo cada uno de rojo a rosa por naranja, amarillo, verde, turquesa, azul, añil y violeta. Seis filas de seis, una familia por fila, más el selector libre para cualquier otro color. |
 | **Relleno** | Color propio por forma, modo sólido o translúcido y opacidad del 0 al 100 %. Vaciar una forma no le hace perder el color: al volver a rellenarla recupera el mismo. |
@@ -183,8 +184,8 @@ Cada pieza de jardín nace con una **etiqueta** dentro del mismo grupo (se mueve
 | `Ctrl/Cmd+Z` · `Ctrl+Y` o `Cmd+Shift+Z` | Deshacer · rehacer |
 | `Ctrl/Cmd+D` · `Ctrl/Cmd+A` | Duplicar · seleccionar todo |
 | `Ctrl/Cmd+C` · `Ctrl/Cmd+V` | Copiar selección · pegarla (o pegar una imagen del portapapeles) |
-| `Shift+R` | Rotar la selección un paso |
-| `←` `→` | Girar la forma seleccionada, si toda la selección guarda su orientación como ángulo (polígonos regulares, estrellas y trapecio) |
+| `Shift+R` | Rotar la selección un paso; una figura compuesta gira entera un cuarto de vuelta |
+| `←` `→` | Girar la forma seleccionada, si toda la selección guarda su orientación como ángulo (polígonos regulares, estrellas y trapecio), o la figura compuesta si lo es |
 | `Supr` · `Esc` | Borrar selección · deseleccionar |
 | Flechas (+`Shift`) | Mover la selección 1 px (20 px) — con una forma rotable seleccionada, `←`/`→` giran y solo `↑`/`↓` mueven |
 | `F` · `D` · `S` | Invertir giro · invertir dirección · curva en S |

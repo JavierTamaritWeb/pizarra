@@ -4,6 +4,37 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.25.0] — 2026-08-14
+
+### Añadido
+
+- **Las figuras 3D se giran.** Antes de dibujar, cada modal 3D lleva un mando de
+  **giro de la sección** en los pasos válidos de su tipo (36° el pentágono, 30°
+  el hexágono, 90° el trapecio), así que un prisma hexagonal ya puede salir de
+  cara plana y no sólo en punta. La fila no aparece con el rectángulo, el
+  redondeado y el círculo: ahí girar es intercambiar ancho y alto, que ya lo da
+  el arrastre.
+- **Y se giran ya dibujadas**: con una figura compuesta seleccionada —un sólido,
+  un edificio, un árbol—, `Shift+R` y `←`/`→` la giran **entera** un cuarto de
+  vuelta alrededor de su centro. Antes ahí no pasaba nada útil: las formas
+  giraban cada una por su lado y las líneas se quedaban quietas.
+- **Grosor y color de las aristas dentro del propio modal**, con la paleta
+  completa y el selector libre, sin tener que ir al panel.
+- **Las caras se rellenan, opacas o translúcidas**, con su color y su opacidad.
+  En opaco la figura se lee maciza y las aristas de detrás quedan tapadas; en
+  translúcido se ve a través, como un cristal, y las ocultas se siguen leyendo.
+  Sólo se pintan las caras que se ven.
+- Tipo de elemento **polígono libre** (`polygon`), sin botón en el sidebar —como
+  la imagen pegada—: es lo que representa una cara lateral, un cuadrilátero
+  arbitrario que ningún otro tipo sabía dibujar. Se selecciona, mueve, escala,
+  borra por su silueta y viaja en las cinco exportaciones.
+
+### Corregido
+
+- **El ecuador de la esfera se dibujaba entero discontinuo.** Va por dentro del
+  círculo, así que el recorte de líneas ocultas lo daba por tapado. Se notaba
+  poco sin relleno y, al rellenar, dejaba un círculo plano sin ecuador ninguno.
+
 ## [2.24.0] — 2026-08-14
 
 ### Añadido

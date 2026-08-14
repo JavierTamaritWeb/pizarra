@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.24.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.25.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.24\.0</);
-  assert.match(html, /css\/styles\.css\?v=2\.24\.0/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.24\.0/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.24\.0/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.24\.0/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.24\.0/);
+  assert.match(html, /class="topbar__badge">v2\.25\.0</);
+  assert.match(html, /css\/styles\.css\?v=2\.25\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.25\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.25\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.25\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.25\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -64,8 +64,8 @@ test('index publica v2.24.0 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="modal-pyramid"/);
   assert.match(html, /id="modal-frustum"/);
   assert.match(html, /id="modal-sphere"/);
-  assert.match(html, /src\/js\/solid\.js\?v=2\.24\.0/);
-  assert.match(html, /src\/js\/airbrush\.js\?v=2\.24\.0/);
+  assert.match(html, /src\/js\/solid\.js\?v=2\.25\.0/);
+  assert.match(html, /src\/js\/airbrush\.js\?v=2\.25\.0/);
   // «Los clics acumulan selección» dejó el panel en la v2.17.0 y es el ajuste
   // de «Select». Si volviera a existir la casilla vieja habría dos controles
   // para un mismo estado, y solo uno cableado: el arnés `node:vm` fabrica un
@@ -545,9 +545,38 @@ test('los deslizadores de 3D declaran los topes que exporta Solid', () => {
   assert.equal(encontrados, 12);
   // Los mandos que NO debe haber: si aparecieran, prometerían algo que su
   // figura ignora (la esfera no tiene fondo, y sólo el tronco tiene tapa).
-  for (const ausente of ['sphere-depth', 'sphere-taper', 'prism-taper', 'pyramid-taper']) {
+  for (const ausente of ['sphere-depth', 'sphere-taper', 'prism-taper', 'pyramid-taper',
+    // Ni giro en la esfera: no tiene sección que orientar
+    'sphere-rotation']) {
     assert.ok(!html.includes(`id="${ausente}"`), `sobra el mando #${ausente}`);
   }
+  // Trazo, color y relleno de las aristas y las caras: existen en los CUATRO
+  // modales, porque cambiarlos es lo que uno quiere hacer nada más elegir la
+  // herramienta y el panel queda lejos (regla de «los ajustes de una
+  // herramienta se abren desde la herramienta»).
+  for (const prefijo of Object.keys(modales)) {
+    for (const campo of ['stroke', 'color', 'fill', 'fill-transparent',
+      'opacity', 'fill-color', 'color-grid']) {
+      assert.ok(html.includes(`id="${prefijo}-${campo}"`),
+        `falta #${prefijo}-${campo}`);
+    }
+    assert.ok(html.includes(`id="${prefijo}-stroke-val"`));
+    assert.ok(html.includes(`id="${prefijo}-opacity-val"`));
+  }
+  // El giro sólo en los tres que eligen sección, con su fila propia para poder
+  // ocultarla cuando la sección no orienta por ángulo.
+  for (const prefijo of ['prism', 'pyramid', 'frustum']) {
+    assert.ok(html.includes(`id="${prefijo}-rotation"`), `falta #${prefijo}-rotation`);
+    assert.ok(html.includes(`id="${prefijo}-rotation-row"`), `falta #${prefijo}-rotation-row`);
+    assert.ok(html.includes(`id="${prefijo}-rotation-val"`));
+  }
+  // Y el grosor comparte rango con el de los demás modales: es el MISMO ajuste
+  const anchos = [...html.matchAll(/id="(?:stroke-modal-slider|prism-stroke)"[\s\S]*?\/>/g)]
+    .map(m => m[0].replace(/\s+/g, ' '));
+  assert.equal(anchos.length, 2);
+  const rango = t => [t.match(/min="([^"]+)"/)[1], t.match(/max="([^"]+)"/)[1]].join('-');
+  assert.equal(rango(anchos[0]), rango(anchos[1]),
+    'el grosor de las aristas tiene que ofrecer el mismo rango que el del trazo');
   // Los tres catálogos de sección, y que la esfera NO tenga: no hay sección
   // que elegir, así que su modal es sólo de ajustes.
   for (const root of ['prism-catalog', 'pyramid-catalog', 'frustum-catalog']) {

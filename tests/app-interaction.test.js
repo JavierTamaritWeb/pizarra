@@ -3826,3 +3826,104 @@ test('un clic sin arrastrar con una herramienta 3D crea la figura por defecto', 
   assert.ok(circulo && circulo.w > 20, 'la esfera nace con su caja propia');
   assert.ok(Math.abs(circulo.w - circulo.h) < 1e-6, 'una esfera es redonda');
 });
+
+/* ── Girar una figura compuesta en el lienzo ── */
+
+test('Shift+R gira el sólido entero, no cada pieza por su lado', () => {
+  const app = loadApp();
+  app.selectTool('prisma');
+  app.drag(300, 300, 400, 400);
+  app.flush();
+  const antes = app.elements();
+  assert.ok(antes.length > 2);
+  const caja = els => {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    els.forEach(e => {
+      const xs = e.type === 'line' ? [e.x1, e.x2] : [e.x, e.x + e.w];
+      const ys = e.type === 'line' ? [e.y1, e.y2] : [e.y, e.y + e.h];
+      if (xs[0] === undefined) return;
+      x0 = Math.min(x0, ...xs); x1 = Math.max(x1, ...xs);
+      y0 = Math.min(y0, ...ys); y1 = Math.max(y1, ...ys);
+    });
+    return { w: x1 - x0, h: y1 - y0, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
+  };
+  const b0 = caja(antes);
+
+  app.selectTool('select');
+  app.click(320, 320);
+  app.flush();
+  app.key('R', { shiftKey: true });
+  app.flush();
+  const despues = app.elements();
+  assert.equal(despues.length, antes.length, 'girar no crea ni destruye piezas');
+  const b1 = caja(despues);
+  // Un cuarto de vuelta intercambia ancho y alto del conjunto y conserva su
+  // centro. Si cada pieza girase por su lado (el comportamiento viejo), las
+  // líneas ni se moverían y la caja no cambiaría de proporción.
+  assert.ok(Math.abs(b1.w - b0.h) < 1.5, `ancho ${b1.w} ≈ alto anterior ${b0.h}`);
+  assert.ok(Math.abs(b1.h - b0.w) < 1.5, `alto ${b1.h} ≈ ancho anterior ${b0.w}`);
+  assert.ok(Math.abs(b1.cx - b0.cx) < 1.5 && Math.abs(b1.cy - b0.cy) < 1.5,
+    'el centro se conserva');
+  // Cuatro vueltas devuelven la figura a su sitio
+  for (let i = 0; i < 3; i++) { app.key('R', { shiftKey: true }); app.flush(); }
+  const vuelta = app.elements();
+  const b4 = caja(vuelta);
+  assert.ok(Math.abs(b4.w - b0.w) < 1.5 && Math.abs(b4.h - b0.h) < 1.5,
+    'cuatro cuartos de vuelta son la identidad');
+});
+
+test('←/→ giran una figura compuesta, y en sentidos opuestos', () => {
+  const app = loadApp();
+  app.selectTool('prisma');
+  app.drag(300, 300, 400, 400);
+  app.flush();
+  app.selectTool('select');
+  app.click(320, 320);
+  app.flush();
+  const medir = els => {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    els.forEach(e => {
+      const xs = e.type === 'line' ? [e.x1, e.x2] : [e.x, e.x + e.w];
+      const ys = e.type === 'line' ? [e.y1, e.y2] : [e.y, e.y + e.h];
+      if (xs[0] === undefined) return;
+      x0 = Math.min(x0, ...xs); x1 = Math.max(x1, ...xs);
+      y0 = Math.min(y0, ...ys); y1 = Math.max(y1, ...ys);
+    });
+    return { w: x1 - x0, h: y1 - y0 };
+  };
+  const b0 = medir(app.elements());
+  const antes = JSON.stringify(app.elements());
+
+  app.key('ArrowRight');
+  app.flush();
+  const b1 = medir(app.elements());
+  // Que la escena CAMBIE no basta: sin esta comprobación, mover un píxel
+  // pasaría la prueba igual que girar. El cuarto de vuelta intercambia el
+  // ancho y el alto del conjunto.
+  assert.ok(Math.abs(b1.w - b0.h) < 1.5 && Math.abs(b1.h - b0.w) < 1.5,
+    `→ tiene que GIRAR: ${b0.w}x${b0.h} → ${b1.w}x${b1.h}`);
+
+  app.key('ArrowLeft');
+  app.flush();
+  // Los dos sentidos son inversos exactos, como en las formas sueltas
+  assert.equal(JSON.stringify(app.elements()), antes, '← lo deshace');
+});
+
+test('girar una forma suelta sigue girando sobre su propio centro', () => {
+  // El régimen viejo no se toca: con todo girable por tipo, cada elemento gira
+  // su paso alrededor de sí mismo. Sólo cambia lo que antes no hacía nada.
+  const app = loadApp();
+  app.selectTool('pentagon');
+  app.drag(400, 300, 460, 360);
+  app.flush();
+  const antes = app.elements()[0];
+  app.selectTool('select');
+  app.click(400, 300);
+  app.flush();
+  app.key('R', { shiftKey: true });
+  app.flush();
+  const despues = app.elements()[0];
+  assert.equal(despues.rotation, 36, 'un paso del pentágono');
+  assert.equal(despues.x, antes.x, 'no se mueve');
+  assert.equal(despues.y, antes.y);
+});

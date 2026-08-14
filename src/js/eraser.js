@@ -111,7 +111,8 @@ const Eraser = (function () {
 
   /** Formas cuyo "dibujo" es solo su contorno mientras no estén rellenas. */
   const OUTLINE_TYPES = ['rect', 'roundedRect', 'circle', 'square',
-    'triangle', 'pentagon', 'hexagon', 'star5', 'star6', 'trapezoid'];
+    'triangle', 'pentagon', 'hexagon', 'star5', 'star6', 'trapezoid',
+    'polygon'];
 
   /**
    * ¿El trazo `pts` con radio `r` toca al elemento `el`?
@@ -360,5 +361,9 @@ const Eraser = (function () {
   return {
     touches, doomedIndices, apply, erase,
     distToSegment, segDist, segmentsIntersect,
+    // Se exporta por el mismo motivo que distToSegment: app.js necesita el
+    // mismo punto-en-polígono para el hit-test del polígono libre, y duplicar
+    // la fórmula es garantizar que un día discrepen.
+    pointInPolygon: _pointInPolygon,
   };
 })();

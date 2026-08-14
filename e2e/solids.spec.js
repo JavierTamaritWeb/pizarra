@@ -185,3 +185,114 @@ test('los ajustes de proyección cambian la figura y sobreviven a la recarga', a
   await page.locator('.sidebar__tool[data-tool="prisma"]').click();
   await expect(page.locator('#prism-depth')).toHaveValue('20');
 });
+
+test('el giro sólo aparece con secciones que orientan por ángulo, y gira de verdad', async ({ page }) => {
+  await openApp(page);
+  await page.locator('.sidebar__tool[data-tool="prisma"]').click();
+  // «Caja» no orienta por ángulo: ahí girar es intercambiar ancho y alto
+  await expect(page.locator('#prism-rotation-row')).toBeHidden();
+  await page.locator('[data-prism="hexagon"]').click();
+  await settle(page);
+  await page.locator('.sidebar__tool[data-tool="prisma"]').click();
+  await expect(page.locator('#prism-rotation-row')).toBeVisible();
+  // El paso lo manda la sección: 30° el hexágono
+  await expect(page.locator('#prism-rotation')).toHaveAttribute('step', '30');
+  await expect(page.locator('#prism-rotation')).toHaveAttribute('max', '330');
+  await page.locator('#prism-rotation').fill('30');
+  await page.locator('#prism-rotation').dispatchEvent('input');
+  await expect(page.locator('#prism-rotation-val')).toHaveText('30');
+  await page.locator('[data-prism="hexagon"]').click();
+  await settle(page);
+
+  await drag(page, 300, 300, 380, 380);
+  await settle(page);
+  const els = await elements(page);
+  const hex = els.find(e => e.type === 'hexagon');
+  expect(hex.rotation).toBe(30);
+});
+
+test('el relleno de las caras se ve, y en translúcido deja ver lo de detrás', async ({ page }) => {
+  await openApp(page);
+  await page.locator('.sidebar__tool[data-tool="prisma"]').click();
+  await page.locator('#prism-fill').check();
+  await page.locator('#prism-fill-transparent').uncheck();
+  await page.locator('#prism-fill-color').fill('#ff3366');
+  await page.locator('#prism-fill-color').dispatchEvent('input');
+  await page.locator('#prism-fill-color').dispatchEvent('change');
+  await page.locator('[data-prism="square"]').click();
+  await settle(page);
+  await drag(page, 300, 300, 420, 420);
+  await settle(page);
+
+  const els = await elements(page);
+  const caras = els.filter(e => e.type === 'polygon');
+  expect(caras.length, 'las caras vistas se rellenan').toBeGreaterThan(0);
+  for (const cara of caras) {
+    expect(cara.fill).toBe(true);
+    expect(cara.stroke).toBe(false);      // el contorno lo ponen las aristas
+    expect(cara.fillColor).toBe('#ff3366');
+  }
+  // Y el color llega de verdad al lienzo
+  const rosa = await page.evaluate(() => {
+    const c = document.getElementById('main-canvas');
+    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    let n = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i] > 200 && d[i + 1] < 110 && d[i + 2] > 70 && d[i + 2] < 160) n++;
+    }
+    return n;
+  });
+  expect(rosa, 'el relleno tiene que verse en el lienzo').toBeGreaterThan(1000);
+});
+
+test('el grosor y el color de las aristas se cambian desde el propio modal', async ({ page }) => {
+  await openApp(page);
+  await page.locator('.sidebar__tool[data-tool="prisma"]').click();
+  await page.locator('#prism-stroke').fill('7');
+  await page.locator('#prism-stroke').dispatchEvent('input');
+  await page.locator('#prism-stroke').dispatchEvent('change');
+  await expect(page.locator('#prism-stroke-val')).toHaveText('7');
+  // La paleta del modal es la misma que la del panel: se acota la rejilla o
+  // el selector encuentra dos muestras del mismo color y falla en modo estricto
+  await page.locator('#prism-color-grid .panel__color-swatch[data-color="#e74c3c"]').click();
+  await page.locator('[data-prism="square"]').click();
+  await settle(page);
+  await drag(page, 300, 300, 400, 400);
+  await settle(page);
+
+  const els = await elements(page);
+  expect(els.length).toBeGreaterThan(2);
+  for (const el of els) {
+    expect(el.lineWidth).toBe(7);
+    expect(el.color).toBe('#e74c3c');
+  }
+});
+
+test('Shift+R y ←/→ giran el sólido entero ya dibujado', async ({ page }) => {
+  await openApp(page);
+  await seccion(page, 'prisma', 'prism', 'rect');
+  await drag(page, 300, 300, 420, 380);
+  await settle(page);
+  const antes = await elements(page);
+
+  await selectTool(page, 'select');
+  await clickCanvas(page, 310, 310);
+  await settle(page);
+
+  const medida = async () => {
+    const els = await elements(page);
+    if (els.length !== antes.length) return null;
+    const xs = [], ys = [];
+    els.forEach(e => {
+      if (e.type === 'line') { xs.push(e.x1, e.x2); ys.push(e.y1, e.y2); }
+      else if (e.x !== undefined) { xs.push(e.x, e.x + e.w); ys.push(e.y, e.y + e.h); }
+    });
+    return Math.round(Math.max(...xs) - Math.min(...xs)) >
+      Math.round(Math.max(...ys) - Math.min(...ys)) ? 'apaisado' : 'vertical';
+  };
+  expect(await medida()).toBe('apaisado');
+  await page.keyboard.press('Shift+R');
+  await expect.poll(medida).toBe('vertical');
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(medida).toBe('apaisado');
+});

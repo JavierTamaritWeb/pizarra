@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=2.24.0" />
+  <link rel="stylesheet" href="css/styles.css?v=2.25.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.24.0" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.25.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v2.24.0</span>
+        <span class="topbar__badge">v2.25.0</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes" aria-expanded="false" aria-controls="side-panel">
@@ -430,7 +430,8 @@
           <li><kbd>Ctrl</kbd>+<kbd>D</kbd> duplicar · <kbd>Ctrl</kbd>+<kbd>A</kbd> todo · <kbd>Supr</kbd> borrar</li>
           <li>Flechas: mover la selección (<kbd>Shift</kbd>: 20 px)</li>
           <li>Con un polígono regular, una estrella o un trapecio seleccionados, <kbd>←</kbd> y <kbd>→</kbd> lo <strong>giran</strong> una orientación en cada sentido; <kbd>↑</kbd> y <kbd>↓</kbd> siguen moviendo</li>
-          <li>Grupo <strong>3D</strong>: el botón elige el remate (prisma, pirámide, tronco o esfera) y su catálogo la sección. Lo que arrastras es la <strong>cara frontal</strong>, sin deformar, y las aristas que quedan detrás salen <strong>discontinuas</strong>. Las cuatro van sin atajo</li>
+          <li>Grupo <strong>3D</strong>: el botón elige el remate (prisma, pirámide, tronco o esfera) y su catálogo la sección. Lo que arrastras es la <strong>cara frontal</strong>, sin deformar, y las aristas que quedan detrás salen <strong>discontinuas</strong>. En su modal se ajustan el giro de la sección, el grosor y el color de las aristas y el relleno de las caras, opaco o translúcido. Las cuatro van sin atajo</li>
+          <li>Con una figura compuesta seleccionada —un sólido 3D, un edificio, una planta—, <kbd>Shift</kbd>+<kbd>R</kbd> y <kbd>←</kbd>/<kbd>→</kbd> la <strong>giran entera</strong> un cuarto de vuelta</li>
           <li>Cada herramienta muestra su tecla en el tooltip</li>
           <li><kbd>Alt</kbd> desactiva el ajuste a cuadrícula</li>
         </ul>
@@ -1264,6 +1265,44 @@
                    min="10" max="100" step="5" value="80"
                    aria-label="Escorzo de la fuga, del 10 al 100 por ciento" />
           </label>
+          <label class="panel__field" for="prism-rotation" id="prism-rotation-row">
+            <span class="modal__field-label">Giro de la sección: <span id="prism-rotation-val">0</span>°</span>
+            <input class="panel__slider" type="range" id="prism-rotation"
+                   min="0" max="330" step="30" value="0"
+                   aria-label="Giro de la sección" />
+          </label>
+          <label class="panel__field" for="prism-stroke">
+            <span class="modal__field-label">Grosor de las aristas: <span id="prism-stroke-val">2</span>px</span>
+            <input class="panel__slider" type="range" id="prism-stroke"
+                   min="1" max="8" step="1" value="2"
+                   aria-label="Grosor de las aristas" />
+          </label>
+          <div id="prism-palette">
+            <span class="modal__field-label">Color de las aristas</span>
+            <div class="panel__color-grid" id="prism-color-grid"></div>
+          </div>
+          <label class="panel__field" for="prism-color">
+            <span class="modal__field-label">Otro color</span>
+            <input class="panel__color-picker" type="color" id="prism-color" value="#1a1a2e"
+                   aria-label="Color de las aristas" />
+          </label>
+          <label class="panel__check">
+            <input type="checkbox" id="prism-fill" /> Rellenar las caras
+          </label>
+          <label class="panel__check">
+            <input type="checkbox" id="prism-fill-transparent" /> Relleno translúcido
+          </label>
+          <label class="panel__field" for="prism-opacity">
+            <span class="modal__field-label">Opacidad: <span id="prism-opacity-val">40</span>%</span>
+            <input class="panel__slider" type="range" id="prism-opacity"
+                   min="0" max="100" step="1" value="40"
+                   aria-label="Opacidad del relleno translúcido" disabled />
+          </label>
+          <label class="panel__field" for="prism-fill-color">
+            <span class="modal__field-label">Color de relleno</span>
+            <input class="panel__color-picker" type="color" id="prism-fill-color" value="#4ecdc4"
+                   aria-label="Color de relleno" />
+          </label>
         </div>
       </div>
 
@@ -1297,6 +1336,44 @@
             <input class="panel__slider" type="range" id="pyramid-foreshorten"
                    min="10" max="100" step="5" value="80"
                    aria-label="Escorzo de la fuga, del 10 al 100 por ciento" />
+          </label>
+          <label class="panel__field" for="pyramid-rotation" id="pyramid-rotation-row">
+            <span class="modal__field-label">Giro de la sección: <span id="pyramid-rotation-val">0</span>°</span>
+            <input class="panel__slider" type="range" id="pyramid-rotation"
+                   min="0" max="330" step="30" value="0"
+                   aria-label="Giro de la sección" />
+          </label>
+          <label class="panel__field" for="pyramid-stroke">
+            <span class="modal__field-label">Grosor de las aristas: <span id="pyramid-stroke-val">2</span>px</span>
+            <input class="panel__slider" type="range" id="pyramid-stroke"
+                   min="1" max="8" step="1" value="2"
+                   aria-label="Grosor de las aristas" />
+          </label>
+          <div id="pyramid-palette">
+            <span class="modal__field-label">Color de las aristas</span>
+            <div class="panel__color-grid" id="pyramid-color-grid"></div>
+          </div>
+          <label class="panel__field" for="pyramid-color">
+            <span class="modal__field-label">Otro color</span>
+            <input class="panel__color-picker" type="color" id="pyramid-color" value="#1a1a2e"
+                   aria-label="Color de las aristas" />
+          </label>
+          <label class="panel__check">
+            <input type="checkbox" id="pyramid-fill" /> Rellenar las caras
+          </label>
+          <label class="panel__check">
+            <input type="checkbox" id="pyramid-fill-transparent" /> Relleno translúcido
+          </label>
+          <label class="panel__field" for="pyramid-opacity">
+            <span class="modal__field-label">Opacidad: <span id="pyramid-opacity-val">40</span>%</span>
+            <input class="panel__slider" type="range" id="pyramid-opacity"
+                   min="0" max="100" step="1" value="40"
+                   aria-label="Opacidad del relleno translúcido" disabled />
+          </label>
+          <label class="panel__field" for="pyramid-fill-color">
+            <span class="modal__field-label">Color de relleno</span>
+            <input class="panel__color-picker" type="color" id="pyramid-fill-color" value="#4ecdc4"
+                   aria-label="Color de relleno" />
           </label>
         </div>
       </div>
@@ -1338,6 +1415,44 @@
                    min="10" max="95" step="5" value="55"
                    aria-label="Tamaño de la tapa, del 10 al 95 por ciento de la base" />
           </label>
+          <label class="panel__field" for="frustum-rotation" id="frustum-rotation-row">
+            <span class="modal__field-label">Giro de la sección: <span id="frustum-rotation-val">0</span>°</span>
+            <input class="panel__slider" type="range" id="frustum-rotation"
+                   min="0" max="330" step="30" value="0"
+                   aria-label="Giro de la sección" />
+          </label>
+          <label class="panel__field" for="frustum-stroke">
+            <span class="modal__field-label">Grosor de las aristas: <span id="frustum-stroke-val">2</span>px</span>
+            <input class="panel__slider" type="range" id="frustum-stroke"
+                   min="1" max="8" step="1" value="2"
+                   aria-label="Grosor de las aristas" />
+          </label>
+          <div id="frustum-palette">
+            <span class="modal__field-label">Color de las aristas</span>
+            <div class="panel__color-grid" id="frustum-color-grid"></div>
+          </div>
+          <label class="panel__field" for="frustum-color">
+            <span class="modal__field-label">Otro color</span>
+            <input class="panel__color-picker" type="color" id="frustum-color" value="#1a1a2e"
+                   aria-label="Color de las aristas" />
+          </label>
+          <label class="panel__check">
+            <input type="checkbox" id="frustum-fill" /> Rellenar las caras
+          </label>
+          <label class="panel__check">
+            <input type="checkbox" id="frustum-fill-transparent" /> Relleno translúcido
+          </label>
+          <label class="panel__field" for="frustum-opacity">
+            <span class="modal__field-label">Opacidad: <span id="frustum-opacity-val">40</span>%</span>
+            <input class="panel__slider" type="range" id="frustum-opacity"
+                   min="0" max="100" step="1" value="40"
+                   aria-label="Opacidad del relleno translúcido" disabled />
+          </label>
+          <label class="panel__field" for="frustum-fill-color">
+            <span class="modal__field-label">Color de relleno</span>
+            <input class="panel__color-picker" type="color" id="frustum-fill-color" value="#4ecdc4"
+                   aria-label="Color de relleno" />
+          </label>
         </div>
       </div>
 
@@ -1365,6 +1480,38 @@
             <input class="panel__slider" type="range" id="sphere-foreshorten"
                    min="10" max="100" step="5" value="80"
                    aria-label="Escorzo de la fuga, del 10 al 100 por ciento" />
+          </label>
+          <label class="panel__field" for="sphere-stroke">
+            <span class="modal__field-label">Grosor de las aristas: <span id="sphere-stroke-val">2</span>px</span>
+            <input class="panel__slider" type="range" id="sphere-stroke"
+                   min="1" max="8" step="1" value="2"
+                   aria-label="Grosor de las aristas" />
+          </label>
+          <div id="sphere-palette">
+            <span class="modal__field-label">Color de las aristas</span>
+            <div class="panel__color-grid" id="sphere-color-grid"></div>
+          </div>
+          <label class="panel__field" for="sphere-color">
+            <span class="modal__field-label">Otro color</span>
+            <input class="panel__color-picker" type="color" id="sphere-color" value="#1a1a2e"
+                   aria-label="Color de las aristas" />
+          </label>
+          <label class="panel__check">
+            <input type="checkbox" id="sphere-fill" /> Rellenar las caras
+          </label>
+          <label class="panel__check">
+            <input type="checkbox" id="sphere-fill-transparent" /> Relleno translúcido
+          </label>
+          <label class="panel__field" for="sphere-opacity">
+            <span class="modal__field-label">Opacidad: <span id="sphere-opacity-val">40</span>%</span>
+            <input class="panel__slider" type="range" id="sphere-opacity"
+                   min="0" max="100" step="1" value="40"
+                   aria-label="Opacidad del relleno translúcido" disabled />
+          </label>
+          <label class="panel__field" for="sphere-fill-color">
+            <span class="modal__field-label">Color de relleno</span>
+            <input class="panel__color-picker" type="color" id="sphere-fill-color" value="#4ecdc4"
+                   aria-label="Color de relleno" />
           </label>
         </div>
       </div>
@@ -1509,21 +1656,21 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=2.24.0"></script>
-  <script src="src/js/sketchy.js?v=2.24.0"></script>
-  <script src="src/js/arc.js?v=2.24.0"></script>
-  <script src="src/js/curve-path.js?v=2.24.0"></script>
-  <script src="src/js/shape-rotation.js?v=2.24.0"></script>
-  <script src="src/js/regular-polygon.js?v=2.24.0"></script>
-  <script src="src/js/trapezoid.js?v=2.24.0"></script>
-  <script src="src/js/airbrush.js?v=2.24.0"></script>
-  <script src="src/js/eraser.js?v=2.24.0"></script>
-  <script src="src/js/building.js?v=2.24.0"></script>
-  <script src="src/js/garden.js?v=2.24.0"></script>
-  <script src="src/js/solid.js?v=2.24.0"></script>
-  <script src="src/js/renderer.js?v=2.24.0"></script>
-  <script src="src/js/exporter.js?v=2.24.0"></script>
-  <script src="src/js/templates.js?v=2.24.0"></script>
-  <script src="src/js/app.js?v=2.24.0"></script>
+  <script src="src/js/config.js?v=2.25.0"></script>
+  <script src="src/js/sketchy.js?v=2.25.0"></script>
+  <script src="src/js/arc.js?v=2.25.0"></script>
+  <script src="src/js/curve-path.js?v=2.25.0"></script>
+  <script src="src/js/shape-rotation.js?v=2.25.0"></script>
+  <script src="src/js/regular-polygon.js?v=2.25.0"></script>
+  <script src="src/js/trapezoid.js?v=2.25.0"></script>
+  <script src="src/js/airbrush.js?v=2.25.0"></script>
+  <script src="src/js/eraser.js?v=2.25.0"></script>
+  <script src="src/js/building.js?v=2.25.0"></script>
+  <script src="src/js/garden.js?v=2.25.0"></script>
+  <script src="src/js/solid.js?v=2.25.0"></script>
+  <script src="src/js/renderer.js?v=2.25.0"></script>
+  <script src="src/js/exporter.js?v=2.25.0"></script>
+  <script src="src/js/templates.js?v=2.25.0"></script>
+  <script src="src/js/app.js?v=2.25.0"></script>
 </body>
 </html>

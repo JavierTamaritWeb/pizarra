@@ -28,6 +28,27 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### v2.25.0 — El ecuador de la esfera salía entero discontinuo
+
+- **Síntoma:** una esfera se dibujaba con sus dos medias elipses del ecuador a
+  trazos, en vez de una vista y otra oculta. Sin relleno pasaba desapercibido
+  —dos arcos discontinuos siguen leyéndose como una esfera—; al estrenar el
+  relleno de caras se volvió evidente: una esfera rellena salía como un
+  **círculo plano**, sin ecuador ninguno.
+- **Causa:** dos cosas a la vez. El recorte de líneas ocultas (`_occlude`) marca
+  discontinua toda pieza que pase por detrás de la cara frontal, y el ecuador va
+  justo por DENTRO del círculo, así que lo daba por tapado. Y el orden de
+  emisión ponía la cara frontal la última, de modo que su relleno tapaba
+  cualquier arista que cayera dentro de ella.
+- **Arreglo:** la esfera se excluye del recorte —es el único caso, porque su
+  ecuador es una línea sobre la superficie y no una arista de detrás— y el orden
+  pasa a `[ocultas, caras, frente, aristas vistas]`, con las vistas encima del
+  relleno.
+- **Guardia:** *«el ecuador de la esfera tiene una mitad vista y otra oculta»* y
+  *«el orden de emisión es ocultas, caras, frente y aristas vistas encima»* en
+  `tests/solid.test.js`, más el spec e2e del relleno. La primera comprueba
+  además que la mitad vista se emite DESPUÉS del círculo.
+
 ### v2.24.0 — La previsualización del arrastre ignoraba el trazo discontinuo de cada pieza
 
 - **Síntoma:** con «Discontinuo» marcado en el panel, la previsualización de

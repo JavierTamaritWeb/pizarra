@@ -101,6 +101,10 @@
     solidAngle: 30,       // grados de fuga (Solid.ANGLE_MIN/MAX)
     solidForeshorten: 80, // % de escorzo (Solid.FORESHORTEN_MIN/MAX)
     solidTaper: 55,       // % de la tapa del tronco (Solid.TAPER_MIN/MAX)
+    // Giro de la sección, en el paso válido de su tipo. Sólo lo guardan las
+    // secciones que orientan por ángulo: en el rectángulo, el redondeado y el
+    // círculo girar es intercambiar ancho y alto, que ya lo da el arrastre.
+    solidRotation: 0,
   };
 
   /**
@@ -264,7 +268,7 @@
     // `radius` a cada lado. Con la caja del eje, el marco de selección
     // cortaría la mancha por la mitad y el hit-test por caja mentiría.
     if (el.type === 'airbrush') return Airbrush.visibleBox(el);
-    if (el.type === 'pencil' || el.type === 'eraser') {
+    if (el.type === 'pencil' || el.type === 'eraser' || el.type === 'polygon') {
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       el.points.forEach(p => {
         if (p.x < minX) minX = p.x;
@@ -343,6 +347,21 @@
           Math.hypot(pos.x - pts[0].x, pos.y - pts[0].y) <= alcance;
         for (let s = 1; s < pts.length && !hit; s++) {
           hit = distToSegment(pos, pts[s - 1].x, pts[s - 1].y, pts[s].x, pts[s].y) <= alcance;
+        }
+        if (hit) return i;
+        continue;
+      }
+      if (el.type === TOOLS.POLYGON) {
+        const vertices = Array.isArray(el.points) ? el.points : [];
+        if (vertices.length < 3) continue;
+        // Misma estructura que los polígonos regulares: dentro de la silueta, o
+        // a menos de medio trazo de una arista. El punto-en-polígono sale de
+        // Eraser, como distToSegment, para no tener dos fórmulas que discrepen.
+        let hit = Eraser.pointInPolygon(pos, vertices);
+        for (let v = 0; v < vertices.length && !hit; v++) {
+          const a = vertices[v];
+          const b = vertices[(v + 1) % vertices.length];
+          hit = distToSegment(pos, a.x, a.y, b.x, b.y) <= el.lineWidth / 2 + 6;
         }
         if (hit) return i;
         continue;
@@ -811,6 +830,9 @@
   const FILLABLE_TYPES = [
     TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE, TOOLS.TRAPEZOID,
     ...REGULAR_POLYGON_TYPES,
+    // El polígono libre no tiene herramienta, pero sí relleno: aislar una cara
+    // de un sólido con Alt+clic y recolorearla tiene que funcionar.
+    TOOLS.POLYGON,
   ];
 
   /** <input type="color"> solo acepta #rrggbb: recorta un eventual canal alfa
@@ -1139,6 +1161,7 @@
         solidAngle: state.solidAngle,
         solidForeshorten: state.solidForeshorten,
         solidTaper: state.solidTaper,
+        solidRotation: state.solidRotation,
         // Ajustes de UI y Emoji (v2.10.0): defaults de creación, como todo.
         emojiSize: state.emojiSize,
         uiLabels: state.uiLabels,
@@ -1308,7 +1331,8 @@
       [['solidDepth', Solid.DEPTH_MIN, Solid.DEPTH_MAX],
         ['solidAngle', Solid.ANGLE_MIN, Solid.ANGLE_MAX],
         ['solidForeshorten', Solid.FORESHORTEN_MIN, Solid.FORESHORTEN_MAX],
-        ['solidTaper', Solid.TAPER_MIN, Solid.TAPER_MAX]].forEach(([key, lo, hi]) => {
+        ['solidTaper', Solid.TAPER_MIN, Solid.TAPER_MAX],
+        ['solidRotation', 0, 359]].forEach(([key, lo, hi]) => {
         if (Number.isFinite(prefs[key])) state[key] = Math.min(hi, Math.max(lo, prefs[key]));
       });
       // El área guardada se valida entera y se recorta al lienzo: un rectángulo
@@ -1393,7 +1417,8 @@
   const eraserDeps = () => ({
     boundsOf: getElementBounds,
     sampleCurve: (el, n) => CurvePath.sample(el, n),
-    polygonVertices: el => (RegularPolygon.isType(el.type) ? RegularPolygon.vertices(el) : null),
+    polygonVertices: el => (RegularPolygon.isType(el.type) ? RegularPolygon.vertices(el)
+      : el.type === TOOLS.POLYGON ? el.points : null),
     trapezoidVertices: el => (el.type === TOOLS.TRAPEZOID ? Trapezoid.vertices(el) : null),
   });
 
@@ -2464,6 +2489,7 @@
     return {
       color: state.color, lineWidth: state.lineWidth,
       solidSection: state.solidSection,
+      solidRotation: state.solidRotation,
       solidDepth: state.solidDepth,
       solidAngle: state.solidAngle,
       solidForeshorten: state.solidForeshorten,
@@ -3965,14 +3991,104 @@
     redraw();
   }
 
+  /**
+   * Gira la selección. Dos regímenes, y la diferencia importa:
+   *
+   *  · si TODO lo seleccionado sabe girar sobre sí mismo (`ShapeRotation`),
+   *    cada elemento gira su paso alrededor de su propio centro — es el
+   *    comportamiento de siempre, el de girar un pentágono suelto;
+   *  · si hay algo que no (líneas, curvas, texto, caras rellenas… es decir,
+   *    cualquier figura compuesta: un sólido 3D, un edificio, un árbol), se
+   *    gira el CONJUNTO un cuarto de vuelta alrededor de su centro común.
+   *    Antes ahí no pasaba nada útil: las formas giraban cada una por su lado
+   *    y las líneas se quedaban quietas, deshaciendo el dibujo.
+   *
+   * El cuarto de vuelta no es una elección estética: es el único ángulo que
+   * TODOS los tipos saben representar. Una caja no guarda ángulo —girarla es
+   * intercambiar ancho y alto— y un ángulo libre no cabría en su esquema.
+   */
   function rotateSelection(dir = 1) {
-    const targets = state.selection.filter(i => ShapeRotation.isType(state.elements[i].type));
-    if (!targets.length) return;
+    if (!state.selection.length) return;
+    const todoGirable = state.selection
+      .every(i => ShapeRotation.isType(state.elements[i].type));
+    if (todoGirable) {
+      saveUndo();
+      state.selection.forEach(i => {
+        state.elements[i] = ShapeRotation.rotateElement(state.elements[i], dir);
+      });
+      redraw();
+      return;
+    }
+    const box = selectionBounds();
+    if (!box) return;
     saveUndo();
-    targets.forEach(i => {
-      state.elements[i] = ShapeRotation.rotateElement(state.elements[i], dir);
+    const c = { x: box.x + box.w / 2, y: box.y + box.h / 2 };
+    state.selection.forEach(i => {
+      state.elements[i] = rotateAround(state.elements[i], c, dir);
     });
     redraw();
+  }
+
+  /**
+   * Un elemento girado un cuarto de vuelta alrededor de `c`. Devuelve una
+   * copia (los elementos son inmutables) y respeta el esquema de cada tipo:
+   * lo que se define por puntos gira punto a punto, y lo que se define por
+   * caja gira su centro e intercambia ancho y alto, sumando el cuarto de
+   * vuelta al campo `rotation` sólo en los tipos que lo admiten —ponerlo en un
+   * rect o un círculo lo rechazaría `isValidElement` al reimportar.
+   *
+   * El texto se traslada pero no se inclina: un `text` no guarda ángulo.
+   */
+  function rotateAround(el, c, dir) {
+    const sign = dir < 0 ? -1 : 1;
+    const rot = p => ({
+      x: c.x - sign * (p.y - c.y),
+      y: c.y + sign * (p.x - c.x),
+    });
+    const m = { ...el };
+    if (Array.isArray(m.points)) {
+      m.points = m.points.map(rot);
+    }
+    if (Array.isArray(m.segments)) {
+      m.segments = m.segments.map(seg => {
+        const a = rot({ x: seg.x1, y: seg.y1 });
+        const b = rot({ x: seg.x2, y: seg.y2 });
+        const c1 = rot({ x: seg.cx, y: seg.cy });
+        const out = { x1: a.x, y1: a.y, cx: c1.x, cy: c1.y, x2: b.x, y2: b.y };
+        if (seg.cx2 !== undefined) {
+          const c2 = rot({ x: seg.cx2, y: seg.cy2 });
+          out.cx2 = c2.x; out.cy2 = c2.y;
+        }
+        return out;
+      });
+      // Los extremos de nivel superior son un espejo de la cadena: se copian de
+      // ella, nunca se recalculan, o CurvePath.isValidSegments los vería
+      // discrepar por un ULP y el proyecto no reimportaría.
+      const first = m.segments[0], last = m.segments[m.segments.length - 1];
+      m.x1 = first.x1; m.y1 = first.y1; m.x2 = last.x2; m.y2 = last.y2;
+    } else if (m.x1 !== undefined) {
+      const a = rot({ x: m.x1, y: m.y1 }), b = rot({ x: m.x2, y: m.y2 });
+      m.x1 = a.x; m.y1 = a.y; m.x2 = b.x; m.y2 = b.y;
+      if (m.cx !== undefined) { const q = rot({ x: m.cx, y: m.cy }); m.cx = q.x; m.cy = q.y; }
+      if (m.cx2 !== undefined) { const q = rot({ x: m.cx2, y: m.cy2 }); m.cx2 = q.x; m.cy2 = q.y; }
+    } else if (m.x !== undefined && m.w !== undefined) {
+      const mid = rot({ x: m.x + m.w / 2, y: m.y + m.h / 2 });
+      const w = m.h, h = m.w;                    // el cuarto de vuelta los cambia
+      m.x = mid.x - w / 2; m.y = mid.y - h / 2;
+      m.w = w; m.h = h;
+      if (RegularPolygon.isType(m.type) || m.type === TOOLS.TRAPEZOID) {
+        const next = ShapeRotation.normalize((m.rotation || 0) + sign * 90);
+        if (next) m.rotation = next; else delete m.rotation;
+      }
+    } else if (m.x !== undefined) {
+      const q = rot({ x: m.x, y: m.y });          // texto: se mueve, no se inclina
+      m.x = q.x; m.y = q.y;
+    }
+    if (m.clip) {
+      const mid = rot({ x: m.clip.x + m.clip.w / 2, y: m.clip.y + m.clip.h / 2 });
+      m.clip = { x: mid.x - m.clip.h / 2, y: mid.y - m.clip.w / 2, w: m.clip.h, h: m.clip.w };
+    }
+    return m;
   }
 
   /* ── Build sidebar ── */
@@ -4049,7 +4165,8 @@
       las MISMAS muestras (`.panel__color-swatch` + `data-color`), y por eso
       `updateColorActive` —que consulta por clase, no por id— resalta el color
       activo en las dos sin saber que hay dos. */
-  const COLOR_GRIDS = ['color-grid', 'airbrush-color-grid'];
+  const COLOR_GRIDS = ['color-grid', 'airbrush-color-grid',
+    'prism-color-grid', 'pyramid-color-grid', 'frustum-color-grid', 'sphere-color-grid'];
 
   function buildColors() {
     COLOR_GRIDS.forEach(buildColorGrid);
@@ -4632,6 +4749,11 @@
       $('shape-modal-rotation-val').textContent = String(snapped);
     }
     renderShapePreview();
+    // Los mandos de trazo y relleno están también en los cuatro modales de 3D,
+    // y su valor depende de la selección: hay que repartirlos aquí, en el punto
+    // de sincronía que corre en cada repintado. Sólo si hay uno abierto —si no,
+    // repintar cuatro miniaturas por fotograma sería puro derroche.
+    if (solidModalOpen()) syncSolidControls();
   }
 
   /** Abre los ajustes de la forma. Como el borrador y el trazo, cerrarlo no
@@ -4897,7 +5019,8 @@
       else pushUndo(snap);
     }
     ['color-picker', 'stroke-modal-color', 'shape-modal-color',
-      'text-modal-color', 'ui-modal-color', 'airbrush-modal-color'].forEach(id => {
+      'text-modal-color', 'ui-modal-color', 'airbrush-modal-color',
+      'prism-color', 'pyramid-color', 'frustum-color', 'sphere-color'].forEach(id => {
       $(id).addEventListener('input', e => applyColor(e.target.value));
       $(id).addEventListener('change', commitColorGesture);
     });
@@ -4952,7 +5075,10 @@
     // deslizador del panel: sin él, un texto seleccionado se quedaba sin sitio
     // desde el que cambiar su trazo.
     ['stroke-modal-slider', 'shape-modal-slider', 'ui-modal-slider',
-      'text-modal-stroke'].forEach(id => {
+      'text-modal-stroke',
+      // Y los cuatro de 3D: el grosor de las aristas de un sólido es el mismo
+      // ajuste, así que pasa por el mismo cuerpo y el mismo paso de undo.
+      'prism-stroke', 'pyramid-stroke', 'frustum-stroke', 'sphere-stroke'].forEach(id => {
       $(id).addEventListener('input', e => applyStrokeWidth(+e.target.value));
       $(id).addEventListener('change', commitStrokeGesture);
       $(id).addEventListener('pointerup', commitStrokeGesture);
@@ -5348,7 +5474,7 @@
       }
       syncShapeControls();
     };
-    ['check-fill', 'shape-modal-fill'].forEach(id => {
+    ['check-fill', 'shape-modal-fill', 'prism-fill', 'pyramid-fill', 'frustum-fill', 'sphere-fill'].forEach(id => {
       $(id).addEventListener('change', e => applyFill(e.target.checked));
     });
 
@@ -5372,7 +5498,8 @@
       }
       syncShapeControls();
     };
-    ['check-fill-transparent', 'shape-modal-fill-transparent'].forEach(id => {
+    ['check-fill-transparent', 'shape-modal-fill-transparent',
+      'prism-fill-transparent', 'pyramid-fill-transparent', 'frustum-fill-transparent', 'sphere-fill-transparent'].forEach(id => {
       $(id).addEventListener('change', e => applyFillTransparent(e.target.checked));
     });
 
@@ -5409,12 +5536,15 @@
       if (unchanged) state.elements = snap;
       else pushUndo(snap);
     }
-    ['fill-opacity-slider', 'shape-modal-opacity'].forEach(id => {
+    ['fill-opacity-slider', 'shape-modal-opacity', 'prism-opacity', 'pyramid-opacity', 'frustum-opacity', 'sphere-opacity'].forEach(id => {
       $(id).addEventListener('change', commitFillOpacityGesture);
       $(id).addEventListener('pointerup', commitFillOpacityGesture);
       $(id).addEventListener('pointercancel', commitFillOpacityGesture);
     });
-    $('shape-modal-opacity').addEventListener('input', e => applyFillOpacity(+e.target.value));
+    ['shape-modal-opacity', 'prism-opacity', 'pyramid-opacity', 'frustum-opacity',
+      'sphere-opacity'].forEach(id => {
+      $(id).addEventListener('input', e => applyFillOpacity(+e.target.value));
+    });
 
     // Color de relleno — misma semántica dual. Elegir un color implica querer
     // relleno, así que además lo activa (el checkbox sigue siendo el "off").
@@ -5439,7 +5569,8 @@
       }
       syncShapeControls();
     };
-    ['fill-color-picker', 'shape-modal-fill-color'].forEach(id => {
+    ['fill-color-picker', 'shape-modal-fill-color',
+      'prism-fill-color', 'pyramid-fill-color', 'frustum-fill-color', 'sphere-fill-color'].forEach(id => {
       $(id).addEventListener('input', e => applyFillColor(e.target.value));
       $(id).addEventListener('change', () => commitFillColorGesture());
     });
@@ -5980,9 +6111,20 @@
     // Rect/roundedRect quedan fuera a propósito pese a estar en ShapeRotation:
     // ahí «girar» es intercambiar ancho y alto, y perder su nudge a cambio de
     // eso no compensa.
+    //
+    // Y desde la v2.25.0 también giran una FIGURA COMPUESTA —un sólido 3D, un
+    // edificio, un árbol—: sus piezas comparten `buildingGroupId`, así que la
+    // selección es la figura entera y girarla es lo que uno espera de ella.
+    // Paga el mismo precio, su nudge horizontal, con el mismo consuelo: ↑/↓,
+    // el ratón y los campos X/Y del panel la siguen moviendo.
+    const grupoCompuesto = state.selection.length > 1 &&
+      state.elements[state.selection[0]].buildingGroupId &&
+      state.selection.every(i => state.elements[i].buildingGroupId ===
+        state.elements[state.selection[0]].buildingGroupId);
     if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && state.selection.length &&
         !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey &&
-        state.selection.every(i => ROTATABLE_TOOLS.includes(state.elements[i].type))) {
+        (grupoCompuesto ||
+          state.selection.every(i => ROTATABLE_TOOLS.includes(state.elements[i].type)))) {
       e.preventDefault();
       // Mismo freno que el nudge y los toggles: sin filtrar el auto-repeat,
       // mantener la flecha apila ~30 pasos de undo por segundo y expulsa el
@@ -7241,11 +7383,20 @@
      tiene fondo que graduar (su ecuador sale del ángulo y el escorzo) y sólo
      el tronco tiene tapa; los que faltan simplemente no están en el HTML. */
   const SOLID_MODALS = [
-    { tool: TOOLS.SOLID_PRISM,   prefix: 'prism' },
-    { tool: TOOLS.SOLID_PYRAMID, prefix: 'pyramid' },
-    { tool: TOOLS.SOLID_FRUSTUM, prefix: 'frustum' },
-    { tool: TOOLS.SOLID_SPHERE,  prefix: 'sphere', modal: 'modal-sphere' },
+    { tool: TOOLS.SOLID_PRISM,   prefix: 'prism',   modal: 'modal-prism' },
+    { tool: TOOLS.SOLID_PYRAMID, prefix: 'pyramid', modal: 'modal-pyramid' },
+    { tool: TOOLS.SOLID_FRUSTUM, prefix: 'frustum', modal: 'modal-frustum' },
+    // El único que no está en VARIANT_MODALS: no tiene sección que elegir
+    { tool: TOOLS.SOLID_SPHERE,  prefix: 'sphere',  modal: 'modal-sphere', ownModal: true },
   ];
+
+  /** ¿Hay algún modal de 3D abierto? Con un `<dialog showModal>` delante el
+      lienzo está inerte, así que repintar sus miniaturas mientras está abierto
+      no compite con nada; cerrado, no se toca. */
+  const solidModalOpen = () => SOLID_MODALS.some(cfg => {
+    const m = $(cfg.modal);
+    return m && m.open;
+  });
 
   /** Los topes salen del módulo, no se reescriben aquí: tests/smoke.test.js
       comprueba que coinciden con los min/max de los deslizadores del HTML. */
@@ -7254,6 +7405,9 @@
     { id: 'angle',       key: 'solidAngle',       lo: () => Solid.ANGLE_MIN,       hi: () => Solid.ANGLE_MAX },
     { id: 'foreshorten', key: 'solidForeshorten', lo: () => Solid.FORESHORTEN_MIN, hi: () => Solid.FORESHORTEN_MAX },
     { id: 'taper',       key: 'solidTaper',       lo: () => Solid.TAPER_MIN,       hi: () => Solid.TAPER_MAX },
+    // El giro no se vuelca aquí (lo hace syncSolidRotation, que además ajusta
+    // el paso), pero sí se cablea: comparte el mismo contrato de input/change.
+    { id: 'rotation',    key: 'solidRotation',    lo: () => 0,                     hi: () => 359, skipSync: true },
   ];
 
   const SOLID_PREVIEW_W = 176, SOLID_PREVIEW_H = 168;
@@ -7261,15 +7415,73 @@
   /** Punto único que vuelca `state` en los mandos de los cuatro modales y
       repinta sus miniaturas. Mismo contrato que syncWallControls(). */
   function syncSolidControls() {
+    // Trazo y relleno tienen la semántica dual de siempre: con una selección
+    // enseñan lo suyo, sin ella los valores con los que nacerá el próximo
+    // sólido. Se lee de la misma fuente que syncShapeControls para que los dos
+    // juegos de mandos no puedan discrepar.
+    const single = state.selection.length === 1
+      ? state.elements[state.selection[0]] : null;
+    const fillable = single && FILLABLE_TYPES.includes(single.type) ? single : null;
+    const width = single ? single.lineWidth : state.lineWidth;
+    const color = hex6(single ? single.color : state.color);
+    const on = fillable ? fillable.fill === true : state.fillShapes;
+    const transparent = fillable
+      ? fillable.fillTransparent === true : state.fillTransparent;
+    const pct = Math.round((fillable
+      ? (fillable.fillOpacity !== undefined ? fillable.fillOpacity : 0.4)
+      : state.fillOpacity) * 100);
+    const fillColor = hex6(fillable
+      ? (fillable.fillColor || fillable.color) : (state.fillColor || state.color));
+
     SOLID_MODALS.forEach(cfg => {
+      const p = cfg.prefix;
       SOLID_FIELDS.forEach(f => {
-        const input = $(`${cfg.prefix}-${f.id}`);
+        if (f.skipSync) return;
+        const input = $(`${p}-${f.id}`);
         if (input) input.value = String(state[f.key]);
-        const out = $(`${cfg.prefix}-${f.id}-val`);
+        const out = $(`${p}-${f.id}-val`);
         if (out) out.textContent = String(Math.round(state[f.key]));
       });
+      _set(`${p}-stroke`, 'value', String(width));
+      _text(`${p}-stroke-val`, String(width));
+      _set(`${p}-color`, 'value', color);
+      _set(`${p}-fill`, 'checked', on);
+      _set(`${p}-fill-transparent`, 'checked', transparent);
+      _set(`${p}-opacity`, 'value', String(pct));
+      _text(`${p}-opacity-val`, String(pct));
+      _set(`${p}-opacity`, 'disabled', !transparent);
+      _set(`${p}-fill-color`, 'value', fillColor);
+      syncSolidRotation(cfg);
       renderSolidPreview(cfg);
     });
+  }
+
+  const _set = (id, prop, value) => { const n = $(id); if (n) n[prop] = value; };
+  const _text = (id, value) => { const n = $(id); if (n) n.textContent = value; };
+
+  /** El paso del giro lo manda la SECCIÓN, así que el deslizador se
+      reconfigura al cambiarla: 36° no es una orientación válida de un
+      hexágono, y un trapecio fuera del cuarto de vuelta lo rechaza la
+      validación al reimportar. El rectángulo, el redondeado y el círculo no
+      guardan ángulo —ahí girar es intercambiar ancho y alto—, así que su fila
+      desaparece en vez de prometer algo que no haría nada. */
+  function syncSolidRotation(cfg) {
+    const row = $(`${cfg.prefix}-rotation-row`);
+    if (!row) return;                       // la esfera no tiene sección
+    const rotable = Solid.isRotatableSection(state.solidSection);
+    row.hidden = !rotable;
+    if (!rotable) return;
+    const step = ShapeRotation.step(state.solidSection) || 90;
+    const snapped = ShapeRotation.normalize(
+      Math.round(state.solidRotation / step) * step);
+    state.solidRotation = snapped;
+    const slider = $(`${cfg.prefix}-rotation`);
+    if (slider) {
+      slider.step = String(step);
+      slider.max = String(360 - step);
+      slider.value = String(snapped);
+    }
+    _text(`${cfg.prefix}-rotation-val`, String(snapped));
   }
 
   /** Miniatura de un sólido: geometría real vía Solid.elements +

@@ -561,6 +561,28 @@ const Renderer = (() => {
     }
   }
 
+  /**
+   * Polígono libre: la lista de puntos ES la geometría, sin caja ni rotación
+   * que interpretar. `stroke: false` lo deja SIN contorno, que es como lo
+   * emiten las caras laterales de un sólido 3D: sus aristas ya se dibujan
+   * aparte, una a una, porque cada una necesita decidir por su cuenta si va
+   * discontinua. La ausencia del campo es el aspecto normal, con contorno.
+   */
+  function _freePolygon(ctx, el, options) {
+    const vertices = Array.isArray(el.points) ? el.points : [];
+    if (vertices.length < 3) return;
+    if (el.fill && options.shapeFill !== false) {
+      ctx.fillStyle = fillStyle(el);
+      _polygonPath(ctx, vertices);
+      ctx.fill();
+    }
+    if (el.stroke === false || options.shapeStroke === false) return;
+    vertices.forEach((point, index) => {
+      const next = vertices[(index + 1) % vertices.length];
+      Sketchy.line(ctx, point.x, point.y, next.x, next.y);
+    });
+  }
+
   /* ── Public: render a single element ── */
 
   function renderElement(ctx, el, options = {}) {
@@ -723,6 +745,10 @@ const Renderer = (() => {
 
       case 'trapezoid':
         _trapezoid(ctx, el, options);
+        break;
+
+      case 'polygon':
+        _freePolygon(ctx, el, options);
         break;
 
       case 'text':

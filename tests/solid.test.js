@@ -33,8 +33,13 @@ function* TODAS() {
   yield [TOOLS.SOLID_SPHERE, TOOLS.CIRCLE, dibuja(TOOLS.SOLID_SPHERE, TOOLS.CIRCLE)];
 }
 
-const frenteDe = els => els[els.length - 1];
-const aristasDe = els => els.slice(0, -1);
+const ES_ARISTA = e => e.type === 'line' || e.type === 'curveArrow';
+/** La cara frontal: el único elemento que no es arista ni cara rellena. Se
+    busca por tipo y no por posición, porque el orden de emisión es
+    significativo y cambiarlo no debe romper los tests que no van de eso. */
+const frenteDe = els => els.find(e => !ES_ARISTA(e) && e.type !== 'polygon');
+const aristasDe = els => els.filter(ES_ARISTA);
+const carasDe = els => els.filter(e => e.type === 'polygon');
 
 test('Solid.elements existe y las cuatro herramientas producen algo', () => {
   assert.equal(typeof Solid.elements, 'function');
@@ -64,18 +69,68 @@ test('ninguna pieza trae seed: lo pone app.js con withSeeds', () => {
   }
 });
 
-test('la cara frontal es el elemento 2D REAL de la sección, y va la última', () => {
+test('la cara frontal es el elemento 2D REAL de la sección', () => {
   // Es lo que hace que herede el relleno, el temblor de Sketchy, el hit-test y
   // el borrado por silueta, «Bordes ocultos» y las cinco exportaciones sin una
-  // línea de código propia. Y va la última para que su relleno tape lo que
-  // pasa por detrás.
+  // línea de código propia.
   for (const [tool, section, els] of TODAS()) {
-    assert.equal(frenteDe(els).type, section, `${tool}/${section}: la última no es la cara`);
-    assert.ok(frenteDe(els).w > 0 && frenteDe(els).h > 0);
-    for (const el of aristasDe(els)) {
-      assert.ok(el.type === 'line' || el.type === 'curveArrow',
-        `${tool}/${section}: arista de tipo ${el.type}`);
+    const frente = frenteDe(els);
+    assert.ok(frente, `${tool}/${section}: no hay cara frontal`);
+    assert.equal(frente.type, section);
+    assert.ok(frente.w > 0 && frente.h > 0);
+    // Sin relleno no se emite ninguna cara: el dibujo es el de siempre
+    assert.deepEqual([...carasDe(els)], []);
+    assert.equal(els.length, aristasDe(els).length + 1);
+  }
+});
+
+test('el orden de emisión es ocultas, caras, frente y aristas vistas encima', () => {
+  // El orden ES el resultado. Con relleno opaco las caras tapan lo que pasa por
+  // detrás; y las aristas vistas van DESPUÉS de la cara frontal porque el
+  // ecuador de una esfera va por dentro de ella y con el relleno delante
+  // desaparecía: una esfera rellena salía como un círculo plano.
+  for (const [tool, section] of [...TODAS()]) {
+    const els = dibuja(tool, section, { fill: true, fillColor: '#88ccbb' });
+    const idxFrente = els.findIndex(e => !ES_ARISTA(e) && e.type !== 'polygon');
+    const idxCaras = els.map((e, i) => (e.type === 'polygon' ? i : -1)).filter(i => i >= 0);
+    const idxOcultas = els.map((e, i) => (e.dash ? i : -1)).filter(i => i >= 0);
+    const idxVistas = els.map((e, i) => (ES_ARISTA(e) && !e.dash ? i : -1)).filter(i => i >= 0);
+    const etiqueta = `${tool}/${section}`;
+    for (const i of idxOcultas) {
+      for (const j of idxCaras) assert.ok(i < j, `${etiqueta}: oculta después de una cara`);
+      assert.ok(i < idxFrente, `${etiqueta}: oculta después del frente`);
     }
+    for (const j of idxCaras) {
+      assert.ok(j < idxFrente, `${etiqueta}: cara después del frente`);
+    }
+    for (const v of idxVistas) {
+      assert.ok(v > idxFrente, `${etiqueta}: arista vista debajo del frente`);
+    }
+  }
+});
+
+test('con relleno aparecen las caras VISTAS, sin contorno propio', () => {
+  for (const [tool, section] of [...TODAS()]) {
+    const els = dibuja(tool, section, { fill: true, fillColor: '#88ccbb' });
+    const caras = carasDe(els);
+    // La esfera no tiene cara lateral: su volumen es la propia cara frontal
+    if (tool === TOOLS.SOLID_SPHERE) {
+      assert.deepEqual([...caras], []);
+      continue;
+    }
+    assert.ok(caras.length > 0, `${tool}/${section}: no se rellenó ninguna cara`);
+    for (const cara of caras) {
+      assert.equal(cara.fill, true);
+      // Sin contorno: las aristas se dibujan aparte, una a una, y cada una
+      // decide por su cuenta si va discontinua. Con contorno saldrían dobles y
+      // las ocultas se volverían sólidas.
+      assert.equal(cara.stroke, false, `${tool}/${section}: la cara lleva contorno`);
+      assert.ok(cara.points.length >= 3);
+      assert.equal(cara.dash, undefined);
+      assert.ok(Exporter.isValidElement({ ...cara, seed: 1 }));
+    }
+    // Nunca se rellenan más caras que aristas vistas hay: sólo las que se ven
+    assert.ok(caras.length <= aristasDe(els).length + 1);
   }
 });
 
@@ -154,11 +209,18 @@ test('el cubo canónico: arriba y derecha sólidas, abajo e izquierda ocultas', 
 test('invertir la fuga INTERCAMBIA qué aristas son discontinuas', () => {
   // La guarda que muere si alguien deja la visibilidad en `true` fijo o
   // invierte el signo del área: sin regla, las dos versiones serían idénticas.
-  const conAngulo = a => JSON.stringify(dibuja(TOOLS.SOLID_PRISM, TOOLS.RECT,
-    { solidAngle: a }).map(e => !!e.dash));
+  // Se mira UN conector concreto, el que nace de la esquina inferior izquierda
+  // de la cara, y se comprueba que cambia de estado al invertir la fuga. Va por
+  // geometría y no por posición en el array, porque el orden de emisión agrupa
+  // las ocultas al principio: comparar la secuencia de banderas daría igual en
+  // los dos casos aunque la regla estuviera rota.
+  const conectorEn = (a, x, y) => dibuja(TOOLS.SOLID_PRISM, TOOLS.RECT, { solidAngle: a })
+    .find(e => e.type === 'line' && Math.abs(e.x1 - x) < 1e-6 && Math.abs(e.y1 - y) < 1e-6);
+  // La cara nace en (0,0)-(80,80): esquina inferior izquierda en (0,80).
   // Contra la fuga OPUESTA: dentro de un mismo cuadrante un rectángulo tiene
   // las mismas caras vistas, así que comparar 30° con 85° no probaría nada.
-  assert.notEqual(conAngulo(30), conAngulo(210));
+  assert.equal(!!conectorEn(30, 0, 80).dash, true, 'con la fuga arriba-derecha, oculto');
+  assert.equal(!!conectorEn(210, 0, 80).dash, false, 'con la fuga invertida, visible');
   const els = dibuja(TOOLS.SOLID_PRISM, TOOLS.RECT);
   const solidas = aristasDe(els).filter(e => !e.dash).length;
   assert.ok(solidas > 0 && solidas < aristasDe(els).length,
@@ -235,6 +297,10 @@ test('ninguna pieza sólida pasa por detrás de la cara frontal', () => {
     return p => Math.abs(p.x - cx) < rx && Math.abs(p.y - cy) < ry;
   };
   for (const [tool, section, els] of TODAS()) {
+    // La esfera está exenta a propósito: su ecuador es una línea SOBRE la
+    // superficie, va por dentro del círculo y no está oculto (ver el test del
+    // ecuador). Es el único caso.
+    if (tool === TOOLS.SOLID_SPHERE) continue;
     const test_ = dentro(frenteDe(els));
     for (const el of aristasDe(els).filter(e => !e.dash)) {
       const pts = [];
@@ -390,4 +456,96 @@ test('un sólido sobrevive al viaje export → import', () => {
   // Estructural: los arrays nacidos dentro del realm vm no comparten prototipo
   assert.deepEqual([...json.map(e => e.type)], [...els.map(e => e.type)]);
   assert.deepEqual([...json.map(e => !!e.dash)], [...els.map(e => !!e.dash)]);
+});
+
+test('el ecuador de la esfera tiene una mitad vista y otra oculta', () => {
+  // Va por DENTRO del círculo, así que el recorte por punto interior lo daba
+  // entero por oculto: las dos mitades salían discontinuas y, con relleno
+  // opaco, tapadas — una esfera rellena era un círculo plano.
+  const els = dibuja(TOOLS.SOLID_SPHERE, TOOLS.CIRCLE);
+  const arcos = els.filter(e => e.type === 'curveArrow');
+  assert.equal(arcos.length, 2, 'el ecuador son dos medias elipses');
+  assert.equal(arcos.filter(e => e.dash).length, 1, 'una oculta');
+  assert.equal(arcos.filter(e => !e.dash).length, 1, 'y una vista');
+  // Y la vista se dibuja ENCIMA del círculo, o el relleno la taparía
+  const conRelleno = dibuja(TOOLS.SOLID_SPHERE, TOOLS.CIRCLE, { fill: true });
+  const iFrente = conRelleno.findIndex(e => e.type === 'circle');
+  const iVista = conRelleno.findIndex(e => e.type === 'curveArrow' && !e.dash);
+  assert.ok(iVista > iFrente, 'la mitad vista del ecuador va encima del relleno');
+});
+
+/* ── Giro de la sección ── */
+
+test('el giro de la sección se cuantiza al paso válido de su tipo', () => {
+  // 36° no es una orientación posible de un hexágono, y un trapecio fuera del
+  // cuarto de vuelta lo RECHAZA isValidElement al reimportar el proyecto.
+  const rot = (section, valor) => frenteDe(dibuja(TOOLS.SOLID_PRISM, section,
+    { solidRotation: valor })).rotation;
+  assert.equal(rot(TOOLS.HEXAGON, 30), 30);
+  assert.equal(rot(TOOLS.HEXAGON, 36), 30, 'se ajusta al paso de 30°');
+  assert.equal(rot(TOOLS.PENTAGON, 40), 36, 'se ajusta al paso de 36°');
+  assert.equal(rot(TOOLS.TRAPEZOID, 100), 90, 'el trapecio sólo cuartos de vuelta');
+  // Y la ausencia del campo sigue siendo la orientación de siempre
+  assert.equal(rot(TOOLS.HEXAGON, 0), undefined);
+  assert.equal(rot(TOOLS.HEXAGON, 5), undefined, '5° cuantiza a 0, y 0 no se guarda');
+});
+
+test('las secciones que no orientan por ángulo ignoran el giro', () => {
+  // En el rectángulo, el redondeado y el círculo girar es intercambiar ancho y
+  // alto; un `rotation` en ellos lo rechaza isValidElement.
+  for (const section of [TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE]) {
+    const els = dibuja(TOOLS.SOLID_PRISM, section, { solidRotation: 90 });
+    assert.equal(frenteDe(els).rotation, undefined, `${section} no guarda ángulo`);
+    for (const el of els) assert.ok(Exporter.isValidElement({ ...el, seed: 1 }));
+  }
+  assert.equal(Solid.isRotatableSection(TOOLS.RECT), false);
+  assert.equal(Solid.isRotatableSection(TOOLS.HEXAGON), true);
+  assert.equal(Solid.isRotatableSection(TOOLS.TRAPEZOID), true);
+});
+
+test('girar la sección gira TODA la figura, no sólo la cara', () => {
+  // Si el giro no llegara al perfil, la cara saldría girada y las aristas
+  // seguirían saliendo de los vértices de antes: el sólido se rompería.
+  const sin = dibuja(TOOLS.SOLID_PRISM, TOOLS.HEXAGON);
+  const con = dibuja(TOOLS.SOLID_PRISM, TOOLS.HEXAGON, { solidRotation: 30 });
+  assert.equal(sin.length, con.length);
+  const conectores = els => els.filter(e => e.type === 'line')
+    .map(e => `${e.x1.toFixed(1)},${e.y1.toFixed(1)}`).sort().join('|');
+  assert.notEqual(conectores(sin), conectores(con),
+    'las aristas tienen que nacer de los vértices girados');
+  for (const el of con) assert.ok(Exporter.isValidElement({ ...el, seed: 1 }));
+});
+
+/* ── Grosor y color de las aristas ── */
+
+test('el grosor y el color llegan a TODAS las piezas', () => {
+  for (const [tool, section] of [...TODAS()]) {
+    const els = dibuja(tool, section,
+      { color: '#ff0055', lineWidth: 6, fill: true, fillColor: '#00ffaa' });
+    for (const el of els) {
+      assert.equal(el.color, '#ff0055', `${tool}/${section}: ${el.type} con otro color`);
+      assert.equal(el.lineWidth, 6, `${tool}/${section}: ${el.type} con otro grosor`);
+    }
+    for (const cara of carasDe(els)) {
+      assert.equal(cara.fillColor, '#00ffaa');
+    }
+  }
+});
+
+test('el relleno translúcido y su opacidad viajan a las caras y a la frontal', () => {
+  const els = dibuja(TOOLS.SOLID_PRISM, TOOLS.SQUARE,
+    { fill: true, fillColor: '#00ffaa', fillTransparent: true, fillOpacity: 0.25 });
+  const rellenables = [...carasDe(els), frenteDe(els)];
+  assert.ok(rellenables.length > 1);
+  for (const el of rellenables) {
+    assert.equal(el.fill, true);
+    assert.equal(el.fillColor, '#00ffaa');
+    assert.equal(el.fillTransparent, true);
+    assert.equal(el.fillOpacity, 0.25);
+  }
+  // Sólido = AUSENCIA del flag, como en el resto de la app
+  const solido = dibuja(TOOLS.SOLID_PRISM, TOOLS.SQUARE, { fill: true, fillColor: '#00ffaa' });
+  for (const el of [...carasDe(solido), frenteDe(solido)]) {
+    assert.equal(el.fillTransparent, undefined);
+  }
 });

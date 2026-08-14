@@ -23,6 +23,11 @@ const TOOLS = Object.freeze({
   // así que no necesitan nada propio en renderer, exporter ni borrador.
   STAR5:            'star5',
   STAR6:            'star6',
+  // Polígono libre: una lista de puntos con relleno propio y contorno
+  // opcional. NO tiene botón en el sidebar (como `image`): lo produce
+  // js/solid.js para las caras laterales de las figuras 3D, que son
+  // cuadriláteros arbitrarios y ningún otro tipo sabe representar.
+  POLYGON:          'polygon',
   ARROW:            'arrow',
   CURVE_ARROW:      'curveArrow',
   ARC:              'arc', // herramienta de creación: produce curveArrow con arc:true
