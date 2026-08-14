@@ -4,6 +4,19 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.25.4] — 2026-08-14
+
+### Corregido
+
+- En las figuras **3D**, «Rellenar las caras» pintaba un tono lavado en vez de
+  un relleno opaco, y marcar además «Relleno translúcido» dejaba la figura
+  **más** cubierta que el modo llamado sólido. Cuando no se había elegido color
+  de relleno, las caras salían sin `fillColor` y caían en el tinte clásico del
+  trazo (12 % de opacidad), mientras que el translúcido usa su 40 % de fábrica.
+  Ahora un sólido relleno usa siempre el color que enseña su propio selector,
+  opaco; el translúcido sigue obedeciendo al deslizador de opacidad. Vaciar y
+  volver a rellenar conserva el color elegido.
+
 ## [2.25.3] — 2026-08-14
 
 ### Corregido

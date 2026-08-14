@@ -373,3 +373,61 @@ test('los mandos del modal enseñan lo que tiene la figura, no los valores de f�
   await expect(page.locator('#prism-stroke')).toHaveValue('7');
   await expect(page.locator('#prism-stroke-val')).toHaveText('7');
 });
+
+test('rellenar un sólido ya dibujado lo pinta OPACO, y el translúcido se ve más claro', async ({ page }) => {
+  await openApp(page);
+  // 1) Se dibuja en hueco, sin tocar el color de relleno: es el caso que se
+  //    rompía —sin `fillColor` propio, el relleno caía en el tinte clásico
+  //    `color + '20'` (12 %) y el modo SÓLIDO salía más transparente que el
+  //    translúcido (40 %).
+  await page.locator('.sidebar__tool[data-tool="prisma"]').click();
+  await page.locator('#prism-fill').uncheck();
+  await page.locator('[data-prism="square"]').click();
+  await settle(page);
+  await drag(page, 300, 300, 460, 460);
+  await settle(page);
+
+  // 2) Se vuelve a seleccionar y se rellena desde el modal de la herramienta
+  await selectTool(page, 'select');
+  await clickCanvas(page, 320, 320);
+  await settle(page);
+  await page.locator('.sidebar__tool[data-tool="prisma"]').click();
+  await page.locator('#prism-fill-transparent').uncheck();
+  await page.locator('#prism-fill').check();
+  await expect.poll(async () =>
+    (await elements(page)).filter(e => e.type === 'polygon').length).toBeGreaterThan(0);
+
+  // Las caras llevan color propio explícito: el relleno sólido es opaco
+  const caras = (await elements(page)).filter(e => e.type === 'polygon');
+  for (const c of caras) {
+    expect(c.fillColor, 'la cara guarda su color de relleno').toMatch(/^#[0-9a-f]{6}$/i);
+    expect(c.fillTransparent).toBeUndefined();
+  }
+
+  // Y en el lienzo: el centro de la figura queda del color de la tinta, no de
+  // un tono lavado a un paso del papel.
+  const muestra = () => page.evaluate(() => {
+    const c = document.getElementById('main-canvas');
+    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    // Luminancia media de la banda central del sólido
+    let sum = 0, n = 0;
+    for (let y = 330; y < 430; y++) {
+      for (let x = 330; x < 430; x++) {
+        const i = (y * c.width + x) * 4;
+        sum += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+        n++;
+      }
+    }
+    return sum / n;
+  });
+  const solido = await muestra();
+
+  // 3) Translúcido: la misma zona tiene que aclararse (deja pasar el papel)
+  await page.locator('#prism-fill-transparent').check();
+  await settle(page);
+  await settle(page);
+  const translucido = await muestra();
+
+  expect(solido, 'el relleno sólido es opaco, no un tinte al 12 %').toBeLessThan(80);
+  expect(translucido, 'el translúcido deja ver el papel').toBeGreaterThan(solido + 20);
+});

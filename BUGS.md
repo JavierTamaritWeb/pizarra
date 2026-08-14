@@ -35,6 +35,30 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### v2.25.4 — El relleno «sólido» de una figura 3D salía MÁS transparente que el translúcido
+
+- **Síntoma:** se dibuja un sólido en hueco, se vuelve a seleccionar y se marca
+  «Rellenar las caras»: la figura se pintaba de un tono lavado, a un paso del
+  papel, en vez de opaco. Y al marcar además «Relleno translúcido» quedaba
+  **más** cubierta que en el modo llamado sólido. Reportado por el usuario.
+- **Causa:** las caras y la cara frontal se emitían **sin `fillColor`** cuando el
+  usuario no había elegido uno, y ahí `Renderer.fillStyle` cae en el tinte
+  clásico del trazo, `color + '20'` — un 12 % de opacidad. El modo translúcido,
+  en cambio, usa `fillOpacity` con su 40 % de fábrica, así que salía tres veces
+  más cubriente que el «sólido». Ese tinte al 12 % es retrocompatibilidad
+  deliberada de las **formas planas** (un proyecto viejo tiene que dibujarse
+  igual), pero un sólido 3D es de la v2.24.0: no hay nada anterior que conservar,
+  y ahí «sólido» sólo puede significar opaco.
+- **Arreglo:** `_face` y `_frontEl` (`src/js/solid.js`) estampan **siempre**
+  `fillColor: o.fillColor || o.color` cuando hay relleno — el color que el propio
+  selector del modal está enseñando, en vez de uno que no aplica. Sin relleno se
+  conserva el `fillColor` elegido, si lo había, para que vaciar y volver a
+  rellenar recupere el mismo color, pero no se inventa uno derivado del trazo.
+- **Guardia:** `tests/solid.test.js` («el relleno sólido de un sólido es OPACO…»)
+  y un spec en `e2e/solids.spec.js` («rellenar un sólido ya dibujado lo pinta
+  OPACO…»), que mide la luminancia real de la banda central del lienzo en los dos
+  modos. **Verificado fallando** con el emisor anterior.
+
 ### v2.25.2 — En una figura 3D no se podía cambiar el color de las aristas ni el de los lados
 
 - **Síntoma:** con un sólido ya dibujado y seleccionado se le podía cambiar la

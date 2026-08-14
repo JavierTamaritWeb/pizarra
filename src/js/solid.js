@@ -92,8 +92,13 @@ const Solid = (function () {
     const el = {
       type: 'polygon', points: pts, color: o.color, lineWidth: o.lineWidth,
       fill: true, stroke: false,
+      // SIEMPRE explícito: en un sólido, «Rellenar» tiene que dar relleno
+      // OPACO. Sin el campo, Renderer.fillStyle cae en el tinte clásico
+      // `color + '20'` (12 %), que además queda MENOS opaco que el modo
+      // translúcido (40 %) — el modo sólido se veía más transparente que el
+      // translúcido. El color es el que el selector enseña: `fillColor || color`.
+      fillColor: o.fillColor || o.color,
     };
-    if (o.fillColor) el.fillColor = o.fillColor;
     if (o.fillTransparent) el.fillTransparent = true;
     if (Number.isFinite(o.fillOpacity)) el.fillOpacity = o.fillOpacity;
     return el;
@@ -324,7 +329,12 @@ const Solid = (function () {
     };
     // La ausencia del campo es la orientación de siempre, igual que en Formas
     if (rotation) el.rotation = rotation;
-    if (o.fill && o.fillColor) el.fillColor = o.fillColor;
+    // La cara frontal comparte el relleno de las laterales, o el sólido saldría
+    // con los lados opacos y el frente en el tinte clásico (ver `_face`).
+    if (o.fill) el.fillColor = o.fillColor || o.color;
+    // Sin relleno se conserva el color elegido —vaciar y volver a rellenar
+    // recupera el mismo—, pero no se inventa uno derivado del trazo.
+    else if (o.fillColor) el.fillColor = o.fillColor;
     if (o.fill && o.fillTransparent) el.fillTransparent = true;
     if (o.fill && Number.isFinite(o.fillOpacity)) el.fillOpacity = o.fillOpacity;
     return el;

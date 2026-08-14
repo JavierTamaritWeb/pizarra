@@ -549,3 +549,30 @@ test('el relleno translúcido y su opacidad viajan a las caras y a la frontal', 
     assert.equal(el.fillTransparent, undefined);
   }
 });
+
+test('el relleno sólido de un sólido es OPACO: sin color propio se usa el del trazo', () => {
+  // El tinte clásico `color + '20'` (12 %) que Renderer.fillStyle aplica a una
+  // forma sin `fillColor` es retrocompatibilidad de las formas planas; en un
+  // sólido dejaba el modo «sólido» MÁS transparente que el translúcido (40 %).
+  for (const [tool, section] of [...TODAS()]) {
+    const els = dibuja(tool, section, { color: '#123456', fill: true });
+    for (const el of [...carasDe(els), frenteDe(els)]) {
+      assert.equal(el.fillColor, '#123456',
+        `${tool}/${section}: ${el.type} sin color de relleno explícito`);
+    }
+  }
+  // El color elegido sigue mandando sobre el del trazo
+  const con = dibuja(TOOLS.SOLID_PRISM, TOOLS.SQUARE,
+    { color: '#123456', fill: true, fillColor: '#00ffaa' });
+  for (const el of [...carasDe(con), frenteDe(con)]) assert.equal(el.fillColor, '#00ffaa');
+
+  // Sin relleno no se inventa ninguno, pero el elegido se conserva: vaciar y
+  // volver a rellenar tiene que recuperar el mismo color.
+  const hueco = dibuja(TOOLS.SOLID_PRISM, TOOLS.SQUARE, { color: '#123456' });
+  assert.equal(frenteDe(hueco).fillColor, undefined);
+  const huecoConColor = dibuja(TOOLS.SOLID_PRISM, TOOLS.SQUARE,
+    { color: '#123456', fillColor: '#00ffaa' });
+  assert.equal(carasDe(huecoConColor).length, 0, 'sin relleno no hay caras');
+  assert.equal(frenteDe(huecoConColor).fill, false);
+  assert.equal(frenteDe(huecoConColor).fillColor, '#00ffaa');
+});
