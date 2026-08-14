@@ -992,6 +992,40 @@ kbd {
   gap: 0.6rem;
 }
 
+/* ── Bloques temáticos dentro de un modal de ajustes (v2.26.1) ──
+   Los cuatro diálogos 3D reúnen tres cosas distintas —cómo se fuga la figura,
+   sus aristas y sus caras— y en una lista corrida se leían todas igual de
+   importantes. Son <fieldset> de verdad, con su <legend>, para que la
+   agrupación no sea solo visual.
+   El reset es obligatorio: el fieldset del navegador trae borde, márgenes y un
+   `min-width: min-content` que, dentro de una celda de grid, impide encogerse
+   y desborda la columna. */
+.modal__group {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+  min-width: 0;
+  margin: 0;
+  padding: 1.2rem;
+  border: 0.1rem solid var(--border-main);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+/* El <legend> nativo se incrusta en el borde y arrastra su propio padding; se
+   trata como una fila más de la rejilla. `float: left` + `width: 100%` es lo
+   que saca a un legend del flujo especial y lo deja participar en el grid. */
+.modal__group-title {
+  float: left;
+  width: 100%;
+  padding: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
 /* Las muestras miden 2.8rem y las columnas de la rejilla son `1fr`: en el
    panel, que es estrecho, eso las deja justas; en un modal ancho las repartiría
    por todo el ancho y la paleta se leería como seis columnas sueltas en vez de
@@ -1029,6 +1063,18 @@ kbd {
      huecos— y caben de sobra en una columna, así que el trazo y el relleno
      quedan uno al lado del otro en vez de partir la rejilla en dos filas. */
   .modal--settings .modal__build-fields > div:not([class]) {
+    grid-column: 1/-1;
+  }
+  /* La proyección va de lado a lado con sus propios mandos a dos columnas: son
+     cuatro o cinco deslizadores, y en una columna estrecha alargan el diálogo
+     tanto como los otros dos bloques juntos. */
+  .modal--settings .modal__group--wide {
+    grid-column: 1/-1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 2rem;
+    align-items: start;
+  }
+  .modal--settings .modal__group--wide .modal__group-title {
     grid-column: 1/-1;
   }
   /* Los controles nativos conservan un ancho mínimo intrínseco según su texto

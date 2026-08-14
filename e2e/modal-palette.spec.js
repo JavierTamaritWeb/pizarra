@@ -113,3 +113,27 @@ test('un clic en una muestra de relleno es UN paso de deshacer', async ({ page }
     return el && el.fillColor === undefined && el.fill !== true;
   }).toBe(true);
 });
+
+test('los modales 3D agrupan sus mandos en Proyección, Trazo y Relleno', async ({ page }) => {
+  await openApp(page, { viewport: WIDE });
+  for (const [tool, modal] of [['prisma', 'modal-prism'], ['piramide', 'modal-pyramid'],
+    ['tronco', 'modal-frustum'], ['esfera', 'modal-sphere']]) {
+    await page.locator(`.sidebar__tool[data-tool="${tool}"]`).click();
+    await expect(page.locator(`#${modal}`)).toBeVisible();
+    // <fieldset> de verdad, con su <legend>: la agrupación tiene que llegar
+    // también a un lector de pantalla, no ser solo tres recuadros.
+    await expect(page.locator(`#${modal} fieldset.modal__group legend`))
+      .toHaveText(['Proyección', 'Trazo', 'Relleno']);
+    // El reset del fieldset importa: sin él su `min-width: min-content` no deja
+    // encoger la celda y el bloque desborda la columna del modal.
+    const ancho = await page.locator(`#${modal}`).evaluate(d => d.clientWidth);
+    for (const g of await page.locator(`#${modal} .modal__group`).all()) {
+      expect(await g.evaluate(n => n.getBoundingClientRect().width))
+        .toBeLessThanOrEqual(ancho);
+    }
+    // Y el selector de color vive dentro de su paleta, no suelto en otra columna
+    await expect(page.locator(`#${modal} .modal__palette input[type="color"]`))
+      .toHaveCount(2);
+    await page.locator(`#${modal}`).evaluate(d => d.close());
+  }
+});

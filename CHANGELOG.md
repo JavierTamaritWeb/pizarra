@@ -4,6 +4,20 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.26.1] — 2026-08-14
+
+### Cambiado
+
+- **Los cuatro modales de figuras 3D están reorganizados en tres bloques con
+  título: «Proyección», «Trazo» y «Relleno».** Antes eran una lista corrida en
+  la que un deslizador de escorzo y una casilla de relleno se leían igual de
+  importantes, y en dos columnas los mandos emparejados acababan separados: el
+  selector de color, rotulado «Otro color», quedaba lejos de la paleta a la que
+  pertenece. Ahora la proyección ocupa el ancho completo con sus deslizadores a
+  dos columnas, y el trazo y el relleno van uno al lado del otro, cada uno con
+  su color y su paleta juntos. Son `<fieldset>` con `<legend>`, así que la
+  agrupación la anuncian también los lectores de pantalla.
+
 ## [2.26.0] — 2026-08-14
 
 ### Añadido
