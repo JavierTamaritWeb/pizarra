@@ -3225,3 +3225,307 @@ test('cancelar un catálogo que cae en Mover no encadena el modal de selección'
   assert.equal(app.$('modal-select').open, false,
     'y no abre sus ajustes encima del catálogo recién cerrado');
 });
+
+/* ────────────────────────────────────────────────────────────
+   Aerógrafo (v2.22.0)
+   ──────────────────────────────────────────────────────────── */
+
+/** Elige el Aerógrafo y cierra su modal, que es lo que hace cualquiera antes
+    de ponerse a pintar (un <dialog showModal> abierto deja el lienzo inerte). */
+function withAirbrush(prefs) {
+  const app = loadApp(prefs ? { prefs } : undefined);
+  app.selectTool('airbrush');
+  app.$('modal-airbrush').close();
+  app.flush();
+  return app;
+}
+
+/** Pone un mando del modal en un valor, con el gesto completo. */
+function slide(app, id, valor) {
+  const s = app.$(id);
+  s.value = String(valor);
+  s.__fire('input', { target: s });
+  s.__fire('change', { target: s });
+  app.flush();
+}
+
+test('elegir el Aerógrafo abre sus ajustes y cerrarlos deja la herramienta puesta', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.$('modal-shape').close();
+  app.flush();
+  assert.equal(app.$('modal-airbrush').open, false);
+  app.selectTool('airbrush');
+  assert.equal(app.$('modal-airbrush').open, true,
+    'se abre solo al elegir la herramienta, como el Borrador y las de Dibujo');
+  // Se cierra por el BOTÓN, no llamando a close(): olvidar cablear el
+  // .modal__cancel no rompe ningún test que cierre por la API, y en el
+  // navegador deja la app bloqueada tras un diálogo que no se puede cerrar.
+  const cerrar = app.$('modal-airbrush').querySelector('.modal__cancel');
+  cerrar.__fire('click', { target: cerrar });
+  app.flush();
+  assert.equal(app.$('modal-airbrush').open, false, 'el botón «Cerrar» tiene que cerrarlo');
+  assert.equal(app.$('sidebar').querySelector('.sidebar__tool--active').dataset.tool, 'airbrush',
+    'cerrar los ajustes se queda en el Aerógrafo, no cae a la herramienta previa');
+});
+
+test('arrastrar con el Aerógrafo crea UNA mancha, sin campos que no hagan falta', () => {
+  const app = withAirbrush();
+  app.drag(200, 200, 400, 260);
+  const els = app.elements();
+  assert.equal(els.length, 1);
+  assert.equal(els[0].type, 'airbrush');
+  assert.ok(els[0].points.length >= 2, 'el eje se decima, como el del lápiz');
+  assert.equal(typeof els[0].radius, 'number');
+  assert.equal(typeof els[0].density, 'number');
+  assert.equal(typeof els[0].seed, 'number');
+  // La ausencia ES el aspecto por defecto: sin opacidad la pintura es sólida y
+  // sin clip cubre todo el lienzo. Guardarlos igualmente engordaría cada mancha
+  // de cada proyecto sin cambiar nada de lo que se ve.
+  assert.equal('opacity' in els[0], false, 'al 100 % no se guarda la opacidad');
+  assert.equal('clip' in els[0], false, 'sin área no se guarda el recorte');
+  // Y es UN paso de deshacer.
+  app.key('z', { ctrlKey: true });
+  assert.deepEqual(app.elements(), []);
+});
+
+test('el modo área arma el siguiente arrastre: marca el rectángulo y NO pinta', () => {
+  // El modal se deja ABIERTO a propósito: la comprobación es que armar el área
+  // lo cierre, y partiendo de uno ya cerrado ese assert pasaría solo.
+  const app = loadApp();
+  app.selectTool('airbrush');
+  assert.equal(app.$('modal-airbrush').open, true);
+  const sel = app.$('airbrush-area-mode');
+  sel.value = 'area';
+  sel.__fire('change', { target: sel });
+  app.flush();
+  // Armar el área CIERRA el modal: si no, el usuario se queda mirando un
+  // lienzo inerte esperando un arrastre que no puede hacer (v2.16.2).
+  assert.equal(app.$('modal-airbrush').open, false,
+    'elegir «solo dentro de un área» tiene que cerrar el diálogo');
+
+  app.drag(100, 100, 400, 300);
+  assert.deepEqual(app.elements(), [], 'ese arrastre marca el área, no pinta');
+  // Y el área no es un elemento: no cuenta, no viaja en el JSON, no se deshace.
+  assert.equal(String(app.$('el-count').textContent), '0');
+
+  app.drag(150, 150, 350, 250);
+  const els = app.elements();
+  assert.equal(els.length, 1, 'a partir de aquí sí pinta');
+  assert.deepEqual(els[0].clip, { x: 100, y: 100, w: 300, h: 200 });
+});
+
+test('una mancha cuyas gotas caen todas fuera del área no se crea', () => {
+  // Sería un elemento invisible que cuenta en «Elementos» y viaja en el JSON.
+  const app = withAirbrush();
+  const sel = app.$('airbrush-area-mode');
+  sel.value = 'area';
+  sel.__fire('change', { target: sel });
+  app.flush();
+  app.drag(100, 100, 300, 250);   // marca el área
+  app.drag(700, 600, 800, 700);   // pinta lejos de ella
+  assert.deepEqual(app.elements(), [], 'fuera del área no queda pintura, así que no hay elemento');
+  app.drag(150, 150, 250, 220);   // dentro sí
+  assert.equal(app.elements().length, 1);
+});
+
+test('cambiar de herramienta cancela el armado del área', () => {
+  // El armado pertenece al gesto del aerógrafo: si sobreviviera, el siguiente
+  // arrastre con el lápiz se comería el gesto sin nada que lo explicase.
+  const app = withAirbrush();
+  const sel = app.$('airbrush-area-mode');
+  sel.value = 'area';
+  sel.__fire('change', { target: sel });
+  app.flush();
+  app.selectTool('pencil');
+  app.$('modal-stroke').close();
+  app.flush();
+  app.drag(100, 100, 300, 300);
+  const els = app.elements();
+  assert.equal(els.length, 1);
+  assert.equal(els[0].type, 'pencil', 'el lápiz dibuja, no marca áreas');
+});
+
+test('«Quitar el área» la borra y la mancha siguiente vuelve a cubrir el lienzo', () => {
+  const app = withAirbrush();
+  const sel = app.$('airbrush-area-mode');
+  sel.value = 'area';
+  sel.__fire('change', { target: sel });
+  app.flush();
+  app.drag(100, 100, 400, 300);
+  const quitar = app.$('btn-airbrush-clear-area');
+  quitar.__fire('click', { target: quitar });
+  app.flush();
+  app.drag(600, 500, 700, 560);
+  const els = app.elements();
+  assert.equal(els.length, 1);
+  assert.equal('clip' in els[0], false, 'sin área, la mancha no lleva recorte');
+});
+
+test('los ajustes del aerógrafo se recuerdan al recargar, área incluida', () => {
+  const app = withAirbrush();
+  slide(app, 'airbrush-modal-radius', 80);   // el mando es el diámetro
+  slide(app, 'airbrush-modal-density', 90);
+  slide(app, 'airbrush-modal-opacity', 40);
+  const sel = app.$('airbrush-area-mode');
+  sel.value = 'area';
+  sel.__fire('change', { target: sel });
+  app.flush();
+  app.drag(60, 60, 500, 400);
+
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.airbrushRadius, 40, 'el elemento guarda el RADIO, el mando enseña el diámetro');
+  assert.equal(prefs.airbrushDensity, 90);
+  assert.equal(prefs.airbrushOpacity, 0.4);
+  assert.equal(prefs.airbrushAreaMode, 'area');
+  assert.deepEqual(prefs.airbrushArea, { x: 60, y: 60, w: 440, h: 340 });
+
+  const app2 = withAirbrush(prefs);
+  assert.equal(app2.$('airbrush-modal-radius').value, '80');
+  assert.equal(app2.$('airbrush-modal-opacity').value, '40');
+  app2.drag(100, 100, 300, 200);
+  const el = app2.elements()[0];
+  assert.equal(el.radius, 40);
+  assert.equal(el.opacity, 0.4);
+  assert.deepEqual(el.clip, { x: 60, y: 60, w: 440, h: 340 });
+});
+
+test('pulsar Aerógrafo con una mancha seleccionada la conserva y la edita', () => {
+  const app = withAirbrush();
+  app.drag(200, 200, 400, 260);
+  app.selectTool('select');
+  app.$('modal-select').close();
+  app.flush();
+  app.click(300, 230);
+  assert.equal(app.$('panel-sec-element').hidden, false, 'la mancha queda seleccionada');
+  app.selectTool('airbrush');
+  assert.equal(app.$('modal-airbrush').open, true);
+  assert.equal(app.$('panel-sec-element').hidden, false,
+    'pulsar su herramienta la edita en vez de deseleccionarla (MODAL_EDIT_TYPE)');
+  // Y el mando edita la mancha, no el default de creación.
+  slide(app, 'airbrush-modal-density', 100);
+  assert.equal(app.elements()[0].density, 100);
+});
+
+test('un arrastre por el deslizador de densidad es UN paso de deshacer, no uno por valor', () => {
+  // El historial son 50 pasos: 60 valores intermedios lo vaciarían entero y se
+  // llevarían por delante el trabajo del usuario, en silencio.
+  const app = withAirbrush();
+  app.drag(200, 200, 400, 260);
+  const antes = app.elements();
+  app.selectTool('select');
+  app.$('modal-select').close();
+  app.flush();
+  app.click(300, 230);
+
+  const s = app.$('airbrush-modal-density');
+  for (let v = 10; v <= 120; v += 2) {   // 56 valores, por encima del límite de 50
+    s.value = String(v);
+    s.__fire('input', { target: s });
+  }
+  s.__fire('change', { target: s });
+  app.flush();
+  assert.equal(app.elements()[0].density, 120, 'el arrastre deja el último valor');
+  app.key('z', { ctrlKey: true });
+  assert.deepEqual(app.elements(), antes, 'y UN solo Ctrl+Z lo devuelve todo');
+});
+
+test('la opacidad al 100 % BORRA el campo del elemento, no lo guarda en 1', () => {
+  const app = withAirbrush();
+  slide(app, 'airbrush-modal-opacity', 35);
+  app.drag(200, 200, 400, 260);
+  assert.equal(app.elements()[0].opacity, 0.35);
+  app.selectTool('select');
+  app.$('modal-select').close();
+  app.flush();
+  app.click(300, 230);
+  slide(app, 'airbrush-modal-opacity', 100);
+  assert.equal('opacity' in app.elements()[0], false,
+    'sólido = sin campo, igual que quitar la sombra de un texto lo borra');
+});
+
+test('el resize de una mancha conserva la proporción y escala su boquilla', () => {
+  const app = withAirbrush();
+  app.drag(200, 200, 400, 300);
+  const antes = app.elements()[0];
+  app.selectTool('select');
+  app.$('modal-select').close();
+  app.flush();
+  app.click(300, 250);
+  // Teclear una medida no puede permitir lo que arrastrar prohíbe: la boquilla
+  // es UN escalar y no existe la boquilla elíptica.
+  const w = app.$('el-w');
+  const alto0 = Number(app.$('el-h').value);
+  w.value = String(Math.round(Number(w.value) * 2));
+  w.__fire('change', { target: w });
+  app.flush();
+  const despues = app.elements()[0];
+  assert.ok(despues.radius > antes.radius * 1.8, 'la boquilla escala con el dibujo');
+  assert.ok(Number(app.$('el-h').value) > alto0 * 1.8, 'y el alto sigue al ancho');
+  // El grano NO escala: su mando tiene rango fijo 1–8 y sacarlo de ahí lo
+  // dejaría mintiendo sobre lo que hay dibujado.
+  assert.equal(despues.lineWidth, antes.lineWidth);
+});
+
+test('mover una mancha se lleva su área con ella', () => {
+  // Si el recorte se quedara quieto, mover el dibujo cambiaría lo que se ve de
+  // él —el mismo defecto que tenía la máscara del borrador antiguo—.
+  const app = withAirbrush();
+  const sel = app.$('airbrush-area-mode');
+  sel.value = 'area';
+  sel.__fire('change', { target: sel });
+  app.flush();
+  app.drag(100, 100, 400, 300);
+  app.drag(150, 150, 350, 250);
+  const antes = app.elements()[0];
+  app.selectTool('select');
+  app.$('modal-select').close();
+  app.flush();
+  app.click(250, 200);
+  app.drag(250, 200, 300, 240);
+  const despues = app.elements()[0];
+  assert.equal(Math.round(despues.clip.x - antes.clip.x), Math.round(despues.points[0].x - antes.points[0].x),
+    'el área se desplaza lo mismo que la mancha');
+  assert.equal(despues.clip.w, antes.clip.w);
+});
+
+test('la paleta de los ajustes del aerógrafo cambia el color, y el activo se ve en las dos', () => {
+  const app = withAirbrush();
+  const rejilla = app.$('airbrush-color-grid');
+  const muestras = rejilla.querySelectorAll('.panel__color-swatch');
+  assert.equal(muestras.length, 36, 'la rejilla del modal lleva los 36 colores');
+
+  // Sin selección fija el default de creación, como la del panel.
+  const azul = [...muestras].find(s => s.dataset.color === '#3498db');
+  assert.ok(azul, 'falta el azul en la rejilla del modal');
+  azul.__fire('click', { target: azul });
+  app.flush();
+  app.drag(200, 200, 350, 240);
+  assert.equal(app.elements()[0].color, '#3498db');
+
+  // El resaltado del color activo se reparte por CLASE, así que sale en las dos
+  // rejillas sin que ninguna sepa de la otra.
+  const activaEn = id => [...app.$(id).querySelectorAll('.panel__color-swatch')]
+    .filter(s => s.classList.contains('panel__color-swatch--active'))
+    .map(s => s.dataset.color);
+  assert.deepEqual(activaEn('airbrush-color-grid'), ['#3498db']);
+  assert.deepEqual(activaEn('color-grid'), ['#3498db'],
+    'la del panel tiene que enseñar lo mismo: es el mismo color');
+});
+
+test('con una mancha seleccionada, la paleta del modal la recolorea en un solo paso', () => {
+  const app = withAirbrush();
+  app.drag(200, 200, 400, 260);
+  const antes = app.elements();
+  app.selectTool('select');
+  app.$('modal-select').close();
+  app.flush();
+  app.click(300, 230);
+  const rojo = [...app.$('airbrush-color-grid').querySelectorAll('.panel__color-swatch')]
+    .find(s => s.dataset.color === '#e94560');
+  rojo.__fire('click', { target: rojo });
+  app.flush();
+  assert.equal(app.elements()[0].color, '#e94560', 'edita la selección, no el default');
+  app.key('z', { ctrlKey: true });
+  assert.deepEqual(app.elements(), antes, 'y es UN paso de deshacer');
+});

@@ -61,6 +61,14 @@
   cursor: none;
 }
 
+/* Aerógrafo: mismo trato que el borrador. La cruz del sistema no dice nada
+   sobre lo que va a pasar —y en algunos temas de macOS sale de colores, encima
+   del dibujo—, mientras que la boquilla tiene un tamaño concreto que conviene
+   ver antes de soltar. El círculo lo pinta paintOverlay al radio real. */
+.canvas-area__canvas--airbrush {
+  cursor: none;
+}
+
 /* «Select» (solo selección): flecha normal — ni la cruz de dibujar ni el
    `move` de Mover, porque esta herramienta ni crea ni desplaza */
 .canvas-area__canvas--pick {

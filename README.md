@@ -4,14 +4,14 @@
 
 **Wireframes, diagramas y bocetos con estética dibujada a mano — en el navegador y sin instalar nada.**
 
-[![Versión](https://img.shields.io/badge/versión-2.21.0-blueviolet?style=flat-square)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-2.22.0-blueviolet?style=flat-square)](CHANGELOG.md)
 [![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?style=flat-square&logo=javascript&logoColor=000)](src/js/)
 [![Estilos](https://img.shields.io/badge/estilos-SCSS%20·%20BEM%20·%20Gulp%205-cf649a?style=flat-square&logo=sass&logoColor=fff)](src/scss/)
 [![Dependencias](https://img.shields.io/badge/dependencias%20en%20runtime-0-brightgreen?style=flat-square)](#arquitectura)
 [![Tests](https://img.shields.io/badge/tests-581%20unitarios%20%2B%2056%20e2e-brightgreen?style=flat-square)](#tests)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue?style=flat-square)](LICENSE)
 
-<img src="src/img/screenshot-pizarra.png" alt="La interfaz de Pizarra: barra de herramientas a la izquierda, en el centro un lienzo de papel azulado con cuadrícula blanca y un wireframe de landing page dibujado a mano, y a la derecha el panel de ajustes con la paleta de 36 colores ordenada por el arco iris" width="900">
+<img src="src/img/screenshot-pizarra.png" alt="La interfaz de Pizarra: barra de herramientas a la izquierda con el Aerógrafo activo, en el centro un lienzo de papel azulado con cuadrícula blanca y un wireframe de landing page dibujado a mano sobre el que una veladura naranja de aerógrafo cruza la zona libre, con el círculo de la boquilla siguiendo al puntero, y a la derecha el panel de ajustes con la paleta de 36 colores ordenada por el arco iris" width="900">
 
 </div>
 
@@ -68,6 +68,7 @@ Para *usar* la app no hay nada que instalar ni compilar: el CSS ya viene compila
 | | |
 | --- | --- |
 | **Trazo a mano alzada** | Lápiz, línea, flecha y flecha curva con jitter determinista: cada elemento guarda su semilla y no "tiembla" entre repintados. |
+| **Aerógrafo** | Pulveriza **tono** en vez de trazo: una nube de gotas densa en el eje y difuminada hacia los bordes, con las puntas redondas, y un soplo redondo si se pulsa sin arrastrar. El puntero es el **círculo de la boquilla**, que rodea exactamente lo que se va a pintar. Anchura, grano, densidad y opacidad ajustables, con la paleta entera dentro de sus ajustes; al 100 % la pintura es sólida y por debajo **las pasadas se acumulan**, así que dos trazos cruzados oscurecen el cruce. Puede acotarse a **un rectángulo del lienzo**: fuera de él no cae ni una gota. El elemento guarda solo el eje del trazo —la nube se regenera desde su semilla—, así que el archivo no engorda y las cinco exportaciones dibujan lo mismo. |
 | **Formas** | Rectángulo, redondeado, elipse, cuadrado, trapecio, triángulo, pentágono y hexágono. Los polígonos regulares se arrastran desde el centro y conservan sus lados iguales; el trapecio admite proporciones libres. |
 | **Semicírculos** | 180° exactos y sin puntas. El arrastre fija el diámetro; después `+`/`−` o su handle ajustan el radio manteniendo la media circunferencia. `Q` convierte una flecha curva en semicírculo y viceversa. |
 | **Paleta de 36 colores** | Ordenada por el **arco iris**: abre con la tinta y los neutros, de oscuro a claro, y siguen los vivos y los **doce pastel** recorriendo cada uno de rojo a rosa por naranja, amarillo, verde, turquesa, azul, añil y violeta. Seis filas de seis, una familia por fila, más el selector libre para cualquier otro color. |
@@ -169,7 +170,7 @@ Cada pieza de jardín nace con una **etiqueta** dentro del mismo grupo (se mueve
 
 | Atajo | Acción |
 | --- | --- |
-| `P` `L` `A` `U` `G` | Lápiz · Línea · Flecha · Flecha curva · Semicírculo |
+| `P` `L` `A` `U` `G` | Lápiz · Línea · Flecha · Flecha curva · Semicírculo (el Aerógrafo va sin atajo) |
 | `R` `O` `C` | Rectángulo · Redondeado · Círculo |
 | `3` `4` `5` `6` `7` | Triángulo · Cuadrado · Pentágono · Hexágono · Trapecio |
 | `T` `J` `B` `I` `M` `N` `K` | Texto · Emoji · Botón · Input · Imagen · Navbar · Tarjeta |
@@ -187,7 +188,7 @@ Cada pieza de jardín nace con una **etiqueta** dentro del mismo grupo (se mueve
 | `+` · `−` (+`Shift`) | Ajustar curvatura — en semicírculos, el radio (fino) |
 | `?` | Abrir la ayuda con todos los atajos |
 
-Las herramientas que abren catálogo (Edificios y Jardín) muestran su modal de tipos al pulsar el atajo. **Balcón**, **Muro**, **Verjas**, **Cancela**, **Caminos**, **Aromáticas** y **Trepadoras** no tienen atajo: ya no queda ninguna tecla suelta libre.
+Las herramientas que abren catálogo (Edificios y Jardín) muestran su modal de tipos al pulsar el atajo. **Aerógrafo**, **Balcón**, **Muro**, **Verjas**, **Cancela**, **Caminos**, **Aromáticas** y **Trepadoras** no tienen atajo: ya no queda ninguna tecla suelta libre.
 
 ## Arquitectura
 
@@ -212,6 +213,7 @@ src/
     ├── shape-rotation.js  Rotación discreta de formas alrededor de su centro
     ├── regular-polygon.js Geometría de cuadrados, triángulos, pentágonos y hexágonos
     ├── trapezoid.js     Geometría y rotación del trapecio
+    ├── airbrush.js      Nube de gotas del aerógrafo (determinista, sin guardar las gotas)
     ├── eraser.js        Qué elementos toca un trazo de borrador
     ├── building.js      Geometría de la sección Edificios
     ├── garden.js        Geometría paisajística del Jardín, en planta y alzado
@@ -230,7 +232,7 @@ Cada módulo se expone como un global mediante una IIFE y `index.html` los carga
 ### Principios de diseño
 
 - **Un solo estado fuente de verdad** (`state.elements`): objetos planos, serializables e inmutables. Cada edición produce copias, lo que hace el undo trivial y el autoguardado gratuito.
-- **Módulos de geometría puros**: `arc`, `curve-path`, `regular-polygon`, `trapezoid`, `eraser`, `building` y `garden` no tocan el DOM ni el canvas — reciben números y devuelven elementos planos. Por eso se pueden probar sin navegador.
+- **Módulos de geometría puros**: `arc`, `curve-path`, `regular-polygon`, `trapezoid`, `airbrush`, `eraser`, `building` y `garden` no tocan el DOM ni el canvas — reciben números y devuelven elementos planos. Por eso se pueden probar sin navegador.
 - **Render determinista**: el jitter usa un PRNG sembrado por elemento; el mismo dibujo se repinta idéntico.
 - **Import seguro**: todo JSON importado pasa por un validador por tipo de elemento (whitelist de tipos, colores hex, data-URLs de imagen restringidas) que además evita inyecciones en los archivos exportados.
 
@@ -255,7 +257,7 @@ Cuatro convenciones que conviene conocer:
 
 ## Tests
 
-**577 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
+**630 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
 de runtime:
 
 ```bash
@@ -265,7 +267,7 @@ node --test tests/exporter.test.js    # un archivo
 
 Los módulos se cargan en un contexto `node:vm` con stubs de canvas y DOM, incluido `src/js/app.js` completo: los tests lanzan gestos reales —puntero, teclado, modales— y leen el resultado del autoguardado, sin ningún hook de test en el código de producción.
 
-**55 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco, acciones por defecto del navegador, los flujos completos de Verjas y Cancela y el Jardín botánico en escritorio, móvil y anchos intermedios.
+**65 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco, acciones por defecto del navegador, los flujos completos de Verjas y Cancela y el Jardín botánico en escritorio, móvil y anchos intermedios.
 
 ```bash
 npm install && npm run e2e:install    # una vez (descarga Chromium)

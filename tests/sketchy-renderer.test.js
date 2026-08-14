@@ -929,3 +929,78 @@ test('Renderer.pruneImageCache expulsa los src muertos y conserva los vivos', ()
   assert.equal(ctx.Renderer.pruneImageCache(vivos), 1, 'expulsa exactamente la muerta');
   assert.equal(ctx.Renderer.pruneImageCache(vivos), 0, 'la viva sobrevive a la segunda poda');
 });
+
+/* ────────────────────────────────────────────────────────────
+   Aerógrafo (v2.22.0)
+   ──────────────────────────────────────────────────────────── */
+
+/** Mancha de referencia: trazo corto para que la nube quepa en un assert. */
+const spray = extra => Object.assign({
+  type: 'airbrush',
+  points: [{ x: 50, y: 50 }, { x: 120, y: 50 }],
+  color: '#1a1a2e',
+  lineWidth: 3,
+  radius: 16,
+  density: 30,
+  seed: 99,
+}, extra || {});
+
+test('el aerógrafo sólido se pinta con UNA sola ruta y UN solo fill', () => {
+  // Con círculos opacos, N fills y un fill de la unión dan lo mismo, y esto
+  // es varias veces más rápido en un redraw que repinta la escena entera.
+  const ctx = createCtxStub();
+  Renderer.renderElement(ctx, spray());
+  const arcs = ctx.callsTo('arc').length;
+  assert.ok(arcs > 20, 'la mancha tiene que tener gotas');
+  assert.equal(ctx.callsTo('beginPath').length, 1, 'una sola ruta');
+  assert.equal(ctx.callsTo('fill').length, 1, 'un solo fill');
+  assert.deepEqual([...ctx.callsTo('set globalAlpha').map(c => c.args[0])], [],
+    'el sólido no toca globalAlpha');
+});
+
+test('cada arc() del aerógrafo va precedido de su moveTo()', () => {
+  // Sin el moveTo, arc() encadena una recta desde el punto anterior y la
+  // ruta sale cosida: la mancha se convierte en una maraña de líneas.
+  const ctx = createCtxStub();
+  Renderer.renderElement(ctx, spray());
+  const nombres = ctx.methodNames().filter(n => n === 'moveTo' || n === 'arc');
+  assert.ok(nombres.length > 40);
+  for (let i = 0; i < nombres.length; i += 2) {
+    assert.equal(nombres[i], 'moveTo', `la gota ${i / 2} no lleva moveTo delante`);
+    assert.equal(nombres[i + 1], 'arc');
+  }
+});
+
+test('el aerógrafo translúcido pinta gota a gota, para que las pasadas se acumulen', () => {
+  const ctx = createCtxStub();
+  Renderer.renderElement(ctx, spray({ opacity: 0.35 }));
+  const arcs = ctx.callsTo('arc').length;
+  assert.ok(arcs > 20);
+  // Un fill por gota: con uno solo se compondría la UNIÓN una vez y dos
+  // pasadas cruzadas dejarían de oscurecer el cruce, que es el efecto.
+  assert.equal(ctx.callsTo('fill').length, arcs);
+  assert.equal(ctx.callsTo('beginPath').length, arcs);
+  assert.deepEqual([...ctx.callsTo('set globalAlpha').map(c => c.args[0])], [0.35]);
+});
+
+test('el aerógrafo pinta con su color y no depende del jitter de Sketchy', () => {
+  const ctx = createCtxStub();
+  Renderer.renderElement(ctx, spray({ color: '#e94560' }));
+  const fills = ctx.callsTo('set fillStyle').map(c => String(c.args[0]));
+  assert.deepEqual([...fills], ['#e94560']);
+  // Dos renders del mismo elemento dan exactamente las mismas coordenadas:
+  // la nube sale de airbrush.js, que es determinista por seed.
+  const otro = createCtxStub();
+  Renderer.renderElement(otro, spray({ color: '#e94560' }));
+  assert.deepEqual(ctx.callsTo('arc').map(c => c.args),
+    otro.callsTo('arc').map(c => c.args));
+});
+
+test('en modo «solapamiento oculto» el aerógrafo se dibuja igual: no es una forma', () => {
+  const solo = createCtxStub();
+  Renderer.renderElements(solo, [spray()], 'normal');
+  const oculto = createCtxStub();
+  Renderer.renderElements(oculto, [spray()], 'hidden-dashed');
+  assert.deepEqual(solo.callsTo('arc').map(c => c.args),
+    oculto.callsTo('arc').map(c => c.args));
+});

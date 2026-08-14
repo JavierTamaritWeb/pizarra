@@ -88,7 +88,7 @@ Rules that keep the compiled output correct — each one broke, or would have br
 
 ## Architecture
 
-Scripts are plain `<script>` tags loaded in dependency order in `index.html` (config → sketchy → arc → curve-path → shape-rotation → regular-polygon → trapezoid → eraser → building → garden → renderer → exporter → templates → app). There are no modules/imports — each file exposes a global (`TOOLS`, `Sketchy`, `ArcMath`, `CurvePath`, `ShapeRotation`, `RegularPolygon`, `Trapezoid`, `Eraser`, `Building`, `Garden`, `Renderer`, `Exporter`, `Templates`) via IIFE, and later scripts rely on earlier globals. If you add a file, add its `<script>` tag in the right position (and, for the test harness, in `ALL_FILES`/`KNOWN_GLOBALS` of `tests/helpers/load.js`).
+Scripts are plain `<script>` tags loaded in dependency order in `index.html` (config → sketchy → arc → curve-path → shape-rotation → regular-polygon → trapezoid → airbrush → eraser → building → garden → renderer → exporter → templates → app). There are no modules/imports — each file exposes a global (`TOOLS`, `Sketchy`, `ArcMath`, `CurvePath`, `ShapeRotation`, `RegularPolygon`, `Trapezoid`, `Airbrush`, `Eraser`, `Building`, `Garden`, `Renderer`, `Exporter`, `Templates`) via IIFE, and later scripts rely on earlier globals. If you add a file, add its `<script>` tag in the right position (and, for the test harness, in `ALL_FILES`/`KNOWN_GLOBALS` of `tests/helpers/load.js`).
 
 The app is state-driven immediate-mode rendering: a single `state.elements` array of plain objects is the source of truth, and any change triggers a full canvas redraw (`redraw()` in app.js). Elements are serializable plain objects (this is what JSON export/import round-trips), so never store functions or DOM refs on them. They are also treated as immutable: operations replace the element object (`moveElement` returns a copy) rather than mutating it, which lets undo snapshots be shallow copies (`state.elements.slice()`) — preserve that discipline when adding features.
 
@@ -108,6 +108,14 @@ The app is state-driven immediate-mode rendering: a single `state.elements` arra
   autónomo en planta o alzado. Verjas y Cancela fijan el ancho con el arrastre
   y el alto con sus cotas independientes de 0–350 cm; a cero emiten únicamente
   la línea de implantación.
+- `src/js/airbrush.js` — pure geometry (`Airbrush`) for the **Aerógrafo**'s cloud of dots. Unlike `arc`/`building`/`garden`, `airbrush` **is** an element type (`type:'airbrush'`, in `TOOLS`, in the «Dibujo» group, **no shortcut** — no plain key is left). The element stores the **axis** (`points`, decimated at 2 px like the pencil) plus `radius` (nozzle), `density`, `lineWidth` (grain) and `seed`; the dots are regenerated here every time they're needed — canvas, all five exports, the modal thumbnail and the drag preview — so the JSON stays small and the five outputs cannot diverge. Seven rules, each of which broke or would have broken something real:
+  - **The randomness is a FUNCTION, not a generator.** `_rnd(seed, seg, dot, channel)` is a stateless hash. `mulberry32` (sketchy.js) is a sequential stream, and that is exactly the *boiling* problem: change the number of dots in one span and the whole sequence shifts, so the cloud re-rolls on every frame of a resize — and on every point added while drawing. With a per-dot hash, growing the stroke only **adds**, and scaling moves the survivors affinely (guarded by two tests, each verified against its own mutation).
+  - **`t` comes out of the hash, never from `i/n`.** That is what makes the surviving dots keep their position when the dot count of their span changes. The **deterministic dithering** (`_rnd(...,7) < fraction`) is what lets 2 px spans not force ≥1 dot each and blow up the real density of thin strokes.
+  - **The radial spread is 2-D isotropic** (`rho = R·u^SPREAD`, uniform angle), not a perpendicular offset. A 1-D `R·rand**k` is singular on the axis for any `k>1` — it draws a hard bright line down the middle, the defect that makes a fake airbrush look like a highlighter — and leaves **square caps**. The 2-D version gives round caps for free (the union of discs along the polyline is a stadium; a click with no drag is a round puff) and makes **`radius` a hard bound**: no ink beyond R of the axis, which is what lets bounds, the area clip and the eraser's reach be exact.
+  - **The cap is a target, not a cut.** `MAX_DOTS` degrades the *rate* through the factor `k`; a `break` would leave the end of the stroke blank. `estimate()` returns `capped` so the modal can say so instead of lying.
+  - **`getElementBounds` returns the BAND** (`Airbrush.visibleBox`), the axis inflated by `radius` and intersected with `clip`. With the axis box the selection frame cut the cloud in half and the box hit-test lied. `hitTest` measures distance to the polyline for the same reason lines and arrows do.
+  - **Resize is uniform**, like regular polygons and groups (`resizeTo` and `applyGeometry` both). The nozzle is one scalar; a box stretched on one axis would need an elliptical nozzle, which the model doesn't have. `radius` scales, **`lineWidth` (grain) doesn't** — its slider has a fixed 1–8 range and a resize that pushed it out of range would leave that control lying about what's drawn.
+  - **The look was calibrated in a browser, not derived.** It shipped at grain 3 / density 45 and came out **speckled**, not sprayed: loose dots, no core. From grain 5 up the dense core with the faded edge appears. That is why the defaults are grain 5 / density 70 and `MAX_DOTS` is 6000 — at 3000 a long stroke at high density always hit the cap, so the mancha stopped thickening no matter what the slider said. Guarded in `tests/airbrush.test.js` (the shape properties) and `e2e/airbrush.spec.js` (real pixels).
 - `src/js/eraser.js` — pure geometry (`Eraser`) for what an eraser stroke touches: `touches`/`doomedIndices`/`apply`, plus segment-segment distance with a crossing test. Everything that lives outside is injected via `deps` (`boundsOf`, `sampleCurve`, `polygonVertices`, `trapezoidVertices`) so the module stays DOM-free and testable; app.js supplies them in `eraserDeps()`. **Since v1.14.0 the eraser deletes elements instead of masking them** — the old `type:'eraser'` element was a `destination-out` mask fixed in canvas space, so moving the drawing slid it out from under the mask and the "erased" content came back (and still travelled inside exported JSON). The reach rule is **what you can see, not the bounding box**: for `OUTLINE_TYPES` shapes only the contour counts (box edges, sampled ellipse, or real polygon/trapezoid vertices) unless `el.fill` is set, in which case the interior is ink too — the interior of the **silhouette** (point-in-polygon over the same outline vertices), not of the bounding box: the bbox corner of a filled circle is ~15px away from any ink and must not erase it; text, images and UI components still use the box, because there the box *is* the drawing. Using the box for everything — the obvious "same as `hitTest`" choice — makes one sweep through the middle of a facade delete the whole wall. A generous box is right for *selecting* and far too aggressive for *erasing*. **Legacy `eraser` elements are still rendered, exported and validated** so older projects look unchanged, and `doomedIndices` skips them — deleting a mask would reveal exactly what it hides. Only the tool stopped creating them.
   **Since v1.22.0, `line`/`arrow`/`pencil` are recorded, not deleted, by `Eraser.erase(elements, pts, r, deps)`** (used by app.js instead of `doomedIndices`+filter): a touched line/arrow is resampled every `LINE_SAMPLE_STEP` (4px) and a touched pencil's own `points` are walked directly; `_survivingRuns` classifies each point as erased/kept and bisects the exact crossing at every transition, so what remains is whatever falls outside the circle, split into as many pieces as needed — this is what makes erasing through the middle of a line, or through where two strokes cross, only take the bit under the pointer instead of the whole element. An `arrow` piece only keeps its type (and head) if it contains the original tip (`x2,y2`) by reference — a run built from an interpolated crossing point never equals it — so a fragment cut away from the tip becomes a plain headless `line` rather than inventing a new arrowhead at the cut; a `heads:'both'` arrow keeps that flag only on a piece that still holds *both* original endpoints, which in practice means the split didn't really touch it. Every other type (shapes, text, images, components, `curveArrow`) still goes through whole-element delete — clipping a shape's contour or splitting a Bézier exactly was ruled out of scope. **Since v2.2.0 the split classifies with the same ink margin as `touches` (`r + lineWidth/2`)** — with bare `r` there was a band (between the axis and the stroke's edge) that "touched" without erasing anything visible yet still rebuilt the element; a graze that erases no sample now returns the element intact **by reference** (no phantom undo step, no silent de-anchoring), and a piece that keeps its original arrow endpoint keeps that endpoint's anchor (a piece demoted to `line` drops anchors — `resolveAnchors` ignores lines). The eraser's own size is `state.eraserSize`, edited **only** in `#modal-eraser` — `applyEraserSize()` is the single point that keeps the slider, the preview canvas and `state.eraserSize` in sync. Until v2.21.0 it had a second mando: the panel's stroke slider, *repurposed* (retitled "Tamaño del borrador", min/max swapped for `ERASER_SIZE_MIN/MAX`). **That whole slider is gone** — a control whose meaning changed with the active tool is exactly what the panel stopped doing; see "A tool's own settings…" below. **Selecting the Eraser tool opens `#modal-eraser` immediately**, same as Planta/Puerta/Balcón open their catalogue (`openEraserSizeModal()`, called from `selectTool`) — pressing the tool again reopens it later without leaving it (**since v2.21.0 that is the only way in from the panel side: «Trazo» has no ⚙**, see below). Unlike those catalogue modals, closing it does **not** revert to the tool active before: Eraser is already usable with its current size, there's nothing to "cancel" into. It is deliberately *not* added to `opensVariantModal`, for that same reason — same as Emoji.
 - `src/js/garden.js` — pure geometry (`Garden`) for the **Jardín** section (see below), with plan and elevation renderers for vegetation. Same contract as `building.js`: `Garden.elements(tool, p1, p2, opts)` returns plain **existing-type** elements — `rect`/`line`/`circle`/`curveArrow`/`text` — with no `seed` and no DOM. `Garden.plantSize(tool,id,opts)` is the single botanical sizing function: adult height/spread/depth × stage factor × 50–150%, and click placement converts metres through 8–50 px/m. Detail uses `_fine(o)`, while `_chain`, `_blob` and `_rosette` carry organic plan silhouettes; elevation builders add trunks, branch architecture, layered crowns, flowers/fruit, ground lines and climbing supports. Natural mode uses per-species `foliage`/`accent` fills with transparency; ink mode stays monochrome. **The module must stay deterministic** — no `Math.random()`; irregularity comes from frozen tables and the hand-drawn wobble is added by `Sketchy` from `el.seed`. Labels can be common, botanical or dimensioned text; injected `measureText` may only move a label, never alter geometry.
@@ -194,6 +202,71 @@ Two consequences of nearly every tool now opening something:
 - **No dibuja handles** — `handlesOn` en `redrawNow` sigue siendo `state.tool === TOOLS.SELECT` a propósito: un handle promete un resize que el hit-test de PICK nunca haría (regla v2.10.1: no dibujar promesas que el mousedown no cumple).
 - **El doble clic desciende a la pieza pero NO abre editores** ni resetea curvaturas: es una herramienta que no modifica nada. La rama `picking` del handler dblclick corta antes de los editores de texto.
 - **Sin atajo** (las 26 letras y los 10 dígitos están cogidos — misma situación que Balcón). **Desde la v2.17.0 sí tiene modal de ajustes**, `#modal-select`, que se abre al elegirla como el de cualquier herramienta configurable: contiene «Los clics acumulan selección», que dejó el panel. **Lo abren las DOS herramientas de Edición** (`SELECTION_TOOLS`, v2.18.0 — la 2.17.0 lo reservó a «Select» y dejaba a Mover dependiendo del ⚙): la casilla gobierna el clic de ambas, así que ambas la enseñan. Lo reabre el **⚙ de «Elementos»** (`#btn-selection-settings`, v2.21.0 — antes era el de «Trazo», que solo estaba con las dos de Edición), y desde ahí se alcanza con **cualquier** herramienta puesta: la casilla gobierna el clic, no el dibujo. Consecuencia obligatoria: **las cuatro activaciones automáticas de Mover pasan `silent`** — pegar una imagen, pegar elementos, Ctrl+A y el retorno de un catálogo cancelado (`wireBuildModalCancel`). Ahí nadie ha pulsado la herramienta, y un `<dialog showModal>` dejaría inerte el lienzo justo después de pegar o de seleccionarlo todo; el del catálogo, además, encadenaría un modal encima del que se acaba de cerrar. Guardado por *"Ctrl+A y pegar no abren el modal de selección"* y *"cancelar un catálogo que cae en Mover no encadena el modal de selección"* (esta última verificada fallando al quitarle el `silent`). `#modal-select` no está en `opensVariantModal` (cerrarlo deja la herramienta puesta) y sí en `SETTINGS_MODALS` de `e2e/helpers.js` — sin eso, todo spec que use «Select» se cuelga con el lienzo inerte. **Cada modal cablea su propio botón «Cerrar»** en `setupModals`: olvidarlo no rompe ningún test del arnés vm (allí se cierra llamando a `close()`) y deja la app bloqueada en el navegador, así que la guarda vm cierra por el **botón**, no por la API. El cursor es `default` (`.canvas-area__canvas--pick`, CSS puro que el arnés vm no ve — guardado en `tests/smoke.test.js`). El orden exacto del grupo Edición (`select`, `pick`, `eraser`) y su condición de única herramienta sin tecla del grupo están fijados en `tests/config-templates.test.js`; el comportamiento, en `tests/app-interaction.test.js` y `e2e/select-tool.spec.js`.
+
+### Aerógrafo (v2.22.0)
+
+La herramienta que aplica **tono** en vez de trazo. La geometría vive en
+`src/js/airbrush.js` (reglas arriba); lo que hay que saber del resto de la app:
+
+- **`CREATION_ONLY_TOOLS` (exporter.js) NO se toca.** Es el reflejo automático al
+  añadir una herramienta y aquí sería justo el error: `airbrush` **sí** es un tipo
+  de elemento, así que meterlo en esa lista lo sacaría de `ELEMENT_TYPES` y
+  ninguna mancha sobreviviría a un export→import. Guardado por un round-trip.
+- **Dos caminos de pintado, y el motivo de que sean dos.** En **sólido**, una sola
+  ruta con N `arc()` y **un único `fill()`** (idéntico con círculos opacos: la
+  unión, y mucho más rápido). En **translúcido**, `globalAlpha` + `fill()` **por
+  gota**, porque ahí la acumulación de alfa *es* el efecto. Cada `arc()` necesita
+  su `moveTo(x+r, y)` delante o la ruta sale cosida con rectas. En SVG lo mismo:
+  `<g fill="…" fill-opacity="…">` con un `<circle>` por gota — **`fill-opacity`,
+  jamás `opacity`**, que aplanaría el grupo antes de componer y mataría la
+  acumulación (la divergencia lienzo↔export más fácil de colar). Agrupar además
+  parte por la mitad el peso del `.svg`. Las tres cosas tienen guarda.
+- **La ausencia del campo es el aspecto por defecto**, como con `bold`/`shadow`
+  del texto: `opacity` solo se guarda si es < 1 (el mando al 100 % lo **borra**, y
+  `isValidElement` rechaza `opacity: 1` igual que rechaza `dash: false`), y `clip`
+  solo si hay área. Una mancha corriente serializa exactamente lo mismo que
+  serializaría sin esta funcionalidad.
+- **El área es un rectángulo, y su marco es overlay puro** (precedente:
+  `drawPathAngle`): se limpia cada fotograma, no es elemento, no cuenta en
+  «Elementos», no entra en undo, autoguardado ni exportación. El elemento sí
+  guarda una **copia** (`{...state.airbrushArea}`, nunca la referencia: los
+  elementos son planos y compartirla haría que mover una mancha moviera el área
+  de la herramienta), y `moveElement`/`scaleElement` la llevan con él.
+- **Armar el área CIERRA el modal**, y no es comodidad: un `<dialog showModal>`
+  deja inerte todo lo de detrás, así que pedir un arrastre en el lienzo sin
+  cerrarlo deja al usuario mirando una app que no responde — el síntoma exacto de
+  la v2.16.2. Lo mismo vale para `#modal-airbrush` en `SETTINGS_MODALS` de
+  `e2e/helpers.js`. Un arrastre por debajo de `MIN_AREA` **no cambia nada y sigue
+  armado**: un clic torpe no debe perder el modo ni pintar una mancha que nadie
+  pidió. Marcar el área **no lleva `saveUndo`** — es un ajuste de herramienta,
+  como `state.eraserSize`.
+- **Una mancha cuyas gotas caen todas fuera del área no se crea** (`isEmpty` en
+  `onMouseUp`): sería un elemento invisible que cuenta en «Elementos» y viaja en
+  el JSON.
+- **El seed se fija en el `mousedown`** (`state.airbrushSeed`), no al soltar: la
+  previsualización dibuja la nube de verdad con `Renderer.renderElement`, y con un
+  seed nuevo por fotograma herviría. `drawPiecesPreview` **no** se toca: es de
+  Edificios/Jardín.
+- **El puntero es el círculo de la boquilla** (`cursor: none` + arco en
+  `paintOverlay`, igual que el Borrador), y rodea la superficie **exacta**: las
+  gotas se recortan en tamaño —`r = min(r, R - rho)`— para que la tinta acabe
+  justo en `radius`. Se recorta el TAMAÑO y no la posición del centro a
+  propósito: acotar el centro a `R - grano` daría el mismo borde, pero como el
+  grano no escala con el dibujo la banda efectiva dejaría de ser proporcional y
+  **las gotas se recolocarían al redimensionar** (lo probé: rompe la guarda del
+  escalado afín). `onMouseMove` actualiza `lastPos` también en reposo para esta
+  herramienta, como para el borrador, o el círculo se queda clavado.
+- **La paleta vive en dos sitios** (`COLOR_GRIDS`): el panel y estos ajustes.
+  `updateColorActive` consulta por **clase**, no por id, así que resalta el
+  color activo en las dos sin saber que hay dos — pero cualquier test o spec que
+  busque una muestra por `data-color` tiene que **acotar la rejilla**
+  (`#color-grid .panel__color-swatch[...]`), o encuentra dos y falla en modo
+  estricto. Ya mordió a `e2e/panel.spec.js` al añadir la segunda.
+- **Los cuatro deslizadores no pueden ir por `applyStrokeWidth`** aunque el grano
+  acabe en `lineWidth`: sin selección esa función escribe `state.lineWidth`, que
+  es el grosor de los trazos, no el grano del espray. Comparten un cuerpo propio
+  (`applyAirbrush`) con el mismo contrato de siempre: snapshot al primer `input`,
+  commit en `change` **y** `pointerup`/`pointercancel`, `savePrefs` en el commit.
 
 ### Emoji
 

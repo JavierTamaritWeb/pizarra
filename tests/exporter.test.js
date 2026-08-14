@@ -1336,3 +1336,111 @@ test('ninguna exportación lleva el color del lienzo ni la cuadrícula', async t
     });
   }
 });
+
+/* ────────────────────────────────────────────────────────────
+   Aerógrafo (v2.22.0)
+   ──────────────────────────────────────────────────────────── */
+
+const elSpray = {
+  ...base, type: 'airbrush', seed: 7,
+  points: [{ x: 40, y: 60 }, { x: 160, y: 60 }],
+  radius: 18, density: 40,
+};
+
+test('Exporter.svg: la nube va como <circle> agrupados bajo un <g> con el color', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.svg([elSpray]);
+  const out = lastBlob(ctx).content;
+  const grupos = out.match(/<g fill="[^"]*"[^>]*>/g) || [];
+  assert.equal(grupos.length, 1, 'un solo <g> por mancha: agrupar parte el .svg por la mitad');
+  assert.match(grupos[0], /fill="#333344"/);
+  const gotas = (out.match(/<circle /g) || []).length;
+  assert.ok(gotas > 30, `la mancha tiene que exportar sus gotas (salieron ${gotas})`);
+  // Las coordenadas van redondeadas: si no, el SVG se llena de ruido flotante.
+  assert.doesNotMatch(out, /<circle cx="[-\d.]{9,}"/, 'las gotas van redondeadas a 2 decimales');
+});
+
+test('Exporter.svg: el aerógrafo translúcido usa fill-opacity, JAMÁS opacity', () => {
+  // `opacity` en el <g> aplana el grupo ANTES de componer: las gotas dejarían
+  // de sumarse entre sí y el cruce de dos pasadas saldría plano, distinto del
+  // lienzo. `fill-opacity` se hereda y se aplica por figura, igual que el
+  // globalAlpha del canvas.
+  const ctx = freshCtx();
+  ctx.Exporter.svg([{ ...elSpray, opacity: 0.35 }]);
+  const out = lastBlob(ctx).content;
+  const g = (out.match(/<g fill="[^"]*"[^>]*>/g) || [])[0];
+  assert.ok(g, 'falta el grupo de la mancha');
+  assert.match(g, /fill-opacity="0\.35"/);
+  assert.doesNotMatch(g, /(^|\s)opacity="/, 'un opacity suelto mataría la acumulación');
+});
+
+test('Exporter.svg: el aerógrafo sólido no declara opacidad ninguna', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.svg([elSpray]);
+  const g = (lastBlob(ctx).content.match(/<g fill="[^"]*"[^>]*>/g) || [])[0];
+  assert.doesNotMatch(g, /opacity/);
+});
+
+test('Exporter.html: el aerógrafo es vectorial y conserva el z-order', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.html([elRectFill, elSpray]);
+  let out = lastBlob(ctx).content;
+  assert.ok(out.includes('<circle '), 'la mancha se incrusta en el <svg> del HTML');
+  assert.ok(out.indexOf('<div style=') < out.indexOf('<svg width='),
+    'una mancha pintada ENCIMA del rect debe emitirse después de él');
+  ctx.Exporter.html([elSpray, elRectFill]);
+  out = lastBlob(ctx).content;
+  assert.ok(out.indexOf('<svg width=') < out.indexOf('<div style='),
+    'y pintada DEBAJO, antes');
+});
+
+test('Exporter.isValidElement: acepta un aerógrafo y rechaza lo que no puede regenerar', () => {
+  const ctx = freshCtx();
+  const ok = ctx.Exporter.isValidElement;
+  const { Airbrush } = ctx;
+  assert.equal(ok(elSpray), true);
+  assert.equal(ok({ ...elSpray, opacity: 0.5 }), true);
+  assert.equal(ok({ ...elSpray, clip: { x: 0, y: 0, w: 10, h: 10 } }), true);
+
+  assert.equal(ok({ ...elSpray, radius: undefined }), false, 'sin radio no hay nube');
+  assert.equal(ok({ ...elSpray, density: undefined }), false, 'sin densidad tampoco');
+  assert.equal(ok({ ...elSpray, points: [] }), false);
+  assert.equal(ok({ ...elSpray, radius: Airbrush.R_MAX + 1 }), false);
+  assert.equal(ok({ ...elSpray, radius: Airbrush.R_MIN - 1 }), false);
+  assert.equal(ok({ ...elSpray, density: Airbrush.DENSITY_MAX + 1 }), false);
+  // La ausencia de `opacity` ES el sólido: un 1 explícito se rechaza igual
+  // que se rechaza `dash: false`.
+  assert.equal(ok({ ...elSpray, opacity: 1 }), false);
+  assert.equal(ok({ ...elSpray, opacity: 0 }), false);
+  // El clip se interpola en el recorte de las cinco salidas: nada de claves
+  // de más, ni lados no positivos, ni arrays.
+  assert.equal(ok({ ...elSpray, clip: { x: 0, y: 0, w: 10, h: 10, z: 1 } }), false);
+  assert.equal(ok({ ...elSpray, clip: { x: 0, y: 0, w: 0, h: 10 } }), false);
+  assert.equal(ok({ ...elSpray, clip: [0, 0, 10, 10] }), false);
+  // Y ninguno de sus campos significa nada suelto en otro tipo.
+  assert.equal(ok({ ...elLine, radius: 20 }), false);
+  assert.equal(ok({ ...elLine, opacity: 0.5 }), false);
+  assert.equal(ok({ ...elRectFill, clip: { x: 0, y: 0, w: 5, h: 5 } }), false);
+});
+
+test('round-trip JSON: una mancha sobrevive al viaje y sale idéntica', async () => {
+  // Regresión de CREATION_ONLY_TOOLS: meter 'airbrush' en esa lista (el
+  // reflejo automático al añadir una herramienta) lo sacaría de
+  // ELEMENT_TYPES y ninguna mancha volvería de un JSON.
+  const ctx = freshCtx();
+  const original = { ...elSpray, opacity: 0.4, clip: { x: 30, y: 30, w: 200, h: 90 } };
+  ctx.Exporter.json([original]);
+  const jsonStr = lastBlob(ctx).content;
+  const p = ctx.Exporter.importJSON();
+  const input = ctx.document.created[ctx.document.created.length - 1];
+  input.onchange({ target: { files: [{ text: jsonStr }] } });
+  const back = JSON.parse(JSON.stringify(await p));
+  assert.equal(back.length, 1, 'la mancha tiene que volver del JSON');
+  assert.equal(back[0].type, 'airbrush');
+  assert.equal(back[0].radius, 18);
+  assert.equal(back[0].opacity, 0.4);
+  assert.deepEqual(back[0].clip, { x: 30, y: 30, w: 200, h: 90 });
+  // Y la nube regenerada es la misma: es lo que permite no guardarla.
+  assert.deepEqual(ctx.Airbrush.dots(back[0]).map(d => d.x),
+    ctx.Airbrush.dots(original).map(d => d.x));
+});

@@ -137,6 +137,17 @@ const Eraser = (function () {
         : [{ x: el.x1, y: el.y1 }, { x: el.x2, y: el.y2 }];
       return _touchesPolyline(sampled, segs, r + (el.lineWidth || 1) / 2, false);
     }
+    // Aerógrafo: la banda pintada es el eje ensanchado por la boquilla, y su
+    // radio es una cota dura (ninguna gota cae más lejos), así que el alcance
+    // puede ser exacto. Sin esta rama caería en el `_touchesBox` final y una
+    // mancha en diagonal se borraría barriendo por cualquier esquina vacía de
+    // su caja — el mismo defecto que el borrado por bbox de las fachadas.
+    if (el.type === 'airbrush') {
+      // Con área, fuera de ella no hay tinta que borrar: se borra lo que se VE.
+      if (el.clip && !_touchesBox(el.clip, segs, r)) return false;
+      return _touchesPolyline(el.points || [], segs,
+        r + (el.radius || 0) + (el.lineWidth || 1) / 2, false);
+    }
     // Formas: se borra lo que se VE. Sin relleno solo cuenta el contorno —
     // barrer por el hueco interior de un rectángulo vacío no debe llevárselo
     // entero (con la caja, una pasada por el centro de una fachada borraba

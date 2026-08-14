@@ -586,6 +586,37 @@ const Renderer = (() => {
         break;
       }
 
+      // La nube del aerógrafo. No pasa por Sketchy: el temblor ya lo pone la
+      // propia dispersión de las gotas, y su generación vive en airbrush.js
+      // para que lienzo y exportaciones no puedan divergir.
+      case 'airbrush': {
+        ctx.fillStyle = el.color;
+        if (el.opacity !== undefined) {
+          // Translúcido: un fill POR GOTA, porque ahí la acumulación de alfa
+          // es el efecto —dos pasadas cruzadas tienen que oscurecer el cruce.
+          // El camino rápido de abajo compondría la unión una sola vez y esa
+          // acumulación desaparecería.
+          ctx.globalAlpha = el.opacity;
+          Airbrush.forEachDot(el, (x, y, r) => {
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.fill();
+          });
+        } else {
+          // Sólido: una sola ruta con todas las gotas y UN fill. Con círculos
+          // opacos el resultado es idéntico (la unión) y varias veces más
+          // rápido. El moveTo antes de cada arc es obligatorio: sin él, arc()
+          // encadena una recta desde el punto anterior y la ruta sale cosida.
+          ctx.beginPath();
+          Airbrush.forEachDot(el, (x, y, r) => {
+            ctx.moveTo(x + r, y);
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+          });
+          ctx.fill();
+        }
+        break;
+      }
+
       case 'line':
         if (el.dash) ctx.setLineDash([4 * el.lineWidth, 4 * el.lineWidth]);
         Sketchy.line(ctx, el.x1, el.y1, el.x2, el.y2);

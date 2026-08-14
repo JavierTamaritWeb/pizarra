@@ -20,7 +20,7 @@ test('la app arranca sin errores de consola y construye el sidebar', async ({ pa
   // Son `const` de nivel superior, así que viven en el ámbito léxico global y
   // NO son propiedades de `window`: hay que preguntar por su nombre.
   const globals = await page.evaluate(() => ['TOOLS', 'Sketchy', 'ArcMath', 'CurvePath',
-    'ShapeRotation', 'RegularPolygon', 'Trapezoid', 'Eraser', 'Building', 'Garden',
+    'ShapeRotation', 'RegularPolygon', 'Trapezoid', 'Airbrush', 'Eraser', 'Building', 'Garden',
     'Renderer', 'Exporter', 'Templates']
     .filter(g => new Function(`return typeof ${g}`)() === 'undefined'));
   expect(globals, 'globals que no se han cargado').toEqual([]);

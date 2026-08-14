@@ -4,6 +4,11 @@
 
 const TOOLS = Object.freeze({
   PENCIL:           'pencil',
+  // Tipo de elemento REAL, a diferencia de arc/emoji y de Edificios/Jardín:
+  // el aerógrafo se guarda como `type:'airbrush'` y su nube de gotas se
+  // regenera desde el seed en js/airbrush.js. Por eso NO va en
+  // CREATION_ONLY_TOOLS (exporter.js) — meterlo ahí lo borraría al importar.
+  AIRBRUSH:         'airbrush',
   LINE:             'line',
   RECT:             'rect',
   ROUNDED_RECT:     'roundedRect',
@@ -373,6 +378,11 @@ const TOOL_GROUPS = [
     label: 'Dibujo',
     tools: [
       { id: TOOLS.PENCIL, icon: '✏️', name: 'Lápiz',    key: 'p' },
+      // Junto al Lápiz porque es la otra herramienta a mano alzada: el grupo
+      // va de lo libre a lo geométrico. Sin atajo, como «Select» y Balcón —
+      // las 26 letras y los 10 dígitos están cogidos, y `f q d s` son
+      // acciones de la flecha curva que se atienden ANTES que TOOL_KEYS.
+      { id: TOOLS.AIRBRUSH, icon: '💨', name: 'Aerógrafo' },
       { id: TOOLS.LINE,   icon: '📏', name: 'Línea',    key: 'l' },
       { id: TOOLS.ARROW,  icon: '➡️', name: 'Flecha',   key: 'a' },
       { id: TOOLS.CURVE_ARROW, icon: '↷', name: 'Flecha curva', key: 'u' },

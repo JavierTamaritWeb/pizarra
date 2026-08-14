@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.21.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.22.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.21\.0</);
-  assert.match(html, /css\/styles\.css\?v=2\.21\.0/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.21\.0/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.21\.0/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.21\.0/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.21\.0/);
+  assert.match(html, /class="topbar__badge">v2\.22\.0</);
+  assert.match(html, /css\/styles\.css\?v=2\.22\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.22\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.22\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.22\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.22\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -58,6 +58,8 @@ test('index publica v2.21.0 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="modal-text"/);
   assert.match(html, /id="modal-ui"/);
   assert.match(html, /id="modal-select"/);
+  assert.match(html, /id="modal-airbrush"/);
+  assert.match(html, /src\/js\/airbrush\.js\?v=2\.22\.0/);
   // «Los clics acumulan selección» dejó el panel en la v2.17.0 y es el ajuste
   // de «Select». Si volviera a existir la casilla vieja habría dos controles
   // para un mismo estado, y solo uno cableado: el arnés `node:vm` fabrica un
@@ -115,7 +117,7 @@ test('los mandos de Fondo y Cuadrícula nacen con el color que dice app.js', () 
 test('los modales de ajustes llevan geometría y el emoji su tamaño acotado', () => {
   const ctx = load('src/js/config.js');
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  for (const p of ['stroke-modal', 'shape-modal', 'text-modal', 'ui-modal']) {
+  for (const p of ['stroke-modal', 'shape-modal', 'text-modal', 'ui-modal', 'airbrush-modal']) {
     assert.match(html, new RegExp(`id="${p}-geo" hidden`),
       `#${p}-geo debe existir y nacer oculto (sin selección no hay nada que colocar)`);
     for (const f of ['x', 'y', 'w', 'h']) {
@@ -173,6 +175,31 @@ test('el panel tiene sus secciones contextuales y el CSS que las oculta', () => 
   // desplaza, y el cursor es lo que lo promete.
   assert.match(css, /\.canvas-area__canvas--pick\s*\{\s*cursor:\s*default/,
     'falta el cursor de la herramienta «Select» en el CSS compilado');
+  // Borrador y aerógrafo esconden el cursor del sistema porque dibujan su
+  // propio indicador en el overlay (el círculo con el alcance real). Sin el
+  // `cursor: none` se ven los dos a la vez, y en el aerógrafo la cruz del
+  // sistema encima del círculo es exactamente lo que se pidió quitar.
+  for (const tool of ['eraser', 'airbrush']) {
+    assert.match(css, new RegExp(`\\.canvas-area__canvas--${tool}\\s*\\{\\s*cursor:\\s*none`),
+      `falta el cursor: none de ${tool} en el CSS compilado`);
+  }
+});
+
+// La paleta vive en dos sitios desde la v2.22.0 (el panel y los ajustes del
+// aerógrafo). Va sobre el TEXTO de index.html porque dom-stub.js fabrica un
+// <div> vacío para cualquier id desconocido: si el contenedor faltara en el
+// HTML, buildColors pintaría 36 muestras en un div fantasma y ningún test vm
+// se enteraría — en la página no habría paleta.
+test('los ajustes del aerógrafo llevan su propia rejilla de color', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const ini = html.indexOf('id="modal-airbrush"');
+  const fin = html.indexOf('</dialog>', ini);
+  assert.ok(ini > 0 && fin > ini, 'falta #modal-airbrush');
+  const modal = html.slice(ini, fin);
+  assert.match(modal, /class="panel__color-grid" id="airbrush-color-grid"/,
+    'la rejilla debe estar DENTRO del modal y con la clase del panel');
+  // El selector libre sigue estando: la rejilla son 36 colores fijos, no todos.
+  assert.match(modal, /id="airbrush-modal-color"/);
 });
 
 // El reparto del ⚙ (v2.21.0) se comprueba SOBRE EL TEXTO de index.html y no en
@@ -238,6 +265,43 @@ test('los controles gemelos del trazo (panel y modal) ofrecen lo mismo', () => {
     'la opacidad del modal de forma y la del panel, lo mismo');
   assert.deepEqual(rangeOf('text-modal-size'), rangeOf('font-slider'),
     'el tamaño de letra de #modal-text y el del panel deben cubrir el mismo rango');
+  // El grano del aerógrafo ES un lineWidth, así que comparte el rango de los
+  // otros cuatro: si no, una mancha podría nacer con un grosor que ningún otro
+  // mando puede volver a poner.
+  assert.deepEqual(rangeOf('airbrush-modal-grain'), ref,
+    'el grano del aerógrafo es un grosor más: mismo rango');
+});
+
+// Los deslizadores del aerógrafo declaran sus topes en el HTML y el módulo los
+// vuelve a acotar al validar un import: si se separan, o el mando no llega a lo
+// que el módulo admite, o deja fijar algo que un JSON exportado ya no acepta.
+// Mismo patrón que las guardas de Verjas, Cancela y el ancho de camino.
+test('los deslizadores del aerógrafo cubren justo lo que acota airbrush.js', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const attr = (id, a) => {
+    const tag = html.match(new RegExp(`<input[^>]*id="${id}"[^>]*>`));
+    assert.ok(tag, `no existe el slider #${id}`);
+    return Number((tag[0].match(new RegExp(`${a}="([^"]+)"`)) || [])[1]);
+  };
+  const { Airbrush } = loadAll();
+  // El mando de anchura enseña el DIÁMETRO y el elemento guarda el radio.
+  assert.equal(attr('airbrush-modal-radius', 'min'), Airbrush.R_MIN * 2);
+  assert.equal(attr('airbrush-modal-radius', 'max'), Airbrush.R_MAX * 2);
+  assert.equal(attr('airbrush-modal-density', 'min'), Airbrush.DENSITY_MIN);
+  assert.equal(attr('airbrush-modal-density', 'max'), Airbrush.DENSITY_MAX);
+  assert.equal(attr('airbrush-modal-grain', 'min'), Airbrush.GRAIN_MIN);
+  assert.equal(attr('airbrush-modal-grain', 'max'), Airbrush.GRAIN_MAX);
+  // La opacidad va en porcentaje y llega a 100 = sólido, que es el valor con
+  // el que el elemento NO guarda el campo.
+  assert.equal(attr('airbrush-modal-opacity', 'max'), 100);
+  assert.ok(attr('airbrush-modal-opacity', 'min') > 0,
+    'una opacidad de 0 sería una mancha invisible que igualmente cuenta como elemento');
+  // Y el valor inicial de cada mando cae dentro de su propio rango.
+  for (const id of ['airbrush-modal-radius', 'airbrush-modal-density',
+    'airbrush-modal-grain', 'airbrush-modal-opacity']) {
+    const v = attr(id, 'value');
+    assert.ok(v >= attr(id, 'min') && v <= attr(id, 'max'), `#${id} nace fuera de su rango`);
+  }
 });
 
 // css/styles.css es un artefacto compilado desde scss/ (Gulp 5 + dart-sass).

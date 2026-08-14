@@ -23,8 +23,8 @@ const CORTA = { width: 1160, height: 560 };
 
 test.use({ viewport: CORTA });
 
-/* Los cinco modales de ajustes: se abren solos al elegir su herramienta, que
-   es lo que convierte un botón inalcanzable en una app bloqueada. */
+/* Los modales de ajustes: se abren solos al elegir su herramienta, que es lo
+   que convierte un botón inalcanzable en una app bloqueada. */
 const MODALES = [
   { tool: 'text',   modal: '#modal-text' },
   { tool: 'rect',   modal: '#modal-shape' },
@@ -32,6 +32,9 @@ const MODALES = [
   { tool: 'button', modal: '#modal-ui' },
   { tool: 'eraser', modal: '#modal-eraser' },
   { tool: 'pick',   modal: '#modal-select' },
+  // El del aerógrafo es el más alto del grupo Dibujo (seis mandos más el
+  // bloque del área): el mejor candidato a repetir el fallo de la v2.16.2.
+  { tool: 'airbrush', modal: '#modal-airbrush' },
 ];
 
 for (const { tool, modal } of MODALES) {

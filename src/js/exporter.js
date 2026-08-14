@@ -100,7 +100,7 @@ const Exporter = (() => {
   /** Tipos sin representación HTML propia: van en un <svg> incrustado.
       (Sin 'eraser': html() desvía a _svgScene toda escena que los tenga.) */
   const VECTOR_TYPES = [
-    'pencil', 'line', 'arrow', 'curveArrow', 'circle',
+    'pencil', 'airbrush', 'line', 'arrow', 'curveArrow', 'circle',
     'square', 'trapezoid', 'triangle', 'pentagon', 'hexagon',
   ];
 
@@ -221,6 +221,28 @@ const Exporter = (() => {
             out += `<path d="${d}" ${s}/>\n`;
           }
           break;
+
+        // La nube del aerógrafo: un <circle> por gota, agrupados bajo un
+        // único <g> que lleva el color. Agrupar parte por la mitad el peso
+        // del .svg (hasta 3000 gotas por mancha).
+        case 'airbrush': {
+          const nube = Airbrush.dots(el);
+          if (nube.length) {
+            // fill-opacity y JAMÁS opacity: `opacity` en el grupo lo aplana
+            // ANTES de componer, así que las gotas dejarían de sumarse entre
+            // sí y el SVG saldría distinto del lienzo justo en lo que define
+            // al modo translúcido. `fill-opacity` se hereda y se aplica por
+            // figura, que es lo que hace el globalAlpha del canvas.
+            const alpha = el.opacity !== undefined
+              ? ` fill-opacity="${_round(el.opacity)}"` : '';
+            out += `<g fill="${tint('')}"${alpha}>`;
+            for (const d of nube) {
+              out += `<circle cx="${_round(d.x)}" cy="${_round(d.y)}" r="${_round(d.r)}"/>`;
+            }
+            out += '</g>\n';
+          }
+          break;
+        }
 
         // (Los `eraser` heredados nunca llegan aquí: _svgScene los convierte
         // en máscaras antes de llamar a _svgElement, y html() desvía a
@@ -550,6 +572,10 @@ body { font-family: ${FONT_CSS()}; background: #fff; }
   // elemento fantasma (invisible pero seleccionable).
   // Lo mismo vale para "Jardín" (GARDEN_TOOLS): producen rect/line/circle/
   // curveArrow/text, nunca un el.type propio.
+  // AIRBRUSH **no** entra aquí, y es el reflejo equivocado al añadir una
+  // herramienta: el aerógrafo SÍ es un tipo de elemento, así que meterlo en
+  // esta lista lo sacaría de ELEMENT_TYPES y ninguna mancha sobreviviría a un
+  // export→import.
   const CREATION_ONLY_TOOLS = [TOOLS.SELECT, TOOLS.ARC, TOOLS.EMOJI,
     ...BUILDING_TOOLS, ...GARDEN_TOOLS];
   const ELEMENT_TYPES = Object.values(TOOLS).filter(t => !CREATION_ONLY_TOOLS.includes(t));
@@ -592,6 +618,29 @@ body { font-family: ${FONT_CSS()}; background: #fff; }
     // compatibilidad histórica usando lineWidth × 4.
     if (el.size !== undefined &&
         !(el.type === 'eraser' && _isNum(el.size) && el.size >= 4 && el.size <= 100)) return false;
+    // Campos del aerógrafo, todos atados a su tipo (como `size` al borrador):
+    // sueltos en otro elemento no significan nada y son basura serializada.
+    // opacity: solo se guarda cuando NO es sólido — un 1 explícito se rechaza
+    // igual que `dash: false`, porque la ausencia del campo ES el sólido.
+    if (el.opacity !== undefined &&
+        !(el.type === 'airbrush' && _isNum(el.opacity) &&
+          el.opacity > 0 && el.opacity < 1)) return false;
+    // radius (boquilla) y density: sin ellos no hay nube que regenerar.
+    if (el.radius !== undefined &&
+        !(el.type === 'airbrush' && _isNum(el.radius) &&
+          el.radius >= Airbrush.R_MIN && el.radius <= Airbrush.R_MAX)) return false;
+    if (el.density !== undefined &&
+        !(el.type === 'airbrush' && _isNum(el.density) &&
+          el.density >= Airbrush.DENSITY_MIN && el.density <= Airbrush.DENSITY_MAX)) return false;
+    // clip (área a la que se recorta la pintura): objeto plano con EXACTAMENTE
+    // x/y/w/h finitos, con el mismo rigor que los puntos de gardenMeta.
+    if (el.clip !== undefined) {
+      const c = el.clip;
+      if (!(el.type === 'airbrush' && c && typeof c === 'object' && !Array.isArray(c))) return false;
+      const keys = Object.keys(c);
+      if (keys.length !== 4 || !keys.every(k => ['x', 'y', 'w', 'h'].includes(k))) return false;
+      if (!_isNum(c.x) || !_isNum(c.y) || !(_isNum(c.w) && c.w > 0) || !(_isNum(c.h) && c.h > 0)) return false;
+    }
     // rotation: orientación opcional y normalizada de polígonos. El trapecio
     // solo admite cuartos de vuelta; los rectángulos siguen serializando el
     // giro directamente en sus dimensiones.
@@ -650,6 +699,14 @@ body { font-family: ${FONT_CSS()}; background: #fff; }
     if (el.type === 'pencil' || el.type === 'eraser') {
       return Array.isArray(el.points) && el.points.length > 0 &&
              el.points.every(p => p && _isNum(p.x) && _isNum(p.y));
+    }
+    // El aerógrafo guarda el EJE, no la nube: sin radius y density no hay nada
+    // que regenerar, así que aquí sí son obligatorios (arriba solo se comprobó
+    // que, de venir, estén en rango y en el tipo correcto).
+    if (el.type === 'airbrush') {
+      return Array.isArray(el.points) && el.points.length > 0 &&
+             el.points.every(p => p && _isNum(p.x) && _isNum(p.y)) &&
+             el.radius !== undefined && el.density !== undefined;
     }
     if (el.type === 'line' || el.type === 'arrow') {
       return _isNum(el.x1) && _isNum(el.y1) && _isNum(el.x2) && _isNum(el.y2);

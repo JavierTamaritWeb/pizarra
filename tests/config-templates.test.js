@@ -18,9 +18,9 @@ test('config.js — TOOLS', async t => {
     assert.equal(Object.isFrozen(ctx.TOOLS), true);
   });
 
-  await t.test('TOOLS tiene exactamente los 41 ids esperados', () => {
+  await t.test('TOOLS tiene exactamente los 42 ids esperados', () => {
     const expected = [
-      'pencil', 'line', 'rect', 'roundedRect', 'circle', 'arrow',
+      'pencil', 'airbrush', 'line', 'rect', 'roundedRect', 'circle', 'arrow',
       'curveArrow', 'arc', 'text', 'eraser', 'select', 'pick', 'imagePlaceholder',
       'button', 'input', 'nav', 'card', 'image', 'emoji',
       'square', 'trapezoid', 'triangle', 'pentagon', 'hexagon',
@@ -30,12 +30,26 @@ test('config.js — TOOLS', async t => {
       'jardin', 'arbol', 'arbusto', 'flor', 'decoracion', 'camino', 'aromatica', 'trepadora',
     ];
     const values = Object.values(ctx.TOOLS);
-    assert.equal(values.length, 41);
+    assert.equal(values.length, 42);
     assert.deepEqual([...values].sort(), [...expected].sort());
-    // Las claves también son 41 y únicas
-    assert.equal(Object.keys(ctx.TOOLS).length, 41);
-    assert.equal(new Set(values).size, 41);
+    // Las claves también son 42 y únicas
+    assert.equal(Object.keys(ctx.TOOLS).length, 42);
+    assert.equal(new Set(values).size, 42);
   });
+});
+
+test('config.js — el Aerógrafo va junto al Lápiz y es el único de Dibujo sin atajo', () => {
+  const ctx = load('src/js/config.js');
+  const dibujo = ctx.TOOL_GROUPS.find(g => g.label === 'Dibujo');
+  assert.ok(dibujo, 'falta el grupo Dibujo en el sidebar');
+  // El orden es el que se pinta: las dos herramientas a mano alzada juntas, y
+  // luego lo geométrico (línea, flechas, semicírculo).
+  assert.deepEqual([...dibujo.tools.map(t => t.id)],
+    ['pencil', 'airbrush', 'line', 'arrow', 'curveArrow', 'arc']);
+  // Entró sin atajo por lo mismo que «Select» y Balcón: no queda ninguna
+  // tecla suelta libre. Fijar la lista impide tanto que lo pierda un refactor
+  // como que gane uno que choque.
+  assert.deepEqual([...dibujo.tools.filter(t => !t.key).map(t => t.id)], ['airbrush']);
 });
 
 test('config.js — TOOL_GROUPS: cada tool referenciado existe en TOOLS', () => {

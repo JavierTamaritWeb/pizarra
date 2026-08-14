@@ -47,7 +47,7 @@ const KNOWN_GLOBALS = [
   'TEXT_SHADOWS', 'textShadowById', 'DEFAULT_SHADOW_COLOR', 'SHADOW_REF_SIZE',
   'UI_DEFAULTS', 'EMOJI_GROUPS', 'EMOJI_MIN_SIZE', 'EMOJI_MAX_SIZE',
   'Sketchy', 'ArcMath', 'CurvePath', 'ShapeRotation', 'RegularPolygon',
-  'Trapezoid', 'Eraser', 'Building', 'Garden', 'Renderer', 'Exporter', 'Templates',
+  'Trapezoid', 'Airbrush', 'Eraser', 'Building', 'Garden', 'Renderer', 'Exporter', 'Templates',
 ];
 
 /** Orden completo de dependencias del proyecto (app.js excluido: requiere DOM real). */
@@ -59,6 +59,7 @@ const ALL_FILES = [
   'src/js/shape-rotation.js',
   'src/js/regular-polygon.js',
   'src/js/trapezoid.js',
+  'src/js/airbrush.js',
   'src/js/eraser.js',
   'src/js/building.js',
   'src/js/garden.js',
@@ -214,6 +215,17 @@ function load(...files) {
   const rendererIndexAfterPolygon = list.findIndex(f => f.endsWith('renderer.js'));
   if (rendererIndexAfterPolygon >= 0 && !list.some(f => f.endsWith('trapezoid.js'))) {
     list.splice(rendererIndexAfterPolygon, 0, 'src/js/trapezoid.js');
+  }
+  // El aerógrafo lo consumen renderer.js (para pintar la nube) y eraser.js
+  // (para saber hasta dónde llega la banda), así que hay que anteponerlo a
+  // los dos: sin esto, load('sketchy', 'renderer') —lo que hacen varias
+  // suites— cargaría un renderer sin `Airbrush` y reventaría al llegar al
+  // primer elemento de este tipo.
+  for (const dependiente of ['renderer.js', 'eraser.js', 'exporter.js']) {
+    const idx = list.findIndex(f => f.endsWith(dependiente));
+    if (idx >= 0 && !list.some(f => f.endsWith('airbrush.js'))) {
+      list.splice(idx, 0, 'src/js/airbrush.js');
+    }
   }
   const context = createContext();
   for (const f of list) loadScript(context, f);

@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=2.21.0" />
+  <link rel="stylesheet" href="css/styles.css?v=2.22.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.21.0" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.22.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v2.21.0</span>
+        <span class="topbar__badge">v2.22.0</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes" aria-expanded="false" aria-controls="side-panel">
@@ -457,6 +457,18 @@
       </section>
 
       <section class="modal__help-group">
+        <h4 class="modal__help-title">💨 Aerógrafo</h4>
+        <ul class="modal__help-list">
+          <li>Pulveriza <strong>tono</strong> en vez de trazo: una nube de gotas densa en el eje y difuminada hacia los bordes. Un clic sin arrastrar deja un soplo redondo</li>
+          <li>No tiene atajo de teclado: se elige en el sidebar, dentro de <strong>Dibujo</strong>, junto al Lápiz</li>
+          <li>Al elegirlo se abren sus ajustes: color, <strong>anchura</strong> de la boquilla, <strong>grano</strong>, <strong>densidad</strong> y <strong>opacidad</strong>, con muestra en vivo. Volver a pulsar la herramienta los reabre</li>
+          <li>Al <strong>100 %</strong> la pintura es sólida; por debajo es translúcida y las pasadas <strong>se acumulan</strong>: dos trazos cruzados oscurecen el cruce</li>
+          <li>En <strong>«Dónde pinta»</strong> puedes acotarla a un rectángulo: el modal se cierra, marcas el área arrastrando y a partir de ahí la pintura se corta en su borde. El marco se ve en discontinuo y no es un elemento — no cuenta ni se exporta</li>
+          <li>El área se recuerda entre sesiones; desde el mismo modal se vuelve a marcar o se quita</li>
+        </ul>
+      </section>
+
+      <section class="modal__help-group">
         <h4 class="modal__help-title">Borrador</h4>
         <ul class="modal__help-list">
           <li><kbd>E</kbd>: activa el <strong>Borrador</strong>; arrastra sobre trazos, rellenos o formas para <strong>eliminarlos</strong> — no los tapa, así que lo borrado no reaparece al mover el dibujo</li>
@@ -877,6 +889,98 @@
       <button class="btn btn--ghost btn--block modal__cancel">Cerrar</button>
   </dialog>
 
+  <!-- ===== MODAL: AERÓGRAFO =====
+       Los ajustes de la única herramienta que pinta TONO en vez de trazo. Se
+       abre al elegirla, como el resto desde la 2.9.0, y se reabre volviéndola
+       a pulsar o con el ⚙ de «Posición y tamaño» si lo seleccionado es una
+       mancha.
+
+       Dos cosas que no son como en los otros modales de ajustes:
+       · «Opacidad» al 100 % es la pintura SÓLIDA, y entonces el elemento no
+         guarda el campo. Por debajo es translúcida y las pasadas se acumulan.
+       · El área: elegirla o pulsar «Marcar área» CIERRAN el diálogo, porque un
+         <dialog showModal> deja inerte el lienzo de detrás y el gesto siguiente
+         es justamente dibujar el rectángulo ahí (ver v2.16.2 en BUGS.md). -->
+  <dialog class="modal" id="modal-airbrush" aria-labelledby="modal-airbrush-title">
+      <h3 class="modal__heading" id="modal-airbrush-title">Ajustes del aerógrafo</h3>
+      <p class="modal__sub">La muestra se pulveriza con los ajustes actuales; el trazo
+        se cruza a sí mismo para que se vea cómo se acumula la pintura translúcida.</p>
+      <div class="modal__build">
+        <canvas class="modal__preview" id="airbrush-preview" width="176" height="168"
+                role="img" aria-label="Vista previa del aerógrafo con los ajustes actuales"></canvas>
+        <div class="modal__build-fields">
+          <!-- La paleta entera, no solo el selector libre: es el mando de color
+               que se usa de verdad, y tenerlo aquí evita cerrar los ajustes para
+               ir a buscarlo al panel. Cabe en la columna de campos (6 × 2.8rem
+               más los huecos son 18.8rem de los 21.4rem disponibles) y la pintan
+               las mismas muestras que el panel, así que el resaltado del color
+               activo (updateColorActive, que va por clase y no por id) funciona
+               en las dos a la vez. -->
+          <div id="airbrush-palette">
+            <span class="modal__field-label">Color</span>
+            <div class="panel__color-grid" id="airbrush-color-grid"></div>
+          </div>
+          <label class="panel__field" for="airbrush-modal-color">
+            <span class="modal__field-label">Otro color</span>
+            <input class="panel__color-picker" type="color" id="airbrush-modal-color" value="#1a1a2e"
+                   aria-label="Color de la pintura" />
+          </label>
+          <label class="panel__field" for="airbrush-modal-radius">
+            <span class="modal__field-label">Anchura: <span id="airbrush-modal-radius-val">48</span>px</span>
+            <!-- min/max = Airbrush.R_MIN/R_MAX ×2 (el mando es el diámetro,
+                 que es lo que se ve; el elemento guarda el radio). -->
+            <input class="panel__slider" type="range" id="airbrush-modal-radius"
+                   min="8" max="120" step="2" value="48"
+                   aria-label="Anchura del aerógrafo" />
+          </label>
+          <label class="panel__field" for="airbrush-modal-grain">
+            <span class="modal__field-label">Grano: <span id="airbrush-modal-grain-val">5</span>px</span>
+            <input class="panel__slider" type="range" id="airbrush-modal-grain"
+                   min="1" max="8" step="1" value="5"
+                   aria-label="Tamaño de la gota" />
+          </label>
+          <label class="panel__field" for="airbrush-modal-density">
+            <span class="modal__field-label">Densidad: <span id="airbrush-modal-density-val">70</span></span>
+            <input class="panel__slider" type="range" id="airbrush-modal-density"
+                   min="10" max="120" step="5" value="70"
+                   aria-label="Densidad de la pulverización" />
+          </label>
+          <label class="panel__field" for="airbrush-modal-opacity">
+            <span class="modal__field-label">Opacidad: <span id="airbrush-modal-opacity-val">100</span>%</span>
+            <input class="panel__slider" type="range" id="airbrush-modal-opacity"
+                   min="10" max="100" step="5" value="100"
+                   aria-label="Opacidad de la pintura" />
+          </label>
+          <label class="panel__field" for="airbrush-area-mode">
+            <span class="modal__field-label">Dónde pinta</span>
+            <select class="panel__select" id="airbrush-area-mode">
+              <option value="all">En todo el lienzo</option>
+              <option value="area">Solo dentro de un área</option>
+            </select>
+          </label>
+          <!-- Div SIN clase, igual que los bloques de geometría: ninguna clase
+               suya declara `display`, así que el [hidden] del user-agent basta
+               y no se reabre la trampa documentada en _panel.scss. -->
+          <div id="airbrush-area-actions" hidden>
+            <p class="modal__sub" id="airbrush-area-status">Sin área marcada</p>
+            <button type="button" class="btn btn--ghost btn--block" id="btn-airbrush-mark">Marcar el área</button>
+            <button type="button" class="btn btn--ghost btn--block" id="btn-airbrush-clear-area">Quitar el área</button>
+          </div>
+          <!-- Ver el bloque homólogo de #modal-stroke: div sin clase, solo con selección. -->
+          <div id="airbrush-modal-geo" hidden>
+            <span class="modal__field-label">Posición y tamaño</span>
+            <div class="panel__nums">
+              <label class="panel__num" for="airbrush-modal-x"><span>X</span><input type="number" id="airbrush-modal-x" step="1" /></label>
+              <label class="panel__num" for="airbrush-modal-y"><span>Y</span><input type="number" id="airbrush-modal-y" step="1" /></label>
+              <label class="panel__num" for="airbrush-modal-w"><span>Ancho</span><input type="number" id="airbrush-modal-w" step="1" min="1" /></label>
+              <label class="panel__num" for="airbrush-modal-h"><span>Alto</span><input type="number" id="airbrush-modal-h" step="1" min="1" /></label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cerrar</button>
+  </dialog>
+
   <!-- ===== MODAL: FORMA DE PLANTA ===== -->
   <dialog class="modal" id="modal-planta" aria-labelledby="modal-planta-title">
       <h3 class="modal__heading" id="modal-planta-title">Forma de la planta</h3>
@@ -1260,19 +1364,20 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=2.21.0"></script>
-  <script src="src/js/sketchy.js?v=2.21.0"></script>
-  <script src="src/js/arc.js?v=2.21.0"></script>
-  <script src="src/js/curve-path.js?v=2.21.0"></script>
-  <script src="src/js/shape-rotation.js?v=2.21.0"></script>
-  <script src="src/js/regular-polygon.js?v=2.21.0"></script>
-  <script src="src/js/trapezoid.js?v=2.21.0"></script>
-  <script src="src/js/eraser.js?v=2.21.0"></script>
-  <script src="src/js/building.js?v=2.21.0"></script>
-  <script src="src/js/garden.js?v=2.21.0"></script>
-  <script src="src/js/renderer.js?v=2.21.0"></script>
-  <script src="src/js/exporter.js?v=2.21.0"></script>
-  <script src="src/js/templates.js?v=2.21.0"></script>
-  <script src="src/js/app.js?v=2.21.0"></script>
+  <script src="src/js/config.js?v=2.22.0"></script>
+  <script src="src/js/sketchy.js?v=2.22.0"></script>
+  <script src="src/js/arc.js?v=2.22.0"></script>
+  <script src="src/js/curve-path.js?v=2.22.0"></script>
+  <script src="src/js/shape-rotation.js?v=2.22.0"></script>
+  <script src="src/js/regular-polygon.js?v=2.22.0"></script>
+  <script src="src/js/trapezoid.js?v=2.22.0"></script>
+  <script src="src/js/airbrush.js?v=2.22.0"></script>
+  <script src="src/js/eraser.js?v=2.22.0"></script>
+  <script src="src/js/building.js?v=2.22.0"></script>
+  <script src="src/js/garden.js?v=2.22.0"></script>
+  <script src="src/js/renderer.js?v=2.22.0"></script>
+  <script src="src/js/exporter.js?v=2.22.0"></script>
+  <script src="src/js/templates.js?v=2.22.0"></script>
+  <script src="src/js/app.js?v=2.22.0"></script>
 </body>
 </html>

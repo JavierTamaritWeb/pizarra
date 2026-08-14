@@ -77,6 +77,20 @@
     plantColorMode: 'natural', // natural | ink (tinta global de la app)
     pathWidth: DEFAULT_PATH_WIDTH, // ancho de los caminos (el arrastre solo da el recorrido)
     pathAnyAngle: false, // caminos en cualquier inclinación: ajuste pegajoso, no tecla mantenida
+    // Aerógrafo: ajustes del modal. Están aquí, y no sueltos en `state`, para
+    // que «Limpiar todo» los devuelva a su sitio junto con el área marcada —
+    // un rectángulo invisible que sobreviviera al borrado seguiría recortando
+    // todo lo que se pintara después.
+    // Los tres primeros salen de compararlos en el navegador: con grano 3 y
+    // densidad 45 la mancha salía SALPICADA, no pulverizada — se veían las
+    // gotas sueltas y no había núcleo. A partir de grano 5 aparece el núcleo
+    // denso con el borde difuminado, que es lo que uno espera de un aerógrafo.
+    airbrushRadius: 24,      // boquilla (Airbrush.R_MIN/R_MAX); el mando enseña el diámetro
+    airbrushDensity: 70,     // gotas por 1000 px² de banda
+    airbrushGrain: 5,        // diámetro de la gota; acaba en el lineWidth del elemento
+    airbrushOpacity: 1,      // 1 = sólido, y entonces el elemento NO guarda el campo
+    airbrushAreaMode: 'all', // all | area
+    airbrushArea: null,      // rectángulo al que se recorta la pintura
   };
 
   const state = {
@@ -105,6 +119,11 @@
     dashed:      false, // nuevas líneas/flechas con trazo discontinuo
     curveFlip:   false, // Shift durante el trazado: curva hacia el otro lado
     pathFreeAngle: false, // Shift durante el arrastre del camino: cualquier inclinación
+    // Aerógrafo, transitorios del gesto (no son ajustes: fuera de prefs).
+    airbrushAreaPending: false, // el próximo arrastre marca el área, no pinta
+    airbrushDrag: null,  // 'spray' | 'area': qué se está haciendo con el ratón
+    airbrushSeed: null,  // seed fijado en el mousedown: sin él la previsualización
+                         // se re-sortearía en cada fotograma del arrastre
     curveChain:  null,  // borrador por clics: { start, segments, style... }
     showGrid:    true,
     snapGrid:    false,
@@ -204,6 +223,10 @@
   }
 
   function getElementBounds(el) {
+    // El aerógrafo no mide su eje sino su BANDA: las gotas llegan hasta
+    // `radius` a cada lado. Con la caja del eje, el marco de selección
+    // cortaría la mancha por la mitad y el hit-test por caja mentiría.
+    if (el.type === 'airbrush') return Airbrush.visibleBox(el);
     if (el.type === 'pencil' || el.type === 'eraser') {
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       el.points.forEach(p => {
@@ -270,6 +293,21 @@
       // Líneas y flechas: distancia al segmento, no bounding box
       if (el.type === 'line' || el.type === 'arrow') {
         if (distToSegment(pos, el.x1, el.y1, el.x2, el.y2) <= el.lineWidth / 2 + 6) return i;
+        continue;
+      }
+      // Aerógrafo: distancia a la banda, por lo mismo que líneas y flechas.
+      // Una mancha en diagonal robaría todos los clics de su rectángulo.
+      if (el.type === 'airbrush') {
+        const pts = el.points || [];
+        const alcance = (el.radius || 0) + el.lineWidth / 2 + 6;
+        if (el.clip && !(pos.x >= el.clip.x && pos.x <= el.clip.x + el.clip.w &&
+                         pos.y >= el.clip.y && pos.y <= el.clip.y + el.clip.h)) continue;
+        let hit = pts.length === 1 &&
+          Math.hypot(pos.x - pts[0].x, pos.y - pts[0].y) <= alcance;
+        for (let s = 1; s < pts.length && !hit; s++) {
+          hit = distToSegment(pos, pts[s - 1].x, pts[s - 1].y, pts[s].x, pts[s].y) <= alcance;
+        }
+        if (hit) return i;
         continue;
       }
       if (RegularPolygon.isType(el.type)) {
@@ -514,6 +552,9 @@
         p2: { x: m.gardenMeta.p2.x + dx, y: m.gardenMeta.p2.y + dy },
       };
     }
+    // El área del aerógrafo viaja con su mancha: es lo que la recorta, y
+    // dejarla quieta haría que mover el dibujo cambiara lo que se ve de él.
+    if (m.clip) m.clip = { ...m.clip, x: m.clip.x + dx, y: m.clip.y + dy };
     return m;
   }
 
@@ -1042,6 +1083,16 @@
         plantColorMode: state.plantColorMode,
         pathWidth: state.pathWidth,
         pathAnyAngle: state.pathAnyAngle,
+        // Aerógrafo (v2.22.0): sus cinco ajustes, área incluida. El área
+        // persiste como cualquier otro: si sobreviviera solo hasta la recarga,
+        // un proyecto retomado al día siguiente empezaría a pintar por todas
+        // partes sin avisar de que el recorte se había perdido.
+        airbrushRadius: state.airbrushRadius,
+        airbrushDensity: state.airbrushDensity,
+        airbrushGrain: state.airbrushGrain,
+        airbrushOpacity: state.airbrushOpacity,
+        airbrushAreaMode: state.airbrushAreaMode,
+        airbrushArea: state.airbrushArea,
         // Ajustes de UI y Emoji (v2.10.0): defaults de creación, como todo.
         emojiSize: state.emojiSize,
         uiLabels: state.uiLabels,
@@ -1184,6 +1235,36 @@
         state.pathWidth = Math.min(Garden.PATH_W_MAX, Math.max(Garden.PATH_W_MIN, prefs.pathWidth));
       }
       if (typeof prefs.pathAnyAngle === 'boolean') state.pathAnyAngle = prefs.pathAnyAngle;
+      // Aerógrafo: los cuatro numéricos se acotan a los topes del módulo, que
+      // son los mismos que declaran los deslizadores.
+      if (Number.isFinite(prefs.airbrushRadius)) {
+        state.airbrushRadius = Math.min(Airbrush.R_MAX,
+          Math.max(Airbrush.R_MIN, prefs.airbrushRadius));
+      }
+      if (Number.isFinite(prefs.airbrushDensity)) {
+        state.airbrushDensity = Math.min(Airbrush.DENSITY_MAX,
+          Math.max(Airbrush.DENSITY_MIN, prefs.airbrushDensity));
+      }
+      if (Number.isFinite(prefs.airbrushGrain)) {
+        state.airbrushGrain = Math.min(Airbrush.GRAIN_MAX,
+          Math.max(Airbrush.GRAIN_MIN, prefs.airbrushGrain));
+      }
+      if (Number.isFinite(prefs.airbrushOpacity)) {
+        state.airbrushOpacity = Math.min(1, Math.max(0.05, prefs.airbrushOpacity));
+      }
+      if (['all', 'area'].includes(prefs.airbrushAreaMode)) {
+        state.airbrushAreaMode = prefs.airbrushAreaMode;
+      }
+      // El área guardada se valida entera y se recorta al lienzo: un rectángulo
+      // manipulado recortaría a un sitio inalcanzable y la herramienta parecería
+      // rota sin dejar rastro de por qué.
+      const a = prefs.airbrushArea;
+      if (a && typeof a === 'object' && !Array.isArray(a) &&
+          [a.x, a.y, a.w, a.h].every(Number.isFinite) &&
+          a.w >= Airbrush.MIN_AREA && a.h >= Airbrush.MIN_AREA) {
+        const rec = clampAreaToCanvas(a);
+        if (rec.w >= Airbrush.MIN_AREA && rec.h >= Airbrush.MIN_AREA) state.airbrushArea = rec;
+      }
     } catch (_) { /* prefs corruptas: se ignoran */ }
   }
 
@@ -1481,10 +1562,11 @@
       arrastrar su marco. Mientras el usuario teclea en un campo no se le
       sobrescribe. */
   /** Juegos de campos X/Y/Ancho/Alto: el del panel («el») y sus gemelos dentro
-      de los cuatro modales de ajustes (v2.10.0) — un solo cuerpo de lectura y
-      otro de escritura para todos, porque la caja escrita a mano no puede
-      tener dos vías que discrepen. */
-  const GEO_PREFIXES = ['el', 'stroke-modal', 'shape-modal', 'text-modal', 'ui-modal'];
+      de los modales de ajustes (v2.10.0; el aerógrafo en la 2.22.0) — un solo
+      cuerpo de lectura y otro de escritura para todos, porque la caja escrita a
+      mano no puede tener dos vías que discrepen. */
+  const GEO_PREFIXES = ['el', 'stroke-modal', 'shape-modal', 'text-modal', 'ui-modal',
+    'airbrush-modal'];
 
   // Para qué selección se escribieron los campos. En navegador, clicar otro
   // elemento dispara PRIMERO el mousedown (que cambia la selección) y DESPUÉS
@@ -1573,14 +1655,16 @@
     //     no se puede reimportar;
     //   · un grupo (o cualquier multi-selección) escala en proporción, porque
     //     dentro viaja de todo y un estirón libre rompería la invariante
-    //     anterior en sus piezas.
-    // En ambos casos manda el lado que se acaba de escribir y el otro le sigue;
-    // syncGeometryControls lo refleja en el acto, así que se ve por qué.
+    //     anterior en sus piezas;
+    //   · una mancha de aerógrafo, por lo mismo que al arrastrar su tirador:
+    //     la boquilla es un solo escalar y no existe la boquilla elíptica.
+    // En todos los casos manda el lado que se acaba de escribir y el otro le
+    // sigue; syncGeometryControls lo refleja en el acto, así que se ve por qué.
     const single = sel.length === 1 ? sel[0] : null;
     if (single && REGULAR_POLYGON_TYPES.includes(single.type)) {
       const side = W.changed ? to.w : H.changed ? to.h : from.w;
       to.w = side; to.h = side;
-    } else if (sel.length > 1) {
+    } else if (sel.length > 1 || (single && single.type === 'airbrush')) {
       const s = W.changed ? (from.w ? to.w / from.w : 1)
         : H.changed ? (from.h ? to.h / from.h : 1) : 1;
       to.w = from.w * s; to.h = from.h * s;
@@ -1684,6 +1768,7 @@
     if ($('modal-shape').open) syncShapeControls();
     if ($('modal-text').open) syncTextControls();
     if ($('modal-ui').open) syncUiControls();
+    if ($('modal-airbrush').open) syncAirbrushControls();
   }
 
   /* ── Canvas events ── */
@@ -1790,6 +1875,17 @@
     } else {
       m.x = mapX(el.x); m.y = mapY(el.y);
       m.w = el.w * sx; m.h = el.h * sy;
+    }
+    if (m.type === 'airbrush') {
+      // La boquilla escala con el dibujo; el escalado del aerógrafo es
+      // uniforme por contrato (resizeTo/applyGeometry), así que sx≈sy y la
+      // media es el factor. El GRANO (lineWidth) no escala, igual que en el
+      // lápiz: lo gobierna un deslizador de rango fijo 1–8 y un resize que lo
+      // sacara de rango dejaría ese mando mintiendo sobre lo que hay.
+      m.radius = el.radius * (Math.abs(sx) + Math.abs(sy)) / 2;
+      if (m.clip) {
+        m.clip = { x: mapX(m.clip.x), y: mapY(m.clip.y), w: m.clip.w * sx, h: m.clip.h * sy };
+      }
     }
     return m;
   }
@@ -1967,6 +2063,27 @@
         w: size,
         h: size,
       };
+    }
+    // El aerógrafo escala en PROPORCIÓN, como un grupo: su boquilla es un solo
+    // escalar, y una caja estirada en un eje pediría una boquilla elíptica que
+    // el modelo no tiene. Misma cuenta que resizeGroupTo.
+    if (r.original.type === 'airbrush') {
+      const fixed = {
+        nw: { x: f.x + f.w, y: f.y + f.h },
+        ne: { x: f.x,       y: f.y + f.h },
+        sw: { x: f.x + f.w, y: f.y },
+        se: { x: f.x,       y: f.y },
+      }[r.corner];
+      if (fixed) {
+        const s = Math.max(f.w ? Math.abs(p.x - fixed.x) / f.w : 0,
+                           f.h ? Math.abs(p.y - fixed.y) / f.h : 0);
+        const w = f.w * s, h = f.h * s;
+        to = {
+          x: r.corner.includes('w') ? fixed.x - w : fixed.x,
+          y: r.corner.includes('n') ? fixed.y - h : fixed.y,
+          w, h,
+        };
+      }
     }
     // Tamaño mínimo, salvo en dimensiones que ya eran 0 (líneas rectas)
     if ((f.w > 0 && to.w < 10) || (f.h > 0 && to.h < 10)) return;
@@ -2166,12 +2283,55 @@
     if (state.tool === TOOLS.PENCIL || state.tool === TOOLS.ERASER) {
       state.currentPath = [pos];
     }
+
+    if (state.tool === TOOLS.AIRBRUSH) {
+      // Con el modo «área» armado, el arrastre marca el rectángulo en vez de
+      // pintar: es el gesto que el modal acaba de pedir, y por eso el modal se
+      // cierra al armarlo (un <dialog showModal> dejaría el lienzo inerte).
+      state.airbrushDrag = state.airbrushAreaPending ? 'area' : 'spray';
+      if (state.airbrushDrag === 'spray') {
+        state.currentPath = [pos];
+        // El seed se fija AQUÍ, no al soltar: la previsualización dibuja la
+        // nube de verdad y con un seed nuevo por fotograma la mancha herviría.
+        state.airbrushSeed = newSeed();
+      }
+    }
   }
 
   /* ── Overlay preview (coalescido vía requestAnimationFrame) ── */
 
   let overlayPending = false;
   let lastPos = null;
+
+  /**
+   * Elemento de aerógrafo con los ajustes actuales. Fuente ÚNICA para los tres
+   * sitios que lo construyen —previsualización del arrastre, commit al soltar
+   * y miniatura del modal—, por lo mismo que buildOpts() para Edificios.
+   *
+   * Dos campos son OPCIONALES y su ausencia es el aspecto por defecto, igual
+   * que con la negrita y la sombra del texto: sin `opacity` la pintura es
+   * sólida, y sin `clip` cubre todo el lienzo. Así una mancha corriente
+   * serializa exactamente los mismos campos que serializaría sin esta función.
+   */
+  function airbrushElement(points, seed) {
+    const el = {
+      type: 'airbrush',
+      points,
+      color: state.color,
+      lineWidth: state.airbrushGrain,
+      radius: state.airbrushRadius,
+      density: state.airbrushDensity,
+      seed,
+    };
+    if (state.airbrushOpacity < 1) el.opacity = state.airbrushOpacity;
+    // Copia, nunca la referencia de state: los elementos son objetos planos y
+    // serializables, y compartirla haría que mover una mancha moviera el área
+    // de la herramienta.
+    if (state.airbrushAreaMode === 'area' && state.airbrushArea) {
+      el.clip = { ...state.airbrushArea };
+    }
+    return el;
+  }
 
   // Opts de creación de la sección Edificios. Fuente ÚNICA para los tres sitios
   // que llaman a Building.elements —previsualización del arrastre, commit al
@@ -2338,6 +2498,52 @@
       return;
     }
 
+    // Aerógrafo. El marco del área se dibuja aunque no se esté pintando: es lo
+    // que enseña dónde va a caer la pintura, y sin él el recorte parecería una
+    // avería. Vive SOLO en el overlay —que se limpia entero cada fotograma—,
+    // así que no es un elemento: no cuenta en «Elementos», no entra en el undo,
+    // ni en el autoguardado, ni en ninguna de las cinco exportaciones. Mismo
+    // criterio que la cota de ángulo de los caminos (drawPathAngle).
+    if (state.tool === TOOLS.AIRBRUSH) {
+      const marco = state.airbrushDrag === 'area' && state.isDrawing && lastPos && state.startPos
+        ? { x: Math.min(state.startPos.x, lastPos.x), y: Math.min(state.startPos.y, lastPos.y),
+            w: Math.abs(lastPos.x - state.startPos.x), h: Math.abs(lastPos.y - state.startPos.y) }
+        : (state.airbrushAreaMode === 'area' ? state.airbrushArea : null);
+      if (marco) {
+        octx.save();
+        octx.setLineDash([6, 4]);
+        octx.lineWidth = 1.5;
+        octx.strokeStyle = '#4ecdc4';
+        octx.strokeRect(marco.x, marco.y, marco.w, marco.h);
+        octx.restore();
+      }
+      // Nube en vivo: la de verdad, con el mismo Renderer que la dibujará al
+      // soltar, para que la previsualización no pueda prometer otra cosa.
+      if (state.airbrushDrag === 'spray' && state.isDrawing && state.currentPath.length) {
+        Renderer.renderElement(octx, airbrushElement(state.currentPath, state.airbrushSeed));
+      }
+      // Boquilla: el círculo va SIEMPRE, en reposo y durante el gesto, y por
+      // encima de la nube. Sustituye al cursor del sistema (el lienzo lleva
+      // `cursor: none` con esta herramienta) y su radio es el de la mancha, así
+      // que lo que rodea es exactamente la superficie que se va a pintar: los
+      // centros de las gotas se acotan a `radius - grano` para que la tinta
+      // acabe justo en esta línea (ver airbrush.js). Mientras se marca el área
+      // no se dibuja: ahí el gesto es el rectángulo, no un soplo.
+      if (lastPos && state.airbrushDrag !== 'area') {
+        octx.save();
+        octx.beginPath();
+        octx.arc(lastPos.x, lastPos.y, state.airbrushRadius, 0, Math.PI * 2);
+        octx.strokeStyle = 'rgba(255,255,255,0.95)';
+        octx.lineWidth = 3;
+        octx.stroke();
+        octx.strokeStyle = 'rgba(26,26,46,0.95)';
+        octx.lineWidth = 1;
+        octx.stroke();
+        octx.restore();
+      }
+      return;
+    }
+
     if (!state.isDrawing || !lastPos) return;
     const pos = lastPos;
 
@@ -2496,7 +2702,11 @@
   function onMouseMove(e) {
     const pos = getPos(e);
 
-    if (state.tool === TOOLS.ERASER) {
+    // Borrador y aerógrafo llevan su propio indicador dibujado en el overlay en
+    // vez de un cursor del sistema, así que necesitan seguir al puntero también
+    // en reposo: sin esto el círculo se quedaría clavado donde acabó el último
+    // trazo.
+    if (state.tool === TOOLS.ERASER || state.tool === TOOLS.AIRBRUSH) {
       lastPos = pos;
       if (!state.isDrawing) {
         scheduleOverlay();
@@ -2555,7 +2765,8 @@
     // Los puntos se acumulan en cada evento (no se pierde trazo) descartando
     // los que están a <2px del anterior (decimación: reduce el path 3-5x);
     // el pintado se coalesce a un frame por refresco
-    if (state.tool === TOOLS.PENCIL || state.tool === TOOLS.ERASER) {
+    if (state.tool === TOOLS.PENCIL || state.tool === TOOLS.ERASER ||
+        (state.tool === TOOLS.AIRBRUSH && state.airbrushDrag === 'spray')) {
       const last = state.currentPath[state.currentPath.length - 1];
       if (!last || Math.hypot(pos.x - last.x, pos.y - last.y) >= 2) {
         state.currentPath.push(pos);
@@ -2735,6 +2946,42 @@
       });
       state.currentPath = [];
       redraw();
+      return;
+    }
+
+    if (state.tool === TOOLS.AIRBRUSH) {
+      const modo = state.airbrushDrag;
+      state.airbrushDrag = null;
+      if (modo === 'area') {
+        const rect = {
+          x: Math.min(state.startPos.x, pos.x), y: Math.min(state.startPos.y, pos.y),
+          w: Math.abs(pos.x - state.startPos.x), h: Math.abs(pos.y - state.startPos.y),
+        };
+        // Un clic torpe no puede perder el modo ni, peor, pintar una mancha que
+        // nadie pidió: por debajo del mínimo sigue armado, esperando el gesto.
+        if (rect.w >= Airbrush.MIN_AREA && rect.h >= Airbrush.MIN_AREA) {
+          state.airbrushArea = clampAreaToCanvas(rect);
+          state.airbrushAreaPending = false;
+          savePrefs();   // el área es un ajuste de herramienta, como eraserSize:
+          syncAirbrushControls();  // no entra en el undo ni en el documento
+        }
+        state.startPos = null;
+        redraw();
+        scheduleOverlay();
+        return;
+      }
+      state.currentPath.push(pos);
+      const el = airbrushElement(state.currentPath, state.airbrushSeed);
+      state.currentPath = [];
+      state.startPos = null;
+      // Una mancha cuyas gotas caen todas fuera del área sería un elemento
+      // invisible que cuenta en «Elementos» y viaja en el JSON: no se crea.
+      if (!Airbrush.isEmpty(el)) {
+        saveUndo();
+        state.elements.push(el);
+      }
+      redraw();
+      scheduleOverlay();
       return;
     }
 
@@ -3250,6 +3497,9 @@
     // «Select»: flecha normal — ni la cruz de dibujar ni el `move` de Mover,
     // porque esta herramienta ni crea ni desplaza.
     mainCanvas.classList.toggle('canvas-area__canvas--pick', state.tool === TOOLS.PICK);
+    // Aerógrafo: sin cursor del sistema, porque su indicador es el círculo de la
+    // boquilla que dibuja paintOverlay — igual que el borrador.
+    mainCanvas.classList.toggle('canvas-area__canvas--airbrush', state.tool === TOOLS.AIRBRUSH);
   }
 
   /* ── Acciones sobre la selección ── */
@@ -3444,6 +3694,10 @@
     const editType = MODAL_EDIT_TYPE[id];
     const keepSelection = SELECTION_TOOLS.includes(id) || (!!editType &&
       state.selection.some(i => (state.elements[i] || {}).type === editType));
+    // El armado del área pertenece al gesto del aerógrafo: irse a otra
+    // herramienta lo cancela, o el siguiente arrastre con el lápiz encontraría
+    // un lienzo que se comporta raro sin nada que lo explique.
+    if (id !== TOOLS.AIRBRUSH) state.airbrushAreaPending = false;
     state.tool = id;
     if (!keepSelection) setSelection([]);
     updateToolbarActive();
@@ -3486,6 +3740,16 @@
     if (STROKE_TOOLS.includes(id) && !silent) openStrokeModal();
     // Las ocho de Formas, lo mismo, con trazo y relleno en el mismo sitio.
     if (SHAPE_TOOLS.includes(id) && !silent) openShapeModal();
+    // El aerógrafo, igual: es la herramienta con más ajustes del grupo Dibujo y
+    // ninguno de ellos vive en el panel, así que el modal es la única forma de
+    // verlos. Si el modo es «área» y todavía no hay ninguna, se arma aquí: la
+    // herramienta no puede pintar hasta que exista.
+    if (id === TOOLS.AIRBRUSH) {
+      if (state.airbrushAreaMode === 'area' && !state.airbrushArea) {
+        state.airbrushAreaPending = true;
+      }
+      if (!silent) openAirbrushModal();
+    }
     // Texto y los cinco componentes de UI, lo mismo: sus ajustes se abren al
     // elegirlos y el ⚙ los reabre. Tampoco pasan por opensVariantModal.
     if (id === TOOLS.TEXT && !silent) openTextModal();
@@ -3659,8 +3923,20 @@
 
   /* ── Build color grid ── */
 
+  /** Las rejillas de color: la del panel y la de los ajustes del aerógrafo, que
+      es la herramienta cuyo color se cambia más veces seguidas. Se pintan con
+      las MISMAS muestras (`.panel__color-swatch` + `data-color`), y por eso
+      `updateColorActive` —que consulta por clase, no por id— resalta el color
+      activo en las dos sin saber que hay dos. */
+  const COLOR_GRIDS = ['color-grid', 'airbrush-color-grid'];
+
   function buildColors() {
-    const grid = $('color-grid');
+    COLOR_GRIDS.forEach(buildColorGrid);
+    updateColorActive();
+  }
+
+  function buildColorGrid(gridId) {
+    const grid = $(gridId);
     grid.innerHTML = '';
     COLORS.forEach(c => {
       // <button> real: accesible por teclado y anunciable con aria-pressed
@@ -3686,7 +3962,6 @@
       });
       grid.appendChild(swatch);
     });
-    updateColorActive();
   }
 
   /** Refresca los mandos del color SIN tocar el default de creación. Lo usa
@@ -3768,6 +4043,112 @@
     $('modal-eraser').showModal();
   }
 
+  /* ── Aerógrafo ── */
+
+  /** Recorta el área marcada al lienzo: fuera de él no se puede pintar, así
+      que un área que se saliera prometería sitio que no existe. */
+  function clampAreaToCanvas(r) {
+    const x1 = Math.max(0, Math.min(CANVAS_W, r.x));
+    const y1 = Math.max(0, Math.min(CANVAS_H, r.y));
+    const x2 = Math.max(0, Math.min(CANVAS_W, r.x + r.w));
+    const y2 = Math.max(0, Math.min(CANVAS_H, r.y + r.h));
+    return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+  }
+
+  /** Los aerógrafos de la selección: son los que editan los mandos del modal
+      (semántica dual — con selección editan, sin ella fijan el default). */
+  const selectedAirbrushes = () => state.selection
+    .map(i => state.elements[i]).filter(el => el && el.type === 'airbrush');
+
+  /** Muestra a tamaño real, con el trazo cruzándose a sí mismo: en translúcido
+      el cruce sale más oscuro, que es justo lo que hay que poder ver antes de
+      elegir la opacidad. La pinta el Renderer de verdad, así que no puede
+      prometer una mancha distinta de la que saldrá. */
+  function renderAirbrushPreview() {
+    const cv = $('airbrush-preview');
+    const pctx = cv && cv.getContext && cv.getContext('2d');
+    if (!pctx) return;
+    const w = cv.width, h = cv.height;
+    pctx.setTransform(1, 0, 0, 1, 0, 0);
+    pctx.clearRect(0, 0, w, h);
+    // Papel del color real del lienzo: el modal es oscuro y la tinta no.
+    pctx.fillStyle = state.canvasBg;
+    pctx.fillRect(0, 0, w, h);
+    const single = selectedAirbrushes()[0] || null;
+    // La muestra usa la boquilla elegida, pero acotada a lo que cabe en la
+    // miniatura: con 60 px de radio en un lienzo de 176 la mancha se saldría
+    // entera y no se vería ni el grano ni la acumulación. El tope es bajo (18)
+    // porque el trazo de muestra recorre cuatro tramos en muy poco sitio: con
+    // bandas más anchas las ramas se solapan y el conjunto deja de leerse como
+    // un trazo para parecer una nube suelta.
+    const R = Math.min(single ? single.radius : state.airbrushRadius, 18);
+    const pad = R + 6;
+    const el = {
+      type: 'airbrush',
+      points: [
+        { x: pad, y: h - pad }, { x: w - pad, y: pad },
+        { x: w - pad, y: h - pad }, { x: pad, y: pad },
+      ],
+      color: single ? single.color : state.color,
+      lineWidth: single ? single.lineWidth : state.airbrushGrain,
+      radius: R,
+      density: single ? single.density : state.airbrushDensity,
+      seed: 4242,
+    };
+    const op = single ? single.opacity : (state.airbrushOpacity < 1 ? state.airbrushOpacity : undefined);
+    if (op !== undefined) el.opacity = op;
+    Renderer.renderElement(pctx, el);
+  }
+
+  /** Punto ÚNICO de sincronía del modal del aerógrafo: vuelca los ajustes en
+      los mandos y repinta la muestra. Con una mancha seleccionada enseña LA
+      SUYA; con varias, el valor que comparten, y si discrepan deja el mando
+      como está (commonOf: no inventar un valor común). Solo escribe en sus
+      propios ids — el fallo de syncStrokeControls en la v2.16.3 fue pisar los
+      del panel en cada fotograma. */
+  function syncAirbrushControls() {
+    const sel = selectedAirbrushes();
+    const put = (id, v, texto) => {
+      if (v === undefined) return;
+      $(id).value = String(v);
+      $(id + '-val').textContent = String(texto === undefined ? v : texto);
+    };
+    const radio = sel.length ? commonOf(sel, el => el.radius) : state.airbrushRadius;
+    // El mando enseña el DIÁMETRO (que es la anchura que se ve); el elemento
+    // guarda el radio.
+    if (radio !== undefined) put('airbrush-modal-radius', Math.round(radio * 2));
+    const grano = sel.length ? commonOf(sel, el => el.lineWidth) : state.airbrushGrain;
+    put('airbrush-modal-grain', grano);
+    const densidad = sel.length ? commonOf(sel, el => el.density) : state.airbrushDensity;
+    put('airbrush-modal-density', densidad);
+    // Sin campo `opacity` la pintura es sólida: el mando dice 100.
+    const opacidad = sel.length
+      ? commonOf(sel, el => (el.opacity === undefined ? 1 : el.opacity))
+      : state.airbrushOpacity;
+    if (opacidad !== undefined) put('airbrush-modal-opacity', Math.round(opacidad * 100));
+    const color = sel.length ? commonOf(sel, el => hex6(el.color)) : hex6(state.color);
+    if (color !== undefined) $('airbrush-modal-color').value = color;
+
+    $('airbrush-area-mode').value = state.airbrushAreaMode;
+    $('airbrush-area-actions').hidden = state.airbrushAreaMode !== 'area';
+    const a = state.airbrushArea;
+    $('airbrush-area-status').textContent = state.airbrushAreaPending
+      ? 'Arrastra en el lienzo para marcar el área'
+      : a ? `Área marcada: ${Math.round(a.w)} × ${Math.round(a.h)} px`
+          : 'Sin área marcada';
+    $('btn-airbrush-mark').textContent = a ? 'Volver a marcar el área' : 'Marcar el área';
+    $('btn-airbrush-clear-area').hidden = !a;
+    renderAirbrushPreview();
+  }
+
+  /** Abre los ajustes del aerógrafo. Mismo contrato que el borrador: cerrarlo
+      NO devuelve a la herramienta anterior (no hay nada que elegir, la mancha
+      ya es pintable), así que no pasa por opensVariantModal. */
+  function openAirbrushModal() {
+    syncAirbrushControls();
+    $('modal-airbrush').showModal();
+  }
+
   /** Punto único de sincronía del tamaño del emoji con su catálogo. Estas dos
       líneas estaban copiadas en cuatro sitios (selectTool, applyEmojiSize,
       «Limpiar todo» e init). */
@@ -3833,7 +4214,7 @@
   const MODAL_EDIT_TYPE = {
     [TOOLS.PENCIL]: 'pencil', [TOOLS.LINE]: 'line', [TOOLS.ARROW]: 'arrow',
     [TOOLS.CURVE_ARROW]: 'curveArrow', [TOOLS.ARC]: 'curveArrow',
-    [TOOLS.TEXT]: 'text',
+    [TOOLS.TEXT]: 'text', [TOOLS.AIRBRUSH]: 'airbrush',
   };
   /** Las dos herramientas de Edición que TRABAJAN sobre la selección: nunca la
       vacían al elegirlas. Mover la desplaza, redimensiona y duplica; «Select»
@@ -3853,6 +4234,7 @@
   const TYPE_SETTINGS_MODAL = {
     pencil: openStrokeModal, line: openStrokeModal, arrow: openStrokeModal,
     curveArrow: openStrokeModal, text: openTextModal,
+    airbrush: openAirbrushModal,
   };
   SHAPE_TOOLS.forEach(t => { TYPE_SETTINGS_MODAL[t] = openShapeModal; });
   UI_MODAL_TOOLS.forEach(t => { TYPE_SETTINGS_MODAL[t] = openUiModal; });
@@ -4376,6 +4758,7 @@
       syncShapeControls();
       syncTextControls();
       syncUiControls();
+      syncAirbrushControls();
     };
     function commitColorGesture() {
       if (!colorGestureSnap) return;
@@ -4387,7 +4770,7 @@
       else pushUndo(snap);
     }
     ['color-picker', 'stroke-modal-color', 'shape-modal-color',
-      'text-modal-color', 'ui-modal-color'].forEach(id => {
+      'text-modal-color', 'ui-modal-color', 'airbrush-modal-color'].forEach(id => {
       $(id).addEventListener('input', e => applyColor(e.target.value));
       $(id).addEventListener('change', commitColorGesture);
     });
@@ -4480,6 +4863,110 @@
       applyEraserSize(+e.target.value);
     });
     $('eraser-size-modal-slider').addEventListener('change', savePrefs);
+
+    /* ── Aerógrafo: los cuatro deslizadores ──
+       Mismo contrato que el grosor y el tamaño de letra: con selección editan
+       las manchas seleccionadas y todo el arrastre es UN paso de deshacer; sin
+       selección fijan el default de creación. No pueden ir por applyStrokeWidth
+       aunque el grano ACABE en `lineWidth`: sin selección esa función escribe
+       state.lineWidth, que es el grosor de los trazos, no el grano del espray.
+       El commit se remata en pointerup/pointercancel por lo mismo que allí (un
+       <input range> no dispara 'change' si acaba donde empezó), y savePrefs va
+       en el commit y no por evento: si no, un arrastre martillea localStorage. */
+    let airbrushGestureSnap = null;
+    /**
+     * @param {string} campo  campo del elemento que edita ('radius', 'lineWidth'…)
+     * @param {string} clave  ajuste de `state` que fija cuando no hay selección
+     * @param {(v:number)=>number} [conv]  mando → valor guardado
+     */
+    const applyAirbrush = (campo, clave, conv) => v => {
+      const valor = conv ? conv(v) : v;
+      const sel = selectedAirbrushes();
+      if (sel.length) {
+        if (!airbrushGestureSnap) airbrushGestureSnap = snapshot();
+        state.selection.forEach(i => {
+          const el = state.elements[i];
+          if (!el || el.type !== 'airbrush') return;
+          const copia = { ...el, [campo]: valor };
+          // La ausencia del campo ES el aspecto por defecto: al 100 % la
+          // opacidad se BORRA en vez de guardarse como 1, igual que quitar la
+          // sombra de un texto borra el campo en vez de escribir 'none'.
+          if (campo === 'opacity' && valor >= 1) delete copia.opacity;
+          state.elements[i] = copia;
+        });
+        redraw();
+      } else {
+        state[clave] = valor;
+      }
+      syncAirbrushControls();
+    };
+    function commitAirbrushGesture() {
+      if (!airbrushGestureSnap) return;
+      const snap = airbrushGestureSnap;
+      airbrushGestureSnap = null;
+      const igual = snap.length === state.elements.length &&
+        snap.every((el, i) => el === state.elements[i]);
+      if (igual) state.elements = snap; else pushUndo(snap);
+      savePrefs();
+    }
+    [['airbrush-modal-radius', applyAirbrush('radius', 'airbrushRadius', v => v / 2)],
+      ['airbrush-modal-grain', applyAirbrush('lineWidth', 'airbrushGrain')],
+      ['airbrush-modal-density', applyAirbrush('density', 'airbrushDensity')],
+      ['airbrush-modal-opacity', applyAirbrush('opacity', 'airbrushOpacity', v => v / 100)],
+    ].forEach(([id, apply]) => {
+      $(id).addEventListener('input', e => apply(+e.target.value));
+      $(id).addEventListener('change', commitAirbrushGesture);
+      $(id).addEventListener('pointerup', commitAirbrushGesture);
+      $(id).addEventListener('pointercancel', commitAirbrushGesture);
+    });
+
+    /* ── Aerógrafo: el área ──
+       Armar el área CIERRA el modal, y no es un detalle de comodidad: un
+       <dialog showModal> deja inerte todo lo de detrás, así que pedir un
+       arrastre en el lienzo sin cerrarlo deja al usuario mirando una app que
+       no responde (el síntoma exacto de la v2.16.2). */
+    const armarArea = () => {
+      state.airbrushAreaPending = true;
+      syncAirbrushControls();
+      $('modal-airbrush').close();
+      scheduleOverlay();
+    };
+    $('airbrush-area-mode').addEventListener('change', e => {
+      const modo = e.target.value === 'area' ? 'area' : 'all';
+      state.airbrushAreaMode = modo;
+      // Con manchas seleccionadas, el modo edita SU recorte: es la misma
+      // semántica dual que el resto de mandos. Un solo paso de deshacer.
+      const sel = selectedAirbrushes();
+      if (sel.length) {
+        const snap = snapshot();
+        state.selection.forEach(i => {
+          const el = state.elements[i];
+          if (!el || el.type !== 'airbrush') return;
+          const copia = { ...el };
+          if (modo === 'area' && state.airbrushArea) copia.clip = { ...state.airbrushArea };
+          else delete copia.clip;
+          state.elements[i] = copia;
+        });
+        pushUndo(snap);
+        redraw();
+      }
+      savePrefs();
+      // El rectángulo NO se borra al volver a «todo el lienzo»: volver a
+      // «solo dentro de un área» lo recupera sin tener que dibujarlo otra vez.
+      if (modo === 'area' && !state.airbrushArea) { armarArea(); return; }
+      state.airbrushAreaPending = false;
+      syncAirbrushControls();
+      scheduleOverlay();
+    });
+    $('btn-airbrush-mark').addEventListener('click', armarArea);
+    $('btn-airbrush-clear-area').addEventListener('click', () => {
+      state.airbrushArea = null;
+      state.airbrushAreaMode = 'all';
+      state.airbrushAreaPending = false;
+      savePrefs();
+      syncAirbrushControls();
+      scheduleOverlay();
+    });
 
     // Tamaño de letra — semántica dual, como el grosor: con selección cambia
     // en vivo el fontSize de los `text` seleccionados (los demás tipos se
@@ -5174,6 +5661,12 @@
       syncTextControls();
       syncUiControls();
       syncEmojiControls();
+      // El aerógrafo vuelve con el resto (sus ajustes viven en
+      // CREATION_DEFAULTS), incluida el área marcada: un rectángulo invisible
+      // que sobreviviera al borrado seguiría recortando todo lo que se pintara
+      // después, sin nada en pantalla que lo explicase.
+      state.airbrushAreaPending = false;
+      syncAirbrushControls();
       // El zoom vuelve al ajuste automático, no a un 100% fijo: «Limpiar todo»
       // debe dejar la app igual que recién abierta, y ahí el lienzo aprovecha
       // todo el ancho disponible. Olvidar `zoomManual` es parte del reset: si
@@ -5608,6 +6101,14 @@
     const eraserModal = $('modal-eraser');
     eraserModal.querySelector('.modal__cancel').addEventListener('click', () => eraserModal.close());
     closeOnBackdrop(eraserModal);
+
+    // Aerógrafo: el mismo par de líneas obligatorio. Un diálogo sin ellas no se
+    // puede cerrar, y un <dialog showModal> abierto deja inerte el lienzo
+    // entero — la app bloqueada. Tampoco pasa por wireBuildModalCancel: no hay
+    // variante que elegir, así que cerrar deja la herramienta puesta.
+    const airbrushModal = $('modal-airbrush');
+    airbrushModal.querySelector('.modal__cancel').addEventListener('click', () => airbrushModal.close());
+    closeOnBackdrop(airbrushModal);
 
     // Ajustes de «Select»: mismo contrato de cierre que el del borrador. Cada
     // modal cablea el suyo, así que un diálogo nuevo sin esta pareja de líneas
@@ -6909,6 +7410,7 @@
     syncTextControls();
     syncUiControls();
     syncEmojiControls();
+    syncAirbrushControls();
     // Va DESPUÉS de wireControls (el selector ya tiene sus opciones) y aplica
     // la letra restaurada de prefs, pidiendo su descarga: sin esto la primera
     // pintada usaría el resguardo del sistema aunque el .woff2 esté aquí al

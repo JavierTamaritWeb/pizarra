@@ -335,3 +335,66 @@ test('roce que toca sin que ninguna muestra caiga dentro: intacto por referencia
   const out = Eraser.erase(els, stroke([2, 8.9]), 8, DEPS);
   assert.equal(out, els, 'ni se reconstruye ni pierde anclas ni apila undo');
 });
+
+/* ────────────────────────────────────────────────────────────
+   Aerógrafo (v2.22.0)
+   ──────────────────────────────────────────────────────────── */
+
+const spray = extra => Object.assign({
+  type: 'airbrush', color: '#000000', lineWidth: 3, seed: 5,
+  points: stroke([100, 100], [300, 300]),
+  radius: 20, density: 40,
+}, extra || {});
+
+test('el borrador se lleva la mancha ENTERA al rozar su banda', () => {
+  // Recortar una nube exigiría guardarla, que es justo lo que el diseño
+  // evita; por eso `airbrush` no está en LINEAR_TYPES y va por borrado
+  // íntegro, como las formas y el texto.
+  const el = spray();
+  const paso = stroke([200, 180], [200, 220]); // cruza el eje por el medio
+  assert.equal(Eraser.touches(el, paso, 6, DEPS), true);
+  const escena = [el, rect(600, 600, 40, 40)];
+  const tras = Eraser.erase(escena, paso, 6, DEPS);
+  assert.equal(tras.length, 1, 'la mancha entera se va, no se parte en trozos');
+  assert.equal(tras[0].type, 'rect');
+});
+
+test('pasar por la esquina vacía de su caja NO borra la mancha', () => {
+  // La regresión que evita el caso «caja»: la mancha va de (100,100) a
+  // (300,300), así que la esquina superior derecha de su bbox está a más de
+  // 100 px de cualquier gota. Con _touchesBox se habría borrado igual.
+  const el = spray();
+  const esquina = stroke([290, 110], [300, 120]);
+  assert.equal(Eraser.touches(el, esquina, 6, DEPS), false);
+  assert.equal(Eraser.erase([el], esquina, 6, DEPS).length, 1);
+});
+
+test('el alcance del borrador llega hasta el borde de la banda, no solo al eje', () => {
+  // A 18 px del eje (radio 20) hay tinta: rozar ahí tiene que borrar, aunque
+  // el eje quede lejos. Es lo que distingue una banda de una línea.
+  const el = spray({ points: stroke([100, 100], [300, 100]), radius: 20 });
+  assert.equal(Eraser.touches(el, stroke([200, 118], [205, 118]), 2, DEPS), true);
+  // Y a 40 px ya no hay ninguna gota: la boquilla es una cota dura.
+  assert.equal(Eraser.touches(el, stroke([200, 145], [205, 145]), 2, DEPS), false);
+});
+
+test('con área, barrer por la parte recortada no borra nada', () => {
+  // Se borra lo que se VE: fuera del área no hay tinta, por mucho que el eje
+  // pase por debajo.
+  const el = spray({
+    points: stroke([100, 100], [500, 100]),
+    clip: { x: 100, y: 60, w: 100, h: 80 },
+  });
+  assert.equal(Eraser.touches(el, stroke([400, 95], [410, 105]), 6, DEPS), false,
+    'el tramo sin pintar del eje no puede borrar la mancha');
+  assert.equal(Eraser.touches(el, stroke([150, 95], [160, 105]), 6, DEPS), true,
+    'y dentro del área sí');
+});
+
+test('la mancha no se cuela por las ramas de lápiz ni de forma', () => {
+  // Comparte el campo `points` con el lápiz y podría caer en su rama, que
+  // usaría solo lineWidth y perdería la boquilla entera.
+  const el = spray({ points: stroke([100, 100], [300, 100]), radius: 30, lineWidth: 1 });
+  assert.equal(Eraser.touches(el, stroke([200, 125], [205, 125]), 1, DEPS), true,
+    'con la rama del lápiz esto no tocaría: 25 px del eje con lineWidth 1');
+});

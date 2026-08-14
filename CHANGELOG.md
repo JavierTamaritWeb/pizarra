@@ -4,6 +4,49 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.22.0] — 2026-08-14
+
+### Añadido
+
+- **Aerógrafo**, en el grupo «Dibujo» junto al Lápiz: la primera herramienta que
+  aplica **tono** en vez de trazo. Pulveriza una nube de gotas a lo largo del
+  recorrido del ratón —densa en el eje y difuminada hacia los bordes, con las
+  puntas redondas— y un clic sin arrastrar deja un soplo redondo. Sirve para
+  sombrear una fachada, ensuciar un fondo o marcar una zona con una veladura,
+  que es lo único que no se podía hacer con cinco herramientas de línea.
+- **Su modal de ajustes** (`#modal-airbrush`), que se abre al elegir la
+  herramienta como el del Borrador y los de Dibujo: color, **anchura** de la
+  boquilla, **grano**, **densidad** y **opacidad**, con una muestra en vivo que
+  se cruza a sí misma para que se vea cómo se acumula la pintura translúcida.
+  Al 100 % la pintura es sólida; por debajo es translúcida y **las pasadas se
+  acumulan**: dos trazos cruzados oscurecen el cruce.
+- **Pintar solo dentro de un área.** En «Dónde pinta» se elige entre todo el
+  lienzo o un rectángulo: el modal se cierra, se marca el área arrastrando y a
+  partir de ahí la pintura se corta en su borde, con el marco visible en
+  discontinuo. El área se recuerda entre sesiones y se puede volver a marcar o
+  quitar desde el mismo modal.
+- **La paleta de 36 colores dentro de sus ajustes**, además del selector libre:
+  es el mando que más se usa y tenerlo ahí evita cerrar el modal para ir a
+  buscarlo al panel. Son las mismas muestras, así que el color activo se
+  resalta en las dos rejillas a la vez.
+- **El puntero es el círculo de la boquilla**, como en el Borrador: sustituye a
+  la cruz del sistema y rodea **exactamente** la superficie que se va a pintar
+  —las gotas se recortan para que la tinta acabe justo en esa línea—, así que a
+  mayor anchura, mayor círculo y mayor superficie pintada.
+- **`src/js/airbrush.js`**, módulo puro con la geometría de la nube. El elemento
+  guarda el **eje** del trazo y cuatro parámetros, nunca las gotas: se regeneran
+  de forma determinista desde el `seed`, así que el JSON no engorda y el lienzo,
+  el PNG, el JPG, el SVG y el HTML dibujan exactamente lo mismo.
+
+### Cambiado
+
+- **El borrador se lleva la mancha entera al rozar su banda**, midiendo contra el
+  eje ensanchado por la boquilla y no contra su caja: pasar por una esquina
+  vacía del rectángulo que la contiene ya no la borra.
+- Redimensionar una mancha **conserva la proporción**, como los polígonos
+  regulares y los grupos, y **escala su boquilla**: es un solo escalar y no
+  existe la boquilla elíptica.
+
 ## [2.21.0] — 2026-08-13
 
 ### Añadido

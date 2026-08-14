@@ -223,8 +223,10 @@ test('un componente de UI se recolorea, se mide y se rotula desde el panel', asy
 
   // Y el color, que era el único control de aspecto sin semántica dual.
   // Por `data-color`, no por posición: la paleta se reordenó por tono en la
-  // v2.19.0 y un índice fijo convierte cualquier reordenación en un fallo.
-  await page.locator('.panel__color-swatch[data-color="#e94560"]').click();
+  // v2.19.0 y un índice fijo convierte cualquier reordenación en un fallo. Y
+  // acotado a #color-grid, porque desde la v2.22.0 las mismas muestras se
+  // pintan también dentro de los ajustes del aerógrafo.
+  await page.locator('#color-grid .panel__color-swatch[data-color="#e94560"]').click();
   await settle(page);
   await field('color').toBe('#e94560');
 });
