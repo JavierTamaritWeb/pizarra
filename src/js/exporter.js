@@ -579,8 +579,10 @@ body { font-family: ${FONT_CSS()}; background: #fff; }
   // herramienta: el aerógrafo SÍ es un tipo de elemento, así que meterlo en
   // esta lista lo sacaría de ELEMENT_TYPES y ninguna mancha sobreviviría a un
   // export→import.
+  // Y lo mismo con "3D" (SOLID_TOOLS): un sólido son la forma 2D de su cara
+  // frontal más line/curveArrow, nunca un `type:'prisma'`.
   const CREATION_ONLY_TOOLS = [TOOLS.SELECT, TOOLS.ARC, TOOLS.EMOJI,
-    ...BUILDING_TOOLS, ...GARDEN_TOOLS];
+    ...BUILDING_TOOLS, ...GARDEN_TOOLS, ...SOLID_TOOLS];
   const ELEMENT_TYPES = Object.values(TOOLS).filter(t => !CREATION_ONLY_TOOLS.includes(t));
 
   function _isNum(v) {

@@ -3773,3 +3773,56 @@ test('←/→ giran la forma seleccionada, y solo si toda la selección es rotab
   assert.equal(despues.find(el => el.type === 'pentagon').x, pentagono.x + 1, 'mueve');
   assert.equal(despues.find(el => el.type === 'rect').x, rect.x + 1);
 });
+
+/* ── 3D: un arrastre, un grupo, un paso de deshacer ── */
+
+test('un sólido nace como grupo, con un solo paso de deshacer, y se selecciona entero', () => {
+  const app = loadApp();
+  app.selectTool('prisma');          // el modal se abre, pero no bloquea el arnés
+  app.drag(200, 200, 320, 320);
+  app.flush();
+  const els = app.elements();
+  assert.ok(els.length > 2, 'un prisma son varias piezas');
+
+  // Grupo: todas comparten un mismo buildingGroupId (el campo se llama así por
+  // historia; vale para cualquier herramienta compuesta).
+  const gid = els[0].buildingGroupId;
+  assert.ok(gid, 'las piezas deben compartir buildingGroupId');
+  assert.ok(els.every(e => e.buildingGroupId === gid), 'todas del mismo grupo');
+
+  // La cara frontal es un elemento de forma REAL, no una polilínea: es lo que
+  // le da relleno, hit-test por silueta y exportación sin código propio.
+  assert.ok(els.some(e => e.type === 'rect'), 'falta la cara frontal');
+  assert.ok(els.some(e => e.type === 'line' && e.dash === true),
+    'faltan las aristas ocultas discontinuas');
+
+  // UN paso de deshacer para todo el sólido
+  app.key('z', { ctrlKey: true });
+  app.flush();
+  assert.equal(app.elements().length, 0, 'deshacer se lleva el sólido entero');
+
+  // Pulsar una pieza selecciona el grupo completo, así que Supr lo borra de una
+  app.key('y', { ctrlKey: true });
+  app.flush();
+  assert.equal(app.elements().length, els.length, 'rehacer lo devuelve entero');
+  app.selectTool('select');
+  app.click(260, 260);
+  app.flush();
+  app.key('Delete');
+  app.flush();
+  assert.equal(app.elements().length, 0, 'se borra como una unidad');
+});
+
+test('un clic sin arrastrar con una herramienta 3D crea la figura por defecto', () => {
+  // Igual que Edificios y Jardín: por debajo de MIN_SPAN manda la caja por
+  // defecto, en vez de no crear nada o crear algo de 1 px.
+  const app = loadApp();
+  app.selectTool('esfera');
+  app.click(400, 300);
+  app.flush();
+  const els = app.elements();
+  assert.ok(els.length >= 1, 'el clic debe crear la esfera');
+  const circulo = els.find(e => e.type === 'circle');
+  assert.ok(circulo && circulo.w > 20, 'la esfera nace con su caja propia');
+  assert.ok(Math.abs(circulo.w - circulo.h) < 1e-6, 'una esfera es redonda');
+});

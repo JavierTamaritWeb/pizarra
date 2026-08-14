@@ -28,6 +28,38 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### v2.24.0 — La previsualización del arrastre ignoraba el trazo discontinuo de cada pieza
+
+- **Síntoma:** con «Discontinuo» marcado en el panel, la previsualización de
+  cualquier herramienta compuesta (un árbol del Jardín, una fachada) salía
+  **punteada entera** mientras se arrastraba, y al soltar aparecía sólida. Con
+  las figuras 3D era peor y al revés: la mitad de sus aristas son ocultas y
+  deben salir discontinuas, y en la previsualización salían **todas** así.
+- **Causa:** `drawPiecesPreview` (app.js) nunca miraba `el.dash`. Heredaba el
+  `setLineDash` global que `paintOverlay` deja puesto para el marco del
+  arrastre, así que el guion no dependía de la pieza sino del ajuste de trazo
+  activo. Un comentario en esa misma función avisaba de esta clase de fallo
+  —«todo tipo que una herramienta de creación pueda emitir TIENE que estar
+  aquí»— pero sobre los *tipos*, no sobre sus atributos.
+- **Arreglo:** fijar `octx.setLineDash(el.dash ? [4·lw, 4·lw] : [])` **por
+  pieza y en las dos ramas**, con la misma fórmula del renderer. Las dos ramas
+  son obligatorias: poniendo sólo la de `true`, el guion se filtra a la pieza
+  siguiente. De paso se arreglaron las seis miniaturas de los modales, que
+  pasan todas por esta función.
+- **Bonus de la misma zona:** la función sólo sabía dibujar `line`, `rect`,
+  `circle`, `curveArrow` y `text`. La cara frontal de un sólido es un
+  `pentagon`/`star6`/…, así que **no se dibujaba**: se delega en
+  `Renderer.renderElement`, con un seed fijo si la pieza no lo trae (los
+  generadores no lo ponen, y sin él Sketchy cae en `Math.random` y el temblor
+  hierve en cada fotograma).
+- **Guardia:** `e2e/solids.spec.js` — «la previsualización dibuja lo mismo que
+  aparece al soltar» compara la tinta del overlay durante el arrastre con la
+  del lienzo al soltar, y «la previsualización trae la cara frontal…» recorre
+  el borde izquierdo de la cara exigiéndolo continuo. **Verificadas fallando**
+  con las dos mutaciones (quitar el `setLineDash` por pieza y quitar la
+  delegación en el renderer). Tenía que ir a `e2e/`: el arnés `node:vm` no
+  pinta, así que no ve ni el guion ni lo que falta.
+
 ### v2.23.0 — La build de `dist/` se queda atrás y aparenta que la herramienta nueva no existe
 
 - **Síntoma:** las dos estrellas se habían añadido al grupo «Formas», estaban en

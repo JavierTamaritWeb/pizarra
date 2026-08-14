@@ -50,6 +50,13 @@ const TOOLS = Object.freeze({
   GARDEN_SHRUB:  'arbusto',       GARDEN_FLOWER: 'flor',
   GARDEN_DECOR:  'decoracion',    GARDEN_PATH:   'camino',
   GARDEN_HERB:   'aromatica',     GARDEN_CLIMBER:'trepadora',
+  // 3D — herramientas de creación (NO tipos de elemento): cada arrastre define
+  // la CARA FRONTAL y el módulo js/solid.js devuelve esa forma 2D real más las
+  // aristas del volumen como line/curveArrow. Los ids no colisionan con ningún
+  // `el.type`, y van en CREATION_ONLY_TOOLS (exporter.js) por lo mismo que
+  // Edificios y Jardín.
+  SOLID_PRISM:   'prisma',        SOLID_PYRAMID: 'piramide',
+  SOLID_FRUSTUM: 'tronco',        SOLID_SPHERE:  'esfera',
 });
 
 /** Herramientas de la sección "Edificios": todas son SOLO de creación
@@ -212,6 +219,64 @@ const GARDEN_TOOLS = Object.freeze([
   TOOLS.GARDEN_PLOT, TOOLS.GARDEN_TREE, TOOLS.GARDEN_SHRUB,
   TOOLS.GARDEN_FLOWER, TOOLS.GARDEN_DECOR, TOOLS.GARDEN_PATH,
   TOOLS.GARDEN_HERB, TOOLS.GARDEN_CLIMBER,
+]);
+
+/** Herramientas de la sección "3D": como las de Edificios y Jardín, todas son
+    SOLO de creación (producen la forma 2D de la cara frontal más line y
+    curveArrow), nunca valores de `el.type`. Ver js/solid.js. */
+const SOLID_TOOLS = Object.freeze([
+  TOOLS.SOLID_PRISM, TOOLS.SOLID_PYRAMID, TOOLS.SOLID_FRUSTUM,
+  TOOLS.SOLID_SPHERE,
+]);
+
+/** Las diez secciones son EXACTAMENTE los diez tipos del grupo Formas: la cara
+    frontal se emite como el elemento 2D real de ese tipo, así que el id de la
+    sección ES el `el.type` que se crea. */
+const SOLID_SECTIONS = Object.freeze([
+  TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE, TOOLS.SQUARE, TOOLS.TRAPEZOID,
+  TOOLS.TRIANGLE, TOOLS.PENTAGON, TOOLS.HEXAGON, TOOLS.STAR5, TOOLS.STAR6,
+]);
+
+// Los tres catálogos comparten los ids de SOLID_SECTIONS y sólo cambian el
+// NOMBRE, que es justo lo que se quiere leer en el catálogo: la misma sección
+// da «Cubo», «Pirámide» o «Tronco de pirámide» según el remate.
+const PRISM_SECTIONS = Object.freeze([
+  { id: 'rect',        name: 'Caja' },
+  { id: 'roundedRect', name: 'Caja redondeada' },
+  { id: 'circle',      name: 'Cilindro' },
+  { id: 'square',      name: 'Cubo' },
+  { id: 'trapezoid',   name: 'Prisma trapezoidal' },
+  { id: 'triangle',    name: 'Prisma triangular' },
+  { id: 'pentagon',    name: 'Prisma pentagonal' },
+  { id: 'hexagon',     name: 'Prisma hexagonal' },
+  { id: 'star5',       name: 'Prisma estrellado de 5' },
+  { id: 'star6',       name: 'Prisma estrellado de 6' },
+]);
+
+const PYRAMID_SECTIONS = Object.freeze([
+  { id: 'rect',        name: 'Pirámide rectangular' },
+  { id: 'roundedRect', name: 'Pirámide de base roma' },
+  { id: 'circle',      name: 'Cono' },
+  { id: 'square',      name: 'Pirámide cuadrangular' },
+  { id: 'trapezoid',   name: 'Pirámide trapezoidal' },
+  { id: 'triangle',    name: 'Tetraedro' },
+  { id: 'pentagon',    name: 'Pirámide pentagonal' },
+  { id: 'hexagon',     name: 'Pirámide hexagonal' },
+  { id: 'star5',       name: 'Pirámide estrellada de 5' },
+  { id: 'star6',       name: 'Pirámide estrellada de 6' },
+]);
+
+const FRUSTUM_SECTIONS = Object.freeze([
+  { id: 'rect',        name: 'Tronco rectangular' },
+  { id: 'roundedRect', name: 'Tronco de base roma' },
+  { id: 'circle',      name: 'Tronco de cono' },
+  { id: 'square',      name: 'Tronco cuadrangular' },
+  { id: 'trapezoid',   name: 'Tronco trapezoidal' },
+  { id: 'triangle',    name: 'Tronco triangular' },
+  { id: 'pentagon',    name: 'Tronco pentagonal' },
+  { id: 'hexagon',     name: 'Tronco hexagonal' },
+  { id: 'star5',       name: 'Tronco estrellado de 5' },
+  { id: 'star6',       name: 'Tronco estrellado de 6' },
 ]);
 
 /** Vistas y etapas compartidas por toda la vegetación. `factor` se aplica a
@@ -410,6 +475,21 @@ const TOOL_GROUPS = [
       // curva que se atienden ANTES que TOOL_KEYS.
       { id: TOOLS.STAR5,        icon: '★',  name: 'Estrella de 5 puntas' },
       { id: TOOLS.STAR6,        icon: '✶',  name: 'Estrella de 6 puntas' },
+    ],
+  },
+  {
+    // Justo detrás de Formas: el botón elige el REMATE y su catálogo la
+    // sección, que son las mismas diez siluetas de arriba. Las cuatro entran
+    // sin atajo por lo mismo que las estrellas.
+    label: '3D',
+    tools: [
+      // Glifos monocromos, como los de Formas, y cada uno describe su figura
+      // vista por el eje de fuga: dos cuadrados unidos es una extrusión, y un
+      // cuadrado dentro de otro es literalmente la proyección de un tronco.
+      { id: TOOLS.SOLID_PRISM,   icon: '⧉', name: 'Prisma' },
+      { id: TOOLS.SOLID_PYRAMID, icon: '◭', name: 'Pirámide' },
+      { id: TOOLS.SOLID_FRUSTUM, icon: '⧈', name: 'Tronco' },
+      { id: TOOLS.SOLID_SPHERE,  icon: '◍', name: 'Esfera' },
     ],
   },
   {

@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.23.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.24.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.23\.0</);
-  assert.match(html, /css\/styles\.css\?v=2\.23\.0/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.23\.0/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.23\.0/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.23\.0/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.23\.0/);
+  assert.match(html, /class="topbar__badge">v2\.24\.0</);
+  assert.match(html, /css\/styles\.css\?v=2\.24\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.24\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.24\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.24\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.24\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -59,7 +59,13 @@ test('index publica v2.23.0 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="modal-ui"/);
   assert.match(html, /id="modal-select"/);
   assert.match(html, /id="modal-airbrush"/);
-  assert.match(html, /src\/js\/airbrush\.js\?v=2\.23\.0/);
+  // 3D: los tres modales de extrusión y el de la esfera, que no lleva catálogo
+  assert.match(html, /id="modal-prism"/);
+  assert.match(html, /id="modal-pyramid"/);
+  assert.match(html, /id="modal-frustum"/);
+  assert.match(html, /id="modal-sphere"/);
+  assert.match(html, /src\/js\/solid\.js\?v=2\.24\.0/);
+  assert.match(html, /src\/js\/airbrush\.js\?v=2\.24\.0/);
   // «Los clics acumulan selección» dejó el panel en la v2.17.0 y es el ajuste
   // de «Select». Si volviera a existir la casilla vieja habría dos controles
   // para un mismo estado, y solo uno cableado: el arnés `node:vm` fabrica un
@@ -495,6 +501,67 @@ test('el slider de Cancela cubre exactamente de 0 a 350 cm', () => {
   assert.equal(attr('max'), Building.GATE_H_MAX_CM);
   assert.ok(attr('value') >= Building.GATE_H_MIN_CM &&
     attr('value') <= Building.GATE_H_MAX_CM);
+});
+
+// Los cuatro deslizadores de 3D existen repetidos en cuatro modales contra un
+// único estado, y sus topes tienen que ser los que exporta el módulo: app.js
+// acota con Solid.* al restaurar prefs, así que un rango distinto en el HTML
+// dejaría el mando prometiendo valores que el estado recorta en silencio.
+test('los deslizadores de 3D declaran los topes que exporta Solid', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const { Solid } = loadAll();
+  const rangos = {
+    depth: [Solid.DEPTH_MIN, Solid.DEPTH_MAX],
+    angle: [Solid.ANGLE_MIN, Solid.ANGLE_MAX],
+    foreshorten: [Solid.FORESHORTEN_MIN, Solid.FORESHORTEN_MAX],
+    taper: [Solid.TAPER_MIN, Solid.TAPER_MAX],
+  };
+  // Prefijos y qué mandos lleva cada uno: la esfera no tiene fondo que graduar
+  // y sólo el tronco tiene tapa.
+  const modales = {
+    prism: ['depth', 'angle', 'foreshorten'],
+    pyramid: ['depth', 'angle', 'foreshorten'],
+    frustum: ['depth', 'angle', 'foreshorten', 'taper'],
+    sphere: ['angle', 'foreshorten'],
+  };
+  let encontrados = 0;
+  for (const [prefijo, campos] of Object.entries(modales)) {
+    for (const campo of campos) {
+      const tag = html.match(new RegExp(`<input[^>]*id="${prefijo}-${campo}"[\\s\\S]*?/>`));
+      assert.ok(tag, `no existe el deslizador #${prefijo}-${campo}`);
+      const attrs = tag[0].replace(/\s+/g, ' ');
+      const attr = a => Number(attrs.match(new RegExp(`${a}="([^"]+)"`))[1]);
+      const [lo, hi] = rangos[campo];
+      assert.equal(attr('min'), lo, `#${prefijo}-${campo}: min`);
+      assert.equal(attr('max'), hi, `#${prefijo}-${campo}: max`);
+      assert.ok(attr('value') >= lo && attr('value') <= hi, `#${prefijo}-${campo}: value`);
+      // Y su etiqueta con el valor, que es lo que sincroniza syncSolidControls
+      assert.ok(html.includes(`id="${prefijo}-${campo}-val"`),
+        `falta #${prefijo}-${campo}-val`);
+      encontrados++;
+    }
+    assert.ok(html.includes(`id="${prefijo}-preview"`), `falta la miniatura #${prefijo}-preview`);
+  }
+  assert.equal(encontrados, 12);
+  // Los mandos que NO debe haber: si aparecieran, prometerían algo que su
+  // figura ignora (la esfera no tiene fondo, y sólo el tronco tiene tapa).
+  for (const ausente of ['sphere-depth', 'sphere-taper', 'prism-taper', 'pyramid-taper']) {
+    assert.ok(!html.includes(`id="${ausente}"`), `sobra el mando #${ausente}`);
+  }
+  // Los tres catálogos de sección, y que la esfera NO tenga: no hay sección
+  // que elegir, así que su modal es sólo de ajustes.
+  for (const root of ['prism-catalog', 'pyramid-catalog', 'frustum-catalog']) {
+    assert.ok(html.includes(`id="${root}"`), `falta el catálogo #${root}`);
+  }
+  assert.ok(!html.includes('id="sphere-catalog"'));
+  // Cada modal cablea su propio «Cerrar»: sin él, un <dialog showModal> deja
+  // inerte el lienzo entero y la app se queda bloqueada (ver v2.16.2).
+  for (const modal of ['modal-prism', 'modal-pyramid', 'modal-frustum', 'modal-sphere']) {
+    const bloque = html.slice(html.indexOf(`id="${modal}"`));
+    const fin = bloque.indexOf('</dialog>');
+    assert.ok(bloque.slice(0, fin).includes('modal__cancel'),
+      `#${modal} no tiene botón de cerrar`);
+  }
 });
 
 // Los ajustes de Edificios existen DOS veces (panel + modal de Fachada) y

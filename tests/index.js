@@ -22,4 +22,5 @@ require('./sketchy-renderer.test.js');
 require('./eraser.test.js');
 require('./building.test.js');
 require('./garden.test.js');
+require('./solid.test.js');
 require('./app-interaction.test.js');

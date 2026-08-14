@@ -91,6 +91,16 @@
     airbrushOpacity: 1,      // 1 = sólido, y entonces el elemento NO guarda el campo
     airbrushAreaMode: 'all', // all | area
     airbrushArea: null,      // rectángulo al que se recorta la pintura
+    // 3D: la sección la comparten las tres herramientas de extrusión (elegir
+    // pentágono en Prisma lo deja elegido en Pirámide) y los cuatro ajustes
+    // gobiernan la proyección caballera. La profundidad va en PORCENTAJE de la
+    // cara, no en píxeles, para que una figura pequeña y otra grande salgan
+    // con la misma proporción sin tocar nada.
+    solidSection: 'rect',
+    solidDepth: 75,       // % del lado menor de la cara (Solid.DEPTH_MIN/MAX)
+    solidAngle: 30,       // grados de fuga (Solid.ANGLE_MIN/MAX)
+    solidForeshorten: 80, // % de escorzo (Solid.FORESHORTEN_MIN/MAX)
+    solidTaper: 55,       // % de la tapa del tronco (Solid.TAPER_MIN/MAX)
   };
 
   /**
@@ -1123,6 +1133,12 @@
         airbrushOpacity: state.airbrushOpacity,
         airbrushAreaMode: state.airbrushAreaMode,
         airbrushArea: state.airbrushArea,
+        // 3D
+        solidSection: state.solidSection,
+        solidDepth: state.solidDepth,
+        solidAngle: state.solidAngle,
+        solidForeshorten: state.solidForeshorten,
+        solidTaper: state.solidTaper,
         // Ajustes de UI y Emoji (v2.10.0): defaults de creación, como todo.
         emojiSize: state.emojiSize,
         uiLabels: state.uiLabels,
@@ -1285,6 +1301,16 @@
       if (['all', 'area'].includes(prefs.airbrushAreaMode)) {
         state.airbrushAreaMode = prefs.airbrushAreaMode;
       }
+      // 3D: la sección contra el catálogo (los tres comparten ids) y los
+      // cuatro numéricos contra los topes que exporta el módulo, que son los
+      // mismos que declaran los deslizadores del HTML.
+      if (SOLID_SECTIONS.includes(prefs.solidSection)) state.solidSection = prefs.solidSection;
+      [['solidDepth', Solid.DEPTH_MIN, Solid.DEPTH_MAX],
+        ['solidAngle', Solid.ANGLE_MIN, Solid.ANGLE_MAX],
+        ['solidForeshorten', Solid.FORESHORTEN_MIN, Solid.FORESHORTEN_MAX],
+        ['solidTaper', Solid.TAPER_MIN, Solid.TAPER_MAX]].forEach(([key, lo, hi]) => {
+        if (Number.isFinite(prefs[key])) state[key] = Math.min(hi, Math.max(lo, prefs[key]));
+      });
       // El área guardada se valida entera y se recorta al lienzo: un rectángulo
       // manipulado recortaría a un sitio inalcanzable y la herramienta parecería
       // rota sin dejar rastro de por qué.
@@ -2427,6 +2453,28 @@
     };
   }
 
+  // Opts de creación de la sección 3D. Mismo papel que buildOpts/gardenOpts:
+  // fuente ÚNICA para la previsualización del arrastre, el commit al soltar,
+  // los iconos del catálogo y la miniatura de cada modal.
+  //
+  // El relleno viaja porque la CARA FRONTAL es un elemento de forma de verdad
+  // y lo admite: emitida la última, su relleno tapa las aristas que pasan por
+  // detrás, así que activarlo no puede estropear el dibujo.
+  function solidOpts() {
+    return {
+      color: state.color, lineWidth: state.lineWidth,
+      solidSection: state.solidSection,
+      solidDepth: state.solidDepth,
+      solidAngle: state.solidAngle,
+      solidForeshorten: state.solidForeshorten,
+      solidTaper: state.solidTaper,
+      fill: state.fillShapes,
+      fillColor: state.fillColor,
+      fillTransparent: state.fillTransparent,
+      fillOpacity: state.fillOpacity,
+    };
+  }
+
   // Dibuja la previsualización de una pieza compuesta (los elementos que producen
   // Building.elements y Garden.elements) respetando el trazo de cada una —el detalle
   // usa lineWidth fino— en vez del grosor global del overlay. Mantiene el guion del
@@ -2442,6 +2490,14 @@
     els.forEach(el => {
       octx.strokeStyle = el.color;
       octx.lineWidth = el.lineWidth;
+      // El guion se fija POR PIEZA, con la misma fórmula del renderer. Antes
+      // se heredaba el que hubiera puesto paintOverlay, y eso convertía en
+      // mentira la previsualización de cualquier herramienta cuyas piezas
+      // lleven `dash` propio (los sólidos 3D, mitad de cuyas aristas son
+      // ocultas): salían TODAS discontinuas y al soltar sólo la mitad. Las dos
+      // ramas son obligatorias — con sólo la de `true`, el guion se filtraría
+      // a la pieza siguiente.
+      octx.setLineDash(el.dash ? [4 * el.lineWidth, 4 * el.lineWidth] : []);
       if (el.type === 'line') {
         octx.beginPath(); octx.moveTo(el.x1, el.y1); octx.lineTo(el.x2, el.y2); octx.stroke();
       } else if (el.type === 'rect') {
@@ -2461,10 +2517,16 @@
           else octx.quadraticCurveTo(s.cx, s.cy, s.x2, s.y2);
         });
         octx.stroke();
-      } else if (el.type === 'text') {
-        // Se delega en el renderer de verdad: reimplementar aquí la fuente, el
-        // anclaje y el interlineado sería una segunda copia destinada a divergir.
-        Renderer.renderElement(octx, el);
+      } else {
+        // Todo lo demás —texto y las formas 2D, que son la cara frontal de un
+        // sólido— se delega en el renderer de verdad: reimplementar aquí la
+        // fuente y el interlineado, o los vértices de una estrella y su
+        // relleno, sería una segunda copia destinada a divergir.
+        //
+        // Con un seed fijo si la pieza no lo trae: los generadores no lo ponen
+        // (lo añade withSeeds al soltar), y sin él Sketchy cae en Math.random
+        // y el temblor HIERVE, re-sorteándose en cada fotograma del arrastre.
+        Renderer.renderElement(octx, Number.isFinite(el.seed) ? el : { ...el, seed: 0 });
       }
     });
     octx.restore();
@@ -2676,6 +2738,8 @@
         } else if (GARDEN_TOOLS.includes(state.tool)) {
           drawPiecesPreview(octx, Garden.elements(state.tool, state.startPos, pos, gardenOpts()));
           drawPathAngle(octx, state.startPos, pos);
+        } else if (SOLID_TOOLS.includes(state.tool)) {
+          drawPiecesPreview(octx, Solid.elements(state.tool, state.startPos, pos, solidOpts()));
         } else {
           octx.strokeRect(x, y, w, h);
         }
@@ -3136,10 +3200,13 @@
     }
     // Edificios — herramientas de creación: 1..N elementos de tipos ya
     // existentes (rect/line, ver js/building.js). Un solo undo por gesto.
-    else if (BUILDING_TOOLS.includes(state.tool) || GARDEN_TOOLS.includes(state.tool)) {
+    else if (BUILDING_TOOLS.includes(state.tool) || GARDEN_TOOLS.includes(state.tool) ||
+             SOLID_TOOLS.includes(state.tool)) {
       const created = withSeeds(GARDEN_TOOLS.includes(state.tool)
         ? Garden.elements(state.tool, p1, p2, gardenOpts())
-        : Building.elements(state.tool, p1, p2, buildOpts()));
+        : SOLID_TOOLS.includes(state.tool)
+          ? Solid.elements(state.tool, p1, p2, solidOpts())
+          : Building.elements(state.tool, p1, p2, buildOpts()));
       if (created.length) {
         saveUndo();
         // Agrupa las piezas bajo un id compartido → se seleccionan, mueven,
@@ -3585,6 +3652,20 @@
     { tool: TOOLS.GARDEN_PATH,   modal: 'modal-path',   root: 'path-catalog',   cls: 'modal__path',   data: 'path',   catalog: PATH_TYPES,    key: 'pathType', opts: () => ({ ...gardenOpts(), freeAngle: false }), box: { x: 44, y: 84 } },
     { tool: TOOLS.GARDEN_HERB,   modal: 'modal-herb',   root: 'herb-catalog',   cls: 'modal__herb',   data: 'herb',   catalog: HERB_TYPES,    key: 'herbType', plant: true },
     { tool: TOOLS.GARDEN_CLIMBER,modal: 'modal-climber',root: 'climber-catalog',cls: 'modal__climber',data: 'climber',catalog: CLIMBER_TYPES, key: 'climberType', plant: true },
+    // 3D. Las tres comparten `solidSection`: elegir pentágono en Prisma lo deja
+    // elegido en Pirámide, que es lo que uno espera de un mismo eje. Cambian
+    // sólo de catálogo, porque el NOMBRE de cada sección depende del remate
+    // («Cubo» / «Pirámide cuadrangular» / «Tronco cuadrangular»).
+    // La caja del icono tiene que ser GRANDE aunque el icono mida 56 px: los
+    // polígonos regulares la leen como arrastre desde el centro, y sobre todo
+    // el redondeado lleva un radio de esquina fijo de 12 px, así que con una
+    // cara de 30 px salía redondo entero y su icono era indistinguible del
+    // cilindro. Encajar por bounds reales devuelve el tamaño después.
+    // La Esfera no está: no tiene sección que elegir, así que su modal es sólo
+    // de ajustes (como el del Borrador).
+    { tool: TOOLS.SOLID_PRISM,   modal: 'modal-prism',   root: 'prism-catalog',   cls: 'modal__prism',   data: 'prism',   catalog: PRISM_SECTIONS,   key: 'solidSection', gen: () => Solid, opts: () => solidOpts(), box: { x: 96, y: 76 } },
+    { tool: TOOLS.SOLID_PYRAMID, modal: 'modal-pyramid', root: 'pyramid-catalog', cls: 'modal__pyramid', data: 'pyramid', catalog: PYRAMID_SECTIONS, key: 'solidSection', gen: () => Solid, opts: () => solidOpts(), box: { x: 96, y: 76 } },
+    { tool: TOOLS.SOLID_FRUSTUM, modal: 'modal-frustum', root: 'frustum-catalog', cls: 'modal__frustum', data: 'frustum', catalog: FRUSTUM_SECTIONS, key: 'solidSection', gen: () => Solid, opts: () => solidOpts(), box: { x: 96, y: 76 } },
   ].map(cfg => ({ gen: () => Garden, opts: () => gardenOpts(), box: { x: 100, y: 84 }, ...cfg }));
   const variantModalOf = tool => VARIANT_MODALS.find(m => m.tool === tool);
 
@@ -3819,8 +3900,16 @@
       if (id === TOOLS.BUILD_WALL) syncWallControls();
       if (id === TOOLS.BUILD_FENCE) syncFenceControls();
       if (id === TOOLS.BUILD_GATE) syncGateControls();
+      // Prisma, Pirámide y Tronco llevan sus deslizadores de proyección además
+      // del catálogo, mismo motivo que Camino y Muro.
+      if (SOLID_TOOLS.includes(id)) syncSolidControls();
       $(variant.modal).showModal();
     }
+    // La Esfera no tiene sección que elegir, así que su modal es sólo de
+    // ajustes: se abre como el del Borrador —al pulsar la herramienta— y no
+    // está en opensVariantModal, porque cerrarlo no cancela nada; la esfera
+    // ya se puede dibujar con los ajustes que tenga.
+    if (id === TOOLS.SOLID_SPHERE) { syncSolidControls(); $('modal-sphere').showModal(); }
   }
 
   function deleteSelection() {
@@ -5571,6 +5660,23 @@
     });
     $('fence-height').addEventListener('change', savePrefs);
     syncFenceControls();
+    // 3D: los mismos cuatro deslizadores repetidos en cuatro modales, contra
+    // un único estado. `input` mueve al dedo y `change` guarda, como el resto.
+    SOLID_MODALS.forEach(cfg => {
+      SOLID_FIELDS.forEach(f => {
+        const input = $(`${cfg.prefix}-${f.id}`);
+        if (!input || typeof input.addEventListener !== 'function') return;
+        input.addEventListener('input', e => {
+          const v = Number(e.target.value);
+          if (!Number.isFinite(v)) return;
+          state[f.key] = Math.min(f.hi(), Math.max(f.lo(), v));
+          syncSolidControls();
+          scheduleOverlay();
+        });
+        input.addEventListener('change', savePrefs);
+      });
+    });
+    syncSolidControls();
     // Cancela independiente: todos los modelos comparten el mismo rango de
     // altura y las dos vistas arquitectónicas del catálogo.
     fillVariantSelect('gate-type', GATE_TYPES);
@@ -6152,6 +6258,13 @@
     const airbrushModal = $('modal-airbrush');
     airbrushModal.querySelector('.modal__cancel').addEventListener('click', () => airbrushModal.close());
     closeOnBackdrop(airbrushModal);
+
+    // Esfera: los otros tres modales de 3D reciben «Cerrar» y el clic fuera en
+    // el bucle de VARIANT_MODALS, pero la Esfera no está ahí (no tiene sección
+    // que elegir), así que necesita la misma pareja de líneas obligatoria.
+    const sphereModal = $('modal-sphere');
+    sphereModal.querySelector('.modal__cancel').addEventListener('click', () => sphereModal.close());
+    closeOnBackdrop(sphereModal);
 
     // Ajustes de «Select»: mismo contrato de cierre que el del borrador. Cada
     // modal cablea el suyo, así que un diálogo nuevo sin esta pareja de líneas
@@ -7121,6 +7234,82 @@
     renderFencePreview();
   }
 
+  /* Los cuatro modales de 3D llevan los mismos mandos, así que se sirven con
+     UN solo cuerpo sobre una tabla de prefijos —el patrón de GEO_PREFIXES, que
+     ya sirve cinco juegos de campos de posición— en vez de cuatro parejas
+     sync/render condenadas a divergir. No todos tienen todos: la esfera no
+     tiene fondo que graduar (su ecuador sale del ángulo y el escorzo) y sólo
+     el tronco tiene tapa; los que faltan simplemente no están en el HTML. */
+  const SOLID_MODALS = [
+    { tool: TOOLS.SOLID_PRISM,   prefix: 'prism' },
+    { tool: TOOLS.SOLID_PYRAMID, prefix: 'pyramid' },
+    { tool: TOOLS.SOLID_FRUSTUM, prefix: 'frustum' },
+    { tool: TOOLS.SOLID_SPHERE,  prefix: 'sphere', modal: 'modal-sphere' },
+  ];
+
+  /** Los topes salen del módulo, no se reescriben aquí: tests/smoke.test.js
+      comprueba que coinciden con los min/max de los deslizadores del HTML. */
+  const SOLID_FIELDS = [
+    { id: 'depth',       key: 'solidDepth',       lo: () => Solid.DEPTH_MIN,       hi: () => Solid.DEPTH_MAX },
+    { id: 'angle',       key: 'solidAngle',       lo: () => Solid.ANGLE_MIN,       hi: () => Solid.ANGLE_MAX },
+    { id: 'foreshorten', key: 'solidForeshorten', lo: () => Solid.FORESHORTEN_MIN, hi: () => Solid.FORESHORTEN_MAX },
+    { id: 'taper',       key: 'solidTaper',       lo: () => Solid.TAPER_MIN,       hi: () => Solid.TAPER_MAX },
+  ];
+
+  const SOLID_PREVIEW_W = 176, SOLID_PREVIEW_H = 168;
+
+  /** Punto único que vuelca `state` en los mandos de los cuatro modales y
+      repinta sus miniaturas. Mismo contrato que syncWallControls(). */
+  function syncSolidControls() {
+    SOLID_MODALS.forEach(cfg => {
+      SOLID_FIELDS.forEach(f => {
+        const input = $(`${cfg.prefix}-${f.id}`);
+        if (input) input.value = String(state[f.key]);
+        const out = $(`${cfg.prefix}-${f.id}-val`);
+        if (out) out.textContent = String(Math.round(state[f.key]));
+      });
+      renderSolidPreview(cfg);
+    });
+  }
+
+  /** Miniatura de un sólido: geometría real vía Solid.elements +
+      drawPiecesPreview, encajada por bounds reales, papel del color real del
+      lienzo. Mismo patrón que renderWallPreview/renderPathPreview. */
+  function renderSolidPreview(cfg) {
+    const cv = $(`${cfg.prefix}-preview`);
+    if (!cv || typeof cv.getContext !== 'function') return;
+    const pctx = cv.getContext('2d');
+    if (!pctx) return;
+    const dpr = window.devicePixelRatio || 1;
+    if (cv.width !== Math.round(SOLID_PREVIEW_W * dpr)) {
+      cv.width = Math.round(SOLID_PREVIEW_W * dpr);
+      cv.height = Math.round(SOLID_PREVIEW_H * dpr);
+    }
+    pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    pctx.fillStyle = state.canvasBg;
+    pctx.fillRect(0, 0, SOLID_PREVIEW_W, SOLID_PREVIEW_H);
+
+    const els = Solid.elements(cfg.tool, { x: 0, y: 60 }, { x: 60, y: 0 }, solidOpts());
+    if (!els.length) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    els.forEach(el => {
+      const b = getElementBounds(el);
+      minX = Math.min(minX, b.x); minY = Math.min(minY, b.y);
+      maxX = Math.max(maxX, b.x + b.w); maxY = Math.max(maxY, b.y + b.h);
+    });
+    const pad = 12;
+    const bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY);
+    const s = Math.min((SOLID_PREVIEW_W - 2 * pad) / bw, (SOLID_PREVIEW_H - 2 * pad) / bh);
+    pctx.save();
+    pctx.translate(
+      (SOLID_PREVIEW_W - bw * s) / 2 - minX * s,
+      (SOLID_PREVIEW_H - bh * s) / 2 - minY * s,
+    );
+    pctx.scale(s, s);
+    drawPiecesPreview(pctx, els.map(el => ({ ...el, lineWidth: Math.max(el.lineWidth, 0.9 / s) })));
+    pctx.restore();
+  }
+
   const FENCE_PREVIEW_W = 176, FENCE_PREVIEW_H = 168;
   const FENCE_SAMPLE_LEN = 160;
 
@@ -7475,6 +7664,7 @@
     syncEmojiControls();
     syncEraserControls();
     syncAirbrushControls();
+    syncSolidControls();
   }
 
   function init() {

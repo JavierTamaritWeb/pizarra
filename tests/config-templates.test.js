@@ -18,7 +18,7 @@ test('config.js — TOOLS', async t => {
     assert.equal(Object.isFrozen(ctx.TOOLS), true);
   });
 
-  await t.test('TOOLS tiene exactamente los 44 ids esperados', () => {
+  await t.test('TOOLS tiene exactamente los 48 ids esperados', () => {
     const expected = [
       'pencil', 'airbrush', 'line', 'rect', 'roundedRect', 'circle', 'arrow',
       'curveArrow', 'arc', 'text', 'eraser', 'select', 'pick', 'imagePlaceholder',
@@ -28,13 +28,15 @@ test('config.js — TOOLS', async t => {
       'planta', 'fachada', 'tejado', 'puerta', 'ventana', 'balcon', 'muro', 'verja', 'cancela',
       // Jardín (creación): cada una elige su variante en su propio modal
       'jardin', 'arbol', 'arbusto', 'flor', 'decoracion', 'camino', 'aromatica', 'trepadora',
+      // 3D (creación): el botón elige el remate y su catálogo la sección
+      'prisma', 'piramide', 'tronco', 'esfera',
     ];
     const values = Object.values(ctx.TOOLS);
-    assert.equal(values.length, 44);
+    assert.equal(values.length, 48);
     assert.deepEqual([...values].sort(), [...expected].sort());
-    // Las claves también son 44 y únicas
-    assert.equal(Object.keys(ctx.TOOLS).length, 44);
-    assert.equal(new Set(values).size, 44);
+    // Las claves también son 48 y únicas
+    assert.equal(Object.keys(ctx.TOOLS).length, 48);
+    assert.equal(new Set(values).size, 48);
   });
 });
 
@@ -414,6 +416,37 @@ test('config.js — el sidebar de Jardín y GARDEN_TOOLS son la misma lista', ()
   assert.deepEqual([...sinAtajo], ['camino', 'aromatica', 'trepadora']);
 });
 
+test('config.js — el sidebar de 3D y SOLID_TOOLS son la misma lista, y ninguna lleva atajo', () => {
+  const ctx = load('src/js/config.js');
+  const solidos = ctx.TOOL_GROUPS.find(g => g.label === '3D');
+  assert.ok(solidos, 'falta el grupo 3D en el sidebar');
+  assert.deepEqual(
+    [...solidos.tools.map(t => t.id)].sort(),
+    [...ctx.SOLID_TOOLS].sort(),
+    'los botones del sidebar y SOLID_TOOLS deben coincidir');
+  // El orden pintado va de más lleno a más vacío, y la esfera al final por no
+  // ser una extrusión. Las cuatro entran sin tecla: las 26 letras y los 10
+  // dígitos están asignados, y `f q d s` son acciones de la flecha curva
+  // atendidas ANTES que TOOL_KEYS. Se fija para que el hueco no crezca por
+  // descuido ni una de ellas gane un atajo que pise algo.
+  assert.deepEqual([...solidos.tools.map(t => t.id)],
+    ['prisma', 'piramide', 'tronco', 'esfera']);
+  assert.deepEqual([...solidos.tools.filter(t => !t.key).map(t => t.id)],
+    ['prisma', 'piramide', 'tronco', 'esfera']);
+  // Va justo detrás de Formas: sus secciones SON esas diez siluetas
+  const labels = ctx.TOOL_GROUPS.map(g => g.label);
+  assert.equal(labels[labels.indexOf('Formas') + 1], '3D');
+});
+
+test('config.js — las secciones de 3D son exactamente los diez tipos de Formas', () => {
+  const ctx = load('src/js/config.js');
+  const formas = ctx.TOOL_GROUPS.find(g => g.label === 'Formas');
+  // El id de la sección ES el `el.type` que se crea: la cara frontal se emite
+  // como el elemento 2D real de ese tipo. Si dejaran de coincidir, la cara
+  // saldría de un tipo que el renderer no conoce y no se dibujaría nada.
+  assert.deepEqual([...ctx.SOLID_SECTIONS], [...formas.tools.map(t => t.id)]);
+});
+
 test('config.js — los catálogos de variante están congelados y bien formados', () => {
   const ctx = load('src/js/config.js');
   const catalogs = {
@@ -424,6 +457,8 @@ test('config.js — los catálogos de variante están congelados y bien formados
     BALCONY_TYPES: ctx.BALCONY_TYPES,
     WALL_VIEWS: ctx.WALL_VIEWS, FORGE_TYPES: ctx.FORGE_TYPES,
     FENCE_VIEWS: ctx.FENCE_VIEWS,
+    PRISM_SECTIONS: ctx.PRISM_SECTIONS, PYRAMID_SECTIONS: ctx.PYRAMID_SECTIONS,
+    FRUSTUM_SECTIONS: ctx.FRUSTUM_SECTIONS,
   };
   for (const [name, list] of Object.entries(catalogs)) {
     assert.ok(Array.isArray(list) && list.length > 0, `${name} vacío`);

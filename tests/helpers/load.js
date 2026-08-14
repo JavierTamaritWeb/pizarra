@@ -42,12 +42,15 @@ const KNOWN_GLOBALS = [
   'GARDEN_TOOLS', 'PLOT_SHAPES', 'TREE_TYPES', 'SHRUB_TYPES', 'FLOWER_TYPES', 'DECOR_TYPES',
   'PATH_TYPES', 'HERB_TYPES', 'CLIMBER_TYPES',
   'GARDEN_PLANT_VIEWS', 'GARDEN_STAGES', 'GARDEN_LABEL_MODES',
+  'SOLID_TOOLS', 'SOLID_SECTIONS',
+  'PRISM_SECTIONS', 'PYRAMID_SECTIONS', 'FRUSTUM_SECTIONS',
   'COLORS', 'CANVAS_W', 'CANVAS_H',
   'SKETCHY_FONT', 'SKETCH_FONTS', 'sketchFont', 'sketchFontById', 'setSketchFont',
   'TEXT_SHADOWS', 'textShadowById', 'DEFAULT_SHADOW_COLOR', 'SHADOW_REF_SIZE',
   'UI_DEFAULTS', 'EMOJI_GROUPS', 'EMOJI_MIN_SIZE', 'EMOJI_MAX_SIZE',
   'Sketchy', 'ArcMath', 'CurvePath', 'ShapeRotation', 'RegularPolygon',
-  'Trapezoid', 'Airbrush', 'Eraser', 'Building', 'Garden', 'Renderer', 'Exporter', 'Templates',
+  'Trapezoid', 'Airbrush', 'Eraser', 'Building', 'Garden', 'Solid',
+  'Renderer', 'Exporter', 'Templates',
 ];
 
 /** Orden completo de dependencias del proyecto (app.js excluido: requiere DOM real). */
@@ -63,6 +66,7 @@ const ALL_FILES = [
   'src/js/eraser.js',
   'src/js/building.js',
   'src/js/garden.js',
+  'src/js/solid.js',
   'src/js/renderer.js',
   'src/js/exporter.js',
   'src/js/templates.js',

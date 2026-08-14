@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=2.23.0" />
+  <link rel="stylesheet" href="css/styles.css?v=2.24.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.23.0" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.24.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v2.23.0</span>
+        <span class="topbar__badge">v2.24.0</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes" aria-expanded="false" aria-controls="side-panel">
@@ -430,6 +430,7 @@
           <li><kbd>Ctrl</kbd>+<kbd>D</kbd> duplicar · <kbd>Ctrl</kbd>+<kbd>A</kbd> todo · <kbd>Supr</kbd> borrar</li>
           <li>Flechas: mover la selección (<kbd>Shift</kbd>: 20 px)</li>
           <li>Con un polígono regular, una estrella o un trapecio seleccionados, <kbd>←</kbd> y <kbd>→</kbd> lo <strong>giran</strong> una orientación en cada sentido; <kbd>↑</kbd> y <kbd>↓</kbd> siguen moviendo</li>
+          <li>Grupo <strong>3D</strong>: el botón elige el remate (prisma, pirámide, tronco o esfera) y su catálogo la sección. Lo que arrastras es la <strong>cara frontal</strong>, sin deformar, y las aristas que quedan detrás salen <strong>discontinuas</strong>. Las cuatro van sin atajo</li>
           <li>Cada herramienta muestra su tecla en el tooltip</li>
           <li><kbd>Alt</kbd> desactiva el ajuste a cuadrícula</li>
         </ul>
@@ -1230,6 +1231,147 @@
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
   </dialog>
 
+  <!-- ===== MODALES: 3D =====
+       El botón del sidebar elige el REMATE y su catálogo la SECCIÓN, que son
+       las mismas diez siluetas del grupo Formas. Los tres catálogos se
+       construyen desde VARIANT_MODALS (src/js/app.js) y sus iconos los pinta
+       la geometría real de src/js/solid.js. La Esfera no lleva catálogo: no
+       hay sección que elegir. Los topes de los deslizadores tienen que
+       coincidir con los que exporta Solid (guardado en tests/smoke.test.js). -->
+  <dialog class="modal" id="modal-prism" aria-labelledby="modal-prism-title">
+      <h3 class="modal__heading" id="modal-prism-title">Prisma</h3>
+      <p class="modal__sub">Elige la sección y arrástrala en el lienzo: lo que dibujas es la cara frontal.</p>
+
+      <div class="modal__build">
+        <canvas class="modal__preview" id="prism-preview" width="176" height="168"
+                role="img" aria-label="Vista previa con los ajustes actuales"></canvas>
+        <div class="modal__build-fields">
+          <label class="panel__field" for="prism-depth">
+            <span class="modal__field-label">Profundidad: <span id="prism-depth-val">75</span> % de la cara</span>
+            <input class="panel__slider" type="range" id="prism-depth"
+                   min="10" max="150" step="5" value="75"
+                   aria-label="Profundidad, del 10 al 150 por ciento del tamaño de la cara" />
+          </label>
+          <label class="panel__field" for="prism-angle">
+            <span class="modal__field-label">Ángulo de fuga: <span id="prism-angle-val">30</span>°</span>
+            <input class="panel__slider" type="range" id="prism-angle"
+                   min="0" max="360" step="5" value="30"
+                   aria-label="Ángulo de fuga, de 0 a 360 grados" />
+          </label>
+          <label class="panel__field" for="prism-foreshorten">
+            <span class="modal__field-label">Escorzo: <span id="prism-foreshorten-val">80</span> %</span>
+            <input class="panel__slider" type="range" id="prism-foreshorten"
+                   min="10" max="100" step="5" value="80"
+                   aria-label="Escorzo de la fuga, del 10 al 100 por ciento" />
+          </label>
+        </div>
+      </div>
+
+      <p class="modal__legend">Sección</p>
+      <div id="prism-catalog"></div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
+  <dialog class="modal" id="modal-pyramid" aria-labelledby="modal-pyramid-title">
+      <h3 class="modal__heading" id="modal-pyramid-title">Pirámide</h3>
+      <p class="modal__sub">Elige la sección de la base; la punta se va hacia el fondo.</p>
+
+      <div class="modal__build">
+        <canvas class="modal__preview" id="pyramid-preview" width="176" height="168"
+                role="img" aria-label="Vista previa con los ajustes actuales"></canvas>
+        <div class="modal__build-fields">
+          <label class="panel__field" for="pyramid-depth">
+            <span class="modal__field-label">Profundidad: <span id="pyramid-depth-val">75</span> % de la cara</span>
+            <input class="panel__slider" type="range" id="pyramid-depth"
+                   min="10" max="150" step="5" value="75"
+                   aria-label="Profundidad, del 10 al 150 por ciento del tamaño de la cara" />
+          </label>
+          <label class="panel__field" for="pyramid-angle">
+            <span class="modal__field-label">Ángulo de fuga: <span id="pyramid-angle-val">30</span>°</span>
+            <input class="panel__slider" type="range" id="pyramid-angle"
+                   min="0" max="360" step="5" value="30"
+                   aria-label="Ángulo de fuga, de 0 a 360 grados" />
+          </label>
+          <label class="panel__field" for="pyramid-foreshorten">
+            <span class="modal__field-label">Escorzo: <span id="pyramid-foreshorten-val">80</span> %</span>
+            <input class="panel__slider" type="range" id="pyramid-foreshorten"
+                   min="10" max="100" step="5" value="80"
+                   aria-label="Escorzo de la fuga, del 10 al 100 por ciento" />
+          </label>
+        </div>
+      </div>
+
+      <p class="modal__legend">Sección</p>
+      <div id="pyramid-catalog"></div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
+  <dialog class="modal" id="modal-frustum" aria-labelledby="modal-frustum-title">
+      <h3 class="modal__heading" id="modal-frustum-title">Tronco</h3>
+      <p class="modal__sub">Como el prisma, pero con la tapa del fondo más pequeña.</p>
+
+      <div class="modal__build">
+        <canvas class="modal__preview" id="frustum-preview" width="176" height="168"
+                role="img" aria-label="Vista previa con los ajustes actuales"></canvas>
+        <div class="modal__build-fields">
+          <label class="panel__field" for="frustum-depth">
+            <span class="modal__field-label">Profundidad: <span id="frustum-depth-val">75</span> % de la cara</span>
+            <input class="panel__slider" type="range" id="frustum-depth"
+                   min="10" max="150" step="5" value="75"
+                   aria-label="Profundidad, del 10 al 150 por ciento del tamaño de la cara" />
+          </label>
+          <label class="panel__field" for="frustum-angle">
+            <span class="modal__field-label">Ángulo de fuga: <span id="frustum-angle-val">30</span>°</span>
+            <input class="panel__slider" type="range" id="frustum-angle"
+                   min="0" max="360" step="5" value="30"
+                   aria-label="Ángulo de fuga, de 0 a 360 grados" />
+          </label>
+          <label class="panel__field" for="frustum-foreshorten">
+            <span class="modal__field-label">Escorzo: <span id="frustum-foreshorten-val">80</span> %</span>
+            <input class="panel__slider" type="range" id="frustum-foreshorten"
+                   min="10" max="100" step="5" value="80"
+                   aria-label="Escorzo de la fuga, del 10 al 100 por ciento" />
+          </label>
+          <label class="panel__field" for="frustum-taper">
+            <span class="modal__field-label">Tapa: <span id="frustum-taper-val">55</span> % de la base</span>
+            <input class="panel__slider" type="range" id="frustum-taper"
+                   min="10" max="95" step="5" value="55"
+                   aria-label="Tamaño de la tapa, del 10 al 95 por ciento de la base" />
+          </label>
+        </div>
+      </div>
+
+      <p class="modal__legend">Sección</p>
+      <div id="frustum-catalog"></div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
+  <dialog class="modal" id="modal-sphere" aria-labelledby="modal-sphere-title">
+      <h3 class="modal__heading" id="modal-sphere-title">Esfera</h3>
+      <p class="modal__sub">Arrastra para fijar el diámetro; el ecuador sale del ángulo y el escorzo.</p>
+
+      <div class="modal__build">
+        <canvas class="modal__preview" id="sphere-preview" width="176" height="168"
+                role="img" aria-label="Vista previa con los ajustes actuales"></canvas>
+        <div class="modal__build-fields">
+          <label class="panel__field" for="sphere-angle">
+            <span class="modal__field-label">Ángulo de fuga: <span id="sphere-angle-val">30</span>°</span>
+            <input class="panel__slider" type="range" id="sphere-angle"
+                   min="0" max="360" step="5" value="30"
+                   aria-label="Ángulo de fuga, de 0 a 360 grados" />
+          </label>
+          <label class="panel__field" for="sphere-foreshorten">
+            <span class="modal__field-label">Escorzo: <span id="sphere-foreshorten-val">80</span> %</span>
+            <input class="panel__slider" type="range" id="sphere-foreshorten"
+                   min="10" max="100" step="5" value="80"
+                   aria-label="Escorzo de la fuga, del 10 al 100 por ciento" />
+          </label>
+        </div>
+      </div>
+
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
   <!-- ===== MODAL: TEJADO ===== -->
   <dialog class="modal" id="modal-roof" aria-labelledby="modal-roof-title">
       <h3 class="modal__heading" id="modal-roof-title">Tipo de tejado</h3>
@@ -1367,20 +1509,21 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=2.23.0"></script>
-  <script src="src/js/sketchy.js?v=2.23.0"></script>
-  <script src="src/js/arc.js?v=2.23.0"></script>
-  <script src="src/js/curve-path.js?v=2.23.0"></script>
-  <script src="src/js/shape-rotation.js?v=2.23.0"></script>
-  <script src="src/js/regular-polygon.js?v=2.23.0"></script>
-  <script src="src/js/trapezoid.js?v=2.23.0"></script>
-  <script src="src/js/airbrush.js?v=2.23.0"></script>
-  <script src="src/js/eraser.js?v=2.23.0"></script>
-  <script src="src/js/building.js?v=2.23.0"></script>
-  <script src="src/js/garden.js?v=2.23.0"></script>
-  <script src="src/js/renderer.js?v=2.23.0"></script>
-  <script src="src/js/exporter.js?v=2.23.0"></script>
-  <script src="src/js/templates.js?v=2.23.0"></script>
-  <script src="src/js/app.js?v=2.23.0"></script>
+  <script src="src/js/config.js?v=2.24.0"></script>
+  <script src="src/js/sketchy.js?v=2.24.0"></script>
+  <script src="src/js/arc.js?v=2.24.0"></script>
+  <script src="src/js/curve-path.js?v=2.24.0"></script>
+  <script src="src/js/shape-rotation.js?v=2.24.0"></script>
+  <script src="src/js/regular-polygon.js?v=2.24.0"></script>
+  <script src="src/js/trapezoid.js?v=2.24.0"></script>
+  <script src="src/js/airbrush.js?v=2.24.0"></script>
+  <script src="src/js/eraser.js?v=2.24.0"></script>
+  <script src="src/js/building.js?v=2.24.0"></script>
+  <script src="src/js/garden.js?v=2.24.0"></script>
+  <script src="src/js/solid.js?v=2.24.0"></script>
+  <script src="src/js/renderer.js?v=2.24.0"></script>
+  <script src="src/js/exporter.js?v=2.24.0"></script>
+  <script src="src/js/templates.js?v=2.24.0"></script>
+  <script src="src/js/app.js?v=2.24.0"></script>
 </body>
 </html>

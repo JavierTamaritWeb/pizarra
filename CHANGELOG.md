@@ -4,6 +4,43 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.24.0] — 2026-08-14
+
+### Añadido
+
+- **Grupo «3D» en el sidebar, detrás de Formas**, con cuatro herramientas —
+  **Prisma**, **Pirámide**, **Tronco** y **Esfera**— que dibujan en volumen las
+  mismas diez siluetas del grupo de arriba: 31 figuras en total (caja, cubo,
+  cilindro, prisma pentagonal, pirámide, cono, tetraedro, tronco de cono,
+  esfera, prismas estrellados…).
+- **Lo que arrastras es la cara frontal, y sale sin deformar.** La proyección
+  es caballera: el volumen se va hacia el fondo en diagonal y la cara que
+  dibujas conserva su forma, que es lo único que deja reconocibles a la
+  estrella y al trapecio. Las **aristas que quedan detrás salen discontinuas**,
+  como en un croquis técnico.
+- **Ángulo de fuga, escorzo y profundidad regulables** en el modal de cada
+  herramienta, con miniatura en vivo. La profundidad va en **porcentaje de la
+  cara**, no en píxeles, así que una figura pequeña y otra grande salen con las
+  mismas proporciones sin tocar nada. El ángulo da la vuelta completa: el
+  volumen puede irse hacia cualquiera de los cuatro lados. El Tronco añade el
+  tamaño de su tapa.
+- El botón elige el **remate** y su catálogo la **sección**, con los diez
+  iconos pintados con la geometría real, así que no pueden mentir sobre lo que
+  van a crear. La sección elegida se comparte entre las tres herramientas de
+  extrusión, y todos los ajustes se recuerdan entre sesiones.
+- Cada sólido nace como un **grupo**: se selecciona, mueve, escala, duplica y
+  borra como una unidad, con un solo paso de deshacer, y `Alt`+clic sigue
+  aislando una pieza.
+- **Sin atajos de teclado**, como las estrellas o el Aerógrafo: las 26 letras y
+  los 10 dígitos ya estaban asignados.
+
+### Corregido
+
+- La previsualización del arrastre **ya respeta el trazo discontinuo de cada
+  pieza** en vez de heredar el del lienzo. Se notaba con las herramientas
+  compuestas: con «Discontinuo» marcado, la previsualización de un árbol del
+  jardín salía punteada aunque el resultado fuese sólido.
+
 ## [2.23.0] — 2026-08-14
 
 ### Añadido

@@ -4,7 +4,7 @@
 
 **Wireframes, diagramas y bocetos con estética dibujada a mano — en el navegador y sin instalar nada.**
 
-[![Versión](https://img.shields.io/badge/versión-2.23.0-blueviolet?style=flat-square)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-2.24.0-blueviolet?style=flat-square)](CHANGELOG.md)
 [![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?style=flat-square&logo=javascript&logoColor=000)](src/js/)
 [![Estilos](https://img.shields.io/badge/estilos-SCSS%20·%20BEM%20·%20Gulp%205-cf649a?style=flat-square&logo=sass&logoColor=fff)](src/scss/)
 [![Dependencias](https://img.shields.io/badge/dependencias%20en%20runtime-0-brightgreen?style=flat-square)](#arquitectura)
@@ -71,6 +71,7 @@ Para *usar* la app no hay nada que instalar ni compilar: el CSS ya viene compila
 | **Aerógrafo** | Pulveriza **tono** en vez de trazo: una nube de gotas densa en el eje y difuminada hacia los bordes, con las puntas redondas, y un soplo redondo si se pulsa sin arrastrar. El puntero es el **círculo de la boquilla**, que rodea exactamente lo que se va a pintar. Anchura, grano, densidad y opacidad ajustables, con la paleta entera dentro de sus ajustes; al 100 % la pintura es sólida y por debajo **las pasadas se acumulan**, así que dos trazos cruzados oscurecen el cruce. Puede acotarse a **un rectángulo del lienzo**: fuera de él no cae ni una gota. El elemento guarda solo el eje del trazo —la nube se regenera desde su semilla—, así que el archivo no engorda y las cinco exportaciones dibujan lo mismo. |
 | **Formas** | Rectángulo, redondeado, elipse, cuadrado, trapecio, triángulo, pentágono, hexágono y las **estrellas de 5 y 6 puntas**. Los polígonos regulares se arrastran desde el centro y conservan sus lados iguales; el trapecio admite proporciones libres. |
 | **Estrellas** | Las regulares clásicas —pentagrama y Estrella de David—, con el radio interior en el que prolongar el lado de una punta lleva justo a otra punta: rectas completas, no pétalos. Se comportan como un polígono más —relleno, bordes ocultos, giro (36° y 30°) y las cinco exportaciones—, y el borrador y la selección respetan su **silueta**: el hueco entre dos puntas no es dibujo. |
+| **Figuras 3D** | Las mismas diez siluetas, en volumen: **prisma**, **pirámide**, **tronco** y **esfera** dan 31 figuras —caja, cubo, cilindro, cono, tetraedro, prisma hexagonal, tronco de cono, prismas estrellados…—. Lo que arrastras es la **cara frontal** y sale sin deformar, porque la proyección es caballera; las aristas de detrás salen **discontinuas**, como en un croquis técnico. Ángulo de fuga (vuelta completa), escorzo y profundidad —en **porcentaje de la cara**, así que una figura pequeña y otra grande salen con las mismas proporciones— se ajustan en el modal de cada herramienta, con miniatura en vivo. Cada sólido nace como un grupo: se mueve, escala y borra de una pieza. |
 | **Semicírculos** | 180° exactos y sin puntas. El arrastre fija el diámetro; después `+`/`−` o su handle ajustan el radio manteniendo la media circunferencia. `Q` convierte una flecha curva en semicírculo y viceversa. |
 | **Paleta de 36 colores** | Ordenada por el **arco iris**: abre con la tinta y los neutros, de oscuro a claro, y siguen los vivos y los **doce pastel** recorriendo cada uno de rojo a rosa por naranja, amarillo, verde, turquesa, azul, añil y violeta. Seis filas de seis, una familia por fila, más el selector libre para cualquier otro color. |
 | **Relleno** | Color propio por forma, modo sólido o translúcido y opacidad del 0 al 100 %. Vaciar una forma no le hace perder el color: al volver a rellenarla recupera el mismo. |
@@ -174,6 +175,7 @@ Cada pieza de jardín nace con una **etiqueta** dentro del mismo grupo (se mueve
 | `P` `L` `A` `U` `G` | Lápiz · Línea · Flecha · Flecha curva · Semicírculo (el Aerógrafo va sin atajo) |
 | `R` `O` `C` | Rectángulo · Redondeado · Círculo |
 | `3` `4` `5` `6` `7` | Triángulo · Cuadrado · Pentágono · Hexágono · Trapecio |
+| — | 3D: Prisma, Pirámide, Tronco y Esfera van sin atajo (las 26 letras y los 10 dígitos ya estaban asignados) |
 | `T` `J` `B` `I` `M` `N` `K` | Texto · Emoji · Botón · Input · Imagen · Navbar · Tarjeta |
 | `V` `E` | Edición: Mover / seleccionar · Borrador |
 | `W` `1` `2` `0` `Y` | Edificios: Planta · Fachada · Tejado · Puerta · Ventana (Balcón, Muro, Verjas y Cancela no tienen atajo) |
@@ -219,6 +221,7 @@ src/
     ├── eraser.js        Qué elementos toca un trazo de borrador
     ├── building.js      Geometría de la sección Edificios
     ├── garden.js        Geometría paisajística del Jardín, en planta y alzado
+    ├── solid.js         Figuras 3D en proyección caballera, con líneas ocultas
     ├── renderer.js      Render por tipo de elemento + cuadrícula + selección
     ├── exporter.js      Export PNG/JPG/SVG/HTML/JSON + import validado
     ├── templates.js     Plantillas predefinidas
