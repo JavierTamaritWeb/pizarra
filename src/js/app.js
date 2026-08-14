@@ -93,54 +93,81 @@
     airbrushArea: null,      // rectángulo al que se recorta la pintura
   };
 
+  /**
+   * TODOS los ajustes de la app en su valor de fábrica: fuente ÚNICA para el
+   * estado inicial y para «Limpiar todo». Un ajuste nuevo se resetea solo por
+   * estar aquí, sin tener que acordarse del botón — que es exactamente lo que
+   * fallaba: el handler mantenía a mano una lista corta y se había quedado
+   * atrás en dieciséis ajustes (color, grosor, tamaño de letra, relleno
+   * entero, discontinuo, doble punta, cuadrícula, ajuste a la rejilla, clics
+   * acumulativos, letra del lienzo y los tres del estilo de texto). Peor aún:
+   * los que se persisten seguían vivos en `state`, así que el siguiente
+   * savePrefs() reescribía lo que el removeItem acababa de borrar.
+   *
+   * Es una FUNCIÓN y no un objeto porque `uiLabels` se muta en sitio
+   * (`state.uiLabels[tool] = …`): compartir la referencia haría que el botón
+   * devolviera lo último escrito en vez del valor de fábrica. Cualquier campo
+   * anidado que se añada hereda esa protección sin pensarlo.
+   */
+  function appDefaults() {
+    return {
+      color:       '#1a1a2e',
+      lineWidth:   2,
+      eraserSize:  DEFAULT_ERASER_SIZE,
+      fontSize:    18,
+      fillShapes:  false,
+      // El relleno de fábrica es la tinta en translúcido: `fillColor: null`
+      // hace que siga al color del trazo (negro por defecto) en vez de fijar
+      // uno propio, y `fillTransparent` deja la opacidad en manos del mando.
+      // No cambia lo que se dibuja hasta marcar «Rellenar formas» —hasta
+      // entonces las formas salen vacías—, pero sí lo que enseña el panel.
+      fillColor:   null,  // color de relleno; null = sigue al color del trazo
+      fillTransparent: true, // usa fillOpacity en vez del tinte fijo del trazo
+      fillOpacity: 0.4,   // opacidad del relleno translúcido (0..1)
+      shapeRotation: 0,   // giro con el que nacen las formas que lo admiten
+      overlapMode: 'normal', // normal | hidden-dashed
+      pendingEmoji: EMOJI_GROUPS[0].emojis[0], // el que se estampa con la herramienta Emoji
+      emojiSize:   EMOJI_MIN_SIZE, // tamaño de los próximos emojis, independiente del de letra
+      // Rótulo con el que nacen los componentes UI ('' = default del renderer).
+      // Imagen no está: el renderer de imagePlaceholder no recibe rótulo.
+      uiLabels:    { button: '', input: '', nav: '', card: '' },
+      doubleHead:  false, // nuevas flechas con punta en ambos extremos
+      dashed:      false, // nuevas líneas/flechas con trazo discontinuo
+      showGrid:    true,
+      snapGrid:    false,
+      multiSelect: false,      // «Los clics acumulan selección» (una mano; Shift = atajo)
+      canvasBg:    DEFAULT_CANVAS_BG,
+      gridColor:   DEFAULT_GRID_COLOR,
+      // Letra manuscrita del boceto (id de SKETCH_FONTS). Ajuste cosmético
+      // global: no viaja en los elementos ni en el undo, y persiste en prefs.
+      sketchFontId: SKETCH_FONTS[0].id,
+      // Estilo del texto. A diferencia de la letra, estos SÍ viajan en cada
+      // elemento (un título en negrita junto a una nota normal), así que aquí
+      // solo son el default con el que nace el siguiente.
+      textBold: false,
+      textShadow: 'none',
+      textShadowColor: DEFAULT_SHADOW_COLOR,
+      ...CREATION_DEFAULTS, // Edificios/Jardín/Aerógrafo
+    };
+  }
+
   const state = {
     tool:        TOOLS.PENCIL,
-    color:       '#1a1a2e',
-    lineWidth:   2,
-    eraserSize:  DEFAULT_ERASER_SIZE,
-    fontSize:    18,
     zoom:        1,
-    fillShapes:  false,
-    fillColor:   null,  // color de relleno; null = tinte translúcido del trazo
-    fillTransparent: false, // usa fillOpacity en vez de relleno sólido
-    fillOpacity: 0.4,   // opacidad del relleno translúcido (0..1)
-    shapeRotation: 0,   // giro con el que nacen las formas que lo admiten
-    overlapMode: 'normal', // normal | hidden-dashed
-    pendingEmoji: EMOJI_GROUPS[0].emojis[0], // el que se estampa con la herramienta Emoji
-    emojiSize:   EMOJI_MIN_SIZE, // tamaño de los próximos emojis, independiente del de letra
-    // Rótulo con el que nacen los componentes UI ('' = default del renderer).
-    // Imagen no está: el renderer de imagePlaceholder no recibe rótulo.
-    uiLabels:    { button: '', input: '', nav: '', card: '' },
-    ...CREATION_DEFAULTS, // Edificios/Jardín (los resetea también «Limpiar todo»)
+    ...appDefaults(),
     toolBeforeModal: null, // herramienta activa antes de abrir un modal de Edificios (restaurar al cancelar)
     variantChosen: false, // true si se eligió variante en el modal (no fue cancelación)
     editGardenGroupId: null, // grupo vegetal que se regenerará al elegir otra especie
-    doubleHead:  false, // nuevas flechas con punta en ambos extremos
-    dashed:      false, // nuevas líneas/flechas con trazo discontinuo
+    // Transitorios del gesto en curso: no son ajustes, así que ni se guardan en
+    // prefs ni salen de appDefaults() — nacen y mueren dentro de un arrastre.
     curveFlip:   false, // Shift durante el trazado: curva hacia el otro lado
     pathFreeAngle: false, // Shift durante el arrastre del camino: cualquier inclinación
-    // Aerógrafo, transitorios del gesto (no son ajustes: fuera de prefs).
     airbrushAreaPending: false, // el próximo arrastre marca el área, no pinta
     airbrushDrag: null,  // 'spray' | 'area': qué se está haciendo con el ratón
     airbrushSeed: null,  // seed fijado en el mousedown: sin él la previsualización
                          // se re-sortearía en cada fotograma del arrastre
     curveChain:  null,  // borrador por clics: { start, segments, style... }
-    showGrid:    true,
-    snapGrid:    false,
-    multiSelect: false,      // «Los clics acumulan selección» (una mano; Shift = atajo)
     pendingUnselect: null,   // clic sin arrastre sobre algo seleccionado: se quita en mouseup
-    canvasBg:    DEFAULT_CANVAS_BG,
-    gridColor:   DEFAULT_GRID_COLOR,
-    // Letra manuscrita del boceto (id de SKETCH_FONTS). Ajuste cosmético
-    // global como los dos de arriba: no viaja en los elementos ni en el
-    // undo, y persiste en prefs.
-    sketchFontId: SKETCH_FONTS[0].id,
-    // Estilo del texto. A diferencia de la letra, estos SÍ viajan en cada
-    // elemento (un título en negrita junto a una nota normal), así que aquí
-    // solo son el default con el que nace el siguiente.
-    textBold: false,
-    textShadow: 'none',
-    textShadowColor: DEFAULT_SHADOW_COLOR,
     elements:    [],
     undoStack:   [],
     redoStack:   [],
@@ -4026,10 +4053,18 @@
       justo lo que se retiró—. Ahora solo vive en #modal-eraser. */
   function applyEraserSize(v) {
     state.eraserSize = v;
-    $('eraser-size-modal-slider').value = String(v);
-    $('eraser-size-modal-val').textContent = String(v);
-    renderEraserSizePreview();
+    syncEraserControls();
     scheduleOverlay();
+  }
+
+  /** Punto único de sincronía del tamaño del borrador con su modal. Estas tres
+      líneas estaban copiadas en applyEraserSize y openEraserSizeModal, y por
+      eso «Limpiar todo» reseteaba `state.eraserSize` pero dejaba el mando
+      enseñando el tamaño anterior. Mismo refactor que syncEmojiControls. */
+  function syncEraserControls() {
+    $('eraser-size-modal-slider').value = String(state.eraserSize);
+    $('eraser-size-modal-val').textContent = String(state.eraserSize);
+    renderEraserSizePreview();
   }
 
   /** Abre el modal de tamaño del borrador con el valor y la previsualización
@@ -4037,9 +4072,7 @@
       catálogo) y también desde el botón ⚙ del panel, para poder reabrirlo sin
       soltar la herramienta. */
   function openEraserSizeModal() {
-    $('eraser-size-modal-slider').value = String(state.eraserSize);
-    $('eraser-size-modal-val').textContent = String(state.eraserSize);
-    renderEraserSizePreview();
+    syncEraserControls();
     $('modal-eraser').showModal();
   }
 
@@ -5634,39 +5667,19 @@
       saveUndo();
       state.elements = [];
       setSelection([]);
-      // El fondo y la cuadrícula también vuelven a su color original
-      state.canvasBg = DEFAULT_CANVAS_BG;
-      state.gridColor = DEFAULT_GRID_COLOR;
-      state.overlapMode = 'normal';
-      state.eraserSize = DEFAULT_ERASER_SIZE;
-      $('canvas-bg-picker').value = DEFAULT_CANVAS_BG;
-      $('grid-color-picker').value = DEFAULT_GRID_COLOR;
-      $('overlap-mode').value = 'normal';
-      // Los defaults de creación de Edificios/Jardín también vuelven: sin
-      // esto, el siguiente savePrefs() (p. ej. cambiar el fondo) reescribía
-      // la configuración que el removeItem de abajo acababa de borrar.
-      Object.assign(state, CREATION_DEFAULTS);
-      // Los de UI y Emoji (v2.10.0), por el mismo motivo.
-      state.emojiSize = EMOJI_MIN_SIZE;
-      state.uiLabels = { button: '', input: '', nav: '', card: '' };
-      // Los cinco puntos de sincronía, sin dejarse ninguno: Verjas y Cancela
-      // faltaban, así que tras «Limpiar todo» sus modales seguían enseñando el
-      // diseño y la altura anteriores hasta volver a abrirlos.
-      syncBuildControls();
-      syncPathControls();
-      syncWallControls();
-      syncFenceControls();
-      syncGateControls();
-      syncGardenLabelControls();
-      syncTextControls();
-      syncUiControls();
-      syncEmojiControls();
-      // El aerógrafo vuelve con el resto (sus ajustes viven en
-      // CREATION_DEFAULTS), incluida el área marcada: un rectángulo invisible
-      // que sobreviviera al borrado seguiría recortando todo lo que se pintara
-      // después, sin nada en pantalla que lo explicase.
-      state.airbrushAreaPending = false;
-      syncAirbrushControls();
+      // TODOS los ajustes vuelven de una vez, desde su única fuente. Antes esto
+      // era una lista escrita a mano que se quedaba atrás con cada ajuste nuevo
+      // —dieciséis sobrevivían al borrado— y, en los que se persisten, el
+      // siguiente savePrefs() reescribía lo que el removeItem de abajo acababa
+      // de borrar.
+      Object.assign(state, appDefaults());
+      state.airbrushAreaPending = false;   // transitorio: no está en los defaults
+      // Y la herramienta vuelve al Lápiz, que es con la que arranca la app.
+      // Con `silent`, como las activaciones automáticas de Mover: aquí nadie ha
+      // pulsado la herramienta, así que abrirle sus ajustes encima del lienzo
+      // recién vaciado sería un modal que nadie pidió.
+      selectTool(TOOLS.PENCIL, { silent: true });
+      syncAllControls();
       // El zoom vuelve al ajuste automático, no a un 100% fijo: «Limpiar todo»
       // debe dejar la app igual que recién abierta, y ahí el lienzo aprovecha
       // todo el ancho disponible. Olvidar `zoomManual` es parte del reset: si
@@ -7393,6 +7406,47 @@
 
   /* ── Init ── */
 
+  /**
+   * Vuelca `state` en TODOS los mandos de la interfaz. Lo llaman los dos
+   * momentos en los que el estado cambia entero por debajo: el arranque (tras
+   * restaurar prefs) y «Limpiar todo». Tenerlo en un solo sitio es lo que
+   * impide que se vuelvan a separar — el botón reseteaba `state` y refrescaba
+   * su propia lista de mandos, más corta.
+   *
+   * Los controles de semántica dual (color, grosor, relleno, tamaño de letra,
+   * discontinuo, doble punta) NO hacen falta aquí: `redrawNow` los sincroniza
+   * en cada repintado, y sin selección enseña justo estos defaults. Aquí van
+   * los que no tienen quien los sincronice.
+   */
+  function syncAllControls() {
+    $('canvas-bg-picker').value = state.canvasBg;
+    $('grid-color-picker').value = state.gridColor;
+    $('overlap-mode').value = state.overlapMode;
+    $('check-grid').checked = state.showGrid;
+    $('check-snap').checked = state.snapGrid;
+    $('select-modal-multi').checked = state.multiSelect;
+    // Aplica la letra y pide su descarga: el lienzo no dispara la carga de una
+    // webfont por sí solo, así que sin esto la primera pintada usaría el
+    // resguardo del sistema aunque el .woff2 esté aquí al lado.
+    applySketchFont(state.sketchFontId);
+    // Y los puntos de sincronía de cada modal, sin dejarse ninguno: Verjas y
+    // Cancela faltaban en el botón, y sus modales seguían enseñando el diseño
+    // y la altura anteriores hasta volver a abrirlos.
+    syncBuildControls();
+    syncPathControls();
+    syncWallControls();
+    syncFenceControls();
+    syncGateControls();
+    syncGardenLabelControls();
+    syncStrokeControls();
+    syncShapeControls();
+    syncTextControls();
+    syncUiControls();
+    syncEmojiControls();
+    syncEraserControls();
+    syncAirbrushControls();
+  }
+
   function init() {
     // Repintar cuando cargue una imagen (autosave/import restauran data-URLs)
     Renderer.setImageLoadCallback(redraw);
@@ -7403,19 +7457,9 @@
     wireControls();
     setupModals();
     // Después de setupModals: las casillas de los cinco modales botánicos las
-    // crea installPlantControls, y hasta aquí no existen.
-    syncGardenLabelControls();
-    syncStrokeControls();
-    syncShapeControls();
-    syncTextControls();
-    syncUiControls();
-    syncEmojiControls();
-    syncAirbrushControls();
-    // Va DESPUÉS de wireControls (el selector ya tiene sus opciones) y aplica
-    // la letra restaurada de prefs, pidiendo su descarga: sin esto la primera
-    // pintada usaría el resguardo del sistema aunque el .woff2 esté aquí al
-    // lado, porque el lienzo no dispara la carga de una webfont.
-    applySketchFont(state.sketchFontId);
+    // crea installPlantControls, y hasta aquí no existen. Y después de
+    // wireControls, porque el selector de letra ya tiene sus opciones.
+    syncAllControls();
     updateCursor();
     fitZoomToViewport();
     redraw();

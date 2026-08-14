@@ -28,6 +28,40 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### v2.22.1 — «Limpiar todo» dejaba dieciséis ajustes sin resetear
+
+- **Síntoma:** el botón promete la app recién abierta, pero tras pulsarlo
+  seguían puestos el color elegido, el grosor, el tamaño de letra, el relleno
+  entero (activado, translúcido, opacidad y color), el trazo discontinuo, la
+  doble punta, la cuadrícula apagada, «Ajustar a cuadrícula», «Los clics
+  acumulan selección», la letra del lienzo y los tres ajustes del estilo de
+  texto (negrita, sombra y su color). Tampoco volvía la herramienta activa.
+- **Causa:** el handler reseteaba **a mano** una lista corta de ajustes
+  (fondo, cuadrícula, solapamiento, borrador, `CREATION_DEFAULTS`, emoji y
+  rótulos de UI). Esa lista había que ampliarla con cada ajuste nuevo y se fue
+  quedando atrás. Peor: los ajustes que se persisten seguían vivos en `state`
+  aunque el botón borrase la clave de `localStorage`, así que el primer
+  `savePrefs()` posterior —cambiar el color del fondo, por ejemplo— los volvía
+  a escribir enteros y reaparecían en la recarga siguiente. El tamaño del
+  borrador tenía además su propio caso: `state.eraserSize` sí se reseteaba,
+  pero su mando solo lo escribían `applyEraserSize` y `openEraserSizeModal`, así
+  que el deslizador seguía enseñando el tamaño anterior.
+- **Fix:** `appDefaults()` (src/js/app.js) es ahora la fuente **única** de los
+  valores de fábrica, y la usan tanto el `state` inicial como el botón, que hace
+  `Object.assign(state, appDefaults())`. Es una función y no un objeto porque
+  `uiLabels` se muta en sitio y compartir la referencia devolvería lo último
+  escrito en vez del valor de fábrica. Los mandos se refrescan desde
+  `syncAllControls()`, que llaman el arranque y el botón —antes cada uno
+  refrescaba su propia lista—, y el tamaño del borrador estrena
+  `syncEraserControls()` con el mismo refactor que ya tenía el emoji. La
+  herramienta vuelve al **Lápiz** con `silent`, para no abrir sus ajustes encima
+  del lienzo recién vaciado.
+- **Guardia:** `tests/app-interaction.test.js` — *«Limpiar todo» devuelve TODOS
+  los ajustes a los de fábrica, no solo unos cuantos* (compara treinta mandos
+  contra un arranque limpio, y exige haber tocado al menos veinte antes de
+  limpiar para que no pase en vacío) y *tras «Limpiar todo», el siguiente
+  guardado no resucita los ajustes borrados*.
+
 ### v2.16.3 — un arrastre por el color de la sombra vaciaba el historial de deshacer
 
 - **Síntoma:** con un texto con sombra seleccionado, arrastrar el cursor por el

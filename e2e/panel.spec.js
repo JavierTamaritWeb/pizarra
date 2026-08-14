@@ -10,7 +10,7 @@
    ============================================================ */
 
 const { test, expect } = require('@playwright/test');
-const { WIDE, openApp, settle, selectTool, setSlider, drag, clickCanvas, readAutosave } = require('./helpers');
+const { WIDE, openApp, settle, selectTool, setSlider, drag, clickCanvas, readAutosave, elements } = require('./helpers');
 
 test.use({ viewport: WIDE });
 
@@ -339,4 +339,41 @@ test('«Etiquetas» del modal del jardín y la del panel son la misma casilla', 
   // Con las etiquetas apagadas el modo de etiqueta no rotula nada: se deshabilita.
   await selectTool(page, 'arbol');
   await expect(page.locator('#tree-plant-label-mode')).toBeDisabled();
+});
+
+// v2.22.1: «Limpiar todo» dejaba dieciséis ajustes puestos. La guarda de fondo
+// vive en el arnés vm (compara treinta mandos contra un arranque limpio); esta
+// comprueba en un navegador de verdad lo que aquel no ve: que el botón activo
+// del sidebar cambia, que no se abre ningún diálogo encima del lienzo recién
+// vaciado y que el lienzo sigue respondiendo después.
+test('«Limpiar todo» deja la app como recién abierta y utilizable', async ({ page }) => {
+  await openApp(page);
+  // Ensuciar: otra herramienta, otro color, sin cuadrícula y otra letra.
+  await page.locator('.sidebar__tool[data-tool="airbrush"]').click();
+  await settle(page);
+  await page.locator('#airbrush-color-grid [data-color="#e67e22"]').click();
+  await page.locator('#modal-airbrush .modal__cancel').click();
+  await settle(page);
+  await drag(page, 200, 200, 500, 320);
+  await page.locator('#check-grid').uncheck();
+  await page.locator('#sketch-font').selectOption('kalam');
+  await settle(page);
+  expect(await elements(page)).toHaveLength(1);
+
+  await page.locator('#btn-clear').click();
+  await settle(page);
+
+  expect(await elements(page)).toHaveLength(0);
+  await expect(page.locator('.sidebar__tool--active')).toHaveAttribute('data-tool', 'pencil');
+  await expect(page.locator('#color-picker')).toHaveValue('#1a1a2e');
+  await expect(page.locator('#check-fill-transparent')).toBeChecked();
+  await expect(page.locator('#fill-color-picker')).toHaveValue('#1a1a2e');
+  await expect(page.locator('#check-grid')).toBeChecked();
+  await expect(page.locator('#sketch-font')).toHaveValue('architects');
+  // Ningún diálogo abierto: uno solo dejaría el lienzo inerte justo después
+  // de limpiarlo, y la app se leería como bloqueada.
+  await expect(page.locator('dialog[open]')).toHaveCount(0);
+  // Y se puede seguir dibujando en el acto, con el Lápiz ya puesto.
+  await drag(page, 300, 300, 500, 400);
+  expect(await elements(page)).toHaveLength(1);
 });

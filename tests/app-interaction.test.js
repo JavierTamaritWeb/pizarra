@@ -3529,3 +3529,155 @@ test('con una mancha seleccionada, la paleta del modal la recolorea en un solo p
   app.key('z', { ctrlKey: true });
   assert.deepEqual(app.elements(), antes, 'y es UN paso de deshacer');
 });
+
+/* ── «Limpiar todo» deja la app como recién abierta (v2.22.1) ── */
+
+/** Foto de TODOS los mandos de ajuste, leída del DOM (que es la única
+    observabilidad sin hooks en producción). Cualquier ajuste nuevo debería
+    entrar aquí: es lo que convierte «acordarse del botón» en un test. */
+function fotoDeAjustes(app) {
+  const v = id => app.$(id).value;
+  const c = id => app.$(id).checked;
+  return {
+    color: v('color-picker'), grosor: v('stroke-modal-slider'), letra: v('font-slider'),
+    relleno: c('check-fill'), translucido: c('check-fill-transparent'),
+    opacidad: v('fill-opacity-slider'), colorRelleno: v('fill-color-picker'),
+    discontinuo: c('check-dash'), doblePunta: c('check-double-head'),
+    cuadricula: c('check-grid'), ajustar: c('check-snap'), acumular: c('select-modal-multi'),
+    fuente: v('sketch-font'), negrita: c('check-bold'), sombra: v('text-shadow'),
+    colorSombra: v('text-shadow-color'), emoji: v('emoji-modal-size'),
+    aeroAncho: v('airbrush-modal-radius'), aeroOpacidad: v('airbrush-modal-opacity'),
+    aeroArea: v('airbrush-area-mode'), borrador: v('eraser-size-modal-slider'),
+    solapamiento: v('overlap-mode'), fondo: v('canvas-bg-picker'), rejilla: v('grid-color-picker'),
+    plantas: v('build-floors'), tejado: v('build-roof-type'), camino: v('garden-path-width'),
+    muro: v('wall-material'), verja: v('fence-type'), cancela: v('gate-type'),
+  };
+}
+
+test('«Limpiar todo» devuelve TODOS los ajustes a los de fábrica, no solo unos cuantos', () => {
+  // El botón promete la app recién abierta. Mantenía a mano una lista de
+  // ajustes que se quedó atrás en dieciséis (color, grosor, tamaño de letra,
+  // el relleno entero, discontinuo, doble punta, cuadrícula, ajustar a la
+  // rejilla, clics acumulativos, la letra del lienzo y los tres del estilo de
+  // texto). Ahora sale todo de appDefaults(), la misma fuente que el estado
+  // inicial, así que la comparación es contra un arranque limpio de verdad.
+  const fabrica = fotoDeAjustes(loadApp());
+
+  const app = loadApp();
+  const set = (id, valor) => {
+    const e = app.$(id);
+    e.value = String(valor);
+    e.__fire('input', { target: e });
+    e.__fire('change', { target: e });
+    app.flush();
+  };
+  const marcar = (id, valor) => {
+    const e = app.$(id);
+    e.checked = valor;
+    e.__fire('change', { target: e });
+    app.flush();
+  };
+  const conHerramienta = (tool, modal, hacer) => {
+    app.selectTool(tool);
+    app.$(modal).close();
+    app.flush();
+    hacer();
+  };
+
+  set('color-picker', '#e94560');
+  conHerramienta('rect', 'modal-shape', () => set('shape-modal-slider', 7));
+  set('font-slider', 60);
+  marcar('check-fill', true);
+  marcar('check-fill-transparent', true);
+  set('fill-opacity-slider', 80);
+  set('fill-color-picker', '#27ae60');
+  conHerramienta('arrow', 'modal-stroke', () => {
+    marcar('check-dash', true);
+    marcar('check-double-head', true);
+  });
+  marcar('check-grid', false);
+  marcar('check-snap', true);
+  marcar('select-modal-multi', true);
+  set('sketch-font', 'kalam');
+  conHerramienta('text', 'modal-text', () => {
+    marcar('check-bold', true);
+    set('text-shadow', 'soft');
+    set('text-shadow-color', '#e94560');
+  });
+  set('emoji-modal-size', 80);
+  conHerramienta('airbrush', 'modal-airbrush', () => {
+    set('airbrush-modal-radius', 100);
+    set('airbrush-modal-opacity', 40);
+  });
+  conHerramienta('eraser', 'modal-eraser', () => set('eraser-size-modal-slider', 70));
+  // De vuelta a una herramienta que CREA: con el borrador puesto, el arrastre
+  // de abajo borraría en vez de dejar algo que limpiar.
+  app.selectTool('rect');
+  app.$('modal-shape').close();
+  app.flush();
+  set('overlap-mode', 'hidden-dashed');
+  set('canvas-bg-picker', '#ffffff');
+  set('grid-color-picker', '#000000');
+  set('build-floors', '4');
+  set('build-roof-type', 'hip');
+  set('garden-path-width', 60);
+  set('wall-material', 'brick');
+  app.drag(100, 100, 300, 300);
+  assert.ok(app.elements().length > 0, 'la escena tiene que tener algo que limpiar');
+  // Nada de lo tocado puede coincidir ya con fábrica, o el test no probaría nada.
+  const tocados = Object.keys(fabrica)
+    .filter(k => String(fabrica[k]) !== String(fotoDeAjustes(app)[k]));
+  assert.ok(tocados.length >= 20,
+    `hay que tocar de verdad los ajustes antes de limpiar (solo cambiaron ${tocados.length})`);
+
+  app.$('btn-clear').__fire('click', { target: app.$('btn-clear') });
+  app.flush();
+
+  assert.deepEqual(app.elements(), [], 'la escena se vacía');
+  // Y la herramienta vuelve al Lápiz, con la que arranca la app. En silencio:
+  // nadie la ha pulsado, así que sus ajustes no deben abrirse encima.
+  assert.equal(app.$('sidebar').querySelector('.sidebar__tool--active').dataset.tool, 'pencil');
+  assert.equal(app.$('modal-stroke').open, false,
+    'volver al Lápiz al limpiar no puede abrir un modal que nadie pidió');
+  const despues = fotoDeAjustes(app);
+  const supervivientes = Object.keys(fabrica).filter(k => String(fabrica[k]) !== String(despues[k]));
+  assert.deepEqual(supervivientes, [],
+    'estos ajustes sobrevivieron a «Limpiar todo» en vez de volver a fábrica');
+});
+
+test('tras «Limpiar todo», el siguiente guardado no resucita los ajustes borrados', () => {
+  // Los ajustes que se persisten seguían vivos en `state` aunque el botón
+  // borrase la clave de localStorage, así que el primer savePrefs() posterior
+  // —cambiar el color del fondo, por ejemplo— los reescribía enteros y volvían
+  // en la recarga siguiente.
+  const app = loadApp();
+  app.selectTool('airbrush');
+  app.$('modal-airbrush').close();
+  app.flush();
+  const radio = app.$('airbrush-modal-radius');
+  radio.value = '100';
+  radio.__fire('input', { target: radio });
+  radio.__fire('change', { target: radio });
+  const fuente = app.$('sketch-font');
+  fuente.value = 'kalam';
+  fuente.__fire('change', { target: fuente });
+  app.flush();
+
+  app.$('btn-clear').__fire('click', { target: app.$('btn-clear') });
+  app.flush();
+  // Un cambio cualquiera que dispare savePrefs
+  const fondo = app.$('canvas-bg-picker');
+  fondo.value = '#ffffff';
+  fondo.__fire('input', { target: fondo });
+  fondo.__fire('change', { target: fondo });
+  app.flush();
+
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.airbrushRadius, 24, 'el radio guardado vuelve a ser el de fábrica');
+  assert.equal(prefs.sketchFontId, 'architects', 'y la letra también');
+  // Y al arrancar con esas prefs, la app sale de fábrica salvo el fondo.
+  const app2 = loadApp({ prefs });
+  app2.selectTool('airbrush');
+  assert.equal(app2.$('airbrush-modal-radius').value, '48', 'el mando enseña el diámetro de fábrica');
+  assert.equal(app2.$('sketch-font').value, 'architects');
+});

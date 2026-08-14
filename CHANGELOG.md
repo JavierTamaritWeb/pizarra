@@ -4,6 +4,27 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.22.1] — 2026-08-14
+
+### Corregido
+
+- **«Limpiar todo» no dejaba la app como recién abierta.** Sobrevivían al
+  borrado dieciséis ajustes: el color, el grosor, el tamaño de letra, el
+  relleno entero, el trazo discontinuo, la doble punta, la cuadrícula, «Ajustar
+  a cuadrícula», «Los clics acumulan selección», la letra del lienzo y los tres
+  del estilo de texto. Y en los que se persisten era peor, porque el siguiente
+  guardado los reescribía y volvían tras recargar. Ahora todos salen de una
+  fuente única (`appDefaults()`), la misma que usa el estado inicial, así que un
+  ajuste nuevo se resetea solo por existir.
+- El **tamaño del borrador** volvía a su valor en el estado pero su deslizador
+  seguía enseñando el anterior: estrena punto de sincronía propio.
+
+### Cambiado
+
+- Al limpiar, la herramienta vuelve al **Lápiz** —en silencio, sin abrir sus
+  ajustes encima del lienzo recién vaciado— y el relleno queda en **negro
+  translúcido**, que es también con lo que arranca la app.
+
 ## [2.22.0] — 2026-08-14
 
 ### Añadido

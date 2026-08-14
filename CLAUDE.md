@@ -370,9 +370,48 @@ Zoom is applied as a CSS `transform: scale()` on the canvas wrapper; `getPos()` 
 - **`dragLast` stores the pointer's real position, not the clamped one**, so when the pointer comes back the object follows from the first pixel instead of having to re-cross the distance it overshot.
 - **`applyGeometry` clamps before its no-op guard**, so a typed X of 9000 resyncs the field to where the element actually ended up rather than promising a position it doesn't have.
 
+### «Limpiar todo» y los valores de fábrica
+
+**`appDefaults()` (app.js) es la fuente ÚNICA de los ajustes de fábrica**, y la
+usan las dos cosas que ponen el estado entero de golpe: el `state` inicial y el
+botón «Limpiar todo». Un ajuste nuevo se resetea solo por estar ahí. Hasta la
+v2.22.1 el botón mantenía **su propia lista escrita a mano**, y se había quedado
+atrás en dieciséis ajustes (color, grosor, tamaño de letra, el relleno entero,
+discontinuo, doble punta, cuadrícula, ajustar a la rejilla, clics acumulativos,
+la letra del lienzo y los tres del estilo de texto). Cuatro cosas que conviene
+no volver a separar:
+
+- **Es una función, no un objeto.** `uiLabels` se muta en sitio
+  (`state.uiLabels[tool] = …`), así que compartir la referencia haría que el
+  botón devolviera lo último escrito en vez del valor de fábrica. Cualquier
+  campo anidado que se añada hereda esa protección sin pensarlo.
+- **Los ajustes que se persisten tienen que volver EN `state`, no solo en
+  `localStorage`.** El botón borra la clave, pero si el valor sigue vivo en
+  `state` el primer `savePrefs()` posterior —cambiar el color del fondo, sin ir
+  más lejos— lo reescribe entero y reaparece en la recarga siguiente.
+- **`syncAllControls()` es el punto único que vuelca `state` en los mandos**, y
+  lo llaman el arranque y el botón. Los de semántica dual (color, grosor,
+  relleno, tamaño de letra, discontinuo, doble punta) no hacen falta ahí:
+  `redrawNow` los sincroniza en cada repintado y sin selección enseña justo
+  esos defaults. Los que no tienen quien los sincronice, sí — y por eso el
+  tamaño del borrador estrena `syncEraserControls()`: su mando solo lo escribían
+  `applyEraserSize` y `openEraserSizeModal`, así que el estado se reseteaba y el
+  deslizador seguía enseñando el tamaño anterior.
+- **La herramienta vuelve al Lápiz con `silent`.** Aquí nadie ha pulsado una
+  herramienta, así que abrirle sus ajustes encima del lienzo recién vaciado
+  sería un modal que nadie pidió — el mismo motivo por el que las cuatro
+  activaciones automáticas de Mover pasan ese flag.
+
+Lo único que **no** vuelve a un valor fijo es el zoom, que re-ejecuta el
+auto-ajuste (`zoomManual = false` + `fitZoomToViewport()`, la pareja que corre
+`init()`): forzar el 100 % encogía el lienzo y dejaba el auto-ajuste apagado el
+resto de la sesión (ver `BUGS.md`). Guardado por *«Limpiar todo» devuelve TODOS
+los ajustes a los de fábrica, no solo unos cuantos*, que compara treinta mandos
+contra un arranque limpio.
+
 ### Canvas background / grid color
 
-`state.canvasBg` and `state.gridColor` (defaults `DEFAULT_CANVAS_BG`/`DEFAULT_GRID_COLOR` in app.js) are cosmetic prefs, not part of `state.elements` — they persist to their own `localStorage` key (`sketchwire.prefs`, via `savePrefs`/`restorePrefs`) separately from the autosave, and are not undo-tracked (same treatment as `state.zoom`/`showGrid`). `Renderer.drawGrid(ctx, w, h, color)` takes a single base color and varies only `globalAlpha` for the minor vs. major grid lines, rather than two hardcoded colors. "Limpiar todo" resets both to their defaults, clears the prefs key and re-runs the zoom auto-fit (`zoomManual = false` + `fitZoomToViewport()` — the same pair `init()` runs), in addition to clearing elements: the button promises the app as freshly opened, and there the canvas fills the available space. Forcing 100% and setting `zoomManual` instead — the original behaviour — both shrank the canvas and disabled the auto-fit for the rest of the session (see `BUGS.md`).
+`state.canvasBg` and `state.gridColor` (defaults `DEFAULT_CANVAS_BG`/`DEFAULT_GRID_COLOR` in app.js) are cosmetic prefs, not part of `state.elements` — they persist to their own `localStorage` key (`sketchwire.prefs`, via `savePrefs`/`restorePrefs`) separately from the autosave, and are not undo-tracked (same treatment as `state.zoom`/`showGrid`). `Renderer.drawGrid(ctx, w, h, color)` takes a single base color and varies only `globalAlpha` for the minor vs. major grid lines, rather than two hardcoded colors. "Limpiar todo" resets them and re-runs the zoom auto-fit (`zoomManual = false` + `fitZoomToViewport()` — the same pair `init()` runs), in addition to clearing elements: the button promises the app as freshly opened, and there the canvas fills the available space. Forcing 100% and setting `zoomManual` instead — the original behaviour — both shrank the canvas and disabled the auto-fit for the rest of the session (see `BUGS.md`).
 
 **Since v2.20.0 the defaults are a blueprint: `#686f92` paper with a `#fcfcfc` grid** (they were `#ffffff`/`#cdd3de`). Four consequences, each with a guard:
 

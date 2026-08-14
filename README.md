@@ -4,7 +4,7 @@
 
 **Wireframes, diagramas y bocetos con estética dibujada a mano — en el navegador y sin instalar nada.**
 
-[![Versión](https://img.shields.io/badge/versión-2.22.0-blueviolet?style=flat-square)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-2.22.1-blueviolet?style=flat-square)](CHANGELOG.md)
 [![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?style=flat-square&logo=javascript&logoColor=000)](src/js/)
 [![Estilos](https://img.shields.io/badge/estilos-SCSS%20·%20BEM%20·%20Gulp%205-cf649a?style=flat-square&logo=sass&logoColor=fff)](src/scss/)
 [![Dependencias](https://img.shields.io/badge/dependencias%20en%20runtime-0-brightgreen?style=flat-square)](#arquitectura)
@@ -257,7 +257,7 @@ Cuatro convenciones que conviene conocer:
 
 ## Tests
 
-**630 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
+**632 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
 de runtime:
 
 ```bash
@@ -267,7 +267,7 @@ node --test tests/exporter.test.js    # un archivo
 
 Los módulos se cargan en un contexto `node:vm` con stubs de canvas y DOM, incluido `src/js/app.js` completo: los tests lanzan gestos reales —puntero, teclado, modales— y leen el resultado del autoguardado, sin ningún hook de test en el código de producción.
 
-**65 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco, acciones por defecto del navegador, los flujos completos de Verjas y Cancela y el Jardín botánico en escritorio, móvil y anchos intermedios.
+**66 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco, acciones por defecto del navegador, los flujos completos de Verjas y Cancela y el Jardín botánico en escritorio, móvil y anchos intermedios.
 
 ```bash
 npm install && npm run e2e:install    # una vez (descarga Chromium)
