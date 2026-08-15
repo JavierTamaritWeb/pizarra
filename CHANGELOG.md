@@ -4,6 +4,18 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.29.0] — 2026-08-15
+
+### Cambiado
+
+- **Toda la interfaz va en MAYÚSCULAS**: botones, etiquetas, casillas, títulos
+  de sección, nombres de herramienta, selectores y sus opciones. Se hace con
+  CSS, así que el texto no cambia por dentro y lo que escribes tú —el rótulo de
+  un componente, el texto del lienzo, las medidas— se queda tal cual.
+- Los nombres del sidebar bajan de cuerpo en el modo de dos columnas: en
+  mayúsculas, «RECTÁNGULO» y «REDONDEADO» ya no cabían en la columna estrecha y
+  se salían por los lados.
+
 ## [2.28.0] — 2026-08-15
 
 ### Añadido

@@ -377,3 +377,31 @@ test('«Limpiar todo» deja la app como recién abierta y utilizable', async ({ 
   await drag(page, 300, 300, 500, 400);
   expect(await elements(page)).toHaveLength(1);
 });
+
+// La interfaz va en MAYÚSCULAS desde la v2.29.0, y se hace con
+// `text-transform` en CSS: el texto del DOM no cambia. Va en e2e porque el
+// arnés `node:vm` no tiene estilo computado — allí esto pasaría dijera lo que
+// dijera la hoja.
+test('toda la interfaz se ve en mayúsculas, y lo que escribe el usuario no', async ({ page }) => {
+  await openApp(page);
+  const tt = sel => page.locator(sel).first()
+    .evaluate(n => getComputedStyle(n).textTransform);
+
+  // Los cuatro contenedores, y un control de formulario de cada tipo: los
+  // <button>, <select> y <label> NO heredan (el navegador les fija `none` en
+  // su propia hoja), así que si alguien quita su regla se quedan a medias.
+  for (const sel of ['.topbar', '.sidebar', '.panel', '#btn-export',
+    '#btn-clear', '#overlap-mode', '.sidebar__tool-name', '.panel__title']) {
+    expect(await tt(sel), sel).toBe('uppercase');
+  }
+  // Y el texto sigue siendo el mismo en el DOM: es lo que hace inocuo el
+  // cambio para todo lo que compara cadenas.
+  await expect(page.locator('#btn-clear')).toContainText('Limpiar todo');
+
+  // Lo que escribe el usuario se queda como lo escribe.
+  await page.locator('.sidebar__tool[data-tool="button"]').click();
+  expect(await tt('#ui-modal-label')).toBe('none');
+  await page.locator('#modal-ui').evaluate(d => d.close());
+  expect(await tt('#el-label')).toBe('none');
+  expect(await tt('#stroke-modal-x')).toBe('none');
+});

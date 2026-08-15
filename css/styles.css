@@ -427,7 +427,8 @@ input[type=range]::-moz-range-thumb {
     padding: 0.3rem 0.2rem;
   }
   .sidebar__tool-name {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
+    letter-spacing: -0.02em;
   }
 }
 /* ============================================================
@@ -1365,6 +1366,49 @@ kbd {
     display: inline-flex;
   }
 }
+/* ============================================================
+   Toda la interfaz en MAYÚSCULAS (v2.29.0)
+   ============================================================ */
+.topbar, .sidebar, .panel, .modal {
+  text-transform: uppercase;
+}
+
+.topbar button,
+.topbar select,
+.topbar option,
+.topbar label {
+  text-transform: uppercase;
+}
+
+.sidebar button,
+.sidebar select,
+.sidebar option,
+.sidebar label {
+  text-transform: uppercase;
+}
+
+.panel button,
+.panel select,
+.panel option,
+.panel label {
+  text-transform: uppercase;
+}
+
+.modal button,
+.modal select,
+.modal option,
+.modal label {
+  text-transform: uppercase;
+}
+
+.panel__text,
+.canvas-area__text-editor,
+input[type=text],
+input[type=number],
+textarea {
+  text-transform: none;
+}
+
 /* ── Scrollbar ── */
 ::-webkit-scrollbar {
   width: 0.6rem;

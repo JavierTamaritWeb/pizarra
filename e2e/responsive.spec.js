@@ -118,8 +118,15 @@ test('los nombres del sidebar caben enteros y no pisan su icono', async ({ page 
       const name = btn.querySelector('.sidebar__tool-name');
       const icon = btn.querySelector('span:not(.sidebar__tool-name)');
       if (!name) continue;
-      // Sin sitio para la palabra más larga, el contenido desborda su caja.
+      // Sin sitio para la palabra más larga, el contenido desborda su caja…
       if (name.scrollWidth > name.clientWidth + 1) bad.push(`desborda: ${name.textContent}`);
+      // …y, si el rótulo es más ancho que el propio botón, se sale por los
+      // lados y toca al vecino aunque su caja no "desborde": el span crece a
+      // max-content y el overflow es visible, así que scrollWidth no lo ve.
+      // Es lo que pasó al poner la interfaz en MAYÚSCULAS (v2.29.0).
+      if (name.getBoundingClientRect().width > btn.getBoundingClientRect().width + 1) {
+        bad.push(`más ancho que su botón: ${name.textContent}`);
+      }
       const n = name.getBoundingClientRect();
       if (icon && n.top < icon.getBoundingClientRect().bottom - 1) {
         bad.push(`pisa el icono: ${name.textContent}`);

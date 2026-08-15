@@ -21,5 +21,11 @@
 @use 'components/modal';
 @use 'components/panel-drawer';
 
+// Las mayúsculas de la interfaz van después de todos los bloques: aplican a
+// los contenedores y se heredan, así que cualquier excepción declarada dentro
+// de un bloque le gana igualmente (una regla directa siempre vence a la
+// herencia, esté donde esté en la cascada).
+@use 'base/uppercase';
+
 // Va el último porque en el CSS original el scrollbar cierra el fichero.
 @use 'base/scrollbar';

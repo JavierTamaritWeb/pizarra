@@ -1,0 +1,41 @@
+/* ============================================================
+   Toda la interfaz en MAYÚSCULAS (v2.29.0)
+   ============================================================ */
+// Se hace con `text-transform` y NO cambiando el texto del HTML, y eso es lo
+// que lo vuelve inocuo: `textContent` sigue diciendo «Cerrar», así que las
+// guardas que leen el DOM (los <legend> de los modales, los rótulos del
+// sidebar) y las que leen index.html siguen valiendo, la app puede comparar
+// cadenas, y volver atrás es borrar este fichero.
+// Va sobre los CUATRO contenedores de interfaz y se hereda hacia dentro; lo
+// que no debe transformarse se rescata abajo con una regla propia, que
+// siempre gana a la herencia por muy antes que esté en la cascada.
+$ui: '.topbar', '.sidebar', '.panel', '.modal';
+
+#{$ui} {
+  text-transform: uppercase;
+}
+
+// Los controles de formulario NO heredan: el navegador les fija
+// `text-transform: none` en su propia hoja, así que sin nombrarlos se quedaban
+// fuera todos los botones (topbar, «Limpiar todo», «Cerrar» de cada diálogo),
+// los <select> y sus <option>. Es la mitad de la interfaz.
+@each $box in $ui {
+  #{$box} button,
+  #{$box} select,
+  #{$box} option,
+  #{$box} label {
+    text-transform: uppercase;
+  }
+}
+
+// Lo que escribe el USUARIO no es interfaz: verlo en mayúsculas mientras el
+// elemento guarda otra cosa es un mando que miente. Cubre el rótulo de los
+// componentes UI (panel y modal), el editor flotante del lienzo y cualquier
+// campo de texto o número que se añada después.
+.panel__text,
+.canvas-area__text-editor,
+input[type="text"],
+input[type="number"],
+textarea {
+  text-transform: none;
+}

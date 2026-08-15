@@ -110,9 +110,14 @@
     }
 
     &__tool-name {
-      // Las columnas del grid (~59px) van más justas que el botón compacto:
-      // medio punto menos de cuerpo mantiene «Redondeado» en una línea.
-      font-size: 0.85rem;
+      // Las columnas del grid (~59px) van más justas que el botón compacto, y
+      // desde que la interfaz va en MAYÚSCULAS (v2.29.0) los nombres largos
+      // —«RECTÁNGULO», «REDONDEADO», «AROMÁTICAS», «TREPADORAS»— ya no cabían
+      // a 0.85rem: se salían por los lados y tocaban al botón vecino. Con el
+      // cuerpo y el tracking de aquí vuelven a entrar en una línea; en una
+      // sola columna el botón es ancho y el rótulo se queda como estaba.
+      font-size: 0.8rem;
+      letter-spacing: -0.02em;
     }
   }
 }
