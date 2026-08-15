@@ -35,6 +35,38 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### v2.27.1 — La pirámide de pie salía con las aristas de detrás sólidas y las de delante a trazos
+
+- **Síntoma:** en la Pirámide con el vértice «en el plano», las líneas
+  discontinuas estaban justo al revés: el borde trasero de la base se dibujaba
+  sólido y cruzaba por delante de la figura, mientras que el borde de delante y
+  la arista del vértice más cercano salían punteados. En el cono, la mitad de
+  la base que se tapaba era la que se tenía que ver. Reportado por el usuario
+  con una captura.
+- **Causa:** dos signos, cada uno por su lado.
+  1. `_faceVisible` decide con el signo del área proyectada **contra un signo de
+     referencia**, y en `_extrude` ese signo lo pone la cara frontal, que mira al
+     observador. En `_upright` no hay cara frontal y se le pasó el de la base…
+     que mira al **suelo**, es decir, en sentido contrario. Todo el criterio
+     quedó invertido.
+  2. En la base redonda, el ángulo con el que se emiten los dos arcos se calculó
+     como `+2πi/n` sobre el índice del muestreo, pero `proj` invierte el seno al
+     tumbar la sección: el parámetro que corresponde a la muestra `i` es
+     `−2πi/n`. Los dos arcos salían intercambiados.
+- **Arreglo:** `-sigma` como referencia en `_upright`, y `ang(i) = −2πi/n` con el
+  ángulo decreciendo al crecer el índice.
+- **Guardia:** dos tests en `tests/solid.test.js` — *"de pie, lo que se tapa son
+  las aristas de DETRÁS (caso canónico)"*, resuelto a mano sobre una base
+  cuadrada y con la dirección de visión deducida de la propia proyección
+  (`δX = −dx·δZ`, `δY = dy·δZ` ⇒ se mira desde `(+X, +Y, −Z)`), y *"de pie, el
+  cono enseña la mitad de la base que da al observador"*. **Verificados fallando
+  contra cada una de las dos mutaciones.**
+- **Lección:** el modo se dio por bueno mirando capturas de figuras grandes, donde
+  la inversión no salta a la vista. Un criterio de visibilidad no se valida a
+  ojo: se resuelve un caso pequeño a mano y se fija en un test — que es
+  exactamente lo que ya hacía la regla del cubo canónico de la v2.24.0.
+
+
 ### v2.25.4 — El relleno «sólido» de una figura 3D salía MÁS transparente que el translúcido
 
 - **Síntoma:** se dibuja un sólido en hueco, se vuelve a seleccionar y se marca

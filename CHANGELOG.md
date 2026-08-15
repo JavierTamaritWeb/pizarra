@@ -4,6 +4,19 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.27.1] — 2026-08-15
+
+### Corregido
+
+- En la Pirámide de pie, las **líneas discontinuas estaban al revés**: se
+  dibujaba sólido el borde trasero de la base —cruzando por delante de la
+  figura— y punteado el de delante. En el cono se tapaba justo la mitad de la
+  base que se tenía que ver. Eran dos signos: el criterio de visibilidad
+  tomaba como referencia la base, que mira al suelo, cuando en el resto del
+  módulo lo pone la cara frontal, que mira al observador; y el ángulo con el
+  que se emiten los dos arcos de una base redonda iba con el signo cambiado
+  respecto al muestreo.
+
 ## [2.27.0] — 2026-08-15
 
 ### Añadido

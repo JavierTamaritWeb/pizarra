@@ -552,10 +552,14 @@ const Solid = (function () {
 
     // Una cara lateral es el triángulo (Pᵢ, Pᵢ₊₁, ápice). Es el cuadrilátero
     // de _faceVisible con los dos últimos vértices colapsados en el ápice, así
-    // que vale el mismo criterio —el signo del área proyectada— sin tocarlo.
+    // que vale el mismo criterio —el signo del área proyectada—, pero con el
+    // signo de referencia CAMBIADO: en _extrude ese signo lo pone la cara
+    // frontal, que mira al observador, y aquí lo pone la base, que mira al
+    // suelo. Con `sigma` a secas la pirámide sale con las aristas de detrás
+    // sólidas y las de delante a trazos, que es exactamente lo que se ve.
     const vis = [];
     for (let i = 0; i < n; i++) {
-      vis.push(_faceVisible(P[i], P[(i + 1) % n], A, A, sigma, refArea));
+      vis.push(_faceVisible(P[i], P[(i + 1) % n], A, A, -sigma, refArea));
     }
 
     const parts = [];
@@ -567,12 +571,17 @@ const Solid = (function () {
       const b = { x: d.x / 2, y: d.y / 2 };         // la elipse tumbada
       const corte = [];
       for (let i = 0; i < n; i++) if (vis[i] !== vis[(i + 1) % n]) corte.push((i + 1) % n);
-      const ang = i => 2 * Math.PI * i / n;
+      // El parámetro de la elipse emitida es el OPUESTO del índice del
+      // muestreo: `proj` invierte el seno al tumbar la sección (una Y mayor es
+      // menos profundidad), así que P(t) del arco coincide con la muestra i
+      // en t = −2πi/n. Con el signo sin cambiar los dos arcos salen
+      // intercambiados y el cono enseña justo la mitad que debería tapar.
+      const ang = i => -2 * Math.PI * i / n;
       if (corte.length === 2) {
         const [i0, i1] = corte;
         const tramo = (ia, ib) => {
           let t1 = ang(ia), t2 = ang(ib);
-          if (t2 <= t1) t2 += 2 * Math.PI;
+          while (t2 >= t1) t2 -= 2 * Math.PI;   // el índice crece, el ángulo baja
           return _ellipseArc(Cb, a, b, t1, t2, o);
         };
         // El tramo que empieza en el primer corte tiene la visibilidad de la

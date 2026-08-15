@@ -666,3 +666,69 @@ test('el modo por defecto NO cambia: sin solidApex, la pirámide es la de siempr
 test('APEX_MODES es la lista que valida las prefs', () => {
   assert.deepEqual([...Solid.APEX_MODES], ['depth', 'upright']);
 });
+
+test('de pie, lo que se tapa son las aristas de DETRÁS (caso canónico)', () => {
+  // Caso resuelto a mano, porque el signo de referencia de _faceVisible lo pone
+  // aquí la base —que mira al SUELO— y no una cara frontal: con el signo sin
+  // cambiar la pirámide sale con las traseras sólidas y las delanteras a
+  // trazos, que es exactamente el defecto que hubo que corregir.
+  //
+  // Base cuadrada tumbada y fuga por defecto (30°, hacia arriba y a la
+  // derecha). La proyección induce su propia dirección de visión: un
+  // desplazamiento invisible cumple δX = −dx·δZ y δY = dy·δZ, o sea que se
+  // mira desde (+X, +Y, −Z) — desde la DERECHA, desde ARRIBA y desde DELANTE.
+  // De ahí lo que tiene que verse: la cara de delante y la de la derecha.
+  const els = Solid.elements(TOOLS.SOLID_PYRAMID, { x: 0, y: 0 }, { x: 100, y: 100 },
+    { ...O, solidSection: TOOLS.RECT, solidApex: 'upright' });
+  const lin = els.filter(e => e.type === 'line');
+  assert.equal(lin.length, 8, 'cuatro aristas de base y cuatro laterales');
+  const apice = Math.min(...lin.flatMap(e => [e.y1, e.y2]));
+  const base = lin.filter(e => e.y1 > apice + 1 && e.y2 > apice + 1);
+  const lados = lin.filter(e => e.y1 <= apice + 1 || e.y2 <= apice + 1);
+  assert.equal(base.length, 4);
+  assert.equal(lados.length, 4);
+
+  // La base tumbada de un rectángulo es un paralelogramo: DOS vértices en el
+  // borde cercano y dos en el lejano, no uno y uno.
+  const ys = base.flatMap(e => [e.y1, e.y2]);
+  const cerca = Math.max(...ys), lejos = Math.min(...ys);
+  const enY = (e, y) => Math.abs(e.y1 - y) < 1 && Math.abs(e.y2 - y) < 1;
+  const delante = base.find(e => enY(e, cerca));
+  const detras = base.find(e => enY(e, lejos));
+  assert.ok(delante && detras, 'la base tiene un borde cercano y otro lejano');
+  assert.ok(!delante.dash, 'el borde de delante de la base se ve');
+  assert.ok(detras.dash, 'el borde de detrás queda tapado por el cuerpo');
+
+  // Y de las dos aristas que unen los dos bordes se ve la de la DERECHA, que
+  // es donde está el observador.
+  const cruzadas = base.filter(e => e !== delante && e !== detras);
+  assert.equal(cruzadas.length, 2);
+  const mediaX = e => (e.x1 + e.x2) / 2;
+  const der = mediaX(cruzadas[0]) > mediaX(cruzadas[1]) ? cruzadas[0] : cruzadas[1];
+  const izq = der === cruzadas[0] ? cruzadas[1] : cruzadas[0];
+  assert.ok(!der.dash, 'con la fuga a la derecha, la arista derecha de la base se ve');
+  assert.ok(izq.dash, 'y la izquierda queda detrás del cuerpo');
+
+  // De las cuatro aristas que suben al ápice sólo se esconde una: la del único
+  // vértice que no toca ninguna cara vista, el de detrás a la izquierda.
+  assert.equal(lados.filter(e => e.dash).length, 1,
+    'sólo el vértice de detrás a la izquierda queda oculto');
+});
+
+test('de pie, el cono enseña la mitad de la base que da al observador', () => {
+  const els = Solid.elements(TOOLS.SOLID_PYRAMID, { x: 0, y: 0 }, { x: 100, y: 100 },
+    { ...O, solidSection: TOOLS.CIRCLE, solidApex: 'upright' });
+  const arcos = els.filter(e => e.type === 'curveArrow');
+  assert.equal(arcos.length, 2, 'la base se emite como dos arcos, no como 64 tramos');
+  const visto = arcos.find(e => !e.dash), oculto = arcos.find(e => e.dash);
+  assert.ok(visto && oculto, 'una mitad se ve y la otra queda detrás');
+  // El parámetro del arco emitido es el opuesto del índice del muestreo; con
+  // el signo sin corregir salían intercambiados, y el punto más CERCANO de la
+  // base —el más bajo en pantalla— caía en el arco oculto.
+  const bajo = c => Math.max(...c.segments.flatMap(s => [s.y1, s.y2]));
+  const alto = c => Math.min(...c.segments.flatMap(s => [s.y1, s.y2]));
+  assert.ok(bajo(visto) > bajo(oculto),
+    'el punto más cercano de la base está en la mitad que se ve');
+  assert.ok(alto(oculto) < alto(visto),
+    'y el más lejano, en la que se tapa');
+});
