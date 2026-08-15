@@ -537,3 +537,47 @@ test('la miniatura del modal y la previsualización del arrastre siguen al vért
   const final = await paintedPixels(page);
   expect(Math.abs(preview - final) / Math.max(preview, final)).toBeLessThan(0.25);
 });
+
+test('el Tronco también se dibuja de pie, y se edita después', async ({ page }) => {
+  await openApp(page);
+  await page.locator('.sidebar__tool[data-tool="tronco"]').click();
+  await expect(page.locator('#frustum-apex')).toBeVisible();
+  await page.locator('#frustum-apex').selectOption('upright');
+  await page.locator('#frustum-fill').uncheck();
+  await page.locator('[data-frustum="square"]').click();
+  await settle(page);
+  await drag(page, 300, 300, 420, 420);
+  await settle(page);
+
+  const els = await elements(page);
+  expect(els.every(e => ['line', 'curveArrow', 'polygon'].includes(e.type))).toBe(true);
+  expect(els.every(e => e.solidMeta && e.solidMeta.apex === 'upright')).toBe(true);
+  // Un tronco tiene tapa: doce aristas contra las ocho de la pirámide
+  expect(els.filter(e => e.type === 'line').length).toBe(12);
+
+  // Rellenar después crea las caras, la tapa incluida
+  // Se selecciona con Ctrl+A: selectedSolid() exige la figura ENTERA, y una
+  // marquesina se deja fuera lo que la fuga saca de la caja del arrastre.
+  await page.keyboard.press('Control+a');
+  await settle(page);
+  await page.locator('.sidebar__tool[data-tool="tronco"]').click();
+  await page.locator('#frustum-fill').check();
+  await expect.poll(async () =>
+    (await elements(page)).filter(e => e.type === 'polygon').length).toBeGreaterThan(1);
+});
+
+test('el eje se comparte entre la Pirámide y el Tronco, y sobrevive a la recarga', async ({ page }) => {
+  await openApp(page);
+  await page.locator('.sidebar__tool[data-tool="piramide"]').click();
+  await page.locator('#pyramid-apex').selectOption('upright');
+  await page.locator('#modal-pyramid').evaluate(d => d.close());
+  // Mismo estado para los dos remates que lo admiten, como la sección
+  await page.locator('.sidebar__tool[data-tool="tronco"]').click();
+  await expect(page.locator('#frustum-apex')).toHaveValue('upright');
+  await page.locator('#modal-frustum').evaluate(d => d.close());
+
+  await page.reload();
+  await expect(page.locator('.sidebar__tool').first()).toBeVisible();
+  await page.locator('.sidebar__tool[data-tool="tronco"]').click();
+  await expect(page.locator('#frustum-apex')).toHaveValue('upright');
+});

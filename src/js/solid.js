@@ -463,6 +463,11 @@ const Solid = (function () {
       cara que arrastras y la punta se va al fondo—; `upright` deja la punta
       en z = 0 y tumba la base, que es como se dibuja una pirámide de pie. */
   const APEX_MODES = ['depth', 'upright'];
+  /** Los dos remates que admiten «de pie». El prisma sale gratis con k = 1 y
+      la esfera no tiene eje que poner vertical; se dejan fuera porque el mando
+      se ofrece sólo donde cambia algo que valga la pena. */
+  const UPRIGHT_TOOLS = [TOOLS.SOLID_PYRAMID, TOOLS.SOLID_FRUSTUM];
+  const _upTools = tool => UPRIGHT_TOOLS.includes(tool);
   /** Muestras de una base redonda tumbada. Con 64 el punto de tangencia que
       sale del muestreo cae a menos de medio píxel del exacto en las cajas que
       admite el lienzo, y el contorno se emite igualmente como dos arcos. */
@@ -521,14 +526,14 @@ const Solid = (function () {
    * cara frontal de la que reconstruirlo, es lo único que permite regenerar la
    * figura para rellenarla o recolorearla después.
    */
-  function _upright(section, box, d, o, rotation) {
+  function _upright(section, box, d, o, rotation, k) {
     const out = _outline(section, box, rotation);
     if (!out) return [];
     const redonda = section === TOOLS.CIRCLE;
     // Suelo de fuga, como en _extrude: con el escorzo y la profundidad al
     // mínimo la base tumbada colapsa en una línea, su área se anula y no
     // quedaría figura ninguna. Se mide contra el tamaño de la sección para que
-    // valga igual en una pirámide pequeña y en una grande.
+    // valga igual en una figura pequeña y en una grande.
     const minLen = Math.max(8, 0.1 * Math.max(box.w, box.h));
     if (Math.hypot(d.x, d.y) < minLen) d = _scaleTo(d, minLen);
     const y0 = box.y + box.h;                       // el borde cercano apoya aquí
@@ -543,32 +548,48 @@ const Solid = (function () {
     const area = _shoelace(P);
     if (!area) return [];                            // base degenerada
     const sigma = Math.sign(area), refArea = Math.abs(area);
-    const Cb = proj({ x: box.x + box.w / 2, y: box.y + box.h / 2 });
-    // La punta se levanta sobre el centro de la base hasta el BORDE ALTO del
-    // arrastre, no una altura fija: así lo que arrastras es lo que ocupa la
-    // figura. Con una altura medida desde la base, la fuga se sumaba por
-    // arriba y una pirámide dibujada a media pantalla se salía del lienzo.
-    const A = { x: Cb.x, y: box.y };
+    const C = { x: box.x + box.w / 2, y: box.y + box.h / 2 };
+    const Cb = proj(C);
+    // La figura se levanta sobre el centro de la base hasta el BORDE ALTO del
+    // arrastre, no una altura fija: así lo que arrastras es lo que ocupa. Con
+    // una altura medida desde la base, la fuga se sumaba por arriba y una
+    // pirámide dibujada a media pantalla se salía del lienzo.
+    const H = Cb.y - box.y;
+    // La tapa es la sección encogida hacia el centro por `k` —el mismo factor
+    // que _extrude— tumbada igual y subida H. Con k = 0 todos sus puntos caen
+    // en el ápice, así que la pirámide es este mismo cuerpo sin un solo caso
+    // especial; con k = 1 saldría un prisma de pie.
+    const tapa = p => {
+      const q = proj({ x: C.x + k * (p.x - C.x), y: C.y + k * (p.y - C.y) });
+      return { x: q.x, y: q.y - H };
+    };
+    const Q = out.pts.map(tapa);
+    const punta = k < 1e-6;
+    // La tapa se ve si se mira desde ARRIBA, que es lo que dice el signo de la
+    // componente vertical de la fuga; la base, si se mira desde abajo. Con la
+    // fuga horizontal no se ve ninguna de las dos y ambas heredan de sus caras.
+    const tapaVisible = !punta && d.y < 0;
+    const baseVisible = d.y > 0;
 
-    // Una cara lateral es el triángulo (Pᵢ, Pᵢ₊₁, ápice). Es el cuadrilátero
-    // de _faceVisible con los dos últimos vértices colapsados en el ápice, así
-    // que vale el mismo criterio —el signo del área proyectada—, pero con el
-    // signo de referencia CAMBIADO: en _extrude ese signo lo pone la cara
-    // frontal, que mira al observador, y aquí lo pone la base, que mira al
-    // suelo. Con `sigma` a secas la pirámide sale con las aristas de detrás
-    // sólidas y las de delante a trazos, que es exactamente lo que se ve.
+    // Una cara lateral es el cuadrilátero (Pᵢ, Pᵢ₊₁, Qᵢ₊₁, Qᵢ) — con la punta,
+    // sus dos últimos vértices colapsan en el ápice y degenera en el triángulo
+    // correcto, igual que en _extrude. Vale el mismo criterio (el signo del
+    // área proyectada), pero con el signo de referencia CAMBIADO: en _extrude
+    // lo pone la cara frontal, que mira al observador, y aquí lo pone la base,
+    // que mira al suelo. Con `sigma` a secas la figura sale con las aristas de
+    // detrás sólidas y las de delante a trazos.
     const vis = [];
     for (let i = 0; i < n; i++) {
-      vis.push(_faceVisible(P[i], P[(i + 1) % n], A, A, -sigma, refArea));
+      const j = (i + 1) % n;
+      vis.push(_faceVisible(P[i], P[j], Q[j], Q[i], -sigma, refArea));
     }
 
     const parts = [];
-    // Contorno de la base. En la redonda se emite como DOS arcos —el visto y
-    // el oculto—, no como 64 segmentos: el muestreo sólo sirve para decidir
-    // dónde está la frontera.
     if (redonda) {
       const a = { x: box.w / 2, y: 0 };             // diámetros conjugados de
       const b = { x: d.x / 2, y: d.y / 2 };         // la elipse tumbada
+      const aK = { x: a.x * k, y: a.y * k }, bK = { x: b.x * k, y: b.y * k };
+      const Qc = { x: Cb.x, y: Cb.y - H };
       const corte = [];
       for (let i = 0; i < n; i++) if (vis[i] !== vis[(i + 1) % n]) corte.push((i + 1) % n);
       // El parámetro de la elipse emitida es el OPUESTO del índice del
@@ -577,43 +598,95 @@ const Solid = (function () {
       // en t = −2πi/n. Con el signo sin cambiar los dos arcos salen
       // intercambiados y el cono enseña justo la mitad que debería tapar.
       const ang = i => -2 * Math.PI * i / n;
+      const arco = (c, ax, bx, ia, ib) => {
+        let t1 = ang(ia), t2 = ang(ib);
+        while (t2 >= t1) t2 -= 2 * Math.PI;    // el índice crece, el ángulo baja
+        return _ellipseArc(c, ax, bx, t1, t2, o);
+      };
       if (corte.length === 2) {
         const [i0, i1] = corte;
-        const tramo = (ia, ib) => {
-          let t1 = ang(ia), t2 = ang(ib);
-          while (t2 >= t1) t2 -= 2 * Math.PI;   // el índice crece, el ángulo baja
-          return _ellipseArc(Cb, a, b, t1, t2, o);
-        };
         // El tramo que empieza en el primer corte tiene la visibilidad de la
         // arista que le sigue.
-        parts.push(_dash(tramo(i0, i1), !vis[i0]));
-        parts.push(_dash(tramo(i1, i0), !vis[i1]));
-        // Generatrices: del ápice a los dos puntos de tangencia.
-        parts.push(_line(A, P[i0], o));
-        parts.push(_line(A, P[i1], o));
+        parts.push(_dash(arco(Cb, a, b, i0, i1), !vis[i0]));
+        parts.push(_dash(arco(Cb, a, b, i1, i0), !vis[i1]));
+        if (!punta) {
+          // La tapa entera se ve cuando se mira desde arriba; si no, sus dos
+          // mitades siguen a la cara que tienen debajo.
+          if (tapaVisible) {
+            parts.push(_ellipseArc(Qc, aK, bK, 0, 2 * Math.PI, o));
+          } else {
+            parts.push(_dash(arco(Qc, aK, bK, i0, i1), !vis[i0]));
+            parts.push(_dash(arco(Qc, aK, bK, i1, i0), !vis[i1]));
+          }
+        }
+        // Generatrices: por los dos puntos donde cambia la visibilidad.
+        parts.push(_line(P[i0], Q[i0], o));
+        parts.push(_line(P[i1], Q[i1], o));
       } else {
         // Sin frontera: la base entera se ve (o no) igual.
-        parts.push(_dash(_ellipseArc(Cb, a, b, 0, 2 * Math.PI, o), !vis[0]));
+        parts.push(_dash(_ellipseArc(Cb, a, b, 0, 2 * Math.PI, o), !vis[0] && !baseVisible));
+        if (!punta) parts.push(_dash(_ellipseArc(Qc, aK, bK, 0, 2 * Math.PI, o), !vis[0] && !tapaVisible));
       }
     } else {
       for (let i = 0; i < n; i++) {
-        parts.push(_dash(_line(P[i], P[(i + 1) % n], o), !vis[i]));
+        const j = (i + 1) % n;
+        parts.push(_dash(_line(P[i], P[j], o), !vis[i] && !baseVisible));
+        if (!punta) parts.push(_dash(_line(Q[i], Q[j], o), !vis[i] && !tapaVisible));
       }
       // Aristas laterales: sólo desde las esquinas de verdad, y una se ve si
       // se ve alguna de sus dos caras.
       for (let i = 0; i < n; i++) {
         if (!out.real[i]) continue;
         const seen = vis[(i - 1 + n) % n] || vis[i];
-        parts.push(_dash(_line(P[i], A, o), !seen));
+        parts.push(_dash(_line(P[i], Q[i], o), !seen));
       }
     }
 
-    // Caras vistas, rellenas. La base no se rellena nunca: se mira desde
-    // fuera, así que su cara apunta al suelo y queda tapada por el cuerpo.
+    // Caras vistas, rellenas. En la redonda se emite UNA cara por tramo
+    // visible en vez de una por muestra, o serían 64 polígonos para el mismo
+    // trozo de superficie.
+    //
+    // La tapa y la base son horizontales y sólo se ve una de las dos, la que
+    // mira al observador; hay que rellenarla, o el tronco queda con un agujero
+    // por el que se ve el papel justo donde debería estar su cara de arriba.
     if (o.fill) {
-      for (let i = 0; i < n; i++) {
-        if (!vis[i]) continue;
-        const cara = _face([P[i], P[(i + 1) % n], A], o);
+      if (redonda) {
+        // El barrido arranca en un tramo OCULTO para que la superficie vista no
+        // se parta en dos caras por el corte del índice 0: dos polígonos
+        // adyacentes comparten borde y en translúcido ese borde sale doble.
+        const inicio = vis.indexOf(false);
+        if (inicio < 0) {
+          const cara = _face([...P, ...[...Q].reverse()], o);
+          if (cara) parts.push(cara);
+        } else {
+          let i = 0;
+          while (i < n) {
+            const a = (inicio + i) % n;
+            if (!vis[a]) { i++; continue; }
+            const abajo = [], arriba = [];
+            let j = i;
+            while (j < n && vis[(inicio + j) % n]) {
+              abajo.push(P[(inicio + j) % n]); arriba.push(Q[(inicio + j) % n]); j++;
+            }
+            abajo.push(P[(inicio + j) % n]); arriba.push(Q[(inicio + j) % n]);
+            const cara = _face([...abajo, ...arriba.reverse()], o);
+            if (cara) parts.push(cara);
+            i = j + 1;
+          }
+        }
+      } else {
+        for (let i = 0; i < n; i++) {
+          if (!vis[i]) continue;
+          const j = (i + 1) % n;
+          const cara = _face([P[i], P[j], Q[j], Q[i]], o);
+          if (cara) parts.push(cara);
+        }
+      }
+      // Al final, para que quede POR ENCIMA de las laterales: es la que está
+      // más cerca del observador de las tres.
+      const plana = tapaVisible ? Q : (baseVisible ? P : null);
+      if (plana) {
+        const cara = _face(plana, o);
         if (cara) parts.push(cara);
       }
     }
@@ -872,19 +945,19 @@ const Solid = (function () {
     const box = _frontBox(tool, section, p1, p2);
     if (!(box.w > 0 && box.h > 0)) return [];
     const rotation = _rotationFor(section, o.solidRotation);
-    // Pirámide de pie: otra proyección entera, sin cara frontal (ver _upright).
-    // La fuga se mide con la escala del prisma y no con la suya: DEPTH_SCALE
-    // dobla la profundidad de la pirámide porque en el modo de siempre se la
-    // mira por su eje y se derrumba sobre la base; aquí la base se ve de lado,
-    // y con esa escala saldría una planta el doble de honda que ancha.
-    if (tool === TOOLS.SOLID_PYRAMID && o.solidApex === 'upright') {
-      return _upright(section, box, _depth(box, o, TOOLS.SOLID_PRISM), o, rotation);
-    }
-    const front = _frontEl(section, box, o, rotation);
-    const d = _depth(box, o, tool);
     const k = tool === TOOLS.SOLID_PRISM ? 1
       : tool === TOOLS.SOLID_PYRAMID ? 0
         : _clamp(o.solidTaper, TAPER_MIN, TAPER_MAX) / 100;
+    // De pie: otra proyección entera, sin cara frontal (ver _upright). La fuga
+    // se mide con la escala del PRISMA y no con la suya: DEPTH_SCALE agranda la
+    // profundidad de la pirámide y del tronco porque en el modo de siempre se
+    // los mira por su eje y se derrumban sobre la base; aquí la base se ve de
+    // lado, y con esa escala saldría una planta mucho más honda que ancha.
+    if (_upTools(tool) && o.solidApex === 'upright') {
+      return _upright(section, box, _depth(box, o, TOOLS.SOLID_PRISM), o, rotation, k);
+    }
+    const front = _frontEl(section, box, o, rotation);
+    const d = _depth(box, o, tool);
     const built = tool === TOOLS.SOLID_SPHERE ? _sphere(box, d, o, front)
       : section === TOOLS.CIRCLE ? _round(box, d, k, o, front)
         : _extrude(section, box, d, k, o, front, rotation);
@@ -919,6 +992,7 @@ const Solid = (function () {
 
   return {
     elements, MIN_SPAN, isRotatableSection: _rotatable, APEX_MODES,
+    UPRIGHT_TOOLS, supportsApex: _upTools,
     DEPTH_MIN, DEPTH_MAX, ANGLE_MIN, ANGLE_MAX,
     FORESHORTEN_MIN, FORESHORTEN_MAX, TAPER_MIN, TAPER_MAX,
   };

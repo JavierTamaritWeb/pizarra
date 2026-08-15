@@ -4162,7 +4162,7 @@
     // igual que los puntos de inserción de `gardenMeta`. El resto de remates no
     // lo guardan: ahí la cara frontal ya lo dice todo y un dato repetido sólo
     // podría desincronizarse.
-    if (tool === TOOLS.SOLID_PYRAMID && state.solidApex === 'upright') {
+    if (Solid.supportsApex(tool) && state.solidApex === 'upright') {
       meta.apex = 'upright';
       meta.section = state.solidSection;
       meta.rotation = state.solidRotation;
@@ -4278,7 +4278,7 @@
     // pie» estrena gesto (la figura nueva ya no tiene cara frontal de la que
     // sacarlo) y volver al de siempre lo suelta, o quedaría un dato muerto que
     // nadie actualiza.
-    if (o.solidApex === 'upright' && meta.tool === TOOLS.SOLID_PYRAMID) {
+    if (o.solidApex === 'upright' && Solid.supportsApex(meta.tool)) {
       nuevaMeta.apex = 'upright';
       nuevaMeta.section = section;
       nuevaMeta.rotation = o.solidRotation;
@@ -6087,18 +6087,24 @@
         });
       });
     });
-    // El vértice de la Pirámide: un <select>, así que no cabe en SOLID_FIELDS
-    // (input/change numérico). Regenera en el acto —no hay arrastre que
-    // acumule pasos de deshacer— y guarda.
-    $('pyramid-apex').addEventListener('change', e => {
-      state.solidApex = Solid.APEX_MODES.includes(e.target.value)
-        ? e.target.value : 'depth';
-      // Cambiar de proyección con una figura puesta la vuelve a crear entera:
-      // no es un ajuste de trazo, es otra geometría.
-      regenerateSolid({ solidApex: state.solidApex });
-      syncSolidControls();
-      scheduleOverlay();
-      savePrefs();
+    // El eje: un <select>, así que no cabe en SOLID_FIELDS (input/change
+    // numérico). Lo comparten los dos remates que lo admiten, contra el mismo
+    // estado —igual que la sección—, y regenera en el acto: no hay arrastre
+    // que acumule pasos de deshacer.
+    Solid.UPRIGHT_TOOLS.forEach(tool => {
+      const cfg = SOLID_MODALS.find(c => c.tool === tool);
+      const sel = cfg && $(`${cfg.prefix}-apex`);
+      if (!sel || typeof sel.addEventListener !== 'function') return;
+      sel.addEventListener('change', e => {
+        state.solidApex = Solid.APEX_MODES.includes(e.target.value)
+          ? e.target.value : 'depth';
+        // Cambiar de proyección con una figura puesta la vuelve a crear
+        // entera: no es un ajuste de trazo, es otra geometría.
+        regenerateSolid({ solidApex: state.solidApex });
+        syncSolidControls();
+        scheduleOverlay();
+        savePrefs();
+      });
     });
     syncSolidControls();
     // Cancela independiente: todos los modelos comparten el mismo rango de

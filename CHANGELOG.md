@@ -4,6 +4,28 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.28.0] — 2026-08-15
+
+### Añadido
+
+- **El Tronco también se puede dibujar de pie.** El mando que estrenó la
+  Pirámide se llama ahora «Eje» —vale para los dos— y ofrece «Hacia el fondo»
+  (la cara, de frente, como siempre) o «Vertical»: la base se tumba, la tapa
+  queda arriba y la figura se levanta sobre el plano del papel. Las diez
+  secciones incluidas; el tronco de cono sale con sus dos elipses y sus dos
+  generatrices.
+- La cara de arriba se rellena cuando se ve, así que un tronco relleno queda
+  macizo en vez de con un agujero por el que se ve el papel.
+- El eje es el mismo ajuste para los dos remates, como la sección, y se guarda
+  entre sesiones.
+
+### Notas
+
+- Por dentro es un solo cuerpo: la pirámide es el caso con la tapa colapsada en
+  el vértice. El prisma saldría del mismo generador y se ha dejado fuera a
+  propósito, igual que la esfera: ahí el mando no cambiaría nada que valga la
+  pena.
+
 ## [2.27.1] — 2026-08-15
 
 ### Corregido

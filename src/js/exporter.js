@@ -692,7 +692,7 @@ body { font-family: ${FONT_CSS()}; background: #fff; }
       const inRange = (v, lo, hi) => _isNum(v) && v >= lo && v <= hi;
       if (conGesto) {
         const g = m.gesture;
-        if (!(m.apex === 'upright' && m.tool === TOOLS.SOLID_PYRAMID &&
+        if (!(m.apex === 'upright' && Solid.supportsApex(m.tool) &&
               SOLID_SECTIONS.includes(m.section) &&
               inRange(m.rotation, 0, 359) &&
               g && typeof g === 'object' && !Array.isArray(g) &&

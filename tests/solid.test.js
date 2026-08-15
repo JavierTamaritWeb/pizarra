@@ -579,7 +579,7 @@ test('el relleno sólido de un sólido es OPACO: sin color propio se usa el del 
 
 /* ── Pirámide de pie: el vértice en el plano del papel ── */
 
-const dePie = (section, opts) => Solid.elements(TOOLS.SOLID_PYRAMID,
+const dePie = (section, opts, tool) => Solid.elements(tool || TOOLS.SOLID_PYRAMID,
   { x: 0, y: 0 }, { x: 80, y: 80 },
   { ...O, solidSection: section, solidApex: 'upright', ...opts });
 
@@ -655,8 +655,9 @@ test('el modo por defecto NO cambia: sin solidApex, la pirámide es la de siempr
     { ...O, solidSection: TOOLS.SQUARE, solidApex: 'depth' });
   assert.deepEqual(JSON.parse(JSON.stringify(conModo)), JSON.parse(JSON.stringify(antes)));
   assert.ok(frenteDe(antes), 'el modo de siempre sigue teniendo cara frontal');
-  // Y el modo no se cuela en los otros remates
-  for (const tool of [TOOLS.SOLID_PRISM, TOOLS.SOLID_FRUSTUM, TOOLS.SOLID_SPHERE]) {
+  // Y el modo no se cuela en los remates que no lo tienen
+  assert.deepEqual([...Solid.UPRIGHT_TOOLS], [TOOLS.SOLID_PYRAMID, TOOLS.SOLID_FRUSTUM]);
+  for (const tool of [TOOLS.SOLID_PRISM, TOOLS.SOLID_SPHERE]) {
     const els = Solid.elements(tool, { x: 0, y: 0 }, { x: 80, y: 80 },
       { ...O, solidSection: TOOLS.SQUARE, solidApex: 'upright' });
     assert.ok(frenteDe(els), `${tool}: el modo de la pirámide no le incumbe`);
@@ -731,4 +732,80 @@ test('de pie, el cono enseña la mitad de la base que da al observador', () => {
     'el punto más cercano de la base está en la mitad que se ve');
   assert.ok(alto(oculto) < alto(visto),
     'y el más lejano, en la que se tapa');
+});
+
+/* ── El mismo modo de pie, en el Tronco ── */
+
+const troncoDePie = (section, opts) => dePie(section, opts, TOOLS.SOLID_FRUSTUM);
+
+test('el tronco de pie es el mismo cuerpo con tapa: base abajo, tapa arriba', () => {
+  for (const section of SOLID_SECTIONS) {
+    const els = troncoDePie(section);
+    assert.equal(frenteDe(els), undefined, `${section}: tampoco tiene cara frontal`);
+    assert.ok(els.some(e => e.dash), `${section}: nada oculto`);
+    for (const el of els) assert.ok(Exporter.isValidElement({ ...el, seed: 1 }));
+    // Hay DOS contornos horizontales, base y tapa, y la tapa está más arriba.
+    const ys = els.flatMap(e => e.points ? e.points.map(p => p.y)
+      : e.segments ? e.segments.flatMap(sg => [sg.y1, sg.y2])
+        : [e.y1, e.y2].filter(Number.isFinite));
+    assert.ok(Math.max(...ys) - Math.min(...ys) > 20, `${section}: figura aplastada`);
+  }
+  // La pirámide es este mismo cuerpo con la tapa colapsada: mismo número de
+  // aristas menos las de la tapa.
+  const tronco = troncoDePie(TOOLS.RECT).filter(e => e.type === 'line');
+  const piramide = dePie(TOOLS.RECT).filter(e => e.type === 'line');
+  assert.equal(tronco.length, 12, '4 de base + 4 de tapa + 4 laterales');
+  assert.equal(piramide.length, 8, 'sin tapa: 4 de base + 4 laterales');
+});
+
+test('de pie se ve la cara de arriba, y sólo una de las dos horizontales', () => {
+  // Con la fuga por defecto (hacia arriba) se mira desde arriba: la tapa se ve
+  // entera y la base queda tapada por el cuerpo. Con la fuga hacia abajo, al
+  // revés. Es lo que distingue una cara horizontal de una lateral: no la
+  // decide el criterio de caras, sino desde dónde se mira.
+  const arriba = troncoDePie(TOOLS.RECT);
+  const abajo = troncoDePie(TOOLS.RECT, { solidAngle: 210 });
+  const ysDe = els => els.flatMap(e => [e.y1, e.y2].filter(Number.isFinite));
+  const cotaTapa = els => Math.min(...ysDe(els));
+  // Ninguna arista a la altura de la tapa va discontinua cuando se mira desde
+  // arriba; y con la fuga hacia abajo, la de la base tampoco.
+  const tocaCota = (e, y) => Math.abs(e.y1 - y) < 1 && Math.abs(e.y2 - y) < 1;
+  const tapaArriba = arriba.filter(e => tocaCota(e, cotaTapa(arriba)));
+  assert.ok(tapaArriba.length >= 1);
+  assert.ok(tapaArriba.every(e => !e.dash), 'mirando desde arriba, la tapa se ve entera');
+  const bordeAbajo = abajo.filter(e => tocaCota(e, Math.max(...ysDe(abajo))));
+  assert.ok(bordeAbajo.length >= 1);
+  assert.ok(bordeAbajo.every(e => !e.dash), 'mirando desde abajo se ve la cara de abajo');
+});
+
+test('con relleno, la cara horizontal que se ve también se pinta', () => {
+  // Sin ella el tronco queda con un agujero justo donde debería estar su cara
+  // de arriba, y se ve el papel a través. Va la ÚLTIMA de las caras, que es lo
+  // que la deja dibujada encima de las laterales.
+  const els = troncoDePie(TOOLS.RECT, { fill: true, fillColor: '#00ffaa' });
+  const caras = els.filter(e => e.type === 'polygon');
+  assert.ok(caras.length >= 2, 'las laterales vistas más la tapa');
+  const tapa = caras[caras.length - 1];
+  const alto = c => Math.max(...c.points.map(p => p.y)) - Math.min(...c.points.map(p => p.y));
+  const laterales = caras.slice(0, -1);
+  assert.ok(laterales.every(c => alto(c) > alto(tapa) * 2),
+    'la cara de arriba es horizontal: mucho menos alta que cualquier lateral');
+  assert.equal(tapa.fillColor, '#00ffaa');
+  // Y está arriba del todo
+  const arribaDeTodo = Math.min(...caras.flatMap(c => c.points.map(p => p.y)));
+  assert.ok(Math.min(...tapa.points.map(p => p.y)) <= arribaDeTodo + 1e-6);
+  // La pirámide no tiene tapa que pintar: todas sus caras son laterales
+  const pir = dePie(TOOLS.RECT, { fill: true }).filter(e => e.type === 'polygon');
+  assert.ok(pir.every(c => c.points.length === 3), 'las de la pirámide son triángulos');
+});
+
+test('el tronco de cono de pie no parte su superficie en dos caras', () => {
+  // El barrido arranca en un tramo oculto justo para eso: dos polígonos
+  // adyacentes comparten borde y en translúcido ese borde sale doble.
+  const els = troncoDePie(TOOLS.CIRCLE, { fill: true, fillTransparent: true });
+  const caras = els.filter(e => e.type === 'polygon');
+  // La última es la tapa (elipse entera); lo de delante, la superficie vista.
+  assert.equal(caras.length, 2, 'una cara lateral y la tapa, ni una más');
+  const alto = c => Math.max(...c.points.map(p => p.y)) - Math.min(...c.points.map(p => p.y));
+  assert.ok(alto(caras[0]) > alto(caras[1]) * 2, 'la primera es la superficie lateral');
 });
