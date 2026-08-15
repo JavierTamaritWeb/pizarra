@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.26.2 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.27.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.26\.2</);
-  assert.match(html, /css\/styles\.css\?v=2\.26\.2/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.26\.2/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.26\.2/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.26\.2/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.26\.2/);
+  assert.match(html, /class="topbar__badge">v2\.27\.0</);
+  assert.match(html, /css\/styles\.css\?v=2\.27\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.27\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.27\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.27\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.27\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -64,8 +64,8 @@ test('index publica v2.26.2 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="modal-pyramid"/);
   assert.match(html, /id="modal-frustum"/);
   assert.match(html, /id="modal-sphere"/);
-  assert.match(html, /src\/js\/solid\.js\?v=2\.26\.2/);
-  assert.match(html, /src\/js\/airbrush\.js\?v=2\.26\.2/);
+  assert.match(html, /src\/js\/solid\.js\?v=2\.27\.0/);
+  assert.match(html, /src\/js\/airbrush\.js\?v=2\.27\.0/);
   // «Los clics acumulan selección» dejó el panel en la v2.17.0 y es el ajuste
   // de «Select». Si volviera a existir la casilla vieja habría dos controles
   // para un mismo estado, y solo uno cableado: el arnés `node:vm` fabrica un
@@ -921,4 +921,27 @@ test('css/styles.css ensancha los modales de ajustes por encima de 1200px', () =
   assert.equal(conMiniatura, 15);
   assert.equal(marcados, conMiniatura,
     'todo modal con miniatura tiene que llevar modal--settings, o se queda estrecho');
+});
+
+// El mando del vértice de la Pirámide (v2.27.0). Guarda TEXTUAL por la razón
+// de siempre: `dom-stub.js` fabrica un <div> vacío para un id que no existe, y
+// un <select> cableado en app.js pero ausente del HTML pasaría todos los tests
+// del arnés sin estar en el navegador.
+test('el vértice de la Pirámide tiene su mando, y sólo la Pirámide', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const ctx = loadAll();
+  assert.deepEqual([...ctx.Solid.APEX_MODES], ['depth', 'upright']);
+  assert.match(html, /id="pyramid-apex"/, 'falta el selector del vértice');
+  // Las dos opciones del catálogo, y sólo ésas
+  const bloque = html.slice(html.indexOf('id="pyramid-apex"'));
+  const opciones = [...bloque.slice(0, bloque.indexOf('</select>')).matchAll(/value="([^"]+)"/g)]
+    .map(m => m[1]);
+  assert.deepEqual(opciones, [...ctx.Solid.APEX_MODES]);
+  // En los otros tres remates no hay vértice que mover: un mando inerte
+  // prometería algo que no pasa.
+  for (const p of ['prism', 'frustum', 'sphere']) {
+    assert.doesNotMatch(html, new RegExp(`id="${p}-apex"`), `${p} no tiene vértice`);
+  }
+  // Y el subtítulo no puede prometer una sola proyección
+  assert.doesNotMatch(html, /la punta se va hacia el fondo/);
 });

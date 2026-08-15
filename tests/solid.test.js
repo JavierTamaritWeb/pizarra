@@ -576,3 +576,93 @@ test('el relleno sólido de un sólido es OPACO: sin color propio se usa el del 
   assert.equal(frenteDe(huecoConColor).fill, false);
   assert.equal(frenteDe(huecoConColor).fillColor, '#00ffaa');
 });
+
+/* ── Pirámide de pie: el vértice en el plano del papel ── */
+
+const dePie = (section, opts) => Solid.elements(TOOLS.SOLID_PYRAMID,
+  { x: 0, y: 0 }, { x: 80, y: 80 },
+  { ...O, solidSection: section, solidApex: 'upright', ...opts });
+
+test('«de pie» es otra proyección: no hay cara frontal y la base se tumba', () => {
+  for (const section of SOLID_SECTIONS) {
+    const els = dePie(section);
+    assert.ok(els.length >= 4, `${section}: figura vacía`);
+    // La marca del modo: en el de siempre la cara frontal es un elemento de
+    // forma de verdad; aquí no hay ninguno, porque la base va tumbada.
+    assert.equal(frenteDe(els), undefined,
+      `${section}: la pirámide de pie no puede tener cara frontal`);
+    for (const el of els) {
+      assert.ok(ES_ARISTA(el) || el.type === 'polygon',
+        `${section}: pieza inesperada ${el.type}`);
+      assert.ok(Exporter.isValidElement({ ...el, seed: 1 }));
+    }
+    // Y hay volumen: algo se ve y algo queda detrás.
+    assert.ok(els.some(e => e.dash), `${section}: nada oculto, no se lee el volumen`);
+    assert.ok(els.some(e => !e.dash), `${section}: todo oculto`);
+  }
+});
+
+test('la punta cae dentro del arrastre, y encima de la base', () => {
+  for (const section of SOLID_SECTIONS) {
+    const els = dePie(section);
+    const ys = els.flatMap(e => e.points ? e.points.map(p => p.y)
+      : [e.y1, e.y2].filter(Number.isFinite));
+    const xs = els.flatMap(e => e.points ? e.points.map(p => p.x)
+      : [e.x1, e.x2].filter(Number.isFinite));
+    const arriba = Math.min(...ys), abajo = Math.max(...ys);
+    // La caja del gesto para un polígono regular nace del centro, así que se
+    // compara con la de la figura: lo que se comprueba es que el vértice está
+    // ARRIBA del todo y la base ABAJO, que es lo que distingue este modo.
+    assert.ok(abajo - arriba > 20, `${section}: figura aplastada`);
+    // Un único punto en lo más alto: la punta. Se cuentan posiciones DISTINTAS
+    // —de una estrella nacen diez aristas del mismo vértice— redondeadas al
+    // píxel, porque ahí es donde concurren todas las aristas laterales.
+    const cima = new Set();
+    els.forEach(e => [[e.x1, e.y1], [e.x2, e.y2]].forEach(([x, y]) => {
+      if (Number.isFinite(y) && y < arriba + 1) cima.add(`${Math.round(x)},${Math.round(y)}`);
+    }));
+    assert.equal(cima.size, 1, `${section}: la cúspide no es un solo punto`);
+    assert.ok(xs.length > 4);
+  }
+});
+
+test('la fuga mínima no deja la base sin área (la figura no desaparece)', () => {
+  for (const section of SOLID_SECTIONS) {
+    const els = dePie(section, { solidDepth: 10, solidForeshorten: 10 });
+    assert.ok(els.length >= 4, `${section}: se queda sin figura con la fuga al mínimo`);
+  }
+});
+
+test('«de pie» rellena las caras vistas, y nunca la base', () => {
+  const els = dePie(TOOLS.SQUARE, { fill: true, fillColor: '#00ffaa' });
+  const caras = els.filter(e => e.type === 'polygon');
+  assert.ok(caras.length >= 1 && caras.length <= 3,
+    'de una pirámide cuadrada se ven una o dos caras, nunca las cuatro');
+  for (const c of caras) {
+    assert.equal(c.fill, true);
+    assert.equal(c.fillColor, '#00ffaa');
+    assert.equal(c.stroke, false);
+    assert.equal(c.points.length, 3, 'una cara lateral es un triángulo');
+  }
+  // Sin relleno no hay ninguna cara
+  assert.equal(dePie(TOOLS.SQUARE).filter(e => e.type === 'polygon').length, 0);
+});
+
+test('el modo por defecto NO cambia: sin solidApex, la pirámide es la de siempre', () => {
+  const antes = Solid.elements(TOOLS.SOLID_PYRAMID, { x: 0, y: 0 }, { x: 80, y: 80 },
+    { ...O, solidSection: TOOLS.SQUARE });
+  const conModo = Solid.elements(TOOLS.SOLID_PYRAMID, { x: 0, y: 0 }, { x: 80, y: 80 },
+    { ...O, solidSection: TOOLS.SQUARE, solidApex: 'depth' });
+  assert.deepEqual(JSON.parse(JSON.stringify(conModo)), JSON.parse(JSON.stringify(antes)));
+  assert.ok(frenteDe(antes), 'el modo de siempre sigue teniendo cara frontal');
+  // Y el modo no se cuela en los otros remates
+  for (const tool of [TOOLS.SOLID_PRISM, TOOLS.SOLID_FRUSTUM, TOOLS.SOLID_SPHERE]) {
+    const els = Solid.elements(tool, { x: 0, y: 0 }, { x: 80, y: 80 },
+      { ...O, solidSection: TOOLS.SQUARE, solidApex: 'upright' });
+    assert.ok(frenteDe(els), `${tool}: el modo de la pirámide no le incumbe`);
+  }
+});
+
+test('APEX_MODES es la lista que valida las prefs', () => {
+  assert.deepEqual([...Solid.APEX_MODES], ['depth', 'upright']);
+});

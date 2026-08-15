@@ -101,6 +101,10 @@
     solidAngle: 30,       // grados de fuga (Solid.ANGLE_MIN/MAX)
     solidForeshorten: 80, // % de escorzo (Solid.FORESHORTEN_MIN/MAX)
     solidTaper: 55,       // % de la tapa del tronco (Solid.TAPER_MIN/MAX)
+    // Dónde cae el vértice de la Pirámide: 'depth' lo manda al fondo (la base
+    // es la cara que arrastras, como el resto de remates) y 'upright' lo deja
+    // en el plano del papel y tumba la base — la pirámide de pie de siempre.
+    solidApex: 'depth',
     // Giro de la sección, en el paso válido de su tipo. Sólo lo guardan las
     // secciones que orientan por ángulo: en el rectángulo, el redondeado y el
     // círculo girar es intercambiar ancho y alto, que ya lo da el arrastre.
@@ -606,6 +610,16 @@
         ...m.gardenMeta,
         p1: { x: m.gardenMeta.p1.x + dx, y: m.gardenMeta.p1.y + dy },
         p2: { x: m.gardenMeta.p2.x + dx, y: m.gardenMeta.p2.y + dy },
+      };
+    }
+    // El gesto de una pirámide de pie, por lo mismo: es de lo único que se
+    // puede regenerar (no tiene cara frontal), así que si se queda quieto,
+    // rellenarla después la devolvería a donde se dibujó.
+    if (m.solidMeta && m.solidMeta.gesture) {
+      const g = m.solidMeta.gesture;
+      m.solidMeta = {
+        ...m.solidMeta,
+        gesture: { x1: g.x1 + dx, y1: g.y1 + dy, x2: g.x2 + dx, y2: g.y2 + dy },
       };
     }
     // El área del aerógrafo viaja con su mancha: es lo que la recorta, y
@@ -1162,6 +1176,7 @@
         solidForeshorten: state.solidForeshorten,
         solidTaper: state.solidTaper,
         solidRotation: state.solidRotation,
+        solidApex: state.solidApex,
         // Ajustes de UI y Emoji (v2.10.0): defaults de creación, como todo.
         emojiSize: state.emojiSize,
         uiLabels: state.uiLabels,
@@ -1335,6 +1350,7 @@
         ['solidRotation', 0, 359]].forEach(([key, lo, hi]) => {
         if (Number.isFinite(prefs[key])) state[key] = Math.min(hi, Math.max(lo, prefs[key]));
       });
+      if (Solid.APEX_MODES.includes(prefs.solidApex)) state.solidApex = prefs.solidApex;
       // El área guardada se valida entera y se recorta al lienzo: un rectángulo
       // manipulado recortaría a un sitio inalcanzable y la herramienta parecería
       // rota sin dejar rastro de por qué.
@@ -1957,6 +1973,13 @@
       m.x = mapX(el.x); m.y = mapY(el.y);
       m.w = el.w * sx; m.h = el.h * sy;
     }
+    if (m.solidMeta && m.solidMeta.gesture) {
+      const g = m.solidMeta.gesture;
+      m.solidMeta = {
+        ...m.solidMeta,
+        gesture: { x1: mapX(g.x1), y1: mapY(g.y1), x2: mapX(g.x2), y2: mapY(g.y2) },
+      };
+    }
     if (m.type === 'airbrush') {
       // La boquilla escala con el dibujo; el escalado del aerógrafo es
       // uniforme por contrato (resizeTo/applyGeometry), así que sx≈sy y la
@@ -2494,6 +2517,7 @@
       solidAngle: state.solidAngle,
       solidForeshorten: state.solidForeshorten,
       solidTaper: state.solidTaper,
+      solidApex: state.solidApex,
       fill: state.fillShapes,
       fillColor: state.fillColor,
       fillTransparent: state.fillTransparent,
@@ -3243,7 +3267,7 @@
           const gid = newId();
           for (const el of created) el.buildingGroupId = gid;
           if (GARDEN_TOOLS.includes(state.tool)) applyGardenMeta(created, state.tool, p1, p2, gid);
-          if (SOLID_TOOLS.includes(state.tool)) applySolidMeta(created, state.tool);
+          if (SOLID_TOOLS.includes(state.tool)) applySolidMeta(created, state.tool, p1, p2);
         }
         for (const el of created) state.elements.push(el);
       }
@@ -4096,8 +4120,14 @@
     // El ángulo de fuga gira con la figura: sin esto, regenerarla después —al
     // rellenarla, por ejemplo— la devolvería a su orientación original.
     if (m.solidMeta) {
+      const g = m.solidMeta.gesture;
       m.solidMeta = {
         ...m.solidMeta,
+        // El gesto de una pirámide de pie gira con ella, como sus piezas.
+        ...(g ? { gesture: (() => {
+          const a = rot({ x: g.x1, y: g.y1 }), b = rot({ x: g.x2, y: g.y2 });
+          return { x1: a.x, y1: a.y, x2: b.x, y2: b.y };
+        })() } : {}),
         angle: ((m.solidMeta.angle - sign * 90) % 360 + 360) % 360,
       };
     }
@@ -4118,17 +4148,33 @@
    * La excepción es el ángulo de fuga, que sí gira con la figura: lo ajusta
    * `rotateAround`.
    */
-  const SOLID_META_VERSION = 1;
+  const SOLID_META_VERSION = 2;
 
-  function applySolidMeta(created, tool) {
+  function applySolidMeta(created, tool, p1, p2) {
     const meta = {
       version: SOLID_META_VERSION, tool,
       depth: state.solidDepth, angle: state.solidAngle,
       foreshorten: state.solidForeshorten, taper: state.solidTaper,
     };
+    // La pirámide de pie no tiene cara frontal —todo son aristas y caras—, así
+    // que el gesto es lo ÚNICO desde lo que se puede reconstruir. Va guardado,
+    // y por eso hay que llevarlo con la figura al moverla, escalarla o girarla,
+    // igual que los puntos de inserción de `gardenMeta`. El resto de remates no
+    // lo guardan: ahí la cara frontal ya lo dice todo y un dato repetido sólo
+    // podría desincronizarse.
+    if (tool === TOOLS.SOLID_PYRAMID && state.solidApex === 'upright') {
+      meta.apex = 'upright';
+      meta.section = state.solidSection;
+      meta.rotation = state.solidRotation;
+      meta.gesture = { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y };
+    }
     // Una copia por pieza: los elementos son planos y compartir la referencia
-    // haría que tocar una tocara todas.
-    for (const el of created) el.solidMeta = { ...meta };
+    // haría que tocar una tocara todas. El gesto se clona aparte, porque el
+    // spread es superficial y moverlo en una pieza lo movería en las demás.
+    for (const el of created) {
+      el.solidMeta = meta.gesture
+        ? { ...meta, gesture: { ...meta.gesture } } : { ...meta };
+    }
   }
 
   /** La selección, si es UNA figura 3D completa. Exige que estén TODAS sus
@@ -4147,7 +4193,13 @@
     if (state.elements.filter(el => el.buildingGroupId === gid).length !== sel.length) return null;
     const front = sel.map(i => state.elements[i]).find(el =>
       el.type !== 'line' && el.type !== 'curveArrow' && el.type !== TOOLS.POLYGON);
-    return front ? { indices: [...sel], meta: first.solidMeta, front, gid } : null;
+    // La pirámide de pie no tiene cara frontal (ver Solid._upright): ahí la
+    // referencia es el gesto guardado, que es justo para lo que se guarda.
+    if (!front) {
+      return first.solidMeta.gesture
+        ? { indices: [...sel], meta: first.solidMeta, front: null, gid } : null;
+    }
+    return { indices: [...sel], meta: first.solidMeta, front, gid };
   }
 
   /**
@@ -4164,29 +4216,54 @@
    * datos guardados, así que la figura conserva dónde está y cuánto mide
    * aunque la hayan movido, escalado o girado.
    */
+  /** El relleno de un sólido, leído de donde de verdad está: la cara frontal
+      si la hay y, si no, cualquier cara lateral (`polygon`). Una arista no
+      guarda relleno, así que preguntárselo a ella diría siempre que no. */
+  function relleroDe(front, info) {
+    const cara = front || info.indices.map(i => state.elements[i])
+      .find(el => el && el.type === TOOLS.POLYGON);
+    if (!cara) return { fill: false };
+    return {
+      fill: cara.fill === true,
+      fillColor: cara.fillColor,
+      fillTransparent: cara.fillTransparent === true,
+      fillOpacity: cara.fillOpacity,
+    };
+  }
+
   function regenerateSolid(cambios) {
     const info = selectedSolid();
     if (!info) return false;
     const { front, meta } = info;
-    const section = front.type;
-    // Los polígonos regulares nacen del CENTRO: hay que reconstruir ese gesto,
-    // no la caja, o saldrían del doble de tamaño.
-    const cx = front.x + front.w / 2, cy = front.y + front.h / 2;
-    const desdeCentro = RegularPolygon.isType(section);
-    const p1 = desdeCentro ? { x: cx, y: cy } : { x: front.x, y: front.y };
-    const p2 = desdeCentro
-      ? { x: cx + front.w / 2, y: cy }
-      : { x: front.x + front.w, y: front.y + front.h };
+    // Sin cara frontal (pirámide de pie) el gesto y la sección salen de `meta`,
+    // y el trazo y el relleno de la primera pieza: todas lo comparten.
+    const muestra = front || state.elements[info.indices[0]];
+    const section = front ? front.type : meta.section;
+    let p1, p2;
+    if (front) {
+      // Los polígonos regulares nacen del CENTRO: hay que reconstruir ese gesto,
+      // no la caja, o saldrían del doble de tamaño.
+      const cx = front.x + front.w / 2, cy = front.y + front.h / 2;
+      const desdeCentro = RegularPolygon.isType(section);
+      p1 = desdeCentro ? { x: cx, y: cy } : { x: front.x, y: front.y };
+      p2 = desdeCentro
+        ? { x: cx + front.w / 2, y: cy }
+        : { x: front.x + front.w, y: front.y + front.h };
+    } else {
+      p1 = { x: meta.gesture.x1, y: meta.gesture.y1 };
+      p2 = { x: meta.gesture.x2, y: meta.gesture.y2 };
+    }
     const o = {
-      color: front.color, lineWidth: front.lineWidth,
+      color: muestra.color, lineWidth: muestra.lineWidth,
       solidSection: section,
-      solidRotation: front.rotation || 0,
+      solidRotation: front ? (front.rotation || 0) : (meta.rotation || 0),
       solidDepth: meta.depth, solidAngle: meta.angle,
       solidForeshorten: meta.foreshorten, solidTaper: meta.taper,
-      fill: front.fill === true,
-      fillColor: front.fillColor,
-      fillTransparent: front.fillTransparent === true,
-      fillOpacity: front.fillOpacity,
+      solidApex: meta.apex || 'depth',
+      // El relleno lo dice una CARA, no una arista: sin cara frontal, las
+      // aristas no llevan ninguno de estos campos y rellenar leería `false`
+      // de una línea y no volvería a crear las caras nunca.
+      ...relleroDe(front, info),
       ...cambios,
     };
     const nuevos = withSeeds(Solid.elements(meta.tool, p1, p2, o));
@@ -4197,9 +4274,20 @@
       depth: o.solidDepth, angle: o.solidAngle,
       foreshorten: o.solidForeshorten, taper: o.solidTaper,
     };
+    // El meta lo decide el modo RESULTANTE, no el de partida: cambiar a «de
+    // pie» estrena gesto (la figura nueva ya no tiene cara frontal de la que
+    // sacarlo) y volver al de siempre lo suelta, o quedaría un dato muerto que
+    // nadie actualiza.
+    if (o.solidApex === 'upright' && meta.tool === TOOLS.SOLID_PYRAMID) {
+      nuevaMeta.apex = 'upright';
+      nuevaMeta.section = section;
+      nuevaMeta.rotation = o.solidRotation;
+      nuevaMeta.gesture = { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y };
+    }
     nuevos.forEach(el => {
       el.buildingGroupId = info.gid;
-      el.solidMeta = { ...nuevaMeta };
+      el.solidMeta = nuevaMeta.gesture
+        ? { ...nuevaMeta, gesture: { ...nuevaMeta.gesture } } : { ...nuevaMeta };
     });
     // Se sustituye EN SU SITIO: el sólido conserva su z-order respecto a lo
     // demás. `orden[0]` es el primer índice seleccionado, así que los elementos
@@ -5999,6 +6087,19 @@
         });
       });
     });
+    // El vértice de la Pirámide: un <select>, así que no cabe en SOLID_FIELDS
+    // (input/change numérico). Regenera en el acto —no hay arrastre que
+    // acumule pasos de deshacer— y guarda.
+    $('pyramid-apex').addEventListener('change', e => {
+      state.solidApex = Solid.APEX_MODES.includes(e.target.value)
+        ? e.target.value : 'depth';
+      // Cambiar de proyección con una figura puesta la vuelve a crear entera:
+      // no es un ajuste de trazo, es otra geometría.
+      regenerateSolid({ solidApex: state.solidApex });
+      syncSolidControls();
+      scheduleOverlay();
+      savePrefs();
+    });
     syncSolidControls();
     // Cancela independiente: todos los modelos comparten el mismo rango de
     // altura y las dos vistas arquitectónicas del catálogo.
@@ -7652,6 +7753,7 @@
       _set(`${p}-opacity`, 'disabled', !transparent);
       _set(`${p}-fill-color`, 'value', fillColor);
       syncSolidRotation(cfg);
+      _set(`${p}-apex`, 'value', state.solidApex);
       renderSolidPreview(cfg);
     });
     // Las paletas del relleno enseñan lo mismo que su selector de al lado, y

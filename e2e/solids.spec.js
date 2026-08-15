@@ -431,3 +431,109 @@ test('rellenar un sólido ya dibujado lo pinta OPACO, y el translúcido se ve m�
   expect(solido, 'el relleno sólido es opaco, no un tinte al 12 %').toBeLessThan(80);
   expect(translucido, 'el translúcido deja ver el papel').toBeGreaterThan(solido + 20);
 });
+
+test('la Pirámide se puede dibujar de pie, y sigue siendo editable después', async ({ page }) => {
+  await openApp(page);
+  await page.locator('.sidebar__tool[data-tool="piramide"]').click();
+  // El mando es sólo de la Pirámide: en los otros tres remates no hay vértice
+  // que mover, y un mando inerte prometería algo que no pasa.
+  await expect(page.locator('#pyramid-apex')).toBeVisible();
+  await page.locator('#pyramid-apex').selectOption('upright');
+  await page.locator('#pyramid-fill').uncheck();
+  await page.locator('[data-pyramid="square"]').click();
+  await settle(page);
+  await drag(page, 300, 300, 420, 420);
+  await settle(page);
+
+  const els = await elements(page);
+  expect(els.length).toBeGreaterThan(3);
+  // La marca del modo: NO hay cara frontal, todo son aristas (y caras si se
+  // rellena). Y la punta queda arriba del todo.
+  expect(els.every(e => ['line', 'curveArrow', 'polygon'].includes(e.type))).toBe(true);
+  expect(els.every(e => e.solidMeta && e.solidMeta.apex === 'upright')).toBe(true);
+  expect(els.some(e => e.dash), 'algo tiene que quedar detrás').toBe(true);
+
+  // Y se sigue pudiendo rellenar después, que es justo lo que sin cara frontal
+  // se habría perdido: el gesto guardado en solidMeta es lo que lo permite.
+  // Se enmarca con «Select»: sus piezas son líneas finas y un clic tiene que
+  // acertarlas; la marquesina coge la figura entera, que es lo que
+  // selectedSolid() exige para regenerar.
+  await selectTool(page, 'pick');
+  await drag(page, 260, 260, 470, 470);
+  await settle(page);
+  await page.locator('.sidebar__tool[data-tool="piramide"]').click();
+  await expect(page.locator('#modal-pyramid')).toBeVisible();
+  await page.locator('#pyramid-fill').check();
+  await expect.poll(async () =>
+    (await elements(page)).filter(e => e.type === 'polygon').length).toBeGreaterThan(0);
+
+  // La figura no se ha mudado al regenerar
+  const caja = e => {
+    const xs = e.flatMap(el => el.points ? el.points.map(p => p.x) : [el.x1, el.x2]);
+    return Math.round(Math.min(...xs.filter(Number.isFinite)));
+  };
+  expect(caja(await elements(page))).toBe(caja(els));
+});
+
+test('volver al vértice de siempre recupera la cara frontal', async ({ page }) => {
+  await openApp(page);
+  await page.locator('.sidebar__tool[data-tool="piramide"]').click();
+  await page.locator('#pyramid-apex').selectOption('upright');
+  await page.locator('[data-pyramid="pentagon"]').click();
+  await settle(page);
+  await drag(page, 300, 300, 380, 380);
+  await settle(page);
+  expect((await elements(page)).some(e => e.type === 'pentagon')).toBe(false);
+
+  await selectTool(page, 'pick');
+  await drag(page, 240, 240, 460, 460);
+  await settle(page);
+  await page.locator('.sidebar__tool[data-tool="piramide"]').click();
+  await page.locator('#pyramid-apex').selectOption('depth');
+  // Vuelve a haber cara frontal, y el meta suelta el gesto que ya no hace falta
+  await expect.poll(async () => {
+    const e = await elements(page);
+    return e.some(el => el.type === 'pentagon') &&
+      e.every(el => !el.solidMeta || el.solidMeta.gesture === undefined);
+  }).toBe(true);
+});
+
+test('la miniatura del modal y la previsualización del arrastre siguen al vértice', async ({ page }) => {
+  await openApp(page);
+  await page.locator('.sidebar__tool[data-tool="piramide"]').click();
+  await page.locator('#pyramid-apex').selectOption('depth');
+  await settle(page);
+  const tinta = () => page.evaluate(() => {
+    const c = document.getElementById('pyramid-preview');
+    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    // Firma tosca pero suficiente: en qué fila está el píxel más alto con tinta
+    for (let y = 0; y < c.height; y++) {
+      for (let x = 0; x < c.width; x++) {
+        const i = (y * c.width + x) * 4;
+        if (d[i] < 90 && d[i + 1] < 90) return y;
+      }
+    }
+    return -1;
+  });
+  const antes = await tinta();
+  await page.locator('#pyramid-apex').selectOption('upright');
+  await settle(page);
+  await settle(page);
+  expect(await tinta(), 'la miniatura tiene que repintarse con la otra proyección')
+    .not.toBe(antes);
+
+  // Y lo que se ve al arrastrar es lo que queda al soltar
+  await page.locator('[data-pyramid="square"]').click();
+  await settle(page);
+  const a = await canvasPoint(page, 300, 300);
+  const b = await canvasPoint(page, 420, 420);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 6 });
+  await settle(page);
+  const preview = await overlayInk(page);
+  await page.mouse.up();
+  await settle(page);
+  const final = await paintedPixels(page);
+  expect(Math.abs(preview - final) / Math.max(preview, final)).toBeLessThan(0.25);
+});

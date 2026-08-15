@@ -4,6 +4,31 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.27.0] — 2026-08-15
+
+### Añadido
+
+- **La Pirámide se puede dibujar de pie**: un mando nuevo, «Vértice», en el
+  bloque «Proyección» de sus ajustes. Con «Al fondo» sigue siendo la de
+  siempre —la base es la cara que arrastras y la punta se aleja—; con «En el
+  plano» la punta se queda en el plano del papel y es la base la que se tumba
+  y fuga, que es la pirámide del dibujo de toda la vida y la única forma de
+  ver a la vez su altura y su planta. Vale para las diez secciones: el cono
+  sale con la base elíptica y sus dos generatrices.
+- La punta se levanta hasta el borde alto del arrastre, así que lo que
+  arrastras es lo que ocupa la figura.
+- Se rellena, se colorea, se gira y se regenera como cualquier otro sólido, y
+  las aristas de detrás siguen saliendo discontinuas.
+
+### Notas
+
+- El modo por defecto no cambia: una pirámide dibujada antes se dibuja
+  exactamente igual, byte a byte, y los otros tres remates no se enteran.
+- Los tres mandos de proyección siguen valiendo. La profundidad mide ahora
+  cuánto se tumba la base, y se mide con la escala del prisma: la de la
+  pirámide la dobla porque en el modo de siempre se la mira por su eje, y aquí
+  habría salido una planta el doble de honda que ancha.
+
 ## [2.26.2] — 2026-08-14
 
 ### Cambiado

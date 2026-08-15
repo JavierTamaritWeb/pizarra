@@ -456,6 +456,165 @@ const Solid = (function () {
     return [...parts, front];
   }
 
+  // ------------------------------------------------- pirámide con el ápice
+  //                                                     en el plano del papel
+
+  /** Modos de ápice de la Pirámide. `depth` es el de siempre —la base es la
+      cara que arrastras y la punta se va al fondo—; `upright` deja la punta
+      en z = 0 y tumba la base, que es como se dibuja una pirámide de pie. */
+  const APEX_MODES = ['depth', 'upright'];
+  /** Muestras de una base redonda tumbada. Con 64 el punto de tangencia que
+      sale del muestreo cae a menos de medio píxel del exacto en las cajas que
+      admite el lienzo, y el contorno se emite igualmente como dos arcos. */
+  const UPRIGHT_ROUND_STEPS = 64;
+  /** Muestras por arco de esquina al tumbar un rectángulo redondeado. */
+  const UPRIGHT_ARC_STEPS = 5;
+
+  /**
+   * Contorno de la sección como polilínea cerrada, con los arcos de esquina
+   * ya muestreados: es lo que permite tumbar cualquier sección —incluidas la
+   * redonda y la redondeada— con una sola máquina.
+   *
+   * `real[i] === true` marca los vértices que son esquina de verdad; de ellos
+   * (y sólo de ellos) nace una arista lateral hacia el ápice. En una base
+   * redonda no hay ninguno y las generatrices salen de la silueta.
+   */
+  function _outline(section, box, rotation) {
+    if (section === TOOLS.CIRCLE) {
+      const c = { x: box.x + box.w / 2, y: box.y + box.h / 2 };
+      const pts = [];
+      for (let i = 0; i < UPRIGHT_ROUND_STEPS; i++) {
+        const t = 2 * Math.PI * i / UPRIGHT_ROUND_STEPS;
+        pts.push({ x: c.x + box.w / 2 * Math.cos(t), y: c.y + box.h / 2 * Math.sin(t) });
+      }
+      return { pts, real: pts.map(() => false) };
+    }
+    const prof = _profile(section, box, rotation);
+    if (!prof || prof.pts.length < 3) return null;
+    const pts = [], real = [];
+    for (let i = 0; i < prof.pts.length; i++) {
+      pts.push(prof.pts[i]); real.push(true);
+      const arc = prof.arcs[i];
+      if (!arc) continue;
+      // Los extremos del arco ya están (o llegarán) como nodos del perfil.
+      const m = _ellipsePts({ x: arc.cx, y: arc.cy }, { x: arc.r, y: 0 }, { x: 0, y: arc.r },
+        arc.t1, arc.t2, UPRIGHT_ARC_STEPS);
+      for (let k = 1; k < m.length - 1; k++) { pts.push(m[k]); real.push(false); }
+    }
+    return { pts, real };
+  }
+
+  /**
+   * Pirámide (o cono) DE PIE: el ápice se queda en el plano del papel, z = 0,
+   * y lo que se fuga es la base.
+   *
+   * En el modo de siempre la base es la cara que arrastras —sin deformar— y la
+   * punta se aleja hacia el fondo, así que la figura se mira por su eje. Aquí
+   * se mira desde fuera: la sección se TUMBA sobre el suelo (su eje vertical
+   * pasa a ser la profundidad) y la punta se levanta sobre el centro. Es la
+   * pirámide del dibujo de toda la vida, y la única forma de ver a la vez la
+   * altura y la planta.
+   *
+   * Consecuencia que hay que aceptar: aquí NO hay cara frontal, así que no se
+   * emite ningún elemento de forma 2D —todo son líneas, arcos y caras
+   * `polygon`—. Por eso el gesto viaja en `solidMeta.gesture` (app.js): sin la
+   * cara frontal de la que reconstruirlo, es lo único que permite regenerar la
+   * figura para rellenarla o recolorearla después.
+   */
+  function _upright(section, box, d, o, rotation) {
+    const out = _outline(section, box, rotation);
+    if (!out) return [];
+    const redonda = section === TOOLS.CIRCLE;
+    // Suelo de fuga, como en _extrude: con el escorzo y la profundidad al
+    // mínimo la base tumbada colapsa en una línea, su área se anula y no
+    // quedaría figura ninguna. Se mide contra el tamaño de la sección para que
+    // valga igual en una pirámide pequeña y en una grande.
+    const minLen = Math.max(8, 0.1 * Math.max(box.w, box.h));
+    if (Math.hypot(d.x, d.y) < minLen) d = _scaleTo(d, minLen);
+    const y0 = box.y + box.h;                       // el borde cercano apoya aquí
+    // La sección se tumba: su Y pasa a ser profundidad. `t` va de 0 en el
+    // borde LEJANO a 1 en el cercano, así que el lejano es el que se desplaza
+    // por el vector de fuga entero.
+    const proj = p => {
+      const t = (p.y - box.y) / box.h;
+      return { x: p.x + (1 - t) * d.x, y: y0 + (1 - t) * d.y };
+    };
+    const P = out.pts.map(proj), n = P.length;
+    const area = _shoelace(P);
+    if (!area) return [];                            // base degenerada
+    const sigma = Math.sign(area), refArea = Math.abs(area);
+    const Cb = proj({ x: box.x + box.w / 2, y: box.y + box.h / 2 });
+    // La punta se levanta sobre el centro de la base hasta el BORDE ALTO del
+    // arrastre, no una altura fija: así lo que arrastras es lo que ocupa la
+    // figura. Con una altura medida desde la base, la fuga se sumaba por
+    // arriba y una pirámide dibujada a media pantalla se salía del lienzo.
+    const A = { x: Cb.x, y: box.y };
+
+    // Una cara lateral es el triángulo (Pᵢ, Pᵢ₊₁, ápice). Es el cuadrilátero
+    // de _faceVisible con los dos últimos vértices colapsados en el ápice, así
+    // que vale el mismo criterio —el signo del área proyectada— sin tocarlo.
+    const vis = [];
+    for (let i = 0; i < n; i++) {
+      vis.push(_faceVisible(P[i], P[(i + 1) % n], A, A, sigma, refArea));
+    }
+
+    const parts = [];
+    // Contorno de la base. En la redonda se emite como DOS arcos —el visto y
+    // el oculto—, no como 64 segmentos: el muestreo sólo sirve para decidir
+    // dónde está la frontera.
+    if (redonda) {
+      const a = { x: box.w / 2, y: 0 };             // diámetros conjugados de
+      const b = { x: d.x / 2, y: d.y / 2 };         // la elipse tumbada
+      const corte = [];
+      for (let i = 0; i < n; i++) if (vis[i] !== vis[(i + 1) % n]) corte.push((i + 1) % n);
+      const ang = i => 2 * Math.PI * i / n;
+      if (corte.length === 2) {
+        const [i0, i1] = corte;
+        const tramo = (ia, ib) => {
+          let t1 = ang(ia), t2 = ang(ib);
+          if (t2 <= t1) t2 += 2 * Math.PI;
+          return _ellipseArc(Cb, a, b, t1, t2, o);
+        };
+        // El tramo que empieza en el primer corte tiene la visibilidad de la
+        // arista que le sigue.
+        parts.push(_dash(tramo(i0, i1), !vis[i0]));
+        parts.push(_dash(tramo(i1, i0), !vis[i1]));
+        // Generatrices: del ápice a los dos puntos de tangencia.
+        parts.push(_line(A, P[i0], o));
+        parts.push(_line(A, P[i1], o));
+      } else {
+        // Sin frontera: la base entera se ve (o no) igual.
+        parts.push(_dash(_ellipseArc(Cb, a, b, 0, 2 * Math.PI, o), !vis[0]));
+      }
+    } else {
+      for (let i = 0; i < n; i++) {
+        parts.push(_dash(_line(P[i], P[(i + 1) % n], o), !vis[i]));
+      }
+      // Aristas laterales: sólo desde las esquinas de verdad, y una se ve si
+      // se ve alguna de sus dos caras.
+      for (let i = 0; i < n; i++) {
+        if (!out.real[i]) continue;
+        const seen = vis[(i - 1 + n) % n] || vis[i];
+        parts.push(_dash(_line(P[i], A, o), !seen));
+      }
+    }
+
+    // Caras vistas, rellenas. La base no se rellena nunca: se mira desde
+    // fuera, así que su cara apunta al suelo y queda tapada por el cuerpo.
+    if (o.fill) {
+      for (let i = 0; i < n; i++) {
+        if (!vis[i]) continue;
+        const cara = _face([P[i], P[(i + 1) % n], A], o);
+        if (cara) parts.push(cara);
+      }
+    }
+
+    const ocultas = parts.filter(el => el.dash);
+    const caras = parts.filter(el => !el.dash && el.type === TOOLS.POLYGON);
+    const vistas = parts.filter(el => !el.dash && el.type !== TOOLS.POLYGON);
+    return [...ocultas, ...caras, ...vistas];
+  }
+
   /** Margen del recorte: una arista que sólo roza el contorno no está oculta.
       Sin él, una arista de silueta exacta —que la regla del empate manda
       dibujar sólida— caería del lado de "dentro" por redondeo. */
@@ -704,6 +863,14 @@ const Solid = (function () {
     const box = _frontBox(tool, section, p1, p2);
     if (!(box.w > 0 && box.h > 0)) return [];
     const rotation = _rotationFor(section, o.solidRotation);
+    // Pirámide de pie: otra proyección entera, sin cara frontal (ver _upright).
+    // La fuga se mide con la escala del prisma y no con la suya: DEPTH_SCALE
+    // dobla la profundidad de la pirámide porque en el modo de siempre se la
+    // mira por su eje y se derrumba sobre la base; aquí la base se ve de lado,
+    // y con esa escala saldría una planta el doble de honda que ancha.
+    if (tool === TOOLS.SOLID_PYRAMID && o.solidApex === 'upright') {
+      return _upright(section, box, _depth(box, o, TOOLS.SOLID_PRISM), o, rotation);
+    }
     const front = _frontEl(section, box, o, rotation);
     const d = _depth(box, o, tool);
     const k = tool === TOOLS.SOLID_PRISM ? 1
@@ -742,7 +909,7 @@ const Solid = (function () {
   }
 
   return {
-    elements, MIN_SPAN, isRotatableSection: _rotatable,
+    elements, MIN_SPAN, isRotatableSection: _rotatable, APEX_MODES,
     DEPTH_MIN, DEPTH_MAX, ANGLE_MIN, ANGLE_MAX,
     FORESHORTEN_MIN, FORESHORTEN_MAX, TAPER_MIN, TAPER_MAX,
   };

@@ -683,11 +683,27 @@ body { font-family: ${FONT_CSS()}; background: #fff; }
     if (el.solidMeta !== undefined) {
       const m = el.solidMeta;
       const allowed = ['version', 'tool', 'depth', 'angle', 'foreshorten', 'taper'];
+      // La pirámide de pie no tiene cara frontal de la que reconstruir el
+      // gesto, así que lo guarda; y con él, la sección y el giro que la cara
+      // habría dicho. Sólo esa combinación: los cuatro campos extra van juntos
+      // o no van, para que no entre un meta a medias que regenere cualquier cosa.
+      const dePie = ['apex', 'section', 'rotation', 'gesture'];
+      const conGesto = dePie.some(k => m && m[k] !== undefined);
       const inRange = (v, lo, hi) => _isNum(v) && v >= lo && v <= hi;
+      if (conGesto) {
+        const g = m.gesture;
+        if (!(m.apex === 'upright' && m.tool === TOOLS.SOLID_PYRAMID &&
+              SOLID_SECTIONS.includes(m.section) &&
+              inRange(m.rotation, 0, 359) &&
+              g && typeof g === 'object' && !Array.isArray(g) &&
+              Object.keys(g).length === 4 &&
+              [g.x1, g.y1, g.x2, g.y2].every(_isNum))) return false;
+        allowed.push(...dePie);
+      }
       if (!(m && typeof m === 'object' && !Array.isArray(m) &&
             Object.keys(m).length === allowed.length &&
             Object.keys(m).every(k => allowed.includes(k)) &&
-            m.version === 1 && SOLID_TOOLS.includes(m.tool) &&
+            (m.version === 1 || m.version === 2) && SOLID_TOOLS.includes(m.tool) &&
             inRange(m.depth, Solid.DEPTH_MIN, Solid.DEPTH_MAX) &&
             inRange(m.angle, Solid.ANGLE_MIN, Solid.ANGLE_MAX) &&
             inRange(m.foreshorten, Solid.FORESHORTEN_MIN, Solid.FORESHORTEN_MAX) &&
