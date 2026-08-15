@@ -33,7 +33,7 @@ $ui: '.topbar', '.sidebar', '.panel', '.modal';
 // componentes UI (panel y modal), el editor flotante del lienzo y cualquier
 // campo de texto o número que se añada después.
 .panel__text,
-.canvas-area__text-editor,
+.canvas-area__text-input,
 input[type="text"],
 input[type="number"],
 textarea {

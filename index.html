@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=2.29.0" />
+  <link rel="stylesheet" href="css/styles.css?v=2.30.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.29.0" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.30.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v2.29.0</span>
+        <span class="topbar__badge">v2.30.0</span>
       </div>
       <nav class="topbar__actions">
         <button class="btn btn--ghost panel-toggle" id="btn-panel-toggle" title="Mostrar/ocultar el panel" aria-label="Mostrar u ocultar el panel de ajustes" aria-expanded="false" aria-controls="side-panel">
@@ -550,6 +550,7 @@
           <li>Lo que arrastras es la <strong>cara frontal</strong>, y sale sin deformar; el volumen se va hacia el fondo en diagonal y las aristas que quedan detrás salen <strong>discontinuas</strong>, como en un croquis técnico</li>
           <li><strong>Ángulo de fuga</strong> (vuelta completa), <strong>escorzo</strong> y <strong>profundidad</strong> se ajustan en el modal, con miniatura en vivo. La profundidad va en <strong>porcentaje de la cara</strong>, así que una figura pequeña y otra grande salen con las mismas proporciones. El <strong>Tronco</strong> añade el tamaño de su tapa</li>
           <li><strong>Giro de la sección</strong>: en los pasos válidos de cada una (36° el pentágono, 30° el hexágono, 90° el trapecio), para que un prisma hexagonal pueda salir de cara plana y no sólo en punta. Con la caja, el redondeado y el círculo no aparece: ahí girar es intercambiar ancho y alto, que ya lo da el arrastre</li>
+          <li><strong>Pirámide</strong> y <strong>Tronco</strong> ofrecen además el modo <strong>«De pie»</strong> (mando <strong>Eje</strong>, en «Proyección»): la sección se tumba sobre el suelo y la figura se levanta sobre el papel — la pirámide del dibujo de toda la vida, con la punta o la tapa arriba y la base fugando hacia el fondo</li>
           <li><strong>Grosor y color de las aristas</strong> en el propio modal, con la paleta entera, sin ir al panel</li>
           <li><strong>Relleno de las caras</strong>, opaco o translúcido, con su color y su opacidad: en opaco la figura se lee maciza y lo de detrás queda tapado; en translúcido se ve a través y las aristas ocultas se siguen leyendo. Sólo se pintan las caras que se ven</li>
           <li>Cada sólido se crea como una <strong>unidad</strong>: se selecciona, mueve, escala y borra entero, y <kbd>Shift</kbd>+<kbd>R</kbd> o <kbd>←</kbd>/<kbd>→</kbd> lo giran un cuarto de vuelta</li>
@@ -1934,21 +1935,21 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=2.29.0"></script>
-  <script src="src/js/sketchy.js?v=2.29.0"></script>
-  <script src="src/js/arc.js?v=2.29.0"></script>
-  <script src="src/js/curve-path.js?v=2.29.0"></script>
-  <script src="src/js/shape-rotation.js?v=2.29.0"></script>
-  <script src="src/js/regular-polygon.js?v=2.29.0"></script>
-  <script src="src/js/trapezoid.js?v=2.29.0"></script>
-  <script src="src/js/airbrush.js?v=2.29.0"></script>
-  <script src="src/js/eraser.js?v=2.29.0"></script>
-  <script src="src/js/building.js?v=2.29.0"></script>
-  <script src="src/js/garden.js?v=2.29.0"></script>
-  <script src="src/js/solid.js?v=2.29.0"></script>
-  <script src="src/js/renderer.js?v=2.29.0"></script>
-  <script src="src/js/exporter.js?v=2.29.0"></script>
-  <script src="src/js/templates.js?v=2.29.0"></script>
-  <script src="src/js/app.js?v=2.29.0"></script>
+  <script src="src/js/config.js?v=2.30.0"></script>
+  <script src="src/js/sketchy.js?v=2.30.0"></script>
+  <script src="src/js/arc.js?v=2.30.0"></script>
+  <script src="src/js/curve-path.js?v=2.30.0"></script>
+  <script src="src/js/shape-rotation.js?v=2.30.0"></script>
+  <script src="src/js/regular-polygon.js?v=2.30.0"></script>
+  <script src="src/js/trapezoid.js?v=2.30.0"></script>
+  <script src="src/js/airbrush.js?v=2.30.0"></script>
+  <script src="src/js/eraser.js?v=2.30.0"></script>
+  <script src="src/js/building.js?v=2.30.0"></script>
+  <script src="src/js/garden.js?v=2.30.0"></script>
+  <script src="src/js/solid.js?v=2.30.0"></script>
+  <script src="src/js/renderer.js?v=2.30.0"></script>
+  <script src="src/js/exporter.js?v=2.30.0"></script>
+  <script src="src/js/templates.js?v=2.30.0"></script>
+  <script src="src/js/app.js?v=2.30.0"></script>
 </body>
 </html>

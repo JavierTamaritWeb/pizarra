@@ -4,6 +4,50 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.30.0] — 2026-08-15
+
+Auditoría severa de errores: cuatro auditores en paralelo por zonas (3D,
+persistencia, HTML/CSS, lienzo), cada hallazgo reproducido antes de arreglarlo
+y con su entrada y guarda en `BUGS.md`. Ocho defectos corregidos.
+
+### Arreglado
+
+- **Escalar una mancha de aerógrafo la volvía inválida y desaparecía al
+  recargar, sin aviso** (severidad alta): la boquilla escalaba sin acotarse al
+  rango que la validación de import exige, y el autosave la filtraba en la
+  siguiente carga. Ahora se acota en el propio escalado.
+- **Con la fuga a 0°, 180° o 360°, el modo «De pie» no dibujaba nada**: la base
+  tumbada colapsaba en una recta y la figura entera se descartaba. La fuga
+  tiene ahora un suelo también para su componente vertical.
+- **Girar una figura «de pie» y regenerarla (rellenarla, recolorearla…) la
+  sustituía por otra figura erguida**: los cuartos de vuelta pendientes se
+  acumulan ahora en el grupo y la regeneración los re-aplica, así que la
+  figura tumbada sigue tumbada y en su sitio.
+- **Un sólido de sección pentagonal (o estrella de 5) girado con `←`/`→`
+  saltaba 18° al regenerarlo**: la regeneración re-cuantizaba un giro legítimo
+  de 90° al paso del pentágono (108°). Ahora conserva el giro exacto.
+- **Un sólido «de pie» vaciado perdía su color de relleno** y al volver a
+  rellenarlo caía al color del trazo: el color viaja ahora con la figura
+  aunque el relleno esté apagado.
+- **La cara rellena de una esquina de la Caja redondeada salía autointersecada
+  (en pajarita)** y en translúcido dejaba una cuña de tono doble que viajaba
+  igual al SVG: la visibilidad se decide ahora por tramos, no por la cuerda
+  del arco.
+- La Ayuda y el README no contaban el modo **«De pie»** de Pirámide y Tronco;
+  ahora sí, y una guarda lo exige mientras exista el mando.
+- `_uppercase.scss` rescataba de las mayúsculas una clase inexistente
+  (`.canvas-area__text-editor`); la real es `.canvas-area__text-input`. Sin
+  efecto visible hoy — latente.
+
+### Notas
+
+- Ocho guardas de regresión nuevas, todas verificadas fallando contra la
+  mutación que revierte su arreglo. La suite queda en 707 tests unitarios +
+  97 e2e.
+- `solidMeta` admite dos campos opcionales, sólo «de pie»: `turns` (giros
+  pendientes) y `fillColor`; su ausencia es el comportamiento de siempre y los
+  proyectos viejos no cambian ni un byte.
+
 ## [2.29.0] — 2026-08-15
 
 ### Cambiado

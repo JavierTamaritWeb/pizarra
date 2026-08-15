@@ -35,6 +35,190 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### v2.30.0 — Escalar una mancha de aerógrafo la volvía inválida: desaparecía al recargar, sin aviso
+
+- **Síntoma:** pintar con el Aerógrafo, agrandar la mancha (tiradores, campo
+  «Ancho», o el resize de grupo) y recargar la página: la mancha había
+  desaparecido del lienzo, sin ningún mensaje. Al reimportar el JSON exportado,
+  lo mismo (ahí al menos con el alert de «elemento inválido»). También al
+  encogerla mucho. Encontrado en la auditoría v2.30.0; severidad ALTA — pérdida
+  silenciosa de trabajo en el flujo más corriente.
+- **Causa:** `scaleElement` escalaba la boquilla (`radius`) **sin acotarla** al
+  rango `[Airbrush.R_MIN, R_MAX]` (4–60) que `isValidElement` exige — y tanto
+  `restoreAutosave` como `importJSON` filtran con esa validación. Con el radio
+  de fábrica (24) bastaba escalar ×2,5. El comentario contiguo explicaba por
+  qué el *grano* no escala («un resize que lo sacara de rango dejaría ese mando
+  mintiendo»)… el mismo razonamiento que no se aplicó al radio.
+- **Arreglo:** clamp en `scaleElement` (app.js), el único camino por el que
+  pasan los tres gestos de resize.
+- **Guardia:** *"escalar un aerógrafo mantiene la boquilla en rango y la mancha
+  sobrevive a la recarga"* en `tests/app-interaction.test.js` — escala a lo
+  grande y a lo chico, valida con `isValidElement` y recarga la app con esas
+  manchas en el autosave. **Verificada fallando sin el clamp.**
+- **Lección:** todo campo que la validación de import acota tiene que estar
+  acotado también en cada operación que lo recalcula — la pareja
+  validación/mutación se rompe por el lado que nadie mira.
+
+
+### v2.30.0 — Con la fuga a 0°, 180° o 360°, el modo «De pie» no dibujaba NADA
+
+- **Síntoma:** con Pirámide o Tronco «de pie» y el «Ángulo de fuga» en 0, 180 o
+  360 —tres posiciones directas del deslizador—, arrastrar sobre el lienzo no
+  producía ni figura ni previsualización ni aviso: la herramienta parecía
+  muerta. 2 780 combinaciones afectadas en la rejilla de la auditoría.
+- **Causa:** `_upright` tumba la sección usando `d.y` como profundidad; con la
+  fuga horizontal (`sin θ = 0`) todos los puntos de la base proyectada caían en
+  la misma Y, `_shoelace` daba 0 y `if (!area) return []` descartaba la figura
+  entera. El suelo de fuga existente (`minLen`) sólo acota la **longitud** de
+  `d`, no su componente vertical, así que no protegía de este caso.
+- **Arreglo:** un segundo suelo en `_upright` para `|d.y|`
+  (`max(6, 0.06·box.h)`); a cero exacto se inclina mirando desde arriba, como
+  la fuga de fábrica.
+- **Guardia:** *"de pie, la fuga horizontal (0°/180°/360°) sigue dibujando la
+  figura"* en `tests/solid.test.js` — las 10 secciones × 2 remates × 3 ángulos,
+  exigiendo figura no vacía y campos finitos. **Verificada fallando sin el
+  suelo vertical.**
+- **Lección:** un clamp que protege una magnitud derivada (la longitud) no
+  protege sus componentes: si una fórmula se anula con una componente concreta,
+  esa componente necesita su propio suelo.
+
+
+### v2.30.0 — Girar una figura «de pie» y regenerarla la sustituía por OTRA figura
+
+- **Síntoma:** dibujar una pirámide de pie, girarla un cuarto de vuelta con
+  `←`/`→` o `Shift+R` (queda tumbada) y tocar cualquier mando que regenere
+  (rellenarla, un deslizador, el color): la figura tumbada desaparecía y en su
+  lugar aparecía una pirámide **erguida**, de otra posición y otro tamaño.
+  Contradecía el contrato documentado («regenerar conserva dónde está y cuánto
+  mide aunque la hayan movido, escalado o girado»). Confirmado por dos
+  auditores independientes.
+- **Causa:** `_upright` sólo sabe construir figuras erguidas (base horizontal,
+  punta vertical). `rotateAround` giraba `solidMeta.gesture` y ajustaba
+  `angle` creyendo que con eso bastaba —es lo que funciona en el modo de
+  siempre—, pero **ningún par (gesto girado, fuga ajustada) representa una
+  figura tumbada**: `regenerateSolid` reconstruía una erguida sobre el gesto
+  girado.
+- **Arreglo:** en modo `upright`, `rotateAround` deja el gesto y la fuga
+  quietos y **acumula los cuartos de vuelta pendientes en `solidMeta.turns`**;
+  `regenerateSolid` reconstruye la figura erguida y le re-aplica esos giros
+  alrededor de su centro (un cuarto de vuelta conserva el centro del bbox), y
+  después la recoloca sobre el centro de la figura en pantalla — lo que absorbe
+  el caso de haber girado junto a otros elementos, donde el pivote no fue el
+  suyo. `isValidElement` acepta el campo opcional (`turns` entero 1–3, sólo con
+  gesto).
+- **Guardia:** *"una pirámide DE PIE girada un cuarto sigue tumbada y en su
+  sitio tras regenerarla"* en `tests/app-interaction.test.js` — gira con `→`,
+  rellena, y compara el bbox de las aristas antes y después a 1e-6.
+  **Verificada fallando sin la re-aplicación de `turns`.**
+- **Lección:** cuando una transformación no es representable en los parámetros
+  de un generador, no se fuerza en ellos: se guarda como transformación
+  pendiente y se re-aplica al resultado.
+
+
+### v2.30.0 — Un sólido de sección pentagonal girado con las flechas saltaba 18° al regenerarlo
+
+- **Síntoma:** prisma pentagonal (o de estrella de 5), girado un cuarto de
+  vuelta con `→`, y luego marcar «Rellenar»: la figura entera saltaba
+  visiblemente de 90° a 108°, como si se recolocara sola. Sólo pentagon y
+  star5 — los dos únicos tipos cuyo paso (36°) no divide a 90; triángulo,
+  cuadrado, hexágono, star6 y trapecio salían exactos.
+- **Causa:** el giro de grupo escribe `rotation: 90` en la cara frontal — una
+  orientación legítima e importable, aunque no sea múltiplo del paso. Pero
+  `regenerateSolid` volvía a pasar ese valor por `_rotationFor`, la
+  cuantización pensada para el MANDO del modal, que lo redondeaba al paso:
+  `round(90/36)·36 = 108`.
+- **Arreglo:** `Solid.elements` acepta `solidRotationExact` (sin cuantizar,
+  sólo normalizado a [0,360)) y `regenerateSolid` lo usa siempre que el cambio
+  pedido no sea precisamente la rotación del mando.
+- **Guardia:** *"girar un prisma pentagonal con «→» y rellenarlo conserva el
+  giro exacto"* en `tests/app-interaction.test.js`. **Verificada fallando sin
+  la rotación exacta.**
+- **Lección:** la cuantización pertenece al mando que la necesita, no a la
+  función de geometría: aplicada en el sitio común, castiga a todos los caminos
+  que ya llevaban un valor exacto.
+
+
+### v2.30.0 — Un sólido «de pie» vaciado perdía su color de relleno
+
+- **Síntoma:** pirámide de pie creada con relleno verde → desmarcar
+  «Rellenar» → volver a marcarlo: reaparecía rellena con el color del
+  **trazo**, no con el verde. En el modo de siempre funcionaba (documentado:
+  «vaciar y volver a rellenar recupera el mismo»).
+- **Causa:** en modo `depth` la cara frontal conserva `fillColor` incluso sin
+  relleno, pero de pie **no hay cara frontal** y las laterales sólo se emiten
+  rellenas: al vaciar, ninguna pieza guardaba ya el color, y el siguiente
+  rellenado caía en `fillColor || color`.
+- **Arreglo:** el color viaja como campo opcional de `solidMeta`
+  (`fillColor`, hex validado), estampado al crear y al regenerar; el fallback
+  de `relleroDe` lo lee cuando no queda ninguna cara.
+- **Guardia:** *"un sólido de pie vaciado recupera SU color de relleno al
+  rellenarlo otra vez"* en `tests/app-interaction.test.js`. **Verificada
+  fallando sin el fallback del meta.**
+- **Lección:** «la ausencia del campo es el default» exige saber dónde vive el
+  campo: si el portador natural (la cara) es opcional, el dato necesita un
+  portador que siempre exista.
+
+
+### v2.30.0 — La cara rellena de una esquina redondeada salía en pajarita
+
+- **Síntoma:** en un prisma/pirámide/tronco de sección «Caja redondeada» con
+  relleno, la cara emitida para la esquina donde la silueta hace tangencia era
+  un polígono autointersecado. En opaco lo tapaba la cara frontal; en
+  translúcido dejaba una cuña de tono doble junto a esa esquina — y viajaba
+  igual al SVG. 2 100 combinaciones en la rejilla, incluida la configuración
+  de fábrica.
+- **Causa:** la cara de un arco de esquina se emitía entera con la visibilidad
+  de su **cuerda** (`vis[i]`), pero en la esquina que contiene el punto de
+  tangencia parte del cuarto de cilindro se ve y parte no: la arista de cierre
+  cruzaba el arco frontal.
+- **Arreglo:** en `_extrude`, la visibilidad de una cara de arco se decide por
+  **sub-tramo muestreado** y se emite una cara por cada tramo visible seguido.
+- **Guardia:** *"las caras de la caja redondeada rellena son polígonos simples,
+  sin pajaritas"* en `tests/solid.test.js` — test de cruce transversal entre
+  todas las parejas de lados no adyacentes, en los 3 remates × 4 ángulos.
+  **Verificada fallando contra la emisión por cuerda.**
+- **Lección:** una propiedad decidida sobre un agregado (la cuerda) no vale
+  para sus partes cuando la frontera puede caer dentro: se decide a la
+  resolución a la que se dibuja.
+
+
+### v2.30.0 — La Ayuda y el README estrenaron el modo «De pie» sin contarlo
+
+- **Síntoma:** el mando «Eje» de Pirámide y Tronco (v2.27.0–2.28.0) no
+  aparecía ni en la sección «Figuras 3D» de la Ayuda ni en el README: la misma
+  clase de olvido que la v2.25.1 corrigió tres veces.
+- **Causa:** la funcionalidad se documentó en CLAUDE.md y BUGS.md (para quien
+  desarrolla) pero no donde lee el usuario, y ninguna guarda lo exigía.
+- **Arreglo:** un punto nuevo en la lista de la Ayuda y una frase en la fila
+  «Volumen a tu gusto» del README.
+- **Guardia:** *"la Ayuda y el README cuentan el modo «De pie» mientras exista
+  su mando"* en `tests/smoke.test.js` — si `#pyramid-apex` existe en el HTML,
+  ambos documentos deben mencionarlo. **Verificada fallando al quitar el punto
+  de la Ayuda.**
+- **Lección:** ya existía para los recuentos y para los mandos retirados; la
+  regla general es que un mando nuevo se ata a su documentación igual que un
+  número: con una guarda que muera con él.
+
+
+### v2.30.0 — `_uppercase.scss` rescataba una clase que no existe
+
+- **Síntoma:** ninguno visible — latente. El partial rescataba de las
+  mayúsculas `.canvas-area__text-editor`, pero la clase real del editor
+  flotante es `.canvas-area__text-input`: el selector no casaba con nada y el
+  editor sólo quedaba protegido de rebote por la regla genérica `textarea`. Si
+  el editor dejara de ser un `<textarea>`, se escribiría viendo mayúsculas
+  mientras el elemento guarda otra cosa — el mando que miente contra el que el
+  propio partial se escribió.
+- **Causa:** un selector de clase que no casa no falla en ningún sitio: ni
+  Sass, ni stylelint, ni el navegador.
+- **Arreglo:** una palabra en `src/scss/base/_uppercase.scss`.
+- **Guardia:** *"los selectores de rescate de _uppercase.scss casan con clases
+  reales"* en `tests/smoke.test.js` — cada clase que el partial nombra debe
+  existir en `index.html`. **Verificada fallando con el selector viejo.**
+- **Lección:** la misma que la de los `var()` sin definir de la v2.0.0: lo que
+  el CSS referencia por nombre y nadie valida, se ata con una guarda textual.
+
+
 ### v2.27.1 — La pirámide de pie salía con las aristas de detrás sólidas y las de delante a trazos
 
 - **Síntoma:** en la Pirámide con el vértice «en el plano», las líneas

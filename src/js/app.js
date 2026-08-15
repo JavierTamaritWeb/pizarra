@@ -1986,7 +1986,12 @@
       // media es el factor. El GRANO (lineWidth) no escala, igual que en el
       // lápiz: lo gobierna un deslizador de rango fijo 1–8 y un resize que lo
       // sacara de rango dejaría ese mando mintiendo sobre lo que hay.
-      m.radius = el.radius * (Math.abs(sx) + Math.abs(sy)) / 2;
+      // Y acotada a su rango: isValidElement exige radius en [R_MIN, R_MAX],
+      // y restoreAutosave/importJSON filtran con él — sin el clamp, agrandar
+      // la mancha ×2,5 la volvía inválida y DESAPARECÍA en la siguiente
+      // recarga, sin aviso (auditoría v2.30.0).
+      m.radius = Math.min(Airbrush.R_MAX, Math.max(Airbrush.R_MIN,
+        el.radius * (Math.abs(sx) + Math.abs(sy)) / 2));
       if (m.clip) {
         m.clip = { x: mapX(m.clip.x), y: mapY(m.clip.y), w: m.clip.w * sx, h: m.clip.h * sy };
       }
@@ -4120,16 +4125,24 @@
     // El ángulo de fuga gira con la figura: sin esto, regenerarla después —al
     // rellenarla, por ejemplo— la devolvería a su orientación original.
     if (m.solidMeta) {
-      const g = m.solidMeta.gesture;
-      m.solidMeta = {
-        ...m.solidMeta,
-        // El gesto de una pirámide de pie gira con ella, como sus piezas.
-        ...(g ? { gesture: (() => {
-          const a = rot({ x: g.x1, y: g.y1 }), b = rot({ x: g.x2, y: g.y2 });
-          return { x1: a.x, y1: a.y, x2: b.x, y2: b.y };
-        })() } : {}),
-        angle: ((m.solidMeta.angle - sign * 90) % 360 + 360) % 360,
-      };
+      if (m.solidMeta.apex === 'upright') {
+        // Una figura DE PIE girada un cuarto de vuelta queda tumbada, y
+        // `_upright` sólo sabe construir figuras erguidas: no existe ningún par
+        // (gesto girado, fuga ajustada) que la reproduzca. Girar el gesto aquí
+        // —el intento original— hacía que regenerarla la sustituyera por OTRA
+        // figura, erguida y de otro tamaño (auditoría v2.30.0). El gesto y la
+        // fuga se dejan quietos y se ACUMULA el giro pendiente en `turns`:
+        // `regenerateSolid` reconstruye la figura erguida y le aplica esos
+        // cuartos de vuelta alrededor de su centro, que un giro de 90° conserva.
+        const t = ((m.solidMeta.turns || 0) + (sign > 0 ? 1 : 3)) % 4;
+        m.solidMeta = { ...m.solidMeta, gesture: { ...m.solidMeta.gesture } };
+        if (t) m.solidMeta.turns = t; else delete m.solidMeta.turns;
+      } else {
+        m.solidMeta = {
+          ...m.solidMeta,
+          angle: ((m.solidMeta.angle - sign * 90) % 360 + 360) % 360,
+        };
+      }
     }
     if (m.clip) {
       const mid = rot({ x: m.clip.x + m.clip.w / 2, y: m.clip.y + m.clip.h / 2 });
@@ -4167,6 +4180,10 @@
       meta.section = state.solidSection;
       meta.rotation = state.solidRotation;
       meta.gesture = { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y };
+      // El color de relleno también viaja aquí: de pie no hay cara frontal que
+      // lo conserve cuando el relleno está apagado (ver relleroDe), así que sin
+      // este campo, vaciar y volver a rellenar caía al color del trazo.
+      if (state.fillColor) meta.fillColor = state.fillColor;
     }
     // Una copia por pieza: los elementos son planos y compartir la referencia
     // haría que tocar una tocara todas. El gesto se clona aparte, porque el
@@ -4222,7 +4239,14 @@
   function relleroDe(front, info) {
     const cara = front || info.indices.map(i => state.elements[i])
       .find(el => el && el.type === TOOLS.POLYGON);
-    if (!cara) return { fill: false };
+    // De pie y en hueco no queda NINGUNA pieza que guarde el color de relleno
+    // (no hay cara frontal, y las laterales sólo se emiten rellenas): el color
+    // elegido viaja entonces en el meta, o vaciar y volver a rellenar lo
+    // perdía y caía al color del trazo (auditoría v2.30.0).
+    if (!cara) {
+      return info.meta.fillColor
+        ? { fill: false, fillColor: info.meta.fillColor } : { fill: false };
+    }
     return {
       fill: cara.fill === true,
       fillColor: cara.fillColor,
@@ -4266,8 +4290,33 @@
       ...relleroDe(front, info),
       ...cambios,
     };
-    const nuevos = withSeeds(Solid.elements(meta.tool, p1, p2, o));
+    // Regenerar conserva el giro EXACTO de la figura, sin re-cuantizar: tras un
+    // cuarto de vuelta del conjunto, un pentágono está legítimamente a 90°, que
+    // no es múltiplo de su paso de 36° — re-pasarlo por _rotationFor lo saltaba
+    // a 108° y la figura entera se recolocaba sola (auditoría v2.30.0). Sólo si
+    // el cambio pedido ES la rotación (el mando del modal) se re-cuantiza.
+    if (!('solidRotation' in cambios)) o.solidRotationExact = o.solidRotation;
+    let nuevos = withSeeds(Solid.elements(meta.tool, p1, p2, o));
     if (!nuevos.length) return false;
+    // Los cuartos de vuelta acumulados de una figura DE PIE (ver rotateAround):
+    // se reconstruye erguida desde el gesto y se le aplican aquí, alrededor de
+    // su centro; después se recoloca sobre el centro de la figura en pantalla,
+    // que absorbe el caso de haber girado junto a otros elementos (ahí el pivote
+    // no fue el suyo).
+    if (meta.turns) {
+      const centroDe = els => {
+        const bs = els.map(getElementBounds);
+        const x1 = Math.min(...bs.map(b => b.x)), y1 = Math.min(...bs.map(b => b.y));
+        const x2 = Math.max(...bs.map(b => b.x + b.w)), y2 = Math.max(...bs.map(b => b.y + b.h));
+        return { x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
+      };
+      const actual = centroDe(info.indices.map(i => state.elements[i]));
+      const c = centroDe(nuevos);
+      for (let t = 0; t < meta.turns; t++) nuevos = nuevos.map(el => rotateAround(el, c, 1));
+      const ahora = centroDe(nuevos);
+      const dx = actual.x - ahora.x, dy = actual.y - ahora.y;
+      if (dx || dy) nuevos = nuevos.map(el => moveElement(el, dx, dy));
+    }
     saveUndo();
     const nuevaMeta = {
       version: SOLID_META_VERSION, tool: meta.tool,
@@ -4283,6 +4332,12 @@
       nuevaMeta.section = section;
       nuevaMeta.rotation = o.solidRotation;
       nuevaMeta.gesture = { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y };
+      // Los cuartos de vuelta pendientes siguen pendientes: la figura recién
+      // girada aquí tendrá que volver a girarse en la próxima regeneración.
+      if (meta.turns) nuevaMeta.turns = meta.turns;
+      // Y el color de relleno viaja en el meta aunque el relleno esté apagado:
+      // de pie no queda ninguna cara que lo guarde (ver relleroDe).
+      if (o.fillColor) nuevaMeta.fillColor = o.fillColor;
     }
     nuevos.forEach(el => {
       el.buildingGroupId = info.gid;

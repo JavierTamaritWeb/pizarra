@@ -447,9 +447,33 @@ const Solid = (function () {
         return _ellipsePts(c, { x: r, y: 0 }, { x: 0, y: r }, arc.t1, arc.t2, FACE_ARC_STEPS);
       };
       for (let i = 0; i < n; i++) {
-        if (!vis[i]) continue;
-        const cara = _face([...borde(V, i, null), ...borde(W, i, map).reverse()], o);
-        if (cara) parts.push(cara);
+        const arc = prof.arcs[i];
+        if (!arc) {
+          if (!vis[i]) continue;
+          const cara = _face([...borde(V, i, null), ...borde(W, i, map).reverse()], o);
+          if (cara) parts.push(cara);
+          continue;
+        }
+        // En la esquina redondeada la visibilidad puede cambiar DENTRO del
+        // arco: en la que contiene el punto de tangencia de la silueta, parte
+        // del cuarto de cilindro se ve y parte no. Emitida entera con la
+        // visibilidad de su CUERDA, la banda se autocortaba en pajarita —la
+        // arista de cierre cruzaba el arco frontal— y en translúcido dejaba
+        // una cuña de tono doble junto a esa esquina, que viajaba igual al SVG
+        // (auditoría v2.30.0). Se decide por sub-tramo muestreado y se emite
+        // una cara por cada tramo visible seguido.
+        const fr = borde(V, i, null);
+        const bk = borde(W, i, map);
+        let s = 0;
+        while (s < fr.length - 1) {
+          if (!_faceVisible(fr[s], fr[s + 1], bk[s + 1], bk[s], sigma, refArea)) { s++; continue; }
+          let e = s + 1;
+          while (e < fr.length - 1 &&
+                 _faceVisible(fr[e], fr[e + 1], bk[e + 1], bk[e], sigma, refArea)) e++;
+          const cara = _face([...fr.slice(s, e + 1), ...bk.slice(s, e + 1).reverse()], o);
+          if (cara) parts.push(cara);
+          s = e;
+        }
       }
     }
 
@@ -536,6 +560,15 @@ const Solid = (function () {
     // valga igual en una figura pequeña y en una grande.
     const minLen = Math.max(8, 0.1 * Math.max(box.w, box.h));
     if (Math.hypot(d.x, d.y) < minLen) d = _scaleTo(d, minLen);
+    // Y un suelo para su componente VERTICAL, que el de longitud no cubre: la
+    // base se tumba usando d.y como profundidad, así que con la fuga
+    // horizontal (0°, 180° o 360°, tres posiciones directas del deslizador)
+    // todos sus puntos caían en la misma Y, el área se anulaba y la
+    // herramienta no dibujaba NADA, sin aviso (auditoría v2.30.0). Se inclina
+    // lo justo para que la base exista; a cero exacto se mira desde arriba,
+    // como con la fuga de fábrica.
+    const minVert = Math.max(6, 0.06 * box.h);
+    if (Math.abs(d.y) < minVert) d = { x: d.x, y: (d.y > 0 ? 1 : -1) * minVert };
     const y0 = box.y + box.h;                       // el borde cercano apoya aquí
     // La sección se tumba: su Y pasa a ser profundidad. `t` va de 0 en el
     // borde LEJANO a 1 en el cercano, así que el lejano es el que se desplaza
@@ -944,7 +977,15 @@ const Solid = (function () {
       : (SOLID_SECTIONS.includes(o.solidSection) ? o.solidSection : TOOLS.RECT);
     const box = _frontBox(tool, section, p1, p2);
     if (!(box.w > 0 && box.h > 0)) return [];
-    const rotation = _rotationFor(section, o.solidRotation);
+    // La cuantización de _rotationFor es para el MANDO, que va en los pasos del
+    // tipo. Regenerar una figura ya dibujada tiene que conservar su giro
+    // EXACTO: tras un cuarto de vuelta del conjunto (`←`/`→`), un pentágono
+    // queda legítimamente a 90° —que no es múltiplo de su paso de 36°—, y
+    // re-cuantizarlo lo saltaba a 108°: la figura entera se recolocaba sola al
+    // rellenarla (auditoría v2.30.0).
+    const rotation = Number.isFinite(o.solidRotationExact)
+      ? ((o.solidRotationExact % 360) + 360) % 360
+      : _rotationFor(section, o.solidRotation);
     const k = tool === TOOLS.SOLID_PRISM ? 1
       : tool === TOOLS.SOLID_PYRAMID ? 0
         : _clamp(o.solidTaper, TAPER_MIN, TAPER_MAX) / 100;

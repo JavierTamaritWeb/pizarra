@@ -1402,7 +1402,7 @@ kbd {
 }
 
 .panel__text,
-.canvas-area__text-editor,
+.canvas-area__text-input,
 input[type=text],
 input[type=number],
 textarea {

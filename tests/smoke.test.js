@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.29.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.30.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.29\.0</);
-  assert.match(html, /css\/styles\.css\?v=2\.29\.0/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.29\.0/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.29\.0/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.29\.0/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.29\.0/);
+  assert.match(html, /class="topbar__badge">v2\.30\.0</);
+  assert.match(html, /css\/styles\.css\?v=2\.30\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.30\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.30\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.30\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.30\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -64,8 +64,8 @@ test('index publica v2.29.0 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="modal-pyramid"/);
   assert.match(html, /id="modal-frustum"/);
   assert.match(html, /id="modal-sphere"/);
-  assert.match(html, /src\/js\/solid\.js\?v=2\.29\.0/);
-  assert.match(html, /src\/js\/airbrush\.js\?v=2\.29\.0/);
+  assert.match(html, /src\/js\/solid\.js\?v=2\.30\.0/);
+  assert.match(html, /src\/js\/airbrush\.js\?v=2\.30\.0/);
   // «Los clics acumulan selección» dejó el panel en la v2.17.0 y es el ajuste
   // de «Select». Si volviera a existir la casilla vieja habría dos controles
   // para un mismo estado, y solo uno cableado: el arnés `node:vm` fabrica un
@@ -571,6 +571,46 @@ test('la Ayuda no describe mandos que ya no existen', () => {
   assert.ok(html.includes('id="emoji-modal-size"'), 'el emoji tiene su propio deslizador');
   assert.ok(!/tamaño lo fija el slider Texto/.test(texto),
     'la Ayuda no puede atar el tamaño del emoji al deslizador de Texto');
+});
+
+/*
+ * El modo «De pie» (el mando «Eje» de Pirámide y Tronco, v2.27.0–2.28.0) se
+ * estrenó sin una línea en la Ayuda ni en el README: la misma clase de olvido
+ * que la v2.25.1 ya corrigió tres veces. Un mando que existe en el HTML tiene
+ * que estar contado donde el usuario lee qué hace la app (auditoría v2.30.0).
+ */
+test('la Ayuda y el README cuentan el modo «De pie» mientras exista su mando', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const readme = fs.readFileSync(path.resolve(__dirname, '..', 'README.md'), 'utf8');
+  if (!html.includes('id="pyramid-apex"')) return; // el mando se retiró: nada que contar
+  const ayuda = html.slice(html.indexOf('id="modal-help"'));
+  const texto = ayuda.slice(0, ayuda.indexOf('</dialog>'))
+    .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  assert.ok(/[Dd]e pie/.test(texto),
+    'existe #pyramid-apex pero la Ayuda no menciona el modo «De pie»');
+  assert.ok(/[Dd]e pie/.test(readme),
+    'existe #pyramid-apex pero el README no menciona el modo «De pie»');
+});
+
+/*
+ * _uppercase.scss rescata de las mayúsculas «lo que escribe el usuario» por
+ * clase, y un selector de clase que no casa con nada no falla en ningún sitio:
+ * ni Sass, ni stylelint, ni el navegador. Así nació apuntando a
+ * `.canvas-area__text-editor` cuando la clase real es `.canvas-area__text-input`
+ * — el editor solo quedaba protegido de rebote por la regla genérica `textarea`
+ * (auditoría v2.30.0). Cada clase que el partial nombra debe existir en el HTML.
+ */
+test('los selectores de rescate de _uppercase.scss casan con clases reales', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const scss = fs.readFileSync(
+    path.resolve(__dirname, '..', 'src', 'scss', 'base', '_uppercase.scss'), 'utf8');
+  const clases = [...scss.matchAll(/^\.([a-z0-9_-]+)/gim)].map(m => m[1]);
+  assert.ok(clases.length >= 2, 'el partial ya no rescata por clase: revisa la guarda');
+  for (const c of clases) {
+    assert.ok(html.includes(`class="${c}`) || html.includes(` ${c}`) ||
+      new RegExp(`class="[^"]*\\b${c}\\b`).test(html),
+      `_uppercase.scss nombra .${c} y esa clase no existe en index.html`);
+  }
 });
 
 // Los cuatro deslizadores de 3D existen repetidos en cuatro modales contra un

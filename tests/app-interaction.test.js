@@ -16,7 +16,7 @@ const { loadAll } = require('./helpers/load.js');
 
 // isValidElement es pura: se toma del cargador normal en vez de hurgar en el
 // contexto vm de la app (sus `const` top-level no cuelgan de globalThis).
-const { Exporter, TOOLS } = loadAll();
+const { Exporter, TOOLS, Airbrush } = loadAll();
 
 /** Desplazamiento en x de un elemento entre dos escenas (rect/line). */
 const dx = (before, after) =>
@@ -882,6 +882,41 @@ test('la caja escrita respeta las invariantes: polígono cuadrado y grupo propor
     'el grupo conserva la proporción al escribir un ancho');
   app2.elements().forEach(el => assert.ok(Exporter.isValidElement({ ...el, seed: 1 }),
     'ninguna pieza del grupo queda inválida'));
+});
+
+// Escalar una mancha de aerógrafo escalaba también su boquilla SIN acotarla al
+// rango [R_MIN, R_MAX] que isValidElement exige — y como restoreAutosave e
+// importJSON filtran con esa misma validación, agrandarla ×2,5 la volvía
+// inválida y la mancha DESAPARECÍA en la siguiente recarga, sin ningún aviso
+// (auditoría v2.30.0). El clamp vive en scaleElement, el único camino por el
+// que pasan los tiradores, el campo «Ancho» y el resize de grupo.
+test('escalar un aerógrafo mantiene la boquilla en rango y la mancha sobrevive a la recarga', () => {
+  const app = loadApp();
+  app.selectTool('airbrush');
+  app.$('modal-airbrush').close();
+  app.drag(100, 100, 300, 150);
+  app.selectTool('select');
+  app.click(200, 125);
+  const set = (id, v) => { app.$(id).value = String(v); app.$(id).__fire('change', { target: app.$(id) }); };
+
+  set('el-w', 900);                        // ×~3,7: sin clamp, radius 24 → ~87
+  app.flush();
+  const grande = app.elements()[0];
+  assert.ok(grande.radius <= Airbrush.R_MAX,
+    `agrandar acota la boquilla a R_MAX (salió ${grande.radius})`);
+  assert.ok(Exporter.isValidElement(grande), 'la mancha agrandada sigue siendo válida');
+
+  set('el-w', 30);                         // y a la baja: sin clamp, radius < 4
+  app.flush();
+  const chica = app.elements()[0];
+  assert.ok(chica.radius >= Airbrush.R_MIN,
+    `encoger acota la boquilla a R_MIN (salió ${chica.radius})`);
+  assert.ok(Exporter.isValidElement(chica), 'la mancha encogida sigue siendo válida');
+
+  // La prueba de fuego es la recarga: el autosave se filtra con isValidElement.
+  const app2 = loadApp({ autosave: [grande, chica].map(el => ({ ...el })) });
+  assert.equal(app2.elements().length, 2,
+    'las manchas escaladas sobreviven a recargar la página');
 });
 
 test('el texto de un componente y de un texto se edita desde el panel', () => {
@@ -4028,4 +4063,131 @@ test('regenerar un sólido es UN paso de deshacer y no toca a los demás element
   const tras = app.elements();
   assert.equal(tras.length, antes.length, 'un solo paso deshace toda la regeneración');
   assert.equal(tras.filter(e => e.type === 'polygon').length, 0);
+});
+
+/* ── Girar un sólido y regenerarlo (auditoría v2.30.0) ── */
+
+// Un cuarto de vuelta del conjunto deja al pentágono a rotation: 90, que no es
+// múltiplo de su paso (36°) aunque sí una orientación legítima e importable.
+// regenerateSolid re-pasaba ese giro por la cuantización del mando y lo saltaba
+// a 108°: marcar «Rellenar» recolocaba la figura entera sin que nadie lo
+// pidiera. Sólo pentagon y star5 lo sufren (su paso es el único que no divide
+// a 90), por eso la guarda usa esa sección.
+test('girar un prisma pentagonal con «→» y rellenarlo conserva el giro exacto', () => {
+  const app = loadApp();
+  app.selectTool('prisma');
+  app.pickVariant('prism-catalog', 'modal__prism', 'pentagon', 'prism');
+  app.drag(300, 300, 380, 300);
+  app.flush();
+  app.selectTool('select');
+  app.click(300, 300);
+  app.flush();
+  app.key('ArrowRight');                    // cuarto de vuelta del conjunto
+  app.flush();
+  const esFrente = e => !['line', 'curveArrow', 'polygon'].includes(e.type);
+  const frente = app.elements().find(esFrente);
+  assert.equal(frente.rotation, 90, 'el conjunto queda a 90°');
+
+  app.selectTool('prisma');                 // editar el sólido seleccionado
+  app.flush();
+  const casilla = app.$('prism-fill');
+  casilla.checked = true;
+  casilla.__fire('change', { target: casilla });
+  app.flush();
+  const tras = app.elements().find(esFrente);
+  assert.equal(tras.rotation, 90, 'regenerar no re-cuantiza el giro (saltaba a 108°)');
+  assert.ok(Math.abs(tras.x - frente.x) < 1e-6 && Math.abs(tras.y - frente.y) < 1e-6,
+    'y la figura no se recoloca');
+});
+
+// De pie no hay cara frontal, y _upright sólo sabe construir figuras erguidas:
+// girar el gesto (el intento original) hacía que regenerar una figura girada la
+// sustituyera por OTRA, erguida y de otro tamaño. Ahora el giro pendiente se
+// acumula en solidMeta.turns y la regeneración lo re-aplica alrededor del
+// centro, así que la figura tumbada sigue tumbada, en su sitio.
+test('una pirámide DE PIE girada un cuarto sigue tumbada y en su sitio tras regenerarla', () => {
+  const app = loadApp();
+  app.selectTool('piramide');
+  const eje = app.$('pyramid-apex');
+  eje.value = 'upright';
+  eje.__fire('change', { target: eje });
+  app.pickVariant('pyramid-catalog', 'modal__pyramid', 'rect', 'pyramid');
+  app.drag(260, 200, 400, 330);
+  app.flush();
+  assert.ok(app.elements().every(e => e.solidMeta && e.solidMeta.apex === 'upright'),
+    'la figura nació de pie');
+
+  const bbox = els => {
+    let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+    for (const e of els) {
+      const pts = e.points ? e.points
+        : e.x1 !== undefined ? [{ x: e.x1, y: e.y1 }, { x: e.x2, y: e.y2 }]
+          : [{ x: e.x, y: e.y }, { x: e.x + (e.w || 0), y: e.y + (e.h || 0) }];
+      for (const p of pts) {
+        x1 = Math.min(x1, p.x); y1 = Math.min(y1, p.y);
+        x2 = Math.max(x2, p.x); y2 = Math.max(y2, p.y);
+      }
+    }
+    return [x1, y1, x2, y2];
+  };
+
+  app.key('a', { ctrlKey: true });
+  app.key('ArrowRight');                    // la figura queda TUMBADA
+  app.flush();
+  const girada = app.elements();
+  const cajaGirada = bbox(girada);
+  assert.ok(girada.every(e => e.solidMeta.turns === 1), 'el giro pendiente se acumula');
+
+  app.selectTool('piramide');               // editar → regenerar rellenando
+  app.flush();
+  const casilla = app.$('pyramid-fill');
+  casilla.checked = true;
+  casilla.__fire('change', { target: casilla });
+  app.flush();
+  const tras = app.elements();
+  assert.ok(tras.some(e => e.type === 'polygon'), 'la regeneración creó las caras');
+  const cajaTras = bbox(tras.filter(e => e.type !== 'polygon'));
+  for (let i = 0; i < 4; i++) {
+    assert.ok(Math.abs(cajaTras[i] - cajaGirada[i]) < 1e-6,
+      `la figura sigue tumbada y en su sitio (lado ${i}: ${cajaGirada[i]} → ${cajaTras[i]})`);
+  }
+});
+
+// De pie y en hueco, ninguna pieza guarda el color de relleno (no hay cara
+// frontal y las laterales sólo se emiten rellenas): vaciar y volver a rellenar
+// caía al color del trazo. El color viaja ahora en solidMeta.fillColor.
+test('un sólido de pie vaciado recupera SU color de relleno al rellenarlo otra vez', () => {
+  const app = loadApp();
+  const picker = app.$('fill-color-picker');
+  picker.value = '#00aa00';
+  picker.__fire('input', { target: picker });
+  picker.__fire('change', { target: picker });
+  app.selectTool('piramide');
+  const eje = app.$('pyramid-apex');
+  eje.value = 'upright';
+  eje.__fire('change', { target: eje });
+  app.pickVariant('pyramid-catalog', 'modal__pyramid', 'rect', 'pyramid');
+  const casilla = app.$('pyramid-fill');
+  casilla.checked = true;
+  casilla.__fire('change', { target: casilla });
+  app.drag(260, 200, 400, 330);
+  app.flush();
+  const caraInicial = app.elements().find(e => e.type === 'polygon');
+  assert.ok(caraInicial, 'nace rellena');
+  assert.equal(caraInicial.fillColor, '#00aa00');
+
+  app.key('a', { ctrlKey: true });
+  app.selectTool('piramide');
+  app.flush();
+  casilla.checked = false;                  // vaciar…
+  casilla.__fire('change', { target: casilla });
+  app.flush();
+  assert.equal(app.elements().filter(e => e.type === 'polygon').length, 0);
+  casilla.checked = true;                   // …y volver a rellenar
+  casilla.__fire('change', { target: casilla });
+  app.flush();
+  const cara = app.elements().find(e => e.type === 'polygon');
+  assert.ok(cara, 'vuelve a tener caras');
+  assert.equal(cara.fillColor, '#00aa00',
+    'recupera SU color, no el del trazo (documentado: vaciar no pierde el color)');
 });

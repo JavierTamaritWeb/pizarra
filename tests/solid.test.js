@@ -809,3 +809,65 @@ test('el tronco de cono de pie no parte su superficie en dos caras', () => {
   const alto = c => Math.max(...c.points.map(p => p.y)) - Math.min(...c.points.map(p => p.y));
   assert.ok(alto(caras[0]) > alto(caras[1]) * 2, 'la primera es la superficie lateral');
 });
+
+// Con la fuga horizontal (0°, 180° o 360°, tres posiciones directas del
+// deslizador) la base tumbada colapsaba en una recta —`proj` usa d.y como
+// profundidad—, su área se anulaba y `_upright` devolvía [] : la herramienta
+// entera dejaba de dibujar, sin aviso ninguno (auditoría v2.30.0). El suelo de
+// LONGITUD de la fuga no protege de esto; hace falta uno para su componente
+// vertical.
+test('de pie, la fuga horizontal (0°/180°/360°) sigue dibujando la figura', () => {
+  for (const tool of [TOOLS.SOLID_PYRAMID, TOOLS.SOLID_FRUSTUM]) {
+    for (const section of SOLID_SECTIONS) {
+      for (const ang of [0, 180, 360]) {
+        const els = dePie(section, { solidAngle: ang }, tool);
+        assert.ok(els.length >= 4,
+          `${tool}/${section}/${ang}°: la figura no puede salir vacía`);
+        // Y la base existe de verdad: alguna pieza tiene extensión vertical.
+        for (const el of els) {
+          for (const v of Object.values(el)) {
+            assert.ok(typeof v !== 'number' || Number.isFinite(v),
+              `${tool}/${section}/${ang}°: campo no finito`);
+          }
+        }
+      }
+    }
+  }
+});
+
+// La cara rellena de una esquina redondeada se emitía entera con la visibilidad
+// de su CUERDA, pero en la esquina que contiene el punto de tangencia de la
+// silueta parte del arco se ve y parte no: la banda salía autointersecada (en
+// pajarita), dejaba una cuña de tono doble en translúcido y viajaba igual al
+// SVG (auditoría v2.30.0). Ninguna cara emitida puede autocortarse.
+test('las caras de la caja redondeada rellena son polígonos simples, sin pajaritas', () => {
+  // Cruce TRANSVERSAL de segmentos, con margen: los extremos compartidos de una
+  // cara bien formada no cuentan como cruce.
+  const cruzan = (a, b, c, d) => {
+    const o = (p, q, r) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+    const EPS = 1e-3;
+    const o1 = o(a, b, c), o2 = o(a, b, d), o3 = o(c, d, a), o4 = o(c, d, b);
+    return o1 * o2 < -EPS && o3 * o4 < -EPS;
+  };
+  const simple = pts => {
+    const n = pts.length;
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        if (j === i || (j + 1) % n === i || (i + 1) % n === j) continue;
+        if (cruzan(pts[i], pts[(i + 1) % n], pts[j], pts[(j + 1) % n])) return false;
+      }
+    }
+    return true;
+  };
+  for (const tool of EXTRUSORAS) {
+    // El repro de la auditoría (ang 330) más la configuración de fábrica.
+    for (const ang of [30, 330, 150, 210]) {
+      const els = Solid.elements(tool, { x: 200, y: 200 }, { x: 330, y: 300 },
+        { ...O, solidSection: TOOLS.ROUNDED_RECT, fill: true, solidAngle: ang });
+      const caras = els.filter(e => e.type === 'polygon');
+      assert.ok(caras.length > 0, `${tool}/${ang}°: hay caras que comprobar`);
+      caras.forEach((c, k) => assert.ok(simple(c.points),
+        `${tool}/${ang}°: la cara ${k} se autocorta`));
+    }
+  }
+});

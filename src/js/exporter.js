@@ -699,6 +699,19 @@ body { font-family: ${FONT_CSS()}; background: #fff; }
               Object.keys(g).length === 4 &&
               [g.x1, g.y1, g.x2, g.y2].every(_isNum))) return false;
         allowed.push(...dePie);
+        // Dos campos opcionales, sólo de pie, y su ausencia es el default:
+        // `turns` acumula los cuartos de vuelta pendientes de la figura (girar
+        // el gesto no puede representar una figura tumbada — regenerateSolid
+        // los re-aplica), y `fillColor` conserva el color de relleno cuando el
+        // relleno está apagado, porque de pie no queda cara que lo guarde.
+        if (m.turns !== undefined) {
+          if (!(Number.isInteger(m.turns) && m.turns >= 1 && m.turns <= 3)) return false;
+          allowed.push('turns');
+        }
+        if (m.fillColor !== undefined) {
+          if (!(typeof m.fillColor === 'string' && HEX_COLOR.test(m.fillColor))) return false;
+          allowed.push('fillColor');
+        }
       }
       if (!(m && typeof m === 'object' && !Array.isArray(m) &&
             Object.keys(m).length === allowed.length &&
