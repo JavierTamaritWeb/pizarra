@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.30.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.31.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.30\.0</);
-  assert.match(html, /css\/styles\.css\?v=2\.30\.0/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.30\.0/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.30\.0/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.30\.0/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.30\.0/);
+  assert.match(html, /class="topbar__badge">v2\.31\.0</);
+  assert.match(html, /css\/styles\.css\?v=2\.31\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.31\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.31\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.31\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.31\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -64,8 +64,8 @@ test('index publica v2.30.0 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="modal-pyramid"/);
   assert.match(html, /id="modal-frustum"/);
   assert.match(html, /id="modal-sphere"/);
-  assert.match(html, /src\/js\/solid\.js\?v=2\.30\.0/);
-  assert.match(html, /src\/js\/airbrush\.js\?v=2\.30\.0/);
+  assert.match(html, /src\/js\/solid\.js\?v=2\.31\.0/);
+  assert.match(html, /src\/js\/airbrush\.js\?v=2\.31\.0/);
   // «Los clics acumulan selección» dejó el panel en la v2.17.0 y es el ajuste
   // de «Select». Si volviera a existir la casilla vieja habría dos controles
   // para un mismo estado, y solo uno cableado: el arnés `node:vm` fabrica un
@@ -342,8 +342,18 @@ test('css/styles.css es el artefacto compilado y conserva sus contratos', () => 
 test('toda custom property usada en css/styles.css está definida', () => {
   const css = fs.readFileSync(path.resolve(__dirname, '..', 'css', 'styles.css'), 'utf8');
   const defined = new Set([...css.matchAll(/(--[\w-]+)\s*:/g)].map(m => m[1]));
-  for (const use of css.matchAll(/var\(\s*(--[\w-]+)/g)) {
-    assert.ok(defined.has(use[1]), `var(${use[1]}) se usa pero no está definida`);
+  // Excepción: las que escribe app.js en línea sobre el elemento
+  // (`style.setProperty`) no pueden estar en la hoja. No se dan por buenas
+  // por listarlas aquí: tienen que aparecer de verdad en app.js Y usarse
+  // siempre con resguardo —`var(--x, algo)`—, para que un elemento al que no
+  // le llegue el valor se dibuje con algo en vez de desaparecer.
+  const app = fs.readFileSync(path.resolve(__dirname, '..', 'src/js/app.js'), 'utf8');
+  for (const use of css.matchAll(/var\(\s*(--[\w-]+)\s*(,?)/g)) {
+    if (defined.has(use[1])) continue;
+    assert.ok(app.includes(`setProperty('${use[1]}'`),
+      `var(${use[1]}) no está definida en el CSS ni la escribe app.js`);
+    assert.equal(use[2], ',',
+      `var(${use[1]}) la escribe app.js en línea: necesita un valor de resguardo`);
   }
 });
 
@@ -989,4 +999,47 @@ test('el eje tiene su mando en la Pirámide y el Tronco, y sólo ahí', () => {
   // Y ningún subtítulo puede prometer una sola proyección
   assert.doesNotMatch(html, /la punta se va hacia el fondo/);
   assert.doesNotMatch(html, /con la tapa del fondo más pequeña\./);
+});
+
+// v2.31.0: la fila de aspectos de lienzo. Tres cosas que el arnés `node:vm`
+// no puede ver, cada una silenciosa a su manera.
+test('la fila de aspectos existe, no duplica el catálogo y sabe pintar la rejilla', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const css = fs.readFileSync(path.resolve(__dirname, '..', 'css', 'styles.css'), 'utf8');
+  const ctx = load('src/js/config.js');
+
+  // 1. El contenedor está DENTRO de «Lienzo» y VACÍO: lo puebla app.js desde
+  //    CANVAS_PRESETS. `dom-stub.js` fabrica un <div> vacío para un id que no
+  //    existe, así que sin esta guarda un contenedor ausente pasa todos los
+  //    tests vm y simplemente no está en el navegador.
+  const desde = html.indexOf('id="panel-sec-canvas"');
+  const seccion = html.slice(desde, html.indexOf('</section>', desde));
+  assert.match(seccion, /id="canvas-preset-grid"[^>]*>\s*<\/div>/,
+    '#canvas-preset-grid debe estar en «Lienzo» y vacío (lo puebla app.js)');
+  // Y ningún color del catálogo escrito a mano en el HTML.
+  for (const p of ctx.CANVAS_PRESETS) {
+    assert.doesNotMatch(seccion, new RegExp(`data-preset="${p.id}"`),
+      `el aspecto «${p.id}» no debe existir también en el HTML`);
+  }
+
+  // 2. La muestra dibuja la rejilla. Sin el gradiente, «Blanco» y
+  //    «Milimetrado» son dos cuadrados blancos idénticos: comparten los dos
+  //    colores y sólo se diferencian por showGrid.
+  const regla = css.match(/\.panel__canvas-preset\s*\{[^}]*\}/);
+  assert.ok(regla, 'falta .panel__canvas-preset en el CSS compilado');
+  assert.match(regla[0], /--preset-bg/, 'la muestra no pinta el papel del aspecto');
+  assert.match(regla[0], /repeating-linear-gradient[^;]*--preset-grid/,
+    'la muestra no dibuja la rejilla: «Blanco» y «Milimetrado» saldrían iguales');
+  assert.match(css, /\.panel__canvas-preset--active/,
+    'sin la clase de activo la fila no dice qué aspecto está puesto');
+
+  // 3. Los dos aspectos que sólo se distinguen por la rejilla siguen ahí: es
+  //    lo que da sentido al punto 2 y a la propia fila.
+  const porColores = new Map();
+  for (const p of ctx.CANVAS_PRESETS) {
+    const k = `${p.bg}|${p.grid}`;
+    porColores.set(k, (porColores.get(k) || 0) + 1);
+  }
+  assert.ok([...porColores.values()].some(n => n > 1),
+    'ningún par de aspectos comparte colores: revisa el punto 2 antes de tocarlo');
 });

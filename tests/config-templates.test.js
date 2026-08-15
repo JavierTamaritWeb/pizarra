@@ -473,3 +473,57 @@ test('config.js — los catálogos de variante están congelados y bien formados
     }
   }
 });
+
+/* ---------------- Aspectos de lienzo (v2.31.0) ---------------- */
+
+// El primer aspecto ES el estado de fábrica. Está escrito dos veces —el
+// catálogo y las constantes/appDefaults de app.js— y solo la segunda manda al
+// arrancar, así que si divergen la fila enseña «Plano» sin marcar nada nada
+// más abrir la app (el estado real no coincidiría con ninguna muestra).
+test('el primer aspecto de lienzo es el de fábrica que dice app.js', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const ctx = load('src/js/config.js');
+  const app = fs.readFileSync(path.resolve(__dirname, '..', 'src/js/app.js'), 'utf8');
+  const primero = ctx.CANVAS_PRESETS[0];
+
+  const bg = app.match(/const DEFAULT_CANVAS_BG = '(#[0-9a-f]{6})'/);
+  const grid = app.match(/const DEFAULT_GRID_COLOR = '(#[0-9a-f]{6})'/);
+  assert.ok(bg && grid, 'no se encuentran los colores de fábrica en app.js');
+  assert.equal(primero.bg, bg[1], 'el primer aspecto no usa DEFAULT_CANVAS_BG');
+  assert.equal(primero.grid, grid[1], 'el primer aspecto no usa DEFAULT_GRID_COLOR');
+
+  // El tercer campo vive en appDefaults(), no en una constante.
+  const showGrid = app.match(/showGrid:\s*(true|false),/);
+  assert.ok(showGrid, 'no se encuentra showGrid en appDefaults()');
+  assert.equal(primero.showGrid, showGrid[1] === 'true',
+    'el primer aspecto no coincide con el showGrid de appDefaults()');
+});
+
+test('los aspectos de lienzo están congelados y son distinguibles', () => {
+  const ctx = load('src/js/config.js');
+  const lista = ctx.CANVAS_PRESETS;
+  assert.equal(Object.isFrozen(lista), true, 'CANVAS_PRESETS no está congelado');
+  assert.ok(lista.length >= 2, 'una fila de aspectos con menos de dos no es una fila');
+
+  const ids = lista.map(p => p.id);
+  assert.equal(new Set(ids).size, ids.length, 'ids repetidos');
+
+  for (const p of lista) {
+    assert.ok(p.name && typeof p.name === 'string', `${p.id} sin nombre`);
+    assert.equal(typeof p.showGrid, 'boolean', `${p.id}: showGrid no es booleano`);
+    // Los dos colores son hexadecimales de seis: acaban en un <input
+    // type="color"> y en el `value` de un picker nativo, que no acepta otra
+    // cosa. Y `grid` existe SIEMPRE, también en los aspectos sin rejilla:
+    // es lo que permite encender la casilla después y ver algo.
+    for (const campo of ['bg', 'grid']) {
+      assert.match(p[campo], /^#[0-9a-f]{6}$/, `${p.id}/${campo} no es hex de seis`);
+    }
+  }
+
+  // Dos aspectos iguales en los tres campos serían dos muestras idénticas en
+  // la fila, y sólo una de ellas se podría marcar como activa.
+  const firmas = lista.map(p => `${p.bg}|${p.grid}|${p.showGrid}`);
+  assert.equal(new Set(firmas).size, firmas.length,
+    'dos aspectos de lienzo son indistinguibles');
+});

@@ -679,6 +679,31 @@ input[type=range]::-moz-range-thumb {
   background: none;
   padding: 0;
 }
+.panel__canvas-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+.panel__canvas-preset {
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: 0.6rem;
+  border: 0.2rem solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: all var(--ease);
+  background-color: var(--preset-bg, #fff);
+  background-image: repeating-linear-gradient(to right, var(--preset-grid, transparent) 0 1px, transparent 1px 0.7rem), repeating-linear-gradient(to bottom, var(--preset-grid, transparent) 0 1px, transparent 1px 0.7rem);
+}
+.panel__canvas-preset:hover {
+  transform: scale(1.12);
+}
+.panel__canvas-preset--active {
+  border-color: var(--color-primary);
+  outline: 0.2rem solid rgba(78, 205, 196, 0.25);
+  outline-offset: 0.1rem;
+}
 .panel__canvas-colors {
   margin-top: 0.8rem;
   display: flex;

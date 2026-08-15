@@ -222,6 +222,46 @@
     padding: 0;
   }
 
+  // Los aspectos de lienzo (v2.31.0). Misma familia visual que las muestras de
+  // color —tamaño, radio y resaltado del activo— porque se usan igual: un clic
+  // sobre un cuadradito que enseña lo que va a pasar.
+  &__canvas-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.4rem;
+  }
+
+  &__canvas-preset {
+    width: 2.8rem;
+    height: 2.8rem;
+    border-radius: 0.6rem;
+    border: 0.2rem solid transparent;
+    cursor: pointer;
+    padding: 0;
+    transition: all var(--ease);
+
+    // El papel, y encima su rejilla. Las líneas NO son adorno: «Blanco» y
+    // «Milimetrado» comparten los dos colores y sólo se distinguen por
+    // tenerlas o no, así que sin dibujarlas la fila enseñaría dos cuadrados
+    // blancos idénticos. El aspecto sin rejilla llega con
+    // `--preset-grid: transparent` y entonces el gradiente no pinta nada.
+    background-color: var(--preset-bg, #fff);
+    background-image:
+      repeating-linear-gradient(to right, var(--preset-grid, transparent) 0 1px, transparent 1px 0.7rem),
+      repeating-linear-gradient(to bottom, var(--preset-grid, transparent) 0 1px, transparent 1px 0.7rem);
+  }
+
+  &__canvas-preset:hover {
+    transform: scale(1.12);
+  }
+
+  &__canvas-preset--active {
+    border-color: var(--color-primary);
+    outline: 0.2rem solid rgba(78, 205, 196, 0.25);
+    outline-offset: 0.1rem;
+  }
+
   &__canvas-colors {
     margin-top: 0.8rem;
     display: flex;

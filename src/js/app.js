@@ -1104,6 +1104,7 @@
       localStorage.setItem(PREFS_KEY, JSON.stringify({
         canvasBg: state.canvasBg,
         gridColor: state.gridColor,
+        showGrid: state.showGrid,
         sketchFontId: state.sketchFontId,
         textBold: state.textBold,
         textShadow: state.textShadow,
@@ -1192,6 +1193,9 @@
       if (!prefs || typeof prefs !== 'object') return;
       if (HEX_RE.test(prefs.canvasBg)) state.canvasBg = prefs.canvasBg;
       if (HEX_RE.test(prefs.gridColor)) state.gridColor = prefs.gridColor;
+      // El tercer campo del aspecto. Un prefs anterior a la v2.31.0 no lo
+      // trae, y entonces se queda en el de fábrica (encendida).
+      if (typeof prefs.showGrid === 'boolean') state.showGrid = prefs.showGrid;
       // Validada contra el catálogo: un id inventado (o de una versión con
       // otras familias) dejaría el lienzo pidiendo una fuente inexistente.
       if (SKETCH_FONTS.some(f => f.id === prefs.sketchFontId)) {
@@ -4446,6 +4450,7 @@
     FILL_COLOR_GRIDS.forEach(buildFillColorGrid);
     updateColorActive();
     updateFillColorActive();
+    buildCanvasPresets();
   }
 
   function buildColorGrid(gridId) {
@@ -4531,6 +4536,78 @@
     document.querySelectorAll('.panel__color-swatch').forEach(s => {
       const active = s.dataset.color === shown;
       s.classList.toggle('panel__color-swatch--active', active);
+      s.setAttribute('aria-pressed', String(active));
+    });
+  }
+
+  /* ── Aspectos de lienzo ── */
+
+  /**
+   * La fila de aspectos de «Lienzo»: cada muestra fija papel, color de rejilla
+   * y rejilla sí/no de una vez (ver CANVAS_PRESETS en config.js).
+   *
+   * La muestra DIBUJA la rejilla, no sólo el papel: «Blanco» y «Milimetrado»
+   * comparten los dos colores y se diferencian únicamente por `showGrid`, así
+   * que sin las líneas serían dos cuadrados blancos idénticos y la fila no se
+   * podría usar. El papel y el color van en línea como custom properties; el
+   * gradiente lo pone el CSS y se apaga con `--preset-grid: transparent`.
+   */
+  function buildCanvasPresets() {
+    const grid = $('canvas-preset-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    CANVAS_PRESETS.forEach(p => {
+      const swatch = document.createElement('button');
+      swatch.type = 'button';
+      swatch.className = 'panel__canvas-preset';
+      swatch.dataset.preset = p.id;
+      swatch.style.setProperty('--preset-bg', p.bg);
+      swatch.style.setProperty('--preset-grid', p.showGrid ? p.grid : 'transparent');
+      swatch.title = p.name;
+      swatch.setAttribute('aria-label', `Aspecto: ${p.name}`);
+      swatch.addEventListener('click', () => applyCanvasPreset(p.id));
+      grid.appendChild(swatch);
+    });
+    updateCanvasPresetActive();
+  }
+
+  /**
+   * Pone el aspecto entero. SIN saveUndo: es cosmético de pantalla, igual que
+   * los dos selectores de color de al lado, que tampoco entran en el historial
+   * (los aspectos no viajan en los elementos ni en ninguna exportación).
+   * Tampoco toca `state.color`: un aspecto describe el papel, no la tinta.
+   */
+  function applyCanvasPreset(id) {
+    const p = CANVAS_PRESETS.find(x => x.id === id);
+    if (!p) return;
+    state.canvasBg = p.bg;
+    state.gridColor = p.grid;
+    state.showGrid = p.showGrid;
+    $('canvas-bg-picker').value = p.bg;
+    $('grid-color-picker').value = p.grid;
+    $('check-grid').checked = p.showGrid;
+    updateCanvasPresetActive();
+    savePrefs();
+    redraw();
+  }
+
+  /**
+   * Resalta el aspecto que coincide con los TRES campos del estado. Si el
+   * usuario ha compuesto uno a mano con los pickers no coincide ninguno y no
+   * se marca ninguno: la fila no debe afirmar un aspecto que no es el que se
+   * está viendo. Consulta por clase, como updateColorActive.
+   */
+  function updateCanvasPresetActive() {
+    const match = CANVAS_PRESETS.find(p =>
+      hex6(p.bg) === hex6(state.canvasBg)
+      && p.showGrid === state.showGrid
+      // Con la rejilla apagada su color no se ve, así que no puede decidir
+      // qué aspecto está puesto: «Blanco» seguiría marcado tras retocar un
+      // color que no dibuja nada.
+      && (!p.showGrid || hex6(p.grid) === hex6(state.gridColor)));
+    document.querySelectorAll('.panel__canvas-preset').forEach(s => {
+      const active = !!match && s.dataset.preset === match.id;
+      s.classList.toggle('panel__canvas-preset--active', active);
       s.setAttribute('aria-pressed', String(active));
     });
   }
@@ -5727,6 +5804,9 @@
     $('canvas-bg-picker').value = state.canvasBg;
     $('canvas-bg-picker').addEventListener('input', e => {
       state.canvasBg = e.target.value;
+      // Retocar un color a mano puede dejar de coincidir con el aspecto
+      // marcado: la fila se recalcula para no seguir afirmando el anterior.
+      updateCanvasPresetActive();
       savePrefs();
       redraw();
     });
@@ -5735,6 +5815,7 @@
     $('grid-color-picker').value = state.gridColor;
     $('grid-color-picker').addEventListener('input', e => {
       state.gridColor = e.target.value;
+      updateCanvasPresetActive();
       savePrefs();
       redraw();
     });
@@ -6244,7 +6325,16 @@
     $('el-label').addEventListener('change', e => applyLabel(e.target.value));
     $('ui-modal-label').addEventListener('change', e => applyLabel(e.target.value));
 
-    $('check-grid').addEventListener('change', e => { state.showGrid = e.target.checked; redraw(); });
+    // La cuadrícula se persiste desde la v2.31.0: es uno de los tres campos de
+    // un aspecto, y sin guardarla el lienzo blanco liso reaparecía con rejilla
+    // en la recarga siguiente (con los colores de blanco, o sea invisible pero
+    // encendida y desmarcando el aspecto).
+    $('check-grid').addEventListener('change', e => {
+      state.showGrid = e.target.checked;
+      updateCanvasPresetActive();
+      savePrefs();
+      redraw();
+    });
     $('check-snap').addEventListener('change', e => { state.snapGrid = e.target.checked; });
     // «Los clics acumulan selección» es el ajuste de «Select» y vive en su
     // modal (v2.17.0), no en el panel: allí quedaba lejos del sidebar donde se
@@ -8221,6 +8311,7 @@
     $('overlap-mode').value = state.overlapMode;
     $('check-grid').checked = state.showGrid;
     $('check-snap').checked = state.snapGrid;
+    updateCanvasPresetActive();
     $('select-modal-multi').checked = state.multiSelect;
     // Aplica la letra y pide su descarga: el lienzo no dispara la carga de una
     // webfont por sí solo, así que sin esto la primera pintada usaría el

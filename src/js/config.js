@@ -582,6 +582,34 @@ const COLORS = [
 ];
 
 /**
+ * Aspectos de lienzo: papel + color de rejilla + rejilla sí/no, los tres de
+ * una vez. Existen porque componerlos a mano son tres gestos, dos de ellos
+ * dentro del diálogo de color del sistema, y el camino de vuelta pedía
+ * recordar dos hexadecimales que no están escritos en ninguna parte de la
+ * interfaz: en la práctica, quien ponía el lienzo en blanco no sabía volver.
+ *
+ * NO tocan el color de la tinta. Un aspecto describe el papel; el color con el
+ * que se dibuja es otro mando. Consecuencia asumida: sobre «Pizarra» hay que
+ * elegir un color claro en la paleta o no se ve el trazo.
+ *
+ * La PRIMERA entrada es el estado de fábrica y debe decir exactamente lo que
+ * dicen DEFAULT_CANVAS_BG / DEFAULT_GRID_COLOR y el `showGrid` de
+ * appDefaults() (app.js) — lo ata tests/config-templates.test.js, igual que la
+ * primera de SKETCH_FONTS está atada a --font-sketch.
+ *
+ * «Blanco» guarda un `grid` que no dibuja: es lo que hace que encender la
+ * casilla después dé una rejilla utilizable en lugar de blanco sobre blanco, y
+ * lo que deja que «Blanco» y «Milimetrado» se diferencien SOLO por `showGrid`.
+ */
+const CANVAS_PRESETS = Object.freeze([
+  { id: 'plano',       name: 'Plano',       bg: '#686f92', grid: '#fcfcfc', showGrid: true },
+  { id: 'blanco',      name: 'Blanco',      bg: '#ffffff', grid: '#cdd3de', showGrid: false },
+  { id: 'milimetrado', name: 'Milimetrado', bg: '#ffffff', grid: '#cdd3de', showGrid: true },
+  { id: 'crema',       name: 'Crema',       bg: '#f7f1e3', grid: '#d9cdb4', showGrid: true },
+  { id: 'pizarra',     name: 'Pizarra',     bg: '#1f2b2a', grid: '#4e6b66', showGrid: true },
+]);
+
+/**
  * Catálogo del selector de emoji, agrupado por categoría. Un emoji insertado
  * es un elemento `text` normal (su `value` es el carácter), así que render,
  * exportación, selección y undo funcionan sin código específico.

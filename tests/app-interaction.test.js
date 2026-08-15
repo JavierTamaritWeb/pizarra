@@ -4191,3 +4191,99 @@ test('un sólido de pie vaciado recupera SU color de relleno al rellenarlo otra 
   assert.equal(cara.fillColor, '#00aa00',
     'recupera SU color, no el del trazo (documentado: vaciar no pierde el color)');
 });
+
+/* ─────────── Aspectos de lienzo (v2.31.0) ─────────── */
+
+/** La muestra de aspecto con ese id, dentro de la fila del panel. */
+function muestraAspecto(app, id) {
+  const btn = app.$('canvas-preset-grid').querySelectorAll('.panel__canvas-preset')
+    .find(b => b.dataset.preset === id);
+  assert.ok(btn, `no existe la muestra del aspecto «${id}»`);
+  return btn;
+}
+
+/** El aspecto marcado como activo, o null si no hay ninguno. */
+function aspectoActivo(app) {
+  const activa = app.$('canvas-preset-grid').querySelectorAll('.panel__canvas-preset')
+    .find(b => b.className.includes('panel__canvas-preset--active'));
+  return activa ? activa.dataset.preset : null;
+}
+
+test('un aspecto de lienzo pone papel, rejilla y su interruptor de una vez', () => {
+  const app = loadApp();
+  // Arranca en el de fábrica y la fila lo dice.
+  assert.equal(aspectoActivo(app), 'plano');
+  assert.equal(app.$('check-grid').checked, true);
+
+  app.dibujo = app.drag; // (no se usa: el aspecto no debe tocar lo dibujado)
+  app.selectTool('rect');
+  app.drag(100, 100, 200, 200);
+  const antes = app.elements();
+  const colorAntes = app.$('color-picker').value;
+
+  muestraAspecto(app, 'blanco').__fire('click', {});
+  app.flush();
+
+  assert.equal(app.$('canvas-bg-picker').value, '#ffffff');
+  // El tercer campo: el lienzo blanco es blanco LISO, sin cuadrícula.
+  assert.equal(app.$('check-grid').checked, false);
+  assert.equal(aspectoActivo(app), 'blanco');
+  // Un aspecto describe el papel, no la tinta ni el dibujo.
+  assert.equal(app.$('color-picker').value, colorAntes,
+    'el aspecto no debe tocar el color de trazo');
+  assert.deepEqual(app.elements(), antes,
+    'el aspecto no debe tocar lo dibujado');
+
+  // Y la vuelta existe, que es de lo que iba todo esto.
+  muestraAspecto(app, 'plano').__fire('click', {});
+  app.flush();
+  assert.equal(app.$('canvas-bg-picker').value, '#686f92');
+  assert.equal(app.$('grid-color-picker').value, '#fcfcfc');
+  assert.equal(app.$('check-grid').checked, true);
+  assert.equal(aspectoActivo(app), 'plano');
+});
+
+test('la fila de aspectos no afirma uno que no es el que se está viendo', () => {
+  const app = loadApp();
+  assert.equal(aspectoActivo(app), 'plano');
+
+  // Componer un papel a mano no es ninguno de los aspectos: si «Plano» se
+  // quedara marcado, la fila estaría mintiendo sobre lo que hay en pantalla.
+  app.$('canvas-bg-picker').value = '#123456';
+  app.$('canvas-bg-picker').__fire('input', { target: app.$('canvas-bg-picker') });
+  app.flush();
+  assert.equal(aspectoActivo(app), null);
+
+  // Apagar la rejilla a mano tampoco: sobre papel de plano no hay aspecto que
+  // valga (y «Blanco» tiene otro papel).
+  app.$('canvas-bg-picker').value = '#686f92';
+  app.$('canvas-bg-picker').__fire('input', { target: app.$('canvas-bg-picker') });
+  app.$('check-grid').checked = false;
+  app.$('check-grid').__fire('change', { target: app.$('check-grid') });
+  app.flush();
+  assert.equal(aspectoActivo(app), null);
+
+  // Volver a encenderla recupera «Plano» sin tener que pulsar la muestra.
+  app.$('check-grid').checked = true;
+  app.$('check-grid').__fire('change', { target: app.$('check-grid') });
+  app.flush();
+  assert.equal(aspectoActivo(app), 'plano');
+});
+
+test('el aspecto elegido sobrevive a la recarga, cuadrícula incluida', () => {
+  const app = loadApp();
+  muestraAspecto(app, 'blanco').__fire('click', {});
+  app.flush();
+
+  // Lo que quedó guardado es lo que leerá la sesión siguiente. Antes de la
+  // v2.31.0 `showGrid` no se guardaba, así que el lienzo blanco LISO volvía
+  // con la rejilla encendida y el aspecto ya no coincidía con ninguna muestra.
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.canvasBg, '#ffffff');
+  assert.equal(prefs.showGrid, false);
+
+  const otra = loadApp({ prefs });
+  assert.equal(otra.$('canvas-bg-picker').value, '#ffffff');
+  assert.equal(otra.$('check-grid').checked, false);
+  assert.equal(aspectoActivo(otra), 'blanco');
+});

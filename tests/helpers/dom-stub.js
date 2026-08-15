@@ -57,7 +57,13 @@ function createElementStub(tag, doc) {
     clientHeight: 800,
     scrollLeft: 0,
     scrollTop: 0,
-    style: {},
+    // `style` guarda lo que se le asigna, y también por setProperty: las
+    // custom properties en línea (las muestras de aspecto de lienzo escriben
+    // --preset-bg/--preset-grid ahí) no son asignables como propiedad.
+    style: {
+      setProperty(prop, value) { this[prop] = value; },
+      getPropertyValue(prop) { return this[prop] === undefined ? '' : this[prop]; },
+    },
     dataset: {},
     files: [],
 
