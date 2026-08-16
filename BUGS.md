@@ -2371,3 +2371,31 @@ el código roto (revertir el fix hace fallar exactamente sus tests).
   forma rellena que sí se va entera, el aerógrafo partido en dos) y
   `e2e/eraser.spec.js` (nuevo) que lo mide sobre píxeles reales. Verificadas
   fallando: quitando las tres ramas nuevas del despacho caen diez pruebas.
+
+### El borrador se llevaba entero el texto y los componentes de UI
+
+- **Síntoma:** continuación del anterior. En la sección UI (Texto, Emoji,
+  Botón, Input, Imagen, Navbar, Tarjeta) el borrador seguía fulminando el
+  elemento entero, y además bastaba con cruzar su **caja**: pasar por el hueco
+  vacío de una tarjeta se la llevaba sin haber tocado un solo trazo suyo.
+- **Causa:** ninguno de esos tipos tiene geometría que partir —una palabra son
+  glifos, un componente es contorno + rótulo + tinte, una imagen es una
+  trama— y no existe ningún tipo de elemento que represente «un botón al que
+  le falta una esquina». El recorte geométrico no llegaba ahí, y el alcance
+  caía en `_touchesBox`.
+- **Fix:** `src/js/app.js` (`rasterErase`, inyectado en `Eraser.erase` como
+  `deps.rasterErase`) — el elemento se rasteriza tal y como lo dibuja el
+  renderer, se le abre el hueco con `destination-out` y lo que queda pasa a
+  ser un `image` recortado a su tinta. El aspecto es idéntico por
+  construcción; el precio, elegido por el usuario, es que deja de ser texto o
+  componente editable. Comparar la tinta antes y después da de regalo el
+  alcance exacto: si no se ha quitado un píxel, el elemento se devuelve **por
+  referencia** y no pasa nada. La previsualización usa el canvas vivo
+  (`bitmap`) en vez de un `toDataURL` por fotograma, cuya decodificación
+  asíncrona haría parpadear el elemento durante todo el gesto.
+- **Guardia:** `e2e/eraser.spec.js` › *"borrar por el medio de una palabra
+  deja lo de fuera, ya como imagen"*, *"cruzar el hueco vacío de una tarjeta
+  ya no se la lleva"* y *"morder el borde de un botón le abre un hueco y
+  conserva el resto"*. Sólo pueden vivir en e2e: sin canvas no hay trama, y el
+  arnés vm cae por diseño al borrado íntegro. Verificadas fallando las tres al
+  quitar la rama `deps.rasterErase`.

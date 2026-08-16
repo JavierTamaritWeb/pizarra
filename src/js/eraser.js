@@ -526,6 +526,11 @@ const Eraser = (function () {
       else if (OUTLINE_TYPES.includes(el.type) && !el.fill) {
         pieces = _splitOutline(el, segs, r, deps);
       }
+      // Texto, emoji, imágenes y componentes de UI: no hay geometría que
+      // partir, así que quien tenga un canvas (app.js, vía `deps.rasterErase`)
+      // devuelve el dibujo con el hueco abierto. Sin esa dependencia —arnés
+      // vm, exportaciones— se cae al borrado íntegro de siempre.
+      else if (deps.rasterErase) pieces = deps.rasterErase(el, pts, r);
       if (pieces) {
         // `touches` mide distancia continua y el recorte muestrea cada 4 px:
         // un roce puede tocar sin que ninguna muestra caiga dentro. Si el

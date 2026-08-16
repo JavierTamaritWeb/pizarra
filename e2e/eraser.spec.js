@@ -11,7 +11,7 @@
    ============================================================ */
 
 const { test, expect } = require('@playwright/test');
-const { WIDE, openApp, settle, selectTool, drag, elements } = require('./helpers');
+const { WIDE, openApp, settle, selectTool, drag, clickCanvas, elements } = require('./helpers');
 
 test.use({ viewport: WIDE });
 
@@ -105,6 +105,89 @@ test('el aerógrafo se parte en dos por donde cruza el borrador', async ({ page 
 
   const tras = await elements(page);
   expect(tras.filter(e => e.type === 'airbrush').length).toBe(2);
+});
+
+/* ── Sección UI: recorte por trama (v2.34.0) ──
+   Ni una palabra ni un componente tienen geometría que partir, así que se
+   rasterizan y lo que queda pasa a ser una imagen. Aquí sólo se puede probar
+   en un navegador: el arnés vm no tiene canvas del que leer píxeles, y sin
+   `deps.rasterErase` el borrador vuelve al borrado íntegro. */
+
+/** Escribe un texto en el lienzo con la herramienta Texto. */
+async function escribir(page, x, y, texto) {
+  await selectTool(page, 'text');
+  await clickCanvas(page, x, y);
+  const input = page.locator('#text-input');
+  await expect(input).toBeVisible();
+  await input.fill(texto);
+  await input.press('Enter');
+  await settle(page);
+}
+
+test('borrar por el medio de una palabra deja lo de fuera, ya como imagen', async ({ page }) => {
+  await openApp(page);
+  await sinCuadricula(page);
+  await escribir(page, 300, 400, 'Hola mundo');
+
+  const antes = await elements(page);
+  expect(antes.length).toBe(1);
+  expect(antes[0].type).toBe('text');
+  const caja = { x: antes[0].x, y: antes[0].y };
+
+  await selectTool(page, 'eraser');
+  await drag(page, caja.x + 60, caja.y - 20, caja.x + 60, caja.y + 40);
+  await settle(page);
+
+  // Se espera al TIPO, no al recuento: el número de elementos no cambia al
+  // sustituir el texto por su trama, y `elements()` da por buena la escena
+  // vieja en cuanto el autosave y el contador coinciden — 1 === 1.
+  await expect.poll(async () => (await elements(page))[0].type).toBe('image');
+  const tras = await elements(page);
+  expect(tras.length).toBe(1);
+  expect(tras[0].src, 'el texto mordido pasa a ser imagen')
+    .toMatch(/^data:image\/png;base64,/);
+  // Queda tinta a los dos lados del corte y ninguna dentro de él.
+  await expect.poll(() => inkIn(page, caja.x + 52, caja.y - 10, 16, 40)).toBe(0);
+  expect(await inkIn(page, caja.x, caja.y - 10, 40, 40)).toBeGreaterThan(10);
+  expect(await inkIn(page, caja.x + 80, caja.y - 10, 40, 40)).toBeGreaterThan(10);
+});
+
+test('cruzar el hueco vacío de una tarjeta ya no se la lleva', async ({ page }) => {
+  await openApp(page);
+  await sinCuadricula(page);
+  await selectTool(page, 'card');
+  await drag(page, 300, 200, 600, 560);
+  const antes = await elements(page);
+  expect(antes[0].type).toBe('card');
+
+  await selectTool(page, 'eraser');
+  await drag(page, 380, 520, 520, 520);   // zona baja, entre las líneas: papel
+  await settle(page);
+
+  const tras = await elements(page);
+  expect(tras.length).toBe(1);
+  expect(tras[0].type, 'sin quitar un solo píxel, la tarjeta sigue siendo tarjeta')
+    .toBe('card');
+});
+
+test('morder el borde de un botón le abre un hueco y conserva el resto', async ({ page }) => {
+  await openApp(page);
+  await sinCuadricula(page);
+  await selectTool(page, 'button');
+  await drag(page, 300, 300, 500, 380);
+  expect((await elements(page))[0].type).toBe('button');
+
+  await selectTool(page, 'eraser');
+  await drag(page, 400, 285, 400, 315);   // muerde el borde de arriba
+  await settle(page);
+
+  await expect.poll(async () => (await elements(page))[0].type).toBe('image');
+  const tras = await elements(page);
+  expect(tras.length).toBe(1);
+  expect(await inkIn(page, 392, 292, 16, 20)).toBe(0);
+  // Los dos laterales del botón siguen dibujados.
+  expect(await inkIn(page, 295, 320, 14, 40)).toBeGreaterThan(5);
+  expect(await inkIn(page, 492, 320, 14, 40)).toBeGreaterThan(5);
 });
 
 test('el borrador no toca una forma por la que solo pasa cerca', async ({ page }) => {

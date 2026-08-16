@@ -84,7 +84,22 @@ const Renderer = (() => {
     return evicted; // cuántas expulsó: única observabilidad (la caché es privada)
   }
 
+  /** ¿Está el `src` decodificado y listo para dibujarse? Lo pregunta el
+      borrado por trama de app.js: rasterizar una imagen a medio cargar
+      congelaría su marco punteado en lugar de la foto. Consultar calienta la
+      caché, así que la siguiente pasada ya la encuentra lista. */
+  function imageReady(src) {
+    if (typeof Image === 'undefined') return false;
+    const img = _getImage(src);
+    return !!(img.complete && img.naturalWidth);
+  }
+
   function _image(ctx, el) {
+    // Trama viva (canvas), no `src`: la usa la previsualización del borrador
+    // por trama, que no puede pagar un toDataURL por fotograma ni esperar a
+    // que decodifique. Nunca entra en `state.elements` — un elemento guarda
+    // datos planos, jamás una referencia al DOM.
+    if (el.bitmap) { ctx.drawImage(el.bitmap, el.x, el.y, el.w, el.h); return; }
     // En entornos sin Image (tests en Node) se dibuja solo el placeholder
     const img = (typeof Image !== 'undefined') ? _getImage(el.src) : null;
     if (img && img.complete && img.naturalWidth) {
@@ -925,5 +940,6 @@ const Renderer = (() => {
     drawSelection,
     setImageLoadCallback,
     pruneImageCache,
+    imageReady,
   };
 })();

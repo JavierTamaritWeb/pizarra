@@ -1445,14 +1445,156 @@
     });
   }
 
+  /* ── Borrado por trama: texto, emoji, imágenes y componentes de UI ──
+     (v2.34.0)
+
+     Lo demás se recorta por geometría: una recta partida sigue siendo rectas,
+     un contorno mordido sigue siendo trazo. Aquí no hay geometría que partir
+     —una palabra son glifos, un botón es contorno + rótulo + relleno, una
+     imagen es una trama— y NINGÚN tipo de elemento representa «un botón al que
+     le falta una esquina». Así que se rasteriza el elemento tal y como lo
+     dibuja el renderer, se le abre el hueco con `destination-out` y lo que
+     queda pasa a ser un `image`: el aspecto es idéntico por construcción
+     (es el mismo dibujo), a cambio de dejar de ser editable como texto o como
+     componente. Es la misma degradación que flecha→línea o curva→lápiz, un
+     escalón más abajo.
+
+     Vive en app.js y no en eraser.js porque necesita un canvas, y eraser.js es
+     geometría pura; entra por `deps.rasterErase`, y sin esa dependencia
+     (arnés vm, exportaciones) el borrador se comporta como siempre: borrado
+     íntegro. */
+  const RASTER_ERASE_TYPES = ['text', 'image', 'imagePlaceholder',
+    'button', 'input', 'nav', 'card'];
+  const RASTER_MAX_SIDE = 4096;   // salvaguarda: nunca rasterizar un lienzo absurdo
+
+  /** Margen alrededor de la caja: el dibujo se sale de ella por el temblor de
+      Sketchy, por el punteado del marco y, sobre todo, por la sombra del texto
+      —que escala con el cuerpo—. Sobrar es gratis: al final se recorta a la
+      tinta que queda de verdad. */
+  const rasterPad = el => 16 + (el.lineWidth || 1) * 2 + (el.fontSize || 0) * 0.8;
+
+  /** Tinta previa de cada elemento, memorizada mientras dura el arrastre
+      (ver `rasterErase`). WeakMap: el elemento es la clave y desaparece con él. */
+  const _inkAntes = new WeakMap();
+
+  function _rasterCanvas(w, h) {
+    const cv = document.createElement('canvas');
+    cv.width = w; cv.height = h;
+    return cv;
+  }
+
+  /** Recuento de píxeles con tinta y su caja, leyendo solo el canal alfa. */
+  function _inkStats(data, w, h) {
+    let n = 0, minX = w, minY = h, maxX = -1, maxY = -1;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (data[(y * w + x) * 4 + 3] < 8) continue;
+        n++;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+    return { n, minX, minY, maxX, maxY };
+  }
+
+  /**
+   * Aplica el trazo del borrador a un elemento rasterizable.
+   * Devuelve `[]` si no queda nada, `[el]` (la misma referencia) si el trazo
+   * no le ha quitado un solo píxel —lo que da alcance exacto de regalo:
+   * cruzar el hueco vacío de una tarjeta ya no se la lleva— o `[imagen]` con
+   * el mordisco. `preview` evita el `toDataURL` (caro, y su decodificación es
+   * asíncrona: en pleno arrastre el elemento parpadearía) y devuelve el propio
+   * canvas en `bitmap`, que el renderer sabe pintar y que nunca entra en
+   * `state.elements`.
+   */
+  function rasterErase(el, pts, r, preview) {
+    const box = getElementBounds(el);
+    if (!(box.w > 0 && box.h > 0)) return null;
+    // Una imagen a medio decodificar se dibuja como marco punteado: rasterizar
+    // eso sustituiría la foto por su placeholder. Mejor no tocarla todavía.
+    if (el.type === 'image' && !Renderer.imageReady(el.src)) return [el];
+
+    const pad = rasterPad(el);
+    const x0 = Math.floor(box.x - pad), y0 = Math.floor(box.y - pad);
+    const w = Math.ceil(box.w + pad * 2), h = Math.ceil(box.h + pad * 2);
+    if (w < 1 || h < 1 || w > RASTER_MAX_SIDE || h > RASTER_MAX_SIDE) return null;
+
+    const cv = _rasterCanvas(w, h);
+    const c = cv.getContext('2d', { willReadFrequently: true });
+    c.translate(-x0, -y0);
+    try {
+      Renderer.renderElement(c, el);
+    } catch (err) {
+      console.warn('No se pudo rasterizar para borrar:', err);
+      return null;
+    }
+    // La tinta que tenía ANTES no cambia mientras dura el arrastre —el
+    // elemento es el mismo objeto en cada fotograma—, así que se recuerda:
+    // en una foto a pantalla completa ese recuento es un barrido de un millón
+    // de píxeles, y se hacía dos veces por fotograma.
+    let antesN = _inkAntes.get(el);
+    if (antesN === undefined) {
+      antesN = _inkStats(c.getImageData(0, 0, w, h).data, w, h).n;
+      _inkAntes.set(el, antesN);
+    }
+    if (!antesN) return [el];         // no dibuja nada: no hay nada que morder
+
+    // El hueco es el círculo del borrador barrido a lo largo del trazo: una
+    // polilínea de grosor 2r con extremos y uniones redondos. Un clic sin
+    // arrastrar es un disco.
+    c.globalCompositeOperation = 'destination-out';
+    c.strokeStyle = '#000';
+    c.fillStyle = '#000';
+    c.lineWidth = r * 2;
+    c.lineCap = 'round';
+    c.lineJoin = 'round';
+    if (pts.length === 1) {
+      c.beginPath();
+      c.arc(pts[0].x, pts[0].y, r, 0, Math.PI * 2);
+      c.fill();
+    } else {
+      c.beginPath();
+      c.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) c.lineTo(pts[i].x, pts[i].y);
+      c.stroke();
+    }
+    c.globalCompositeOperation = 'source-over';
+
+    const queda = _inkStats(c.getImageData(0, 0, w, h).data, w, h);
+    if (!queda.n) return [];                     // se lo ha llevado entero
+    if (queda.n === antesN) return [el];         // ni un píxel: intacto por referencia
+
+    // Se recorta a la tinta que queda: sin esto la imagen arrastraría todo el
+    // margen vacío y su marco de selección mentiría.
+    const bw = queda.maxX - queda.minX + 1, bh = queda.maxY - queda.minY + 1;
+    const crop = _rasterCanvas(bw, bh);
+    crop.getContext('2d').drawImage(cv, queda.minX, queda.minY, bw, bh, 0, 0, bw, bh);
+
+    const pieza = {
+      type: 'image',
+      x: x0 + queda.minX, y: y0 + queda.minY, w: bw, h: bh,
+      color: el.color, lineWidth: el.lineWidth,
+      seed: el.seed !== undefined ? el.seed : 1,
+    };
+    if (el.buildingGroupId !== undefined) pieza.buildingGroupId = el.buildingGroupId;
+    if (preview) pieza.bitmap = crop;            // sólo vive lo que dura el arrastre
+    else pieza.src = crop.toDataURL('image/png');
+    return [pieza];
+  }
+
   /** Lo que Eraser necesita de fuera: bounds reales y siluetas de las formas
-      con vértices, para que borrar coincida con lo que un clic seleccionaría. */
-  const eraserDeps = () => ({
+      con vértices, para que borrar coincida con lo que un clic seleccionaría,
+      más el recorte por trama de lo que no tiene geometría que partir. */
+  const eraserDeps = (opts = {}) => ({
     boundsOf: getElementBounds,
     sampleCurve: (el, n) => CurvePath.sample(el, n),
     polygonVertices: el => (RegularPolygon.isType(el.type) ? RegularPolygon.vertices(el)
       : el.type === TOOLS.POLYGON ? el.points : null),
     trapezoidVertices: el => (el.type === TOOLS.TRAPEZOID ? Trapezoid.vertices(el) : null),
+    rasterErase: (el, pts, r) => (RASTER_ERASE_TYPES.includes(el.type)
+      ? rasterErase(el, pts, r, opts.preview) : null),
   });
 
   function redrawNow() {
@@ -1464,7 +1606,8 @@
     const sceneElements = state.isDrawing &&
       state.tool === TOOLS.ERASER &&
       state.currentPath.length
-      ? Eraser.erase(state.elements, state.currentPath, state.eraserSize / 2, eraserDeps())
+      ? Eraser.erase(state.elements, state.currentPath, state.eraserSize / 2,
+        eraserDeps({ preview: true }))
       : state.elements;
     try {
       Renderer.renderScene(ctx, sceneElements, {
