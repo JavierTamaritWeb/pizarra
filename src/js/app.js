@@ -159,6 +159,7 @@
       inkGap:      4,
       inkTarget:   'shape',
       multiSelect: false,      // «Los clics acumulan selección» (una mano; Shift = atajo)
+      alignGuides: true,       // imán y guías de alineación al arrastrar (v2.38.0)
       canvasBg:    DEFAULT_CANVAS_BG,
       gridColor:   DEFAULT_GRID_COLOR,
       // Letra manuscrita del boceto (id de SKETCH_FONTS). Ajuste cosmético
@@ -208,6 +209,8 @@
     marquee:     null,  // rectángulo de selección en curso {x1,y1,x2,y2}
     pickDown:    null,  // gesto de «Select» pendiente de resolver {idx, alt}
     resizing:    null,  // resize en curso {corner, from, original, snapshot, did}
+    alignSession: null, // imán de alineación durante el arrastre (v2.38.0)
+    alignGuideLines: null, // guías activas a dibujar en el overlay
   };
 
   function setSelection(arr) {
@@ -541,6 +544,64 @@
     const y = Math.min(Math.max(b.y + dy, Math.min(b.y, keepY - b.h)),
                        Math.max(b.y, CANVAS_H - keepY));
     return { dx: x - b.x, dy: y - b.y };
+  }
+
+  /* Imán de alineación (v2.38.0, la idea de Excalidraw/tldraw): al arrastrar,
+     los bordes y centros de la caja de la selección se pegan a los de los
+     demás elementos cuando pasan a menos de ALIGN_TOL px, y una guía en el
+     overlay enseña con quién. Tres decisiones deliberadas:
+     - Los candidatos se calculan UNA vez por gesto (primer fotograma), no por
+       fotograma: la escena no cambia mientras se arrastra.
+     - `free` acumula el delta CRUDO del puntero, como hace dragLast con su
+       posición: el imán corrige respecto a esa posición libre, así que al
+       salir de la tolerancia el objeto vuelve con el puntero sin zona muerta.
+     - Alt lo suspende en caliente como ACELERADOR, nunca única vía (regla de
+       una mano): el mando de verdad es «Guías de alineación» en
+       #modal-select, persistido en prefs. */
+  const ALIGN_TOL = 5;
+
+  function alignAdjust(dx, dy, altKey) {
+    state.alignGuideLines = null;
+    if (!state.alignGuides || altKey) return { dx, dy };
+    const box = selectionBounds();
+    if (!box) return { dx, dy };
+    let s = state.alignSession;
+    if (!s) {
+      const selSet = new Set(state.selection);
+      const xs = [], ys = [];
+      state.elements.forEach((el, i) => {
+        if (selSet.has(i)) return;
+        const b = getElementBounds(el);
+        if (!Number.isFinite(b.x) || !Number.isFinite(b.w)) return;
+        xs.push(b.x, b.x + b.w / 2, b.x + b.w);
+        ys.push(b.y, b.y + b.h / 2, b.y + b.h);
+      });
+      s = state.alignSession = { free: { x: box.x, y: box.y }, xs, ys, snapped: false };
+    }
+    s.free.x += dx; s.free.y += dy;
+    const best = (edges, targets) => {
+      let corr = null, hit = null;
+      for (const edge of edges) {
+        for (const t of targets) {
+          const c = t - edge;
+          if (Math.abs(c) <= ALIGN_TOL && (corr === null || Math.abs(c) < Math.abs(corr))) {
+            corr = c; hit = t;
+          }
+        }
+      }
+      return { corr: corr === null ? 0 : corr, hit };
+    };
+    const bx = best([s.free.x, s.free.x + box.w / 2, s.free.x + box.w], s.xs);
+    const by = best([s.free.y, s.free.y + box.h / 2, s.free.y + box.h], s.ys);
+    s.snapped = bx.hit !== null || by.hit !== null;
+    const lines = [];
+    if (bx.hit !== null) lines.push({ axis: 'x', pos: bx.hit });
+    if (by.hit !== null) lines.push({ axis: 'y', pos: by.hit });
+    if (lines.length) state.alignGuideLines = lines;
+    // El delta se expresa contra la caja ACTUAL: el imán decide la posición
+    // final y clampDelta (dentro de moveSelectionBy) sigue teniendo la última
+    // palabra en el borde del lienzo.
+    return { dx: s.free.x + bx.corr - box.x, dy: s.free.y + by.corr - box.y };
   }
 
   /** Mueve la selección entera (dx,dy), frenada por clampDelta. Devuelve el
@@ -1132,6 +1193,7 @@
         overlapMode: state.overlapMode,
         eraserSize: state.eraserSize,
         strokeTaper: state.strokeTaper,
+        alignGuides: state.alignGuides,
         buildFloors: state.buildFloors,
         buildBays: state.buildBays,
         roofPitch: state.roofPitch,
@@ -1226,6 +1288,7 @@
       }
       if (typeof prefs.textBold === 'boolean') state.textBold = prefs.textBold;
       if (typeof prefs.strokeTaper === 'boolean') state.strokeTaper = prefs.strokeTaper;
+      if (typeof prefs.alignGuides === 'boolean') state.alignGuides = prefs.alignGuides;
       // Contra el catálogo, como la letra: un id de otra versión dejaría el
       // default apuntando a una sombra que ya no existe.
       if (TEXT_SHADOWS.some(sh => sh.id === prefs.textShadow)) {
@@ -2838,6 +2901,28 @@
   function paintOverlay() {
     octx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
+    // Guías de alineación (v2.38.0): overlay puro, como el marco del
+    // aerógrafo o la cota de ángulo de los caminos — se limpian cada
+    // fotograma, no son elementos y no entran en undo, autosave ni export.
+    // Cruzan el lienzo entero: la guía dice «alineado con ESTA ordenada»,
+    // no con qué trozo de qué elemento.
+    if (state.alignGuideLines) {
+      octx.save();
+      octx.strokeStyle = 'rgba(255, 107, 107, 0.9)';
+      octx.lineWidth = 1;
+      octx.setLineDash([6, 4]);
+      state.alignGuideLines.forEach(g => {
+        octx.beginPath();
+        if (g.axis === 'x') {
+          octx.moveTo(g.pos + 0.5, 0); octx.lineTo(g.pos + 0.5, CANVAS_H);
+        } else {
+          octx.moveTo(0, g.pos + 0.5); octx.lineTo(CANVAS_W, g.pos + 0.5);
+        }
+        octx.stroke();
+      });
+      octx.restore();
+    }
+
     // Marquee de selección
     if (state.marquee) {
       const m = state.marquee;
@@ -3158,10 +3243,13 @@
         // puntero sigue libre (dragLast guarda su posición REAL, no la
         // recortada), así que en cuanto vuelve hacia dentro el objeto lo
         // acompaña, sin zona muerta que recorrer.
-        moveSelectionBy(dx, dy);
+        const d = alignAdjust(dx, dy, e.altKey);
+        moveSelectionBy(d.dx, d.dy);
         state.dragLast = pos;
         state.didDrag = true;
         redraw();
+        // Las guías viven en el overlay y se limpian con él cada fotograma.
+        scheduleOverlay();
       }
       return;
     }
@@ -3272,8 +3360,11 @@
       if (state.didDrag && state.dragSnapshot) {
         pushUndo(state.dragSnapshot);
         // Snap al soltar: se alinea el primer elemento y el resto conserva
-        // sus distancias relativas
-        if (state.snapGrid && !e.altKey) {
+        // sus distancias relativas. Si el imán de alineación acaba de pegar
+        // la selección a otro elemento, GANA la guía (es más específica que
+        // la cuadrícula): re-snapear aquí desharía justo esa alineación.
+        if (state.snapGrid && !e.altKey &&
+            !(state.alignSession && state.alignSession.snapped)) {
           const b = getElementBounds(state.elements[state.selection[0]]);
           const dx = snapVal(b.x) - b.x;
           const dy = snapVal(b.y) - b.y;
@@ -3294,6 +3385,11 @@
       state.dragLast = null;
       state.dragSnapshot = null;
       state.didDrag = false;
+      // El imán muere con el gesto: sesión y guías fuera, y un repintado del
+      // overlay para que la guía no quede colgada tras soltar.
+      state.alignSession = null;
+      state.alignGuideLines = null;
+      scheduleOverlay();
       redraw();
       return;
     }
@@ -5421,6 +5517,7 @@
 
   function syncSelectControls() {
     $('select-modal-multi').checked = state.multiSelect;
+    $('select-modal-align').checked = state.alignGuides;
   }
 
   /* ── Trazo: ajustes compartidos entre el panel y #modal-stroke ── */
@@ -7081,6 +7178,12 @@
     // pulsa la herramienta y, por debajo de 1100px, dentro de un cajón oculto.
     $('select-modal-multi').addEventListener('change', e => {
       state.multiSelect = e.target.checked;
+    });
+    // Guías de alineación: al contrario que «Los clics acumulan», SÍ persiste
+    // — es un modo de trabajo, no un estado transitorio de la sesión.
+    $('select-modal-align').addEventListener('change', e => {
+      state.alignGuides = e.target.checked;
+      savePrefs();
     });
 
     // Undo / Redo
@@ -9059,6 +9162,7 @@
     $('check-snap').checked = state.snapGrid;
     updateCanvasPresetActive();
     $('select-modal-multi').checked = state.multiSelect;
+    $('select-modal-align').checked = state.alignGuides;
     // Aplica la letra y pide su descarga: el lienzo no dispara la carga de una
     // webfont por sí solo, así que sin esto la primera pintada usaría el
     // resguardo del sistema aunque el .woff2 esté aquí al lado.

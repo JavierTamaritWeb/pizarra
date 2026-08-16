@@ -4496,3 +4496,33 @@ test('«Trazo con presión»: el default estampa taper y la casilla edita el lá
   assert.equal(app.elements()[0].taper, undefined,
     'quitarla BORRA el campo, no guarda false');
 });
+
+/* ── Guías de alineación (v2.38.0) ─────────────────────────────── */
+
+test('el imán de alineación pega el arrastre al borde del vecino, y apagado no', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 180, 160);   // vecino: bordes x en 100/140/180
+  app.drag(300, 300, 380, 360);   // el que se arrastra
+
+  // Arrastre que deja el borde izquierdo a 3 px del vecino (103): el imán
+  // debe clavarlo en 100 exacto, en las dos coordenadas.
+  app.selectTool('select');
+  app.drag(340, 330, 143, 133);
+  let els = app.elements();
+  assert.equal(els.length, 2);
+  assert.equal(els[1].x, 100, 'x imantada al borde del vecino');
+  assert.equal(els[1].y, 100, 'y imantada también');
+
+  // Con «Guías de alineación» apagada, el mismo gesto deja el objeto donde
+  // el puntero lo suelta: a 3 px, sin imán.
+  const align = app.$('select-modal-align');
+  align.checked = false; align.__fire('change', { target: align });
+  app.flush();
+  app.drag(140, 130, 343, 333);   // devolverlo lejos (queda en 303: sin imán
+                                  // cerca, el arrastre es 1:1 con el puntero)
+  app.drag(343, 333, 146, 136);   // y repetir el acercamiento (303 − 197)
+  els = app.elements();
+  assert.equal(els[1].x, 106, 'sin imán, se queda donde suelta el puntero');
+  assert.equal(els[1].y, 106);
+});
