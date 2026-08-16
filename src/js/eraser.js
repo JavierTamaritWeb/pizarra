@@ -43,12 +43,22 @@ const Eraser = (function () {
     );
   }
 
+  /** Un tramo del trazo, con su caja colgada encima para poder descartarlo sin
+      calcular distancias (ver `_erasedAt`). Sigue siendo el par `[a, b]` que
+      desestructuran los demás consumidores. */
+  function _seg(a, b) {
+    const seg = [a, b];
+    seg.minX = Math.min(a.x, b.x); seg.maxX = Math.max(a.x, b.x);
+    seg.minY = Math.min(a.y, b.y); seg.maxY = Math.max(a.y, b.y);
+    return seg;
+  }
+
   /** Segmentos del trazo del borrador. Un solo punto = segmento degenerado. */
   function _strokeSegments(pts) {
     if (!pts || !pts.length) return [];
-    if (pts.length === 1) return [[pts[0], pts[0]]];
+    if (pts.length === 1) return [_seg(pts[0], pts[0])];
     const segs = [];
-    for (let i = 1; i < pts.length; i++) segs.push([pts[i - 1], pts[i]]);
+    for (let i = 1; i < pts.length; i++) segs.push(_seg(pts[i - 1], pts[i]));
     return segs;
   }
 
@@ -114,6 +124,46 @@ const Eraser = (function () {
     'triangle', 'pentagon', 'hexagon', 'star5', 'star6', 'trapezoid',
     'polygon'];
 
+  /** Esquina redondeada muestreada, en el mismo radio que dibuja el renderer. */
+  function _roundedOutline(b, r = 12, segs = 6) {
+    r = Math.max(0, Math.min(r, b.w / 2, b.h / 2));
+    if (!r) return _boxOutline(b);
+    const pts = [];
+    // Centros de las cuatro esquinas y el ángulo con el que arranca cada una.
+    const corners = [
+      { cx: b.x + b.w - r, cy: b.y + r, a0: -Math.PI / 2 },
+      { cx: b.x + b.w - r, cy: b.y + b.h - r, a0: 0 },
+      { cx: b.x + r, cy: b.y + b.h - r, a0: Math.PI / 2 },
+      { cx: b.x + r, cy: b.y + r, a0: Math.PI },
+    ];
+    for (const c of corners) {
+      for (let i = 0; i <= segs; i++) {
+        const a = c.a0 + (i / segs) * (Math.PI / 2);
+        pts.push({ x: c.cx + r * Math.cos(a), y: c.cy + r * Math.sin(a) });
+      }
+    }
+    return pts;
+  }
+
+  /**
+   * Contorno real de una forma como polilínea CERRADA (el último punto no
+   * repite el primero). Es la silueta que se ve, y por eso la comparten el
+   * alcance del borrador y su recorte: si midieran contornos distintos, el
+   * borrador tocaría una cosa y cortaría otra.
+   */
+  function _shapeOutline(el, deps = {}) {
+    const box = (deps.boundsOf || _bounds)(el);
+    // Vértices degenerados ([] en un polígono de tamaño cero) NO cortan el
+    // encadenado: `[]` es truthy y dejaba el elemento imborrable.
+    const poly = deps.polygonVertices && deps.polygonVertices(el);
+    const trap = deps.trapezoidVertices && deps.trapezoidVertices(el);
+    if (poly && poly.length) return poly;
+    if (trap && trap.length) return trap;
+    if (el.type === 'circle') return _ellipseOutline(box);
+    if (el.type === 'roundedRect') return _roundedOutline(box);
+    return _boxOutline(box);
+  }
+
   /**
    * ¿El trazo `pts` con radio `r` toca al elemento `el`?
    * `deps` inyecta lo que vive fuera de este módulo:
@@ -154,15 +204,8 @@ const Eraser = (function () {
     // entero (con la caja, una pasada por el centro de una fachada borraba
     // el muro completo). Rellenas, el interior también es tinta.
     if (OUTLINE_TYPES.includes(el.type)) {
-      const box = boundsOf(el);
       const w = r + (el.lineWidth || 1) / 2;
-      // Vértices degenerados ([] en un polígono de tamaño cero) NO cortan el
-      // encadenado: `[]` es truthy y dejaba el elemento imborrable.
-      const poly = deps.polygonVertices && deps.polygonVertices(el);
-      const trap = deps.trapezoidVertices && deps.trapezoidVertices(el);
-      const verts = (poly && poly.length && poly)
-        || (trap && trap.length && trap)
-        || (el.type === 'circle' ? _ellipseOutline(box) : _boxOutline(box));
+      const verts = _shapeOutline(el, deps);
       // Relleno: el interior es tinta, pero el interior REAL (la silueta),
       // no la caja — la esquina del bbox de un círculo o un triángulo
       // rellenos está a ~15 px de la tinta más cercana y no debe borrarlos.
@@ -195,20 +238,38 @@ const Eraser = (function () {
     return kill.size ? elements.filter((_, i) => !kill.has(i)) : elements;
   }
 
-  /* ---- Borrado parcial: recta, flecha y trazo a mano ----
-     line/arrow/pencil ya no se eliminan enteros al tocarlos: sobrevive lo
-     que quede fuera del círculo del borrador, partido en tantos trozos como
-     haga falta. El resto de tipos (formas, texto, imágenes, componentes,
-     curveArrow) sigue el borrado íntegro de siempre — recortar el contorno
-     de una forma o una curva Bézier de forma exacta queda fuera de alcance;
-     "recta, trazo o intersección de trazo" es justo lo que puede
-     representarse como una polilínea recortable. */
-  const LINEAR_TYPES = ['line', 'arrow', 'pencil'];
+  /* ---- Borrado parcial ----
+     Nada de lo que se dibuja con una PLUMILLA se borra entero al tocarlo:
+     sobrevive lo que quede fuera del círculo del borrador, partido en tantos
+     trozos como haga falta. Desde la v1.22.0 valía para line/arrow/pencil, y
+     desde la v2.33.0 también para la flecha curva, el contorno de las formas
+     sin relleno y el eje del aerógrafo — antes bastaba rozarlos para que
+     desaparecieran completos, que es justo lo que un borrador no hace.
+     Siguen yéndose enteros, y por el mismo motivo en los tres casos (su
+     dibujo es una superficie, no una línea, y no hay tipo que represente esa
+     superficie mordida): el texto, las imágenes, los componentes de UI y
+     cualquier forma RELLENA. */
   const LINE_SAMPLE_STEP = 4; // px: resolución con la que se recorta una recta/flecha
 
-  /** ¿El punto `p` cae dentro de algún tramo del trazo del borrador? */
+  /**
+   * ¿El punto `p` cae dentro de algún tramo del trazo del borrador?
+   *
+   * El descarte por caja no es adorno: esto se llama una vez por muestra
+   * (cada 4 px de contorno) y por tramo del trazo, en CADA fotograma del
+   * arrastre — el recorte se recalcula entero desde `state.elements` para la
+   * previsualización. Con un barrido largo sobre varias formas grandes son
+   * millones de operaciones por fotograma; la caja se salta la raíz cuadrada
+   * en la inmensa mayoría (medido en Chrome: 42 ms → 15 ms por fotograma, con
+   * 12 círculos grandes solapados y un barrido de 400 puntos).
+   */
   function _erasedAt(p, segs, r) {
-    return segs.some(([a, b]) => distToSegment(p, a, b) <= r);
+    for (let i = 0; i < segs.length; i++) {
+      const seg = segs[i];
+      if (p.x < seg.minX - r || p.x > seg.maxX + r ||
+          p.y < seg.minY - r || p.y > seg.maxY + r) continue;
+      if (distToSegment(p, seg[0], seg[1]) <= r) return true;
+    }
+    return false;
   }
 
   /** Punto donde `p1→p2` cruza el borde del área borrada (bisección). */
@@ -328,10 +389,123 @@ const Eraser = (function () {
     });
   }
 
+  /** Densifica una polilínea a ~LINE_SAMPLE_STEP px conservando los vértices
+      originales POR REFERENCIA (el recorte los usa para saber qué trozo
+      conserva cada extremo). Sin esto, el contorno de un rectángulo son
+      cuatro puntos: borrar el centro de un lado no cambia la clasificación de
+      ninguno de sus dos extremos y no se corta nada. */
+  function _densify(points) {
+    if (!points || points.length < 2) return points || [];
+    const out = [points[0]];
+    for (let i = 1; i < points.length; i++) {
+      out.push(..._sampleLine(points[i - 1], points[i]).slice(1));
+    }
+    return out;
+  }
+
+  /** Trozo de trazo a mano alzada equivalente a un pedazo de otro elemento.
+      Se construye de cero, nunca con `{...el}`: un `rotation` heredado por un
+      `pencil` lo rechaza `isValidElement` al importar, y `w`/`h`/`fill` serían
+      basura serializada. `dash` tampoco se hereda — el renderer no lo aplica a
+      un `pencil`, así que copiarlo dibujaría continuo diciendo discontinuo. */
+  function _asPencil(el, run) {
+    const piece = {
+      type: 'pencil',
+      points: run.map(p => ({ x: p.x, y: p.y })),
+      color: el.color,
+      lineWidth: el.lineWidth,
+    };
+    if (el.seed !== undefined) piece.seed = el.seed;
+    // El trozo sigue siendo pieza del mismo edificio/jardín/sólido: perder el
+    // grupo dejaría un cacho suelto imposible de seleccionar con el resto.
+    if (el.buildingGroupId !== undefined) piece.buildingGroupId = el.buildingGroupId;
+    return piece;
+  }
+
+  /**
+   * Recorta una `curveArrow` contra el trazo del borrador. Los trozos salen
+   * como `pencil`: la curva se muestrea fina y lo que queda ya no es un
+   * Bézier con sus extremos y controles, igual que un trozo de flecha
+   * cortado deja de ser flecha. Se pierden puntas y etiqueta, que es lo
+   * coherente — la punta estaba en el extremo que acaba de borrarse.
+   */
+  function _splitCurve(el, segs, r, deps) {
+    const w = r + (el.lineWidth || 1) / 2;
+    const sampled = deps.sampleCurve ? deps.sampleCurve(el, 24)
+      : [{ x: el.x1, y: el.y1 }, { x: el.x2, y: el.y2 }];
+    const pts = _densify(sampled);
+    if (pts.length < 2) return null;   // curva degenerada: borrado íntegro
+    const runs = _survivingRuns(pts, segs, w);
+    if (runs.length === 1 &&
+        runs[0][0] === pts[0] && runs[0][runs[0].length - 1] === pts[pts.length - 1]) {
+      return [el];                     // roce sin mordisco: intacta por referencia
+    }
+    return runs.map(run => _asPencil(el, run));
+  }
+
+  /**
+   * Recorta el CONTORNO de una forma sin relleno. El anillo se cierra por su
+   * costura antes de recortar y los dos trozos que la comparten se vuelven a
+   * unir: sin eso, borrar por cualquier otro lado partiría la forma en dos
+   * pedazos por un sitio donde el borrador no ha pasado.
+   */
+  function _splitOutline(el, segs, r, deps) {
+    const w = r + (el.lineWidth || 1) / 2;
+    const ring = _shapeOutline(el, deps);
+    if (!ring || ring.length < 3) return null;
+    const closed = _densify(ring.concat([ring[0]]));
+    const first = closed[0], last = closed[closed.length - 1];
+    const runs = _survivingRuns(closed, segs, w);
+    if (runs.length === 1 &&
+        runs[0][0] === first && runs[0][runs[0].length - 1] === last) {
+      return [el];                     // roce sin mordisco: intacta por referencia
+    }
+    if (runs.length > 1) {
+      const a = runs[0], b = runs[runs.length - 1];
+      if (a[0] === first && b[b.length - 1] === last) {
+        runs.pop();
+        runs.shift();
+        runs.unshift(b.slice(0, -1).concat(a));   // la costura no estaba borrada
+      }
+    }
+    return runs.map(run => _asPencil(el, run));
+  }
+
+  /**
+   * Recorta el EJE de una mancha de aerógrafo. El margen es el mismo que usa
+   * `touches` —radio del borrador MÁS la boquilla entera— y ese "entera" es
+   * geometría, no prudencia: los tramos de eje que sobreviven siguen rociando
+   * hacia el hueco hasta el radio completo, así que cortando el eje a `r + R`
+   * del trazo el claro que queda mide exactamente `r`, el círculo del
+   * borrador. Con menos margen el hueco se cierra solo y queda un residuo
+   * tenue justo donde se acaba de borrar (medido: con media boquilla, un 7 %
+   * de tinta en el claro). Contrapartida asumida: pasar por el halo exterior
+   * se lleva ese tramo de banda entero, porque el eje que lo pinta está
+   * debajo. Un soplo de un solo punto no tiene eje que partir: se borra entero.
+   */
+  function _splitAirbrush(el, segs, r) {
+    if (!el.points || el.points.length < 2) return null;
+    // El eje viene decimado a 2 px cuando lo dibuja la herramienta, pero un
+    // proyecto importado o una mancha escalada pueden traerlo con vértices
+    // muy separados, y entre dos muestras el borrador no ve nada que cortar.
+    const pts = _densify(el.points);
+    const w = r + (el.radius || 0) + (el.lineWidth || 1) / 2;
+    const runs = _survivingRuns(pts, segs, w);
+    if (runs.length === 1 &&
+        runs[0][0] === pts[0] && runs[0][runs[0].length - 1] === pts[pts.length - 1]) {
+      return [el];
+    }
+    return runs.map(run => {
+      const piece = { ...el, points: run };
+      delete piece.id;
+      return piece;
+    });
+  }
+
   /**
    * Escena resultante de aplicar el trazo del borrador (array nuevo; no
-   * muta la entrada). A diferencia de `apply`, los tipos de `LINEAR_TYPES`
-   * no se eliminan enteros: se sustituyen por los trozos que sobreviven
+   * muta la entrada). A diferencia de `apply`, lo que se dibuja con una
+   * plumilla no se elimina entero: se sustituye por los trozos que sobreviven
    * fuera del círculo. Devuelve la misma referencia si nada cambió.
    */
   function erase(elements, pts, r, deps = {}) {
@@ -344,6 +518,14 @@ const Eraser = (function () {
       let pieces = null;
       if (el.type === 'pencil') pieces = _splitPencil(el, segs, r);
       else if (el.type === 'line' || el.type === 'arrow') pieces = _splitLine(el, segs, r);
+      else if (el.type === 'curveArrow') pieces = _splitCurve(el, segs, r, deps);
+      else if (el.type === 'airbrush') pieces = _splitAirbrush(el, segs, r);
+      // Una forma RELLENA se va entera: su dibujo es la superficie, y no hay
+      // ningún tipo que represente una superficie mordida. Sin relleno, lo
+      // dibujado es el contorno y el contorno sí se recorta.
+      else if (OUTLINE_TYPES.includes(el.type) && !el.fill) {
+        pieces = _splitOutline(el, segs, r, deps);
+      }
       if (pieces) {
         // `touches` mide distancia continua y el recorte muestrea cada 4 px:
         // un roce puede tocar sin que ninguna muestra caiga dentro. Si el

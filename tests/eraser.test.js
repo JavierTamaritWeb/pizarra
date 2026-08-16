@@ -346,17 +346,52 @@ const spray = extra => Object.assign({
   radius: 20, density: 40,
 }, extra || {});
 
-test('el borrador se lleva la mancha ENTERA al rozar su banda', () => {
-  // Recortar una nube exigiría guardarla, que es justo lo que el diseño
-  // evita; por eso `airbrush` no está en LINEAR_TYPES y va por borrado
-  // íntegro, como las formas y el texto.
+test('cruzar el eje parte la mancha en dos, no la borra entera (v2.33.0)', () => {
+  // Hasta la v2.33.0 bastaba rozar la banda para que la nube entera
+  // desapareciera — lo que el usuario reportó como «el borrador no funciona
+  // bien en el aerógrafo». Ahora se recorta el EJE, que es lo que el elemento
+  // guarda, y cada trozo regenera su propia nube.
   const el = spray();
   const paso = stroke([200, 180], [200, 220]); // cruza el eje por el medio
   assert.equal(Eraser.touches(el, paso, 6, DEPS), true);
   const escena = [el, rect(600, 600, 40, 40)];
   const tras = Eraser.erase(escena, paso, 6, DEPS);
-  assert.equal(tras.length, 1, 'la mancha entera se va, no se parte en trozos');
-  assert.equal(tras[0].type, 'rect');
+  const nubes = tras.filter(e => e.type === 'airbrush');
+  assert.equal(nubes.length, 2, 'quedan los dos tramos de eje, uno a cada lado');
+  // Cada trozo conserva boquilla, densidad y grano: es la misma mancha.
+  for (const n of nubes) {
+    assert.equal(n.radius, el.radius);
+    assert.equal(n.density, el.density);
+    assert.equal(n.lineWidth, el.lineWidth);
+    assert.ok(n.points.length >= 2);
+  }
+  // Y hay hueco de verdad entre los dos: el final de uno queda antes del
+  // principio del otro, no pegados.
+  const finA = nubes[0].points[nubes[0].points.length - 1];
+  const iniB = nubes[1].points[0];
+  assert.ok(Math.hypot(iniB.x - finA.x, iniB.y - finA.y) > 6, 'el claro existe');
+});
+
+test('un soplo de un solo punto no tiene eje que partir: se borra entero', () => {
+  const el = spray({ points: stroke([100, 100]) });
+  assert.equal(Eraser.erase([el], stroke([100, 100]), 6, DEPS).length, 0);
+});
+
+test('rozar el halo muerde ese tramo de banda, no la mancha entera', () => {
+  // El eje que pinta el halo está debajo, así que pasar por el borde de la
+  // banda corta ahí. Lo que NO puede pasar es que desaparezca todo.
+  const el = spray({ points: stroke([100, 100], [300, 100]), radius: 20 });
+  const roce = stroke([200, 118], [205, 118]);
+  assert.equal(Eraser.touches(el, roce, 2, DEPS), true);
+  const tras = Eraser.erase([el], roce, 2, DEPS);
+  assert.equal(tras.length, 2, 'quedan los dos lados del roce');
+  assert.ok(tras[0].points[0].x === 100, 'el principio del eje sigue donde estaba');
+});
+
+test('pasar lejos de la banda no reconstruye la mancha (misma referencia)', () => {
+  const el = spray({ points: stroke([100, 100], [300, 100]), radius: 20 });
+  const escena = [el];
+  assert.equal(Eraser.erase(escena, stroke([200, 160], [205, 160]), 2, DEPS), escena);
 });
 
 test('pasar por la esquina vacía de su caja NO borra la mancha', () => {
@@ -397,4 +432,125 @@ test('la mancha no se cuela por las ramas de lápiz ni de forma', () => {
   const el = spray({ points: stroke([100, 100], [300, 100]), radius: 30, lineWidth: 1 });
   assert.equal(Eraser.touches(el, stroke([200, 125], [205, 125]), 1, DEPS), true,
     'con la rama del lápiz esto no tocaría: 25 px del eje con lineWidth 1');
+});
+
+/* ────────────────────────────────────────────────────────────
+   Borrado parcial de curvas y contornos (v2.33.0)
+
+   Hasta aquí, tocar una flecha curva o el contorno de una forma se llevaba
+   el elemento entero: el usuario lo reportó como «el borrador no funciona
+   bien en las flechas curvas ni en las formas». Ahora se recortan como una
+   recta, y los trozos salen como trazo a mano alzada.
+   ──────────────────────────────────────────────────────────── */
+
+const curva = extra => Object.assign({
+  type: 'curveArrow', color: '#000000', lineWidth: 2, seed: 3,
+  x1: 100, y1: 300, cx: 200, cy: 100, x2: 300, y2: 300,
+}, extra || {});
+
+test('morder una flecha curva por el medio deja dos trozos, no la borra', () => {
+  const el = curva();
+  const paso = stroke([200, 140], [200, 200]);     // cruza el vértice de la curva
+  assert.equal(Eraser.touches(el, paso, 8, DEPS), true);
+  const tras = Eraser.erase([el], paso, 8, DEPS);
+  assert.equal(tras.length, 2, 'sobreviven los dos extremos de la curva');
+  assert.ok(tras.every(p => p.type === 'pencil'), 'un trozo de curva ya no es una curva');
+  assert.ok(tras.every(p => p.points.length >= 2));
+  // El primer trozo arranca donde arrancaba la curva y el segundo acaba donde acababa.
+  assert.deepEqual({ ...tras[0].points[0] }, { x: 100, y: 300 });
+  const fin = tras[1].points[tras[1].points.length - 1];
+  assert.deepEqual({ ...fin }, { x: 300, y: 300 });
+});
+
+test('el trozo de curva no hereda ni punta ni etiqueta ni campos de curva', () => {
+  const el = curva({ heads: 'both', label: 'flujo', labelT: 0.5, dash: true, id: 'ab12' });
+  const tras = Eraser.erase([el], stroke([200, 140], [200, 200]), 8, DEPS);
+  for (const p of tras) {
+    assert.equal(p.heads, undefined, 'cortar una curva no inventa una punta en el corte');
+    assert.equal(p.label, undefined);
+    assert.equal(p.labelT, undefined);
+    assert.equal(p.cx, undefined, 'un pencil con cx sería basura serializada');
+    assert.equal(p.id, undefined);
+    // `dash` no se hereda: el renderer no lo aplica a un pencil, así que
+    // copiarlo dibujaría continuo diciendo discontinuo.
+    assert.equal(p.dash, undefined);
+    assert.equal(p.color, el.color);
+    assert.equal(p.lineWidth, el.lineWidth);
+  }
+});
+
+test('rozar una curva sin morderla la deja intacta POR REFERENCIA', () => {
+  const el = curva();
+  const escena = [el];
+  // A 30 px del trazado: `touches` no llega y no se reconstruye nada.
+  assert.equal(Eraser.erase(escena, stroke([200, 40], [210, 40]), 4, DEPS), escena);
+});
+
+test('borrar un lado de un rectángulo deja el resto del contorno', () => {
+  const el = rect(100, 100, 200, 200);
+  const paso = stroke([140, 100], [260, 100]);     // barre el lado superior
+  const tras = Eraser.erase([el], paso, 10, DEPS);
+  assert.ok(tras.length >= 1, 'no se borra el rectángulo entero');
+  assert.ok(tras.every(p => p.type === 'pencil'));
+  // Lo que queda es un trozo continuo: el anillo se cortó SOLO por donde pasó
+  // el borrador, no también por su costura.
+  assert.equal(tras.length, 1, 'una sola tira, no dos');
+  const pts = tras[0].points;
+  // Y sigue rodeando la forma: llega a las cuatro esquinas útiles.
+  const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+  assert.ok(Math.min(...xs) <= 101 && Math.max(...xs) >= 299);
+  assert.ok(Math.min(...ys) <= 101 && Math.max(...ys) >= 299);
+  // El hueco está donde pasó el borrador, en el lado de arriba.
+  assert.ok(!pts.some(p => p.y < 105 && p.x > 160 && p.x < 240), 'el lado barrido no está');
+});
+
+test('dos pasadas por lados opuestos parten el contorno en dos tiras', () => {
+  const el = rect(100, 100, 200, 200);
+  const tras = Eraser.erase([el], stroke([140, 100], [260, 100]), 10, DEPS);
+  const final = Eraser.erase(tras, stroke([140, 300], [260, 300]), 10, DEPS);
+  assert.equal(final.length, 2, 'quedan los dos laterales, separados');
+  assert.ok(final.every(p => p.type === 'pencil' && p.points.length >= 2));
+});
+
+test('una forma RELLENA sigue yéndose entera: su dibujo es la superficie', () => {
+  const el = Object.assign(rect(100, 100, 200, 200), { fill: true, fillColor: '#e74c3c' });
+  const tras = Eraser.erase([el], stroke([140, 100], [260, 100]), 10, DEPS);
+  assert.equal(tras.length, 0, 'no hay tipo que represente una superficie mordida');
+});
+
+test('el círculo se recorta por su elipse, no por su caja', () => {
+  const el = { type: 'circle', x: 100, y: 100, w: 200, h: 200, color: '#000000', lineWidth: 2 };
+  // La esquina de la caja está a ~41 px de la circunferencia: no borra nada.
+  const escena = [el];
+  assert.equal(Eraser.erase(escena, stroke([100, 100], [110, 110]), 6, DEPS), escena);
+  // Y por el borde de arriba sí muerde.
+  const tras = Eraser.erase(escena, stroke([190, 100], [210, 100]), 10, DEPS);
+  assert.equal(tras.length, 1);
+  assert.equal(tras[0].type, 'pencil');
+  assert.ok(tras[0].points.length > 8, 'queda casi toda la circunferencia');
+});
+
+test('el trozo de contorno de un polígono regular no hereda su rotación', () => {
+  // `isValidElement` RECHAZA un `rotation` que no esté en un polígono regular
+  // o un trapecio: heredarlo con `{...el}` daría trozos que no se reimportan.
+  const el = {
+    type: 'pentagon', x: 100, y: 100, w: 200, h: 200,
+    color: '#000000', lineWidth: 2, rotation: 36, buildingGroupId: 'g1',
+  };
+  const tras = Eraser.erase([el], stroke([100, 200], [130, 200]), 12, DEPS);
+  assert.ok(tras.length >= 1);
+  for (const p of tras) {
+    assert.equal(p.type, 'pencil');
+    assert.equal(p.rotation, undefined);
+    assert.equal(p.w, undefined);
+    assert.equal(p.h, undefined);
+    // El grupo sí viaja: el trozo sigue siendo pieza del mismo conjunto.
+    assert.equal(p.buildingGroupId, 'g1');
+  }
+});
+
+test('texto, imagen y componentes siguen borrándose enteros', () => {
+  const texto = { type: 'text', x: 100, y: 100, w: 80, h: 20, value: 'hola',
+    color: '#000000', lineWidth: 2, fontSize: 18 };
+  assert.equal(Eraser.erase([texto], stroke([100, 105], [140, 105]), 6, DEPS).length, 0);
 });

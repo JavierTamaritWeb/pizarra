@@ -2339,3 +2339,35 @@ el código roto (revertir el fix hace fallar exactamente sus tests).
   enteros y no pisan su icono"*, ampliada con la medida del hueco mínimo entre
   dos rótulos de la misma fila (≥6px). Verificada fallando contra el CSS
   anterior.
+
+### El borrador se llevaba entero el aerógrafo, las flechas curvas y las formas
+
+- **Síntoma:** «el borrador funciona bien al borrar Lápiz, Línea y Flecha pero
+  no funciona bien en el aerógrafo, las flechas curvas y las formas». Rozar
+  cualquiera de esos tres hacía desaparecer el elemento completo: un toque en
+  una esquina de un rectángulo se llevaba los cuatro lados, y un roce en el
+  borde de una mancha de espray, la mancha entera.
+- **Causa:** el recorte parcial de la v1.22.0 se hizo solo para
+  `line`/`arrow`/`pencil` («recortar el contorno de una forma o una curva
+  Bézier queda fuera de alcance»), y todo lo demás caía en el borrado íntegro.
+  El resultado no se lee como un alcance limitado sino como un borrador roto,
+  porque el elemento desaparece *sin haber pasado por encima de casi nada de
+  él*.
+- **Fix:** `src/js/eraser.js` — `erase()` recorta también la `curveArrow` (se
+  muestrea y los trozos salen como `pencil`), el eje del `airbrush` y el
+  contorno de las formas SIN relleno (anillo cerrado, con su costura vuelta a
+  coser). Tres detalles sin los cuales no funciona: `_densify` (el contorno de
+  un rectángulo son cuatro puntos, y entre dos de ellos no se detecta ningún
+  corte), `_shapeOutline` compartido con `touches` (si midieran contornos
+  distintos, tocaría una cosa y cortaría otra) y el margen `r + radius` del
+  aerógrafo (los tramos que sobreviven siguen rociando hacia el hueco, así que
+  con menos margen queda un residuo tenue justo donde se acaba de borrar).
+  Siguen yéndose enteros el texto, las imágenes, los componentes y cualquier
+  forma **rellena**: su dibujo es una superficie y no hay tipo que represente
+  una superficie mordida.
+- **Guardia:** `tests/eraser.test.js` › nueve pruebas nuevas (los dos trozos de
+  una curva, el trozo que no hereda ni punta ni `rotation` ni `dash`, la
+  costura del anillo, el círculo recortado por su elipse y no por su caja, la
+  forma rellena que sí se va entera, el aerógrafo partido en dos) y
+  `e2e/eraser.spec.js` (nuevo) que lo mide sobre píxeles reales. Verificadas
+  fallando: quitando las tres ramas nuevas del despacho caen diez pruebas.

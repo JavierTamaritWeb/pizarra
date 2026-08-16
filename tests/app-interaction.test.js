@@ -552,10 +552,17 @@ test('el borrador elimina los elementos y no deja ninguna máscara en la escena'
   app.drag(90, 150, 210, 150);          // pasada sobre el primero
 
   const els = app.elements();
-  assert.equal(els.length, 1, 'el rect barrido desaparece del estado');
   assert.equal(els.filter(e => e.type === 'eraser').length, 0,
     'el borrador no debe añadir ningún elemento a la escena');
-  assert.equal(els[0].x, 400, 'el rect lejano sobrevive');
+  // Desde la v2.33.0 el contorno se RECORTA: del primer rectángulo quedan las
+  // tiras de contorno que la pasada no ha tocado, ya como trazo a mano alzada.
+  assert.equal(els.filter(e => e.type === 'rect').length, 1,
+    'el rect barrido deja de ser un rect');
+  assert.equal(els.find(e => e.type === 'rect').x, 400, 'el rect lejano sobrevive');
+  const tiras = els.filter(e => e.type === 'pencil');
+  assert.ok(tiras.length >= 1, 'y lo que no se barrió sigue dibujado');
+  assert.ok(tiras.every(p => p.points.every(pt => pt.x < 260)),
+    'ninguna tira invade la zona del rect lejano');
 });
 
 /* ── Regresión: recta/flecha/trazo se recortan, no se borran enteros ── */
@@ -1663,9 +1670,11 @@ test('tras «Limpiar todo» los controles de Verjas y Cancela vuelven a su valor
 test('lo borrado no reaparece al mover el dibujo (el fallo de la máscara)', () => {
   const { app, count } = withFacade();
   app.selectTool('eraser');
+  const antes = JSON.stringify(app.elements());
   app.drag(150, 200, 250, 200);
   const afterErase = app.elements().length;
-  assert.ok(afterErase < count, 'la pasada elimina piezas de la fachada');
+  assert.notEqual(JSON.stringify(app.elements()), antes,
+    'la pasada muerde piezas de la fachada');
 
   app.selectTool('select');
   app.click(100, 100);
@@ -1681,9 +1690,13 @@ test('una pasada del borrador es un solo paso de undo', () => {
   app.drag(220, 100, 320, 200);
   app.selectTool('eraser');
   app.drag(90, 150, 330, 150);           // barre los dos de una pasada
-  assert.equal(app.elements().length, 0);
+  const tras = app.elements();
+  assert.equal(tras.filter(e => e.type === 'rect').length, 0, 'ninguno sigue siendo rect');
+  assert.ok(tras.length > 0, 'quedan las tiras de contorno que no se barrieron');
   app.key('z', { ctrlKey: true });
-  assert.equal(app.elements().length, 2, 'un único Ctrl+Z devuelve los dos');
+  const vueltos = app.elements();
+  assert.equal(vueltos.length, 2, 'un único Ctrl+Z devuelve los dos');
+  assert.ok(vueltos.every(e => e.type === 'rect'), 'y los devuelve como rectángulos');
 });
 
 test('una pasada que no toca nada no ensucia el historial', () => {
@@ -1740,12 +1753,18 @@ test('el tamaño del borrador cambia su alcance', () => {
   setSize(small, 4);
   small.drag(100, 88, 200, 88);                   // 12px por encima del borde
   assert.equal(small.elements().length, 1, 'con 4px no alcanza');
+  assert.equal(small.elements()[0].type, 'rect', 'y lo deja intacto');
 
   const big = near();
   big.selectTool('eraser');
   setSize(big, 60);
   big.drag(100, 88, 200, 88);
-  assert.equal(big.elements().length, 0, 'con 60px sí alcanza');
+  const tras = big.elements();
+  assert.equal(tras.filter(e => e.type === 'rect').length, 0, 'con 60px sí alcanza');
+  // Se ha comido el lado de arriba, no el rectángulo entero.
+  assert.ok(tras.length >= 1 && tras.every(e => e.type === 'pencil'));
+  assert.ok(!tras.some(e => e.points.some(p => p.y < 108 && p.x > 130 && p.x < 170)),
+    'el lado barrido no está');
 });
 
 test('el panel y el modal de Fachada quedan sincronizados en ambos sentidos', () => {
