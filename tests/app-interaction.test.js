@@ -4526,3 +4526,63 @@ test('el imán de alineación pega el arrastre al borde del vecino, y apagado no
   assert.equal(els[1].x, 106, 'sin imán, se queda donde suelta el puntero');
   assert.equal(els[1].y, 106);
 });
+
+/* ── Orden Z: traer al frente / enviar al fondo (v2.39.0) ──────── */
+
+test('el orden Z se cambia por pasos y a los extremos, sin undo fantasma en el tope', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 150, 150);   // A (abajo del todo)
+  app.drag(200, 100, 250, 150);   // B
+  app.drag(300, 100, 350, 150);   // C (arriba del todo)
+  const xs = () => app.elements().map(el => el.x);
+  assert.deepEqual(xs(), [100, 200, 300]);
+
+  // Seleccionar A y adelantarla un paso: B queda debajo.
+  app.selectTool('select');
+  app.click(125, 125);
+  app.key('ArrowUp', { ctrlKey: true });
+  assert.deepEqual(xs(), [200, 100, 300], 'A salta sobre B');
+
+  // Al frente con Ctrl+Mayús+↑.
+  app.key('ArrowUp', { ctrlKey: true, shiftKey: true });
+  assert.deepEqual(xs(), [200, 300, 100], 'A pasa arriba del todo');
+
+  // En el tope, repetir NO cambia nada ni apila undo: el siguiente Ctrl+Z
+  // debe volver exactamente al paso anterior, no a un clon del actual.
+  app.key('ArrowUp', { ctrlKey: true, shiftKey: true });
+  assert.deepEqual(xs(), [200, 300, 100]);
+  app.key('z', { ctrlKey: true });
+  assert.deepEqual(xs(), [200, 100, 300], 'undo deshace el «al frente», no un fantasma');
+
+  // Al fondo por el botón del panel (el undo vació la selección: se re-elige A).
+  app.click(125, 125);
+  app.$('btn-z-back').__fire('click', {});
+  app.flush();
+  assert.deepEqual(xs(), [100, 200, 300], 'A vuelve abajo del todo');
+});
+
+test('reordenar un edificio lo mueve como bloque contiguo y con su orden interno', () => {
+  const app = loadApp();
+  app.selectTool('fachada');
+  app.drag(100, 100, 300, 420);   // grupo de decenas de piezas
+  app.selectTool('rect');
+  app.drag(150, 200, 190, 240);   // un rect por encima de la fachada
+  const before = app.elements();
+  const n = before.length;
+  const gid = before[0].buildingGroupId;
+  assert.ok(gid && n > 2);
+
+  // Seleccionar la fachada (clic la coge entera) y traerla al frente.
+  app.selectTool('select');
+  app.click(102, 410);            // sobre el muro, lejos del rect
+  app.key('ArrowUp', { ctrlKey: true, shiftKey: true });
+  const after = app.elements();
+  assert.equal(after[0].buildingGroupId, undefined, 'el rect queda debajo');
+  const grupo = after.slice(1);
+  assert.ok(grupo.every(el => el.buildingGroupId === gid), 'el grupo queda contiguo arriba');
+  assert.deepEqual(
+    grupo.map(el => [el.type, el.x, el.y]),
+    before.filter(el => el.buildingGroupId === gid).map(el => [el.type, el.x, el.y]),
+    'y conserva su orden interno pieza a pieza');
+});

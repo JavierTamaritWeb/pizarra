@@ -573,7 +573,7 @@ input[type=range]::-moz-range-thumb {
   flex-direction: column;
   gap: 0.6rem;
 }
-.panel__section[hidden], .panel__check[hidden], .panel__field[hidden], .panel__canvas-colors[hidden] {
+.panel__section[hidden], .panel__check[hidden], .panel__field[hidden], .panel__zorder[hidden], .panel__canvas-colors[hidden] {
   display: none;
 }
 .panel__section--border {
@@ -647,6 +647,11 @@ input[type=range]::-moz-range-thumb {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.6rem 1rem;
+}
+.panel__zorder {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
 }
 .panel__num {
   display: grid;

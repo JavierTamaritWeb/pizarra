@@ -1861,6 +1861,7 @@
     const hasSel = state.selection.length > 0;
     $('btn-delete-sel').hidden = !hasSel;
     $('btn-duplicate-sel').hidden = !hasSel;
+    $('zorder-row').hidden = !hasSel;
     $('btn-edit-garden').hidden = !selectedGardenGroup();
     const rotatable = state.selection.filter(i => ShapeRotation.isType(state.elements[i].type));
     const rotateBtn = $('btn-rotate-sel');
@@ -4402,6 +4403,54 @@
     if (!state.selection.length) return;
     saveUndo();
     insertClones(state.selection.map(i => state.elements[i]), 15, 15);
+    redraw();
+  }
+
+  /**
+   * Orden Z (v2.39.0, la idea de Excalidraw): recoloca la selección dentro
+   * de state.elements — el orden del array ES el apilado, así que renderer,
+   * exportadores, «Bordes ocultos» y la Tinta no necesitan ni una línea.
+   * Cuatro direcciones: 'front'/'back' (a los extremos) y 'up'/'down' (un
+   * paso). Tres reglas:
+   *
+   *  · La selección conserva SIEMPRE su orden relativo: un edificio es un
+   *    bloque y debe seguir siéndolo — extraer y reinsertar, nunca ordenar.
+   *  · 'up'/'down' mueven el bloque UN vecino no seleccionado, con barridos
+   *    de intercambio: el bloque entero salta ese vecino de una vez.
+   *  · Si nada cambia (ya está en el extremo), no se apila undo fantasma —
+   *    la misma regla que el no-op de applyGeometry.
+   */
+  function reorderSelection(dir) {
+    if (!state.selection.length ||
+        state.selection.length >= state.elements.length) return;
+    const sel = new Set(state.selection);
+    const marked = state.elements.map((el, i) => ({ el, s: sel.has(i) }));
+    if (dir === 'front' || dir === 'back') {
+      const picked = marked.filter(m => m.s), rest = marked.filter(m => !m.s);
+      marked.length = 0;
+      marked.push(...(dir === 'front' ? rest.concat(picked) : picked.concat(rest)));
+    } else if (dir === 'up') {
+      for (let i = marked.length - 2; i >= 0; i--) {
+        if (marked[i].s && !marked[i + 1].s) {
+          const t = marked[i]; marked[i] = marked[i + 1]; marked[i + 1] = t;
+        }
+      }
+    } else {
+      for (let i = 1; i < marked.length; i++) {
+        if (marked[i].s && !marked[i - 1].s) {
+          const t = marked[i]; marked[i] = marked[i - 1]; marked[i - 1] = t;
+        }
+      }
+    }
+    const next = marked.map(m => m.el);
+    if (next.every((el, i) => el === state.elements[i])) return;
+    saveUndo();
+    state.elements = next;
+    // Los índices han cambiado pero los OBJETOS no (elementos inmutables):
+    // la selección se recompone buscándolos por referencia.
+    const sel2 = [];
+    marked.forEach((m, i) => { if (m.s) sel2.push(i); });
+    setSelection(sel2);
     redraw();
   }
 
@@ -7225,6 +7274,10 @@
     // Selection actions
     $('btn-delete-sel').addEventListener('click', deleteSelection);
     $('btn-duplicate-sel').addEventListener('click', duplicateSelection);
+    $('btn-z-front').addEventListener('click', () => reorderSelection('front'));
+    $('btn-z-up').addEventListener('click', () => reorderSelection('up'));
+    $('btn-z-down').addEventListener('click', () => reorderSelection('down'));
+    $('btn-z-back').addEventListener('click', () => reorderSelection('back'));
     $('btn-edit-garden').addEventListener('click', editSelectedGarden);
     $('btn-rotate-sel').addEventListener('click', rotateSelection);
 
@@ -7382,6 +7435,22 @@
       selectTool(TOOLS.SELECT, { silent: true });
       setSelection(state.elements.map((el, i) => el.type === 'eraser' ? -1 : i).filter(i => i >= 0));
       redraw();
+      return;
+    }
+
+    // Orden Z con Ctrl/Cmd+↑/↓ (v2.39.0): un paso, y con Shift a los
+    // extremos. Flechas y no corchetes a propósito: en el teclado español
+    // `[`/`]` exigen AltGr (Option en Mac), tres dedos para lo que Excalidraw
+    // resuelve con dos — y la regla de una mano manda. Corre ANTES del nudge
+    // (que solo atiende flechas sin modificador, pero mejor no depender del
+    // orden) y filtra el auto-repeat como él: mantener la tecla apilaría
+    // decenas de pasos de undo.
+    if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') &&
+        (e.ctrlKey || e.metaKey) && state.selection.length) {
+      e.preventDefault();
+      if (e.repeat) return;
+      const up = e.key === 'ArrowUp';
+      reorderSelection(e.shiftKey ? (up ? 'front' : 'back') : (up ? 'up' : 'down'));
       return;
     }
 

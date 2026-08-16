@@ -30,6 +30,9 @@
   &__section[hidden],
   &__check[hidden],
   &__field[hidden],
+  // Sexta: la rejilla de orden Z (v2.39.0) declara display:grid y se oculta
+  // sin selección, así que cae de lleno en la trampa.
+  &__zorder[hidden],
   // Quinta: la fila del color de sombra (v2.16.0) es un .panel__canvas-colors,
   // que es display:flex — se oculta con el Emoji activo, donde una sombra no
   // significa nada.
@@ -138,6 +141,15 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0.6rem 1rem;
+  }
+
+  // Orden Z de la selección (v2.39.0): cuatro botones en dos columnas —
+  // cuatro .btn--block en columna comían medio panel, y en el cajón (<1100px)
+  // cada centímetro se paga en scroll.
+  &__zorder {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
   }
 
   &__num {
