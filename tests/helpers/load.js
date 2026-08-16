@@ -48,7 +48,7 @@ const KNOWN_GLOBALS = [
   'SKETCHY_FONT', 'SKETCH_FONTS', 'sketchFont', 'sketchFontById', 'setSketchFont',
   'TEXT_SHADOWS', 'textShadowById', 'DEFAULT_SHADOW_COLOR', 'SHADOW_REF_SIZE',
   'UI_DEFAULTS', 'EMOJI_GROUPS', 'EMOJI_MIN_SIZE', 'EMOJI_MAX_SIZE',
-  'Sketchy', 'ArcMath', 'CurvePath', 'ShapeRotation', 'RegularPolygon',
+  'Sketchy', 'Freehand', 'ArcMath', 'CurvePath', 'ShapeRotation', 'RegularPolygon',
   'Trapezoid', 'Airbrush', 'Flood', 'Eraser', 'Building', 'Garden', 'Solid',
   'Renderer', 'Exporter', 'Templates',
 ];
@@ -57,6 +57,7 @@ const KNOWN_GLOBALS = [
 const ALL_FILES = [
   'src/js/config.js',
   'src/js/sketchy.js',
+  'src/js/freehand.js',
   'src/js/arc.js',
   'src/js/curve-path.js',
   'src/js/shape-rotation.js',

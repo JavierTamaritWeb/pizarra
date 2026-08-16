@@ -218,6 +218,18 @@ const Exporter = (() => {
     switch (el.type) {
         case 'pencil':
           if (el.points.length > 1) {
+            // Presión simulada: el mismo polígono que rellena el renderer,
+            // como <path> cerrado con fill — un stroke aquí divergiría del
+            // lienzo justo en el rasgo que define al modo.
+            if (el.taper) {
+              const poly = Freehand.outline(el.points, el.lineWidth);
+              if (poly.length > 2) {
+                const dt = poly.map((p, i) =>
+                  `${i === 0 ? 'M' : 'L'}${_round(p.x)} ${_round(p.y)}`).join(' ');
+                out += `<path d="${dt} Z" fill="${color}" stroke="none"/>\n`;
+              }
+              break;
+            }
             const d = el.points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x} ${p.y}`).join(' ');
             out += `<path d="${d}" ${s}/>\n`;
           }
@@ -623,6 +635,10 @@ body { font-family: ${FONT_CSS()}; background: #fff; }
         el.heads !== 'none') return false;
     // dash (trazo discontinuo): solo se serializa `true`
     if (el.dash !== undefined && el.dash !== true) return false;
+    // taper (lápiz con presión simulada, v2.37.0): atado a su tipo y solo en
+    // `true` — la ausencia es el lápiz clásico, igual que `ink` con el bote.
+    if (el.taper !== undefined &&
+        !(el.type === 'pencil' && el.taper === true)) return false;
     // fill (relleno de formas): booleano — `false` también se serializa, así
     // que ambos valores son válidos
     if (el.fill !== undefined && typeof el.fill !== 'boolean') return false;

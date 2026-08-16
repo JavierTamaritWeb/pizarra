@@ -4458,3 +4458,41 @@ test('«Sustituir un color» no distingue mayúsculas: #FF0000 y #ff0000 son el 
   assert.ok(app.elements().every(el => el.color === '#00aa00'),
     'las DOS líneas cambian, no solo la que coincide byte a byte');
 });
+
+/* ── Lápiz con presión simulada (v2.37.0) ─────────────────────── */
+
+test('«Trazo con presión»: el default estampa taper y la casilla edita el lápiz seleccionado', () => {
+  const app = loadApp();
+
+  // Sin marcar, el lápiz clásico: el campo NI EXISTE (la ausencia es el
+  // aspecto de siempre y lo que serializa un proyecto viejo).
+  app.selectTool('pencil');
+  app.drag(100, 100, 220, 160);
+  let els = app.elements();
+  assert.equal(els.length, 1);
+  assert.equal(els[0].taper, undefined, 'sin marcar, el lápiz no lleva el campo');
+
+  // Marcada sin selección: fija el default de creación, no toca lo dibujado.
+  const taper = app.$('stroke-modal-taper');
+  taper.checked = true; taper.__fire('change', { target: taper });
+  app.flush();
+  app.drag(100, 300, 220, 360);
+  els = app.elements();
+  assert.equal(els.length, 2);
+  assert.equal(els[1].taper, true, 'el lápiz nuevo nace con presión');
+  assert.equal(els[0].taper, undefined, 'y el anterior no cambia');
+
+  // Semántica dual: con el primer trazo seleccionado, la casilla LO edita.
+  app.selectTool('select');
+  app.click(160, 130);
+  app.flush();
+  assert.equal(taper.checked, false, 'la casilla enseña el valor del seleccionado');
+  taper.checked = true; taper.__fire('change', { target: taper });
+  app.flush();
+  els = app.elements();
+  assert.equal(els[0].taper, true, 'el trazo seleccionado gana la presión');
+  taper.checked = false; taper.__fire('change', { target: taper });
+  app.flush();
+  assert.equal(app.elements()[0].taper, undefined,
+    'quitarla BORRA el campo, no guarda false');
+});

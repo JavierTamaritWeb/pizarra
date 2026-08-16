@@ -151,6 +151,7 @@
       uiLabels:    { button: '', input: '', nav: '', card: '' },
       doubleHead:  false, // nuevas flechas con punta en ambos extremos
       dashed:      false, // nuevas líneas/flechas con trazo discontinuo
+      strokeTaper: false, // nuevos trazos de lápiz con presión simulada (v2.37.0)
       showGrid:    true,
       snapGrid:    false,
       // Tinta: cuánto se cierran los huecos entre trazos antes de buscar la
@@ -1130,6 +1131,7 @@
         textShadowColor: state.textShadowColor,
         overlapMode: state.overlapMode,
         eraserSize: state.eraserSize,
+        strokeTaper: state.strokeTaper,
         buildFloors: state.buildFloors,
         buildBays: state.buildBays,
         roofPitch: state.roofPitch,
@@ -1223,6 +1225,7 @@
         state.sketchFontId = prefs.sketchFontId;
       }
       if (typeof prefs.textBold === 'boolean') state.textBold = prefs.textBold;
+      if (typeof prefs.strokeTaper === 'boolean') state.strokeTaper = prefs.strokeTaper;
       // Contra el catálogo, como la letra: un id de otra versión dejaría el
       // default apuntando a una sombra que ya no existe.
       if (TEXT_SHADOWS.some(sh => sh.id === prefs.textShadow)) {
@@ -2943,6 +2946,20 @@
     // mostrar el borrado real en vivo; el overlay queda solo para el lápiz.
     if (state.tool === TOOLS.PENCIL) {
       if (!state.currentPath.length) return;
+      // Con presión simulada, la previsualización rellena el MISMO contorno
+      // que quedará al soltar: una polilínea aquí prometería otro trazo.
+      if (state.strokeTaper) {
+        const poly = Freehand.outline(state.currentPath, state.lineWidth);
+        if (poly.length > 2) {
+          octx.fillStyle = state.color;
+          octx.beginPath();
+          octx.moveTo(poly[0].x, poly[0].y);
+          for (let i = 1; i < poly.length; i++) octx.lineTo(poly[i].x, poly[i].y);
+          octx.closePath();
+          octx.fill();
+        }
+        return;
+      }
       octx.strokeStyle = state.color;
       octx.lineWidth   = state.lineWidth;
       octx.lineCap     = 'round';
@@ -3334,13 +3351,17 @@
     if (state.tool === TOOLS.PENCIL) {
       state.currentPath.push(pos);
       saveUndo();
-      state.elements.push({
+      const pencil = {
         type: state.tool,
         points: state.currentPath,
         color: state.color,
         lineWidth: state.lineWidth,
         seed: newSeed(),
-      });
+      };
+      // Presión simulada: solo se estampa en `true` — la ausencia es el
+      // lápiz clásico y lo que serializa un proyecto de siempre.
+      if (state.strokeTaper) pencil.taper = true;
+      state.elements.push(pencil);
       state.currentPath = [];
       redraw();
       return;
@@ -5554,6 +5575,30 @@
     syncStrokeControls();
   }
 
+  /** Presión simulada del lápiz: mismo contrato que applyDash — con lápices
+      seleccionados los edita (copias inmutables + un paso de undo); sin
+      selección fija el default de creación (state.strokeTaper). */
+  function applyTaper(on) {
+    if (state.selection.length) {
+      const pencils = state.selection.filter(
+        i => state.elements[i].type === 'pencil');
+      if (pencils.length) {
+        saveUndo();
+        pencils.forEach(i => {
+          const copy = { ...state.elements[i] };
+          if (on) copy.taper = true;
+          else delete copy.taper;
+          state.elements[i] = copy;
+        });
+        redraw();
+      }
+    } else {
+      state.strokeTaper = on;
+      savePrefs();
+    }
+    syncStrokeControls();
+  }
+
   /** Punto ÚNICO de sincronía de los ajustes de trazo: reparte grosor, color,
       discontinuo y doble punta a los dos juegos de controles (panel y modal) y
       repinta la muestra. Asignar `.value`/`.checked` no dispara eventos, así
@@ -5613,6 +5658,15 @@
       dashables.length > 0;
     $('stroke-modal-dash-row').classList.toggle('modal__field--off', !dashable);
     $('stroke-modal-dash').disabled = !dashable;
+    // Presión simulada: solo del lápiz. Mismo trato que el discontinuo —
+    // atenuada, no oculta, cuando ni la herramienta ni la selección la tocan.
+    const pencils = sel.filter(el => el.type === 'pencil');
+    const taper = sel.length
+      ? commonOf(pencils, el => el.taper === true) : state.strokeTaper;
+    if (taper !== undefined) $('stroke-modal-taper').checked = taper;
+    const taperable = state.tool === TOOLS.PENCIL || pencils.length > 0;
+    $('stroke-modal-taper-row').classList.toggle('modal__field--off', !taperable);
+    $('stroke-modal-taper').disabled = !taperable;
     renderStrokePreview();
   }
 
@@ -5656,6 +5710,25 @@
     // salir, no lo que dice un control deshabilitado.
     if ($('stroke-modal-dash').checked && !$('stroke-modal-dash').disabled) el.dash = true;
     if ($('stroke-modal-double').checked && el.type === 'arrow') el.heads = 'both';
+    // Con la presión simulada activa (y aplicable), la muestra es un trazo de
+    // lápiz de verdad: una S con separación creciente entre puntos, para que
+    // se vea el rasgo que define al modo — fino donde corre, grueso donde no.
+    if ($('stroke-modal-taper').checked && !$('stroke-modal-taper').disabled) {
+      const pts = [];
+      for (let i = 0; i <= 24; i++) {
+        const t = i / 24;
+        // El cubo estira la separación hacia el final: arranque lento
+        // (grueso) y salida rápida (afilada).
+        const u = t * t * (3 - 2 * t);
+        pts.push({ x: w * (0.12 + 0.76 * (t * 0.4 + 0.6 * t * t * t)),
+                   y: h * (0.62 - 0.24 * u) + Math.sin(t * Math.PI * 2) * h * 0.08 });
+      }
+      Renderer.renderElement(pctx, {
+        type: 'pencil', points: pts, taper: true,
+        color: el.color, lineWidth: el.lineWidth, seed: 7,
+      });
+      return;
+    }
     Renderer.renderElement(pctx, el);
   }
 
@@ -6938,6 +7011,10 @@
     ['check-dash', 'stroke-modal-dash'].forEach(id => {
       $(id).addEventListener('change', e => applyDash(e.target.checked));
     });
+    // Presión simulada del lápiz: solo vive en #modal-stroke (que se abre al
+    // elegir la herramienta, la vía primaria de la casa) — no hay gemela en
+    // el panel porque el lápiz clásico no tenía allí ningún mando propio.
+    $('stroke-modal-taper').addEventListener('change', e => applyTaper(e.target.checked));
     // Posición y tamaño exactos, en el panel y en los cuatro modales de
     // ajustes: cinco juegos de campos, un solo cuerpo (applyGeometry). En
     // 'change' y no en 'input': con 'input' cada tecla sería un paso de

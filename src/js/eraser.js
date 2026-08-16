@@ -446,6 +446,10 @@ const Eraser = (function () {
       lineWidth: el.lineWidth,
     };
     if (el.seed !== undefined) piece.seed = el.seed;
+    // La presión simulada sí viaja con el trozo: solo la lleva un `pencil`
+    // de origen (isValidElement la ata al tipo), y un fragmento con el
+    // aspecto clásico junto al resto afilado cantaría como otro trazo.
+    if (el.taper === true) piece.taper = true;
     // El trozo sigue siendo pieza del mismo edificio/jardín/sólido: perder el
     // grupo dejaría un cacho suelto imposible de seleccionar con el resto.
     if (el.buildingGroupId !== undefined) piece.buildingGroupId = el.buildingGroupId;

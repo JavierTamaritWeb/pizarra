@@ -614,6 +614,20 @@ const Renderer = (() => {
 
       case 'pencil': {
         if (el.points.length < 2) break;
+        // Presión simulada (v2.37.0): el contorno de Freehand se RELLENA con
+        // el color del trazo en vez de trazar la polilínea. No pasa por
+        // Sketchy: el temblor ya viene en los propios puntos del gesto.
+        if (el.taper) {
+          const poly = Freehand.outline(el.points, el.lineWidth);
+          if (poly.length < 3) break;
+          ctx.fillStyle = el.color;
+          ctx.beginPath();
+          ctx.moveTo(poly[0].x, poly[0].y);
+          for (let i = 1; i < poly.length; i++) ctx.lineTo(poly[i].x, poly[i].y);
+          ctx.closePath();
+          ctx.fill();
+          break;
+        }
         ctx.beginPath();
         ctx.moveTo(el.points[0].x, el.points[0].y);
         for (let i = 1; i < el.points.length; i++) {
