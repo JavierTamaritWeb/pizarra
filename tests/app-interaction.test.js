@@ -4287,3 +4287,130 @@ test('el aspecto elegido sobrevive a la recarga, cuadrícula incluida', () => {
   assert.equal(otra.$('check-grid').checked, false);
   assert.equal(aspectoActivo(otra), 'blanco');
 });
+
+/* ─────────── Tinta: el bote de pintura (v2.32.0) ─────────── */
+
+// El flood real no se puede probar aquí: el stub de canvas no devuelve
+// píxeles. Ése es justamente el reparto que justifica src/js/flood.js —su
+// geometría se prueba con máscaras a mano en tests/flood.test.js, y la zona
+// cerrada de verdad, en e2e/ink.spec.js. Aquí se prueba lo que decide app.js.
+
+test('la Tinta rellena la forma que hay bajo el clic sin crear nada nuevo', () => {
+  const app = loadApp();
+  app.selectTool('circle');
+  app.drag(200, 200, 400, 400);
+  assert.equal(app.elements().length, 1);
+  assert.ok(!app.elements()[0].fill, 'nace sin relleno');
+
+  app.selectTool('ink');
+  app.click(300, 300);
+  const els = app.elements();
+  assert.equal(els.length, 1, 'rellenar una forma no debe añadir elementos');
+  assert.equal(els[0].type, 'circle');
+  assert.equal(els[0].fill, true);
+  // El color estampado es explícito: sin `fillColor`, Renderer.fillStyle cae
+  // en el tinte del trazo al 12% y el relleno sale casi invisible.
+  assert.ok(/^#[0-9a-f]{6}$/i.test(els[0].fillColor), 'debe llevar fillColor propio');
+});
+
+test('con «siempre la zona» la Tinta ya no rellena la forma bajo el clic', () => {
+  const app = loadApp();
+  app.selectTool('circle');
+  app.drag(200, 200, 400, 400);
+  app.selectTool('ink');
+  app.$('ink-target').value = 'zone';
+  app.$('ink-target').__fire('change', { target: app.$('ink-target') });
+  app.click(300, 300);
+  const els = app.elements();
+  assert.equal(els.length, 1);
+  assert.ok(!els[0].fill, 'el modo «zona» no debe tocar la forma');
+});
+
+test('la Tinta no toca el color del TRAZO, sólo el relleno', () => {
+  // Un aspecto de la herramienta que se decidió a propósito: pinta el papel,
+  // no la tinta con la que se dibuja. Un mando, una cosa.
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 300, 300);
+  const colorTrazo = app.elements()[0].color;
+  app.selectTool('ink');
+  app.click(200, 200);
+  assert.equal(app.elements()[0].color, colorTrazo);
+});
+
+test('«Pintar lo seleccionado» es UN paso de deshacer para todo el lote', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 200, 200);
+  app.selectTool('circle');
+  app.drag(300, 100, 400, 200);
+  app.key('a', { ctrlKey: true });
+  assert.equal(app.elements().length, 2);
+
+  app.selectTool('ink');
+  app.$('btn-ink-selection').__fire('click', {});
+  app.flush();
+  assert.ok(app.elements().every(el => el.fill === true), 'las dos deben quedar rellenas');
+
+  app.key('z', { ctrlKey: true });
+  assert.ok(app.elements().every(el => !el.fill),
+    'un solo deshacer debe quitar el relleno de las dos');
+});
+
+test('sustituir un color lo cambia en trazo y relleno, en un paso', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 200, 200);
+  const original = app.elements()[0].color;
+
+  app.selectTool('ink');
+  // El desplegable lo rellena syncInkControls con los colores de la escena.
+  app.$('ink-replace').value = original;
+  app.$('ink-modal-fill-color').value = '#ff0000';
+  app.$('ink-modal-fill-color').__fire('input', { target: app.$('ink-modal-fill-color') });
+  app.$('btn-ink-replace').__fire('click', {});
+  app.flush();
+  assert.equal(app.elements()[0].color, '#ff0000');
+
+  app.key('z', { ctrlKey: true });
+  assert.equal(app.elements()[0].color, original, 'un solo deshacer lo revierte');
+});
+
+test('el cierre de huecos y el objetivo del clic sobreviven a la recarga', () => {
+  const app = loadApp();
+  app.selectTool('ink');
+  app.$('ink-gap').value = '9';
+  app.$('ink-gap').__fire('input', { target: app.$('ink-gap') });
+  app.$('ink-gap').__fire('change', { target: app.$('ink-gap') });
+  app.$('ink-target').value = 'zone';
+  app.$('ink-target').__fire('change', { target: app.$('ink-target') });
+
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.inkGap, 9);
+  assert.equal(prefs.inkTarget, 'zone');
+
+  const otra = loadApp({ prefs });
+  assert.equal(otra.$('ink-gap').value, '9');
+  assert.equal(otra.$('ink-target').value, 'zone');
+});
+
+test('elegir la Tinta conserva la selección de formas, pero no otra cosa', () => {
+  // Si vaciara la selección, su propio botón «Pintar lo seleccionado» sería
+  // inalcanzable: al pulsar la herramienta ya no habría nada que pintar.
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 200, 200);
+  app.key('a', { ctrlKey: true });
+  app.selectTool('ink');
+  assert.equal(app.$('btn-ink-selection').disabled, false,
+    'con una forma seleccionada, el botón debe estar activo');
+
+  // Con un trazo suelto no hay nada rellenable, así que se limpia como con
+  // cualquier otra herramienta de creación.
+  const otra = loadApp();
+  otra.selectTool('line');
+  otra.drag(100, 100, 300, 300);
+  otra.key('a', { ctrlKey: true });
+  otra.selectTool('ink');
+  assert.equal(otra.$('btn-ink-selection').disabled, true);
+});

@@ -18,7 +18,7 @@ test('config.js — TOOLS', async t => {
     assert.equal(Object.isFrozen(ctx.TOOLS), true);
   });
 
-  await t.test('TOOLS tiene exactamente los 49 ids esperados', () => {
+  await t.test('TOOLS tiene exactamente los 50 ids esperados', () => {
     const expected = [
       'pencil', 'airbrush', 'line', 'rect', 'roundedRect', 'circle', 'arrow',
       'curveArrow', 'arc', 'text', 'eraser', 'select', 'pick', 'imagePlaceholder',
@@ -26,6 +26,9 @@ test('config.js — TOOLS', async t => {
       'square', 'trapezoid', 'triangle', 'pentagon', 'hexagon', 'star5', 'star6',
       // Polígono libre: tipo de elemento sin botón, como `image`
       'polygon',
+      // Tinta (creación): el bote de pintura NO es un tipo — lo que crea es un
+      // `polygon` con `ink: true`, así que va en CREATION_ONLY_TOOLS
+      'ink',
       // Edificios (creación): Fachada y Tejado unifican sus tipos en sendos modales
       'planta', 'fachada', 'tejado', 'puerta', 'ventana', 'balcon', 'muro', 'verja', 'cancela',
       // Jardín (creación): cada una elige su variante en su propio modal
@@ -34,26 +37,27 @@ test('config.js — TOOLS', async t => {
       'prisma', 'piramide', 'tronco', 'esfera',
     ];
     const values = Object.values(ctx.TOOLS);
-    assert.equal(values.length, 49);
+    assert.equal(values.length, 50);
     assert.deepEqual([...values].sort(), [...expected].sort());
-    // Las claves también son 49 y únicas
-    assert.equal(Object.keys(ctx.TOOLS).length, 49);
-    assert.equal(new Set(values).size, 49);
+    // Las claves también son 50 y únicas
+    assert.equal(Object.keys(ctx.TOOLS).length, 50);
+    assert.equal(new Set(values).size, 50);
   });
 });
 
-test('config.js — el Aerógrafo va junto al Lápiz y es el único de Dibujo sin atajo', () => {
+test('config.js — Aerógrafo y Tinta van junto al Lápiz y son los de Dibujo sin atajo', () => {
   const ctx = load('src/js/config.js');
   const dibujo = ctx.TOOL_GROUPS.find(g => g.label === 'Dibujo');
   assert.ok(dibujo, 'falta el grupo Dibujo en el sidebar');
   // El orden es el que se pinta: las dos herramientas a mano alzada juntas, y
   // luego lo geométrico (línea, flechas, semicírculo).
   assert.deepEqual([...dibujo.tools.map(t => t.id)],
-    ['pencil', 'airbrush', 'line', 'arrow', 'curveArrow', 'arc']);
+    ['pencil', 'airbrush', 'ink', 'line', 'arrow', 'curveArrow', 'arc']);
   // Entró sin atajo por lo mismo que «Select» y Balcón: no queda ninguna
   // tecla suelta libre. Fijar la lista impide tanto que lo pierda un refactor
   // como que gane uno que choque.
-  assert.deepEqual([...dibujo.tools.filter(t => !t.key).map(t => t.id)], ['airbrush']);
+  assert.deepEqual([...dibujo.tools.filter(t => !t.key).map(t => t.id)],
+    ['airbrush', 'ink']);
 });
 
 test('config.js — TOOL_GROUPS: cada tool referenciado existe en TOOLS', () => {

@@ -496,6 +496,17 @@ input[type=range]::-moz-range-thumb {
   cursor: none;
 }
 
+/* Tinta: el bote, y el cuentagotas mientras está armado. Aquí SÍ hay cursor
+   del sistema (a diferencia del borrador y el aerógrafo, que dibujan el suyo)
+   porque lo que importa es dónde cae la punta, no un tamaño. */
+.canvas-area__canvas--ink {
+  cursor: cell;
+}
+
+.canvas-area__canvas--ink-pick {
+  cursor: crosshair;
+}
+
 /* «Select» (solo selección): flecha normal — ni la cruz de dibujar ni el
    `move` de Mover, porque esta herramienta ni crea ni desplaza */
 .canvas-area__canvas--pick {

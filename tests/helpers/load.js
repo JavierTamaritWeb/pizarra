@@ -49,7 +49,7 @@ const KNOWN_GLOBALS = [
   'TEXT_SHADOWS', 'textShadowById', 'DEFAULT_SHADOW_COLOR', 'SHADOW_REF_SIZE',
   'UI_DEFAULTS', 'EMOJI_GROUPS', 'EMOJI_MIN_SIZE', 'EMOJI_MAX_SIZE',
   'Sketchy', 'ArcMath', 'CurvePath', 'ShapeRotation', 'RegularPolygon',
-  'Trapezoid', 'Airbrush', 'Eraser', 'Building', 'Garden', 'Solid',
+  'Trapezoid', 'Airbrush', 'Flood', 'Eraser', 'Building', 'Garden', 'Solid',
   'Renderer', 'Exporter', 'Templates',
 ];
 
@@ -63,6 +63,7 @@ const ALL_FILES = [
   'src/js/regular-polygon.js',
   'src/js/trapezoid.js',
   'src/js/airbrush.js',
+  'src/js/flood.js',
   'src/js/eraser.js',
   'src/js/building.js',
   'src/js/garden.js',

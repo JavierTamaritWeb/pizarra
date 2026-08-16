@@ -28,6 +28,11 @@ const TOOLS = Object.freeze({
   // js/solid.js para las caras laterales de las figuras 3D, que son
   // cuadriláteros arbitrarios y ningún otro tipo sabe representar.
   POLYGON:          'polygon',
+  // El bote de pintura. Al revés que el aerógrafo, NO es un tipo de elemento:
+  // lo que crea es un `polygon` con el contorno de la zona (con `ink: true`),
+  // así que va en CREATION_ONLY_TOOLS (exporter.js) o `type:'ink'` entraría
+  // como elemento fantasma al importar.
+  INK:              'ink',
   ARROW:            'arrow',
   CURVE_ARROW:      'curveArrow',
   ARC:              'arc', // herramienta de creación: produce curveArrow con arc:true
@@ -458,6 +463,9 @@ const TOOL_GROUPS = [
       // las 26 letras y los 10 dígitos están cogidos, y `f q d s` son
       // acciones de la flecha curva que se atienden ANTES que TOOL_KEYS.
       { id: TOOLS.AIRBRUSH, icon: '💨', name: 'Aerógrafo' },
+      // El bote de pintura, junto a las otras dos que aplican color en vez de
+      // dibujar una forma. Sin atajo por lo mismo que el Aerógrafo.
+      { id: TOOLS.INK,    icon: '🪣', name: 'Tinta' },
       { id: TOOLS.LINE,   icon: '📏', name: 'Línea',    key: 'l' },
       { id: TOOLS.ARROW,  icon: '➡️', name: 'Flecha',   key: 'a' },
       { id: TOOLS.CURVE_ARROW, icon: '↷', name: 'Flecha curva', key: 'u' },

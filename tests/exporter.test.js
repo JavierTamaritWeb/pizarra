@@ -1444,3 +1444,57 @@ test('round-trip JSON: una mancha sobrevive al viaje y sale idéntica', async ()
   assert.deepEqual(ctx.Airbrush.dots(back[0]).map(d => d.x),
     ctx.Airbrush.dots(original).map(d => d.x));
 });
+
+/* ─────────── Tinta: la mancha del bote de pintura (v2.32.0) ─────────── */
+
+test('la Tinta NO es un tipo de elemento, pero su mancha sí sobrevive al viaje', () => {
+  const { Exporter } = freshCtx();
+  // `ink` es herramienta de creación, como arc o emoji: lo que crea es un
+  // `polygon`. Si se le olvidara a CREATION_ONLY_TOOLS, `type:'ink'` entraría
+  // como elemento fantasma en cada importación.
+  assert.equal(Exporter.isValidElement({
+    type: 'ink', x: 0, y: 0, w: 10, h: 10, color: '#000000', lineWidth: 2,
+  }), false, 'type:"ink" no debe existir como elemento');
+
+  const mancha = {
+    type: 'polygon',
+    points: [{ x: 10, y: 10 }, { x: 40, y: 10 }, { x: 40, y: 40 }, { x: 10, y: 40 }],
+    color: '#4ecdc4', lineWidth: 2, fill: true, fillColor: '#4ecdc4',
+    stroke: false, ink: true,
+  };
+  assert.equal(Exporter.isValidElement(mancha), true);
+});
+
+test('el campo `ink` está atado a su tipo y sólo admite true', () => {
+  const { Exporter } = freshCtx();
+  const base = {
+    type: 'polygon',
+    points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }],
+    color: '#000000', lineWidth: 2, stroke: false,
+  };
+  // La ausencia es el valor normal (una cara de sólido es un polygon sin ink),
+  // y por eso `false` se rechaza igual que se rechaza `dash: false`.
+  assert.equal(Exporter.isValidElement({ ...base, ink: false }), false);
+  assert.equal(Exporter.isValidElement({ ...base, ink: 1 }), false);
+  assert.equal(Exporter.isValidElement(base), true);
+  // Y suelto en otro tipo no significa nada: sería basura serializada que
+  // además dejaría de frenar la pintura sin que se vea por qué.
+  assert.equal(Exporter.isValidElement({
+    type: 'rect', x: 0, y: 0, w: 10, h: 10, color: '#000000', lineWidth: 2, ink: true,
+  }), false);
+});
+
+test('una mancha de tinta se exporta a SVG como polígono relleno y sin contorno', () => {
+  const ctx = freshCtx();
+  const mancha = {
+    type: 'polygon',
+    points: [{ x: 10, y: 10 }, { x: 40, y: 10 }, { x: 40, y: 40 }],
+    color: '#4ecdc4', lineWidth: 2, fill: true, fillColor: '#4ecdc4',
+    stroke: false, ink: true,
+  };
+  ctx.Exporter.svg([mancha]);
+  const svg = lastBlob(ctx).content;
+  assert.match(svg, /<polygon points="10,10 40,10 40,40"/);
+  assert.match(svg, /stroke="none"/, 'la mancha no lleva contorno');
+  assert.match(svg, /fill="#4ecdc4"/);
+});

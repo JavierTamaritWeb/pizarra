@@ -36,14 +36,14 @@ test('el modal de ajustes se ensancha por encima de 1200px, y no antes', async (
     .evaluate(n => getComputedStyle(n).gridTemplateColumns.split(' ').length)).toBe(2);
 });
 
-test('los quince modales con miniatura son los que se ensanchan', async ({ page }) => {
+test('los dieciséis modales con miniatura son los que se ensanchan', async ({ page }) => {
   await openApp(page, { viewport: WIDE });
   // La clase la lleva el diálogo, no el contenedor: si alguien añade un modal
   // con miniatura y se olvida, se queda estrecho y con una columna larguísima.
   // Las fichas botánicas quedan fuera: tienen su propio ancho (.modal--plant).
   const conMiniatura = await page.locator('dialog:has(.modal__build):not(.modal--plant)').count();
   const anchos = await page.locator('dialog.modal--settings').count();
-  expect(conMiniatura).toBe(15);
+  expect(conMiniatura).toBe(16); // los quince de la v2.26.0 más la Tinta
   expect(anchos).toBe(conMiniatura);
 });
 
@@ -129,6 +129,7 @@ const GRUPOS = [
   ['text', 'modal-text', ['Letra', 'Trazo', 'Sombra']],
   ['button', 'modal-ui', ['Contenido', 'Trazo']],
   ['airbrush', 'modal-airbrush', ['Boquilla', 'Pintura', 'Dónde pinta']],
+  ['ink', 'modal-ink', ['Pintura', 'Cómo pinta', 'Herramientas']],
   ['fachada', 'modal-facade', ['Edificio', 'Cubierta', 'Huecos']],
   ['muro', 'modal-wall', ['Muro', 'Verja de coronación', 'Entrada']],
 ];

@@ -593,7 +593,9 @@ body { font-family: ${FONT_CSS()}; background: #fff; }
   // export→import.
   // Y lo mismo con "3D" (SOLID_TOOLS): un sólido son la forma 2D de su cara
   // frontal más line/curveArrow, nunca un `type:'prisma'`.
-  const CREATION_ONLY_TOOLS = [TOOLS.SELECT, TOOLS.ARC, TOOLS.EMOJI,
+  // INK sí entra: el bote de pintura no es un tipo, lo que crea es un
+  // `polygon` con `ink: true`. Es la diferencia exacta con el aerógrafo.
+  const CREATION_ONLY_TOOLS = [TOOLS.SELECT, TOOLS.ARC, TOOLS.EMOJI, TOOLS.INK,
     ...BUILDING_TOOLS, ...GARDEN_TOOLS, ...SOLID_TOOLS];
   const ELEMENT_TYPES = Object.values(TOOLS).filter(t => !CREATION_ONLY_TOOLS.includes(t));
 
@@ -631,6 +633,13 @@ body { font-family: ${FONT_CSS()}; background: #fff; }
     // SVG/HTML, así que se valida como hex igual que `color`
     if (el.fillColor !== undefined &&
         !(typeof el.fillColor === 'string' && HEX_COLOR.test(el.fillColor))) return false;
+    // ink: marca la mancha del bote de pintura. Atada a su tipo y con la
+    // ausencia como valor normal, igual que `dash`. No es decorativa: es lo
+    // que hace que una mancha NO sea barrera al repintar (si lo fuera, no se
+    // le podría cambiar el color) y lo que la distingue de una cara de sólido,
+    // que también es un `polygon` sin contorno y sí debe frenar la pintura.
+    if (el.ink !== undefined &&
+        !(el.type === 'polygon' && el.ink === true)) return false;
     // size: ancho real del borrador nuevo (v1.8.1). Si falta, se conserva la
     // compatibilidad histórica usando lineWidth × 4.
     if (el.size !== undefined &&

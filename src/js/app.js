@@ -153,6 +153,10 @@
       dashed:      false, // nuevas líneas/flechas con trazo discontinuo
       showGrid:    true,
       snapGrid:    false,
+      // Tinta: cuánto se cierran los huecos entre trazos antes de buscar la
+      // zona, y a qué apunta el clic. El color NO está aquí: es el de relleno.
+      inkGap:      4,
+      inkTarget:   'shape',
       multiSelect: false,      // «Los clics acumulan selección» (una mano; Shift = atajo)
       canvasBg:    DEFAULT_CANVAS_BG,
       gridColor:   DEFAULT_GRID_COLOR,
@@ -173,6 +177,9 @@
     tool:        TOOLS.PENCIL,
     zoom:        1,
     ...appDefaults(),
+    // Cuentagotas armado: transitorio de un solo clic, como airbrushAreaPending
+    // — no es un ajuste, así que ni se persiste ni sale de appDefaults().
+    inkPicking: false,
     toolBeforeModal: null, // herramienta activa antes de abrir un modal de Edificios (restaurar al cancelar)
     variantChosen: false, // true si se eligió variante en el modal (no fue cancelación)
     editGardenGroupId: null, // grupo vegetal que se regenerará al elegir otra especie
@@ -1169,6 +1176,8 @@
         airbrushGrain: state.airbrushGrain,
         airbrushOpacity: state.airbrushOpacity,
         airbrushAreaMode: state.airbrushAreaMode,
+        inkGap: state.inkGap,
+        inkTarget: state.inkTarget,
         airbrushArea: state.airbrushArea,
         // 3D
         solidSection: state.solidSection,
@@ -1340,6 +1349,10 @@
       if (Number.isFinite(prefs.airbrushOpacity)) {
         state.airbrushOpacity = Math.min(1, Math.max(0.05, prefs.airbrushOpacity));
       }
+      if (Number.isFinite(prefs.inkGap)) {
+        state.inkGap = Math.min(12, Math.max(0, Math.round(prefs.inkGap)));
+      }
+      if (['shape', 'zone'].includes(prefs.inkTarget)) state.inkTarget = prefs.inkTarget;
       if (['all', 'area'].includes(prefs.airbrushAreaMode)) {
         state.airbrushAreaMode = prefs.airbrushAreaMode;
       }
@@ -1870,6 +1883,7 @@
     if ($('modal-text').open) syncTextControls();
     if ($('modal-ui').open) syncUiControls();
     if ($('modal-airbrush').open) syncAirbrushControls();
+    if ($('modal-ink').open) syncInkControls();
   }
 
   /* ── Canvas events ── */
@@ -2383,6 +2397,12 @@
     // EMOJI tool: estampa el emoji elegido como elemento `text`
     if (state.tool === TOOLS.EMOJI) {
       placeEmoji(pos);
+      return;
+    }
+
+    // Tinta: un bote de pintura no tiene arrastre, se resuelve en el clic.
+    if (state.tool === TOOLS.INK) {
+      applyInk(pos);
       return;
     }
 
@@ -3659,6 +3679,10 @@
     // Aerógrafo: sin cursor del sistema, porque su indicador es el círculo de la
     // boquilla que dibuja paintOverlay — igual que el borrador.
     mainCanvas.classList.toggle('canvas-area__canvas--airbrush', state.tool === TOOLS.AIRBRUSH);
+    // Tinta: el cursor del bote, y el del cuentagotas mientras está armado.
+    mainCanvas.classList.toggle('canvas-area__canvas--ink',
+      state.tool === TOOLS.INK && !state.inkPicking);
+    mainCanvas.classList.toggle('canvas-area__canvas--ink-pick', !!state.inkPicking);
   }
 
   /* ── Acciones sobre la selección ── */
@@ -3871,7 +3895,14 @@
     // el color y el grosor de las aristas no llegaban nunca a la figura que se
     // tenía delante.
     const editType = MODAL_EDIT_TYPE[id];
-    const keepSelection = SELECTION_TOOLS.includes(id) ||
+    // La Tinta conserva la selección si hay algo rellenable en ella: su botón
+    // «Pintar lo seleccionado» no tendría sentido si elegir la herramienta
+    // vaciara justo lo que va a pintar. Es la misma idea que MODAL_EDIT_TYPE
+    // («pulsar la herramienta de lo seleccionado lo edita»), pero la Tinta no
+    // edita UN tipo exacto sino cualquiera que admita relleno.
+    const keepSelection = (id === TOOLS.INK &&
+      state.selection.some(i => FILLABLE_TYPES.includes((state.elements[i] || {}).type))) ||
+      SELECTION_TOOLS.includes(id) ||
       (SOLID_TOOLS.includes(id) && !!selectedSolid()) ||
       (!!editType &&
       state.selection.some(i => (state.elements[i] || {}).type === editType));
@@ -3933,6 +3964,8 @@
     }
     // Texto y los cinco componentes de UI, lo mismo: sus ajustes se abren al
     // elegirlos y el ⚙ los reabre. Tampoco pasan por opensVariantModal.
+    if (id === TOOLS.INK && !silent) openInkModal();
+    if (id !== TOOLS.INK) state.inkPicking = false;
     if (id === TOOLS.TEXT && !silent) openTextModal();
     if (UI_MODAL_TOOLS.includes(id) && !silent) openUiModal();
     // Planta abre su catálogo de huellas; reaplica el resaltado activo antes de
@@ -4442,7 +4475,7 @@
   /** Las paletas del RELLENO. Van aparte porque el color activo que enseñan no
       es el del trazo: sus muestras llevan `.panel__fill-swatch` y las resalta
       `updateFillColorActive`, no `updateColorActive`. */
-  const FILL_COLOR_GRIDS = ['shape-modal-fill-grid',
+  const FILL_COLOR_GRIDS = ['shape-modal-fill-grid', 'ink-modal-fill-grid',
     'prism-fill-grid', 'pyramid-fill-grid', 'frustum-fill-grid', 'sphere-fill-grid'];
 
   function buildColors() {
@@ -4779,6 +4812,337 @@
   function openAirbrushModal() {
     syncAirbrushControls();
     $('modal-airbrush').showModal();
+  }
+
+  /* ── Tinta: el bote de pintura ── */
+
+  /* Canvas fuera de pantalla donde se rasteriza la escena para averiguar qué
+     zona hay bajo el clic. Cacheado: crear uno por clic es caro, y
+     `willReadFrequently` no es un adorno — sin él, con el canvas acelerado por
+     GPU, cada getImageData puede costar 30 ms en vez de 4. */
+  let inkCanvas = null;
+  let inkMaskCache = null;   // { gap, els, mask }
+
+  /** ¿Sigue siendo la misma escena? Se compara por REFERENCIA elemento a
+      elemento, que basta porque los elementos son inmutables: cualquier cambio
+      sustituye el objeto por una copia. Comparar así es instantáneo y no puede
+      dar un falso «no ha cambiado», que serviría una máscara desfasada y
+      pintaría una zona que ya no existe. */
+  function inkSameScene(els) {
+    if (!els || els.length !== state.elements.length) return false;
+    for (let i = 0; i < els.length; i++) {
+      if (els[i] !== state.elements[i]) return false;
+    }
+    return true;
+  }
+
+  function inkCtx() {
+    if (!inkCanvas) {
+      inkCanvas = document.createElement('canvas');
+      inkCanvas.width = CANVAS_W;
+      inkCanvas.height = CANVAS_H;
+    }
+    return inkCanvas.getContext('2d', { willReadFrequently: true });
+  }
+
+  /**
+   * La máscara de barreras: qué píxeles del lienzo frenan la pintura. Tres
+   * reglas al elegir qué se rasteriza, y cada una tapa una fuga real:
+   *
+   *  · Las manchas de tinta previas NO son barrera. Si lo fueran, repintar una
+   *    zona daría siempre «el clic cayó sobre un trazo» y cambiarle el color
+   *    sería imposible. Se reconocen por `ink: true`, no por su forma: una
+   *    cara de sólido es también un `polygon` sin contorno y sí debe frenar.
+   *  · El trazo discontinuo se rasteriza CONTINUO. Si no, la pintura se
+   *    escaparía siempre por los huecos de la propia línea.
+   *  · Se pinta con `renderElements` en modo `normal`, nunca con `renderScene`
+   *    —que estampa el fondo opaco y dejaría la máscara entera en barrera— ni
+   *    en `hidden-dashed`, que trocea los contornos tapados y abre fugas.
+   */
+  function inkBarrierMask(gap) {
+    if (inkMaskCache && inkMaskCache.gap === gap && inkSameScene(inkMaskCache.els)) {
+      return inkMaskCache.mask;
+    }
+    const c = inkCtx();
+    if (!c || !c.getImageData) return null;
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, CANVAS_W, CANVAS_H);
+    const barreras = state.elements
+      .filter(el => el.ink !== true)
+      .map(el => (el.dash ? { ...el, dash: undefined } : el));
+    Renderer.renderElements(c, barreras, 'normal');
+    const img = c.getImageData(0, 0, CANVAS_W, CANVAS_H);
+    if (!img || !img.data) return null;
+    const cruda = Flood.maskFromAlpha(img.data, CANVAS_W, CANVAS_H);
+    const mask = Flood.dilate(cruda, CANVAS_W, CANVAS_H, Math.round(gap / 2));
+    inkMaskCache = { gap, els: state.elements.slice(), mask };
+    return mask;
+  }
+
+  /** Grosor de trazo de lo que rodea a la zona: alimenta el radio anti-fisura
+      y el epsilon. El máximo LOCAL, no el de la escena, o una línea gruesa al
+      otro lado del lienzo engordaría una mancha rodeada de trazos finos. */
+  function inkBoundaryLineWidth(bounds) {
+    const caja = {
+      x: bounds.x0, y: bounds.y0,
+      w: bounds.x1 - bounds.x0, h: bounds.y1 - bounds.y0,
+    };
+    let lw = 0;
+    state.elements.forEach(el => {
+      if (el.ink === true) return;
+      const b = getElementBounds(el);
+      if (!b || b.x === undefined) return;
+      const m = (el.lineWidth || 2) + 4;
+      if (b.x - m > caja.x + caja.w || b.x + b.w + m < caja.x) return;
+      if (b.y - m > caja.y + caja.h || b.y + b.h + m < caja.y) return;
+      if ((el.lineWidth || 2) > lw) lw = el.lineWidth || 2;
+    });
+    return lw || state.lineWidth;
+  }
+
+  /** Dónde se inserta la mancha: justo debajo del elemento más bajo al que
+      toca, para que los trazos que la delimitan queden ENCIMA. Con un push al
+      final los taparía, y además robaría todos los clics de su interior (el
+      hit-test recorre de arriba abajo y un polígono relleno acierta dentro). */
+  function inkInsertIndex(bounds) {
+    for (let i = 0; i < state.elements.length; i++) {
+      const el = state.elements[i];
+      // Las manchas no delimitan nada —no son barrera— así que tampoco pueden
+      // decidir la profundidad. Sin esta línea, un fondo ya pintado (que cubre
+      // el lienzo entero) gana siempre el índice más bajo y toda mancha nueva
+      // nace DEBAJO de él: en translúcido se nota a medias, y en sólido la
+      // zona recién pintada desaparece del todo.
+      if (el.ink === true) continue;
+      const b = getElementBounds(el);
+      if (!b || b.x === undefined) continue;
+      const m = (el.lineWidth || 2) + 4;
+      if (b.x - m > bounds.x1 || b.x + b.w + m < bounds.x0) continue;
+      if (b.y - m > bounds.y1 || b.y + b.h + m < bounds.y0) continue;
+      return i;
+    }
+    return state.elements.length;
+  }
+
+  /** El elemento que nace de un clic. `fillColor` SIEMPRE explícito: sin él,
+      Renderer.fillStyle cae en el tinte del trazo al 12 %, que es
+      retrocompatibilidad de las formas planas y aquí sólo haría que el modo
+      sólido pintara menos que el translúcido (el fallo de la v2.25.4). */
+  function inkElement(points) {
+    const col = state.fillColor || state.color;
+    const el = {
+      type: TOOLS.POLYGON, points,
+      color: col, lineWidth: state.lineWidth,
+      fill: true, fillColor: col, stroke: false, ink: true,
+      seed: newSeed(),
+    };
+    if (state.fillTransparent) {
+      el.fillTransparent = true;
+      if (Number.isFinite(state.fillOpacity)) el.fillOpacity = state.fillOpacity;
+    }
+    return el;
+  }
+
+  /** Una mancha equivalente a la recién calculada, si existe: misma caja
+      (±4 px). Repintar sustituye en su sitio en vez de apilar, o tres clics
+      dejarían tres polígonos superpuestos imposibles de separar.
+      Se comparan las cajas de los DOS ELEMENTOS, nunca la de la región: la del
+      elemento incluye la dilatación anti-fisura y la de la región no, así que
+      mezclarlas las hace diferir siempre en varios píxeles y no reconoce
+      ninguna gemela. */
+  function inkTwinIndex(nuevo) {
+    const n = getElementBounds(nuevo);
+    if (!n) return -1;
+    return state.elements.findIndex(el => {
+      if (el.ink !== true) return false;
+      const b = getElementBounds(el);
+      return b && Math.abs(b.x - n.x) <= 4 && Math.abs(b.y - n.y) <= 4 &&
+        Math.abs(b.w - n.w) <= 4 && Math.abs(b.h - n.h) <= 4;
+    });
+  }
+
+  const INK_REASONS = {
+    escaped: 'La zona no está cerrada: sube «Cerrar huecos» o cierra el trazo',
+    'seed-blocked': 'Ahí no hay sitio donde pintar: prueba un poco más adentro',
+    'too-small': 'La zona es demasiado pequeña',
+    'too-large': 'La zona es demasiado grande',
+  };
+
+  function setInkStatus(txt) {
+    const el = $('ink-status');
+    if (el) el.textContent = txt;
+  }
+
+  /**
+   * Un clic con la Tinta. El orden de decisión ES el contrato con quien la usa:
+   * dentro de una forma se pinta la forma (y quitarlo luego es otro clic);
+   * fuera, se busca la zona cerrada y nace una mancha independiente.
+   */
+  function applyInk(pos) {
+    if (state.inkPicking) { inkPickColor(pos); return; }
+
+    if (state.inkTarget !== 'zone') {
+      const idx = hitTest(pos);
+      if (idx >= 0 && FILLABLE_TYPES.includes(state.elements[idx].type) &&
+          state.elements[idx].ink !== true) {
+        const col = state.fillColor || state.color;
+        const patch = { ...state.elements[idx], fill: true, fillColor: col };
+        if (state.fillTransparent) {
+          patch.fillTransparent = true;
+          if (Number.isFinite(state.fillOpacity)) patch.fillOpacity = state.fillOpacity;
+        } else {
+          delete patch.fillTransparent;
+          delete patch.fillOpacity;
+        }
+        saveUndo();
+        state.elements[idx] = patch;
+        setInkStatus('Forma rellenada');
+        redraw();
+        return;
+      }
+    }
+
+    const gap = state.inkGap;
+    const mask = inkBarrierMask(gap);
+    if (!mask) { setInkStatus('Aquí no se puede leer el lienzo'); return; }
+    const rGap = Math.round(gap / 2);
+    // Primero se tantea la zona para saber qué grosor la rodea, y con él se
+    // calcula el radio anti-fisura del cálculo definitivo.
+    // `allowEdge`: el borde del lienzo es una frontera válida, no un fallo. Sin
+    // esto, pinchar en el lienzo vacío —que es una zona abierta por
+    // definición— no pintaba nada, y en un bote de pintura eso es una anomalía.
+    const tanteo = Flood.trace(mask, CANVAS_W, CANVAS_H, pos.x, pos.y,
+      { snapRadius: rGap + 3, inkRadius: 0, epsilon: Flood.EPS_MIN, allowEdge: true });
+    if (!tanteo.ok) { setInkStatus(INK_REASONS[tanteo.reason] || 'No se pudo pintar'); return; }
+
+    const lw = inkBoundaryLineWidth(tanteo.bounds);
+    const res = Flood.trace(mask, CANVAS_W, CANVAS_H, tanteo.seed.x, tanteo.seed.y, {
+      inkRadius: Math.round(lw / 2 + rGap + 1),
+      epsilon: Math.min(Flood.EPS_MAX, Math.max(Flood.EPS_MIN, 1.5 + 0.15 * lw + 0.1 * gap)),
+      allowEdge: true,
+    });
+    if (!res.ok) { setInkStatus(INK_REASONS[res.reason] || 'No se pudo pintar'); return; }
+
+    const el = inkElement(res.points);
+    saveUndo();
+    const gemela = inkTwinIndex(el);
+    if (gemela >= 0) {
+      state.elements[gemela] = el;
+    } else {
+      // El fondo va al fondo del todo; una zona interior, justo debajo de lo
+      // que la delimita. Con el fondo no hay «lo que la delimita»: toca media
+      // escena, y colarlo entre dos elementos taparía al de abajo.
+      const at = res.edge ? 0 : inkInsertIndex(res.bounds);
+      state.elements.splice(at, 0, el);
+      // Los índices de la selección se desplazan con la inserción.
+      state.selection = state.selection.map(i => (i >= at ? i + 1 : i));
+    }
+    setInkStatus(res.edge
+      ? 'Fondo pintado'
+      : res.holes
+        ? `Zona pintada (contiene ${res.holes} isla${res.holes > 1 ? 's' : ''}, quedan pintadas)`
+        : `Zona pintada con ${res.points.length} vértices`);
+    redraw();
+  }
+
+  /** Cuentagotas: carga como tinta el color que hay bajo el puntero. */
+  function inkPickColor(pos) {
+    state.inkPicking = false;
+    updateCursor();
+    const c = mainCanvas.getContext('2d');
+    let hex = null;
+    if (c && c.getImageData) {
+      const d = c.getImageData(Math.round(pos.x), Math.round(pos.y), 1, 1).data;
+      if (d && d[3] > 8) {
+        hex = '#' + [d[0], d[1], d[2]]
+          .map(v => v.toString(16).padStart(2, '0')).join('');
+      }
+    }
+    if (!hex) { setInkStatus('Ahí no hay color que tomar'); openInkModal(); return; }
+    state.fillColor = hex;
+    state.fillShapes = true;
+    setInkStatus(`Color tomado: ${hex}`);
+    openInkModal();
+  }
+
+  /** Los colores que hay en la escena, para el desplegable de sustitución. */
+  function inkSceneColors() {
+    const vistos = new Map();
+    state.elements.forEach(el => {
+      [el.color, el.fillColor].forEach(c => {
+        if (typeof c === 'string' && /^#[0-9a-fA-F]{6}$/.test(c)) {
+          vistos.set(hex6(c), (vistos.get(hex6(c)) || 0) + 1);
+        }
+      });
+    });
+    return [...vistos.entries()].sort((a, b) => b[1] - a[1]).map(e => e[0]);
+  }
+
+  function syncInkControls() {
+    const put = (id, v, texto) => {
+      $(id).value = String(v);
+      const val = $(id + '-val');
+      if (val) val.textContent = String(texto === undefined ? v : texto);
+    };
+    put('ink-gap', state.inkGap);
+    $('ink-target').value = state.inkTarget;
+    $('ink-modal-fill-transparent').checked = !!state.fillTransparent;
+    $('ink-modal-opacity').disabled = !state.fillTransparent;
+    put('ink-modal-opacity', Math.round((state.fillOpacity !== undefined
+      ? state.fillOpacity : 0.4) * 100));
+    $('ink-modal-fill-color').value = hex6(state.fillColor || state.color);
+    $('btn-ink-selection').disabled = !state.selection.length;
+
+    const sel = $('ink-replace');
+    const previo = sel.value;
+    sel.innerHTML = '';
+    const colores = inkSceneColors();
+    if (!colores.length) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = 'No hay colores en el lienzo';
+      sel.appendChild(opt);
+    } else {
+      colores.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c;
+        sel.appendChild(opt);
+      });
+      if (colores.includes(previo)) sel.value = previo;
+    }
+    $('btn-ink-replace').disabled = !colores.length;
+    updateFillColorActive();
+    renderInkPreview();
+  }
+
+  /** La miniatura la dibuja el Renderer de verdad, con un `polygon` como el
+      que crearía un clic: así no puede prometer un color que luego no salga. */
+  function renderInkPreview() {
+    const cv = $('ink-preview');
+    const pctx = cv && cv.getContext && cv.getContext('2d');
+    if (!pctx) return;
+    const w = cv.width, h = cv.height;
+    pctx.setTransform(1, 0, 0, 1, 0, 0);
+    pctx.clearRect(0, 0, w, h);
+    pctx.fillStyle = state.canvasBg;
+    pctx.fillRect(0, 0, w, h);
+    const cx = w / 2, cy = h / 2, r = Math.min(w, h) / 2 - 14;
+    const mancha = inkElement([
+      { x: cx, y: cy - r }, { x: cx + r, y: cy },
+      { x: cx, y: cy + r }, { x: cx - r, y: cy },
+    ]);
+    mancha.seed = 4242;
+    Renderer.renderElement(pctx, mancha);
+    // Y las dos líneas que forman el rombo, encima, como en el lienzo.
+    Renderer.renderElement(pctx, { type: TOOLS.LINE, x1: cx - r - 8, y1: cy + 8,
+      x2: cx + r + 8, y2: cy - 8, color: state.color, lineWidth: state.lineWidth, seed: 7 });
+    Renderer.renderElement(pctx, { type: TOOLS.LINE, x1: cx - r - 8, y1: cy - 8,
+      x2: cx + r + 8, y2: cy + 8, color: state.color, lineWidth: state.lineWidth, seed: 9 });
+  }
+
+  function openInkModal() {
+    syncInkControls();
+    $('modal-ink').showModal();
   }
 
   /** Punto único de sincronía del tamaño del emoji con su catálogo. Estas dos
@@ -5602,6 +5966,80 @@
       scheduleOverlay();
     });
     $('btn-airbrush-mark').addEventListener('click', armarArea);
+
+    /* ── Tinta ── */
+
+    // El cierre de huecos y el objetivo del clic son ajustes de herramienta,
+    // como el tamaño del borrador: no editan nada dibujado, así que no entran
+    // en el undo y se guardan en el acto.
+    $('ink-gap').addEventListener('input', e => {
+      state.inkGap = Math.min(12, Math.max(0, +e.target.value));
+      $('ink-gap-val').textContent = String(state.inkGap);
+    });
+    $('ink-gap').addEventListener('change', savePrefs);
+    $('ink-target').addEventListener('change', e => {
+      state.inkTarget = e.target.value === 'zone' ? 'zone' : 'shape';
+      savePrefs();
+    });
+
+    // Cuentagotas. Armarlo CIERRA el modal, y no es comodidad: un
+    // <dialog showModal> deja inerte todo lo de detrás, así que pedir un clic
+    // en el lienzo sin cerrarlo deja al usuario delante de una app que no
+    // responde (el fallo de la v2.16.2).
+    $('btn-ink-pick').addEventListener('click', () => {
+      state.inkPicking = true;
+      setInkStatus('Pulsa en el lienzo para tomar su color');
+      updateCursor();
+      $('modal-ink').close();
+    });
+
+    // Pintar de golpe todo lo seleccionado: un paso de undo para el lote.
+    $('btn-ink-selection').addEventListener('click', () => {
+      const shapes = selShapes();
+      if (!shapes.length) { setInkStatus('No hay formas rellenables seleccionadas'); return; }
+      const col = state.fillColor || state.color;
+      saveUndo();
+      shapes.forEach(i => {
+        const copia = { ...state.elements[i], fill: true, fillColor: col };
+        if (state.fillTransparent) {
+          copia.fillTransparent = true;
+          if (Number.isFinite(state.fillOpacity)) copia.fillOpacity = state.fillOpacity;
+        } else {
+          delete copia.fillTransparent;
+          delete copia.fillOpacity;
+        }
+        state.elements[i] = copia;
+      });
+      setInkStatus(`Pintadas ${shapes.length} formas`);
+      redraw();
+      syncInkControls();
+    });
+
+    // Sustituir un color en toda la escena, trazo y relleno. También un solo
+    // paso de undo: es una acción, no un gesto continuo.
+    $('btn-ink-replace').addEventListener('click', () => {
+      const viejo = $('ink-replace').value;
+      const nuevo = hex6(state.fillColor || state.color);
+      if (!viejo) return;
+      if (viejo === nuevo) { setInkStatus('Ese color ya es el de la tinta'); return; }
+      let tocados = 0;
+      const snap = snapshot();
+      state.elements = state.elements.map(el => {
+        const cambia = hex6(el.color) === viejo ||
+          (el.fillColor && hex6(el.fillColor) === viejo);
+        if (!cambia) return el;
+        tocados++;
+        const copia = { ...el };
+        if (hex6(el.color) === viejo) copia.color = nuevo;
+        if (el.fillColor && hex6(el.fillColor) === viejo) copia.fillColor = nuevo;
+        return copia;
+      });
+      if (!tocados) { state.elements = snap; setInkStatus('Ese color ya no está en el lienzo'); return; }
+      pushUndo(snap);
+      setInkStatus(`Sustituido en ${tocados} elemento${tocados > 1 ? 's' : ''}`);
+      redraw();
+      syncInkControls();
+    });
     $('btn-airbrush-clear-area').addEventListener('click', () => {
       state.airbrushArea = null;
       state.airbrushAreaMode = 'all';
@@ -5903,8 +6341,9 @@
         state.fillTransparent = on;
       }
       syncShapeControls();
+      if ($('modal-ink').open) syncInkControls();
     };
-    ['check-fill-transparent', 'shape-modal-fill-transparent',
+    ['check-fill-transparent', 'shape-modal-fill-transparent', 'ink-modal-fill-transparent',
       'prism-fill-transparent', 'pyramid-fill-transparent', 'frustum-fill-transparent', 'sphere-fill-transparent'].forEach(id => {
       $(id).addEventListener('change', e => applyFillTransparent(e.target.checked));
     });
@@ -5928,6 +6367,7 @@
         state.fillOpacity = opacity;
       }
       syncShapeControls();
+      if ($('modal-ink').open) syncInkControls();
     };
     $('fill-opacity-slider').addEventListener('input', e => applyFillOpacity(+e.target.value));
 
@@ -5942,7 +6382,7 @@
       if (unchanged) state.elements = snap;
       else pushUndo(snap);
     }
-    ['fill-opacity-slider', 'shape-modal-opacity', 'prism-opacity', 'pyramid-opacity', 'frustum-opacity', 'sphere-opacity'].forEach(id => {
+    ['fill-opacity-slider', 'shape-modal-opacity', 'ink-modal-opacity', 'prism-opacity', 'pyramid-opacity', 'frustum-opacity', 'sphere-opacity'].forEach(id => {
       $(id).addEventListener('change', commitFillOpacityGesture);
       $(id).addEventListener('pointerup', commitFillOpacityGesture);
       $(id).addEventListener('pointercancel', commitFillOpacityGesture);
@@ -5974,8 +6414,9 @@
         $('check-fill').checked = true;
       }
       syncShapeControls();
+      if ($('modal-ink').open) syncInkControls();
     };
-    ['fill-color-picker', 'shape-modal-fill-color',
+    ['fill-color-picker', 'shape-modal-fill-color', 'ink-modal-fill-color',
       'prism-fill-color', 'pyramid-fill-color', 'frustum-fill-color', 'sphere-fill-color'].forEach(id => {
       $(id).addEventListener('input', e => applyFillColor(e.target.value));
       $(id).addEventListener('change', () => commitFillColorGesture());
@@ -6844,6 +7285,12 @@
     const airbrushModal = $('modal-airbrush');
     airbrushModal.querySelector('.modal__cancel').addEventListener('click', () => airbrushModal.close());
     closeOnBackdrop(airbrushModal);
+
+    // Tinta: misma pareja obligatoria. Tampoco está en opensVariantModal —
+    // cerrar deja el bote puesto, no hay variante que cancelar.
+    const inkModal = $('modal-ink');
+    inkModal.querySelector('.modal__cancel').addEventListener('click', () => inkModal.close());
+    closeOnBackdrop(inkModal);
 
     // Esfera: los otros tres modales de 3D reciben «Cerrar» y el clic fuera en
     // el bucle de VARIANT_MODALS, pero la Esfera no está ahí (no tiene sección
@@ -8333,6 +8780,7 @@
     syncEmojiControls();
     syncEraserControls();
     syncAirbrushControls();
+    syncInkControls();
     syncSolidControls();
   }
 

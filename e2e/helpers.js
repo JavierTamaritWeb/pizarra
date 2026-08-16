@@ -101,7 +101,7 @@ async function canvasPoint(page, x, y) {
     catálogos (Planta, Árbol…): ahí sí hay que elegir, y cerrarlos automáticamente
     escondería justo lo que esos specs comprueban. */
 const SETTINGS_MODALS = ['#modal-stroke', '#modal-shape', '#modal-eraser',
-  '#modal-text', '#modal-ui', '#modal-select', '#modal-airbrush',
+  '#modal-text', '#modal-ui', '#modal-select', '#modal-airbrush', '#modal-ink',
   // La Esfera abre ajustes al pulsarla, como el Borrador. Los otros tres
   // modales de 3D son catálogos y NO van aquí: sus specs eligen sección.
   '#modal-sphere'];

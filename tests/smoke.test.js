@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.31.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.32.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.31\.0</);
-  assert.match(html, /css\/styles\.css\?v=2\.31\.0/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.31\.0/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.31\.0/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.31\.0/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.31\.0/);
+  assert.match(html, /class="topbar__badge">v2\.32\.0</);
+  assert.match(html, /css\/styles\.css\?v=2\.32\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.32\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.32\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.32\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.32\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -64,8 +64,8 @@ test('index publica v2.31.0 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="modal-pyramid"/);
   assert.match(html, /id="modal-frustum"/);
   assert.match(html, /id="modal-sphere"/);
-  assert.match(html, /src\/js\/solid\.js\?v=2\.31\.0/);
-  assert.match(html, /src\/js\/airbrush\.js\?v=2\.31\.0/);
+  assert.match(html, /src\/js\/solid\.js\?v=2\.32\.0/);
+  assert.match(html, /src\/js\/airbrush\.js\?v=2\.32\.0/);
   // «Los clics acumulan selección» dejó el panel en la v2.17.0 y es el ajuste
   // de «Select». Si volviera a existir la casilla vieja habría dos controles
   // para un mismo estado, y solo uno cableado: el arnés `node:vm` fabrica un
@@ -941,7 +941,7 @@ test('cada paleta cableada en app.js existe en index.html', () => {
   const trazo = listaDe(/const COLOR_GRIDS = \[([\s\S]*?)\];/);
   const relleno = listaDe(/const FILL_COLOR_GRIDS = \[([\s\S]*?)\];/);
   assert.equal(trazo.length, 10, 'el panel, el aerógrafo, los cuatro 3D y los cuatro de ajustes');
-  assert.equal(relleno.length, 5, '#modal-shape y los cuatro 3D');
+  assert.equal(relleno.length, 6, '#modal-shape, la Tinta y los cuatro 3D');
   for (const id of [...trazo, ...relleno]) {
     assert.match(html, new RegExp(`id="${id}"`), `falta la rejilla #${id} en index.html`);
   }
@@ -968,7 +968,7 @@ test('css/styles.css ensancha los modales de ajustes por encima de 1200px', () =
   // Y la clase la llevan los quince diálogos con miniatura
   const conMiniatura = (html.match(/<div class="modal__build">/g) || []).length;
   const marcados = (html.match(/class="modal modal--settings"/g) || []).length;
-  assert.equal(conMiniatura, 15);
+  assert.equal(conMiniatura, 16); // los quince de la v2.26.0 más la Tinta
   assert.equal(marcados, conMiniatura,
     'todo modal con miniatura tiene que llevar modal--settings, o se queda estrecho');
 });
