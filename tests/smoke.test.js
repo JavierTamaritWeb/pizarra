@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.35.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.36.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.35\.0</);
-  assert.match(html, /css\/styles\.css\?v=2\.35\.0/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.35\.0/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.35\.0/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.35\.0/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.35\.0/);
+  assert.match(html, /class="topbar__badge">v2\.36\.0</);
+  assert.match(html, /css\/styles\.css\?v=2\.36\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.36\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.36\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.36\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.36\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -64,8 +64,8 @@ test('index publica v2.35.0 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="modal-pyramid"/);
   assert.match(html, /id="modal-frustum"/);
   assert.match(html, /id="modal-sphere"/);
-  assert.match(html, /src\/js\/solid\.js\?v=2\.35\.0/);
-  assert.match(html, /src\/js\/airbrush\.js\?v=2\.35\.0/);
+  assert.match(html, /src\/js\/solid\.js\?v=2\.36\.0/);
+  assert.match(html, /src\/js\/airbrush\.js\?v=2\.36\.0/);
   // «Los clics acumulan selección» dejó el panel en la v2.17.0 y es el ajuste
   // de «Select». Si volviera a existir la casilla vieja habría dos controles
   // para un mismo estado, y solo uno cableado: el arnés `node:vm` fabrica un
@@ -181,6 +181,10 @@ test('el panel tiene sus secciones contextuales y el CSS que las oculta', () => 
   // desplaza, y el cursor es lo que lo promete.
   assert.match(css, /\.canvas-area__canvas--pick\s*\{\s*cursor:\s*default/,
     'falta el cursor de la herramienta «Select» en el CSS compilado');
+  // Y el de Mover es la mano que señala con el índice (v2.36.0, petición del
+  // usuario: el gesto del ☝️ de su propio botón). `pointer`, no `move`.
+  assert.match(css, /\.canvas-area__canvas--move\s*\{\s*cursor:\s*pointer/,
+    'falta la mano de la herramienta Mover en el CSS compilado');
   // Borrador y aerógrafo esconden el cursor del sistema porque dibujan su
   // propio indicador en el overlay (el círculo con el alcance real). Sin el
   // `cursor: none` se ven los dos a la vez, y en el aerógrafo la cruz del

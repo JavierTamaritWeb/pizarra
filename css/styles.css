@@ -493,8 +493,13 @@ input[type=range]::-moz-range-thumb {
   outline-offset: -0.3rem;
 }
 
+/* Mover: la mano que señala con el índice (petición del usuario, v2.36.0 —
+   el mismo gesto del ☝️ de su botón del sidebar). Es el `pointer` nativo:
+   nítido a cualquier densidad de pantalla y con su punto activo bien puesto,
+   cosa que un cursor-imagen con el emoji no garantiza. Antes era `move`, las
+   cuatro flechas. */
 .canvas-area__canvas--move {
-  cursor: move;
+  cursor: pointer;
 }
 
 .canvas-area__canvas--eraser {

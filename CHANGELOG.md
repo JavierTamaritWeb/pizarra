@@ -4,6 +4,129 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.36.0] — 2026-08-16
+
+### Cambiado
+
+- **El puntero de Mover es la mano que señala con el índice**, el mismo gesto
+  del ☝️ de su botón. Antes eran las cuatro flechas de mover, que prometían
+  desplazamiento incluso sobre el lienzo vacío.
+
+## [2.35.0] — 2026-08-16
+
+Auditoría severa de errores: tres auditores en paralelo por zonas (borrador
+parcial, Tinta, transversal), cada hallazgo reproducido antes de arreglarlo y
+con su entrada y guarda en `BUGS.md`. Cinco defectos corregidos.
+
+### Arreglado
+
+- **Un roce sin tinta convertía un componente en imagen tras cambiar la letra
+  del lienzo** (severidad alta): el recuento de tinta previa del borrado por
+  trama se guardaba entre pasadas, así que con otra letra los números no
+  cuadraban y el elemento se sustituía sin haberle borrado un solo píxel.
+- **La previsualización del borrador iba a saltos** (severidad alta): recalculaba
+  el recorte entero en cada fotograma —95-186 ms con una docena de formas—.
+  Ahora es incremental: el trazo solo crece, así que cada fotograma solo mira lo
+  nuevo. Medido: 15,8 → 0,4 ms por fotograma.
+- **Morder una foto la engordaba ×5-7 y mataba el autoguardado en silencio**:
+  se re-serializaba como PNG. Las fotos mordidas salen ahora en WebP, y si aun
+  así el guardado no cabe, la barra superior **avisa** en vez de callarse
+  —antes se perdía sin más todo lo dibujado después—.
+- **El aerógrafo con área podía partirse en trozos invisibles**, que contaban
+  en «Elementos» y viajaban en el archivo exportado.
+- **«Sustituir un color» distinguía `#FF0000` de `#ff0000`**: tras importar un
+  archivo con los colores en mayúsculas, el mismo color salía dos veces en la
+  lista y solo se sustituía la mitad de los elementos.
+
+### Notas
+
+- Ocho guardas de regresión nuevas, todas verificadas fallando contra la
+  mutación que revierte su arreglo. La suite queda en 778 tests unitarios +
+  120 e2e.
+
+## [2.34.0] — 2026-08-16
+
+### Añadido
+
+- **El borrador también muerde el texto, los emojis, las imágenes y los
+  componentes de UI.** Ahí no hay trazo que recortar —una palabra son letras, un
+  botón es contorno, rótulo y relleno—, así que lo que queda se convierte en
+  imagen: se ve exactamente igual, y a cambio deja de poder editarse como texto
+  o como componente.
+- De regalo, el alcance pasa a ser exacto: **cruzar el hueco vacío de una
+  tarjeta ya no se la lleva**. Si el barrido no quita un solo píxel, no pasa
+  nada —ni siquiera un paso de deshacer—.
+
+## [2.33.0] — 2026-08-16
+
+### Añadido
+
+- **El borrador recorta la flecha curva, el aerógrafo y el contorno de las
+  formas sin relleno**, como ya hacía con recta, flecha y lápiz. Antes bastaba
+  rozarlos para que desaparecieran enteros: un toque en una esquina se llevaba
+  el rectángulo completo, y un roce en el borde de una mancha de espray, la
+  mancha entera.
+- Los trozos de curva y de contorno quedan como trazo a mano alzada; el
+  aerógrafo se parte en dos nubes que conservan boquilla, densidad y grano.
+
+### Notas
+
+- Siguen borrándose enteros el texto, las imágenes, los componentes y las
+  **formas rellenas**: su dibujo es una superficie, y no hay forma de
+  representar una superficie mordida. (El texto y los componentes llegaron en
+  la 2.34.0, por otro camino.)
+
+## [2.32.1] — 2026-08-16
+
+### Corregido
+
+- En el sidebar ancho, **los nombres de dos herramientas vecinas se tocaban**:
+  «RECTÁNGULO REDONDEADO» se leía de corrido porque entre uno y otro quedaban
+  3,5 px. La calle entre columnas pasa a 8 px sin encoger el texto.
+
+## [2.32.0] — 2026-08-16
+
+### Añadido
+
+- **Tinta, el bote de pintura** (grupo «Dibujo»). Un clic pinta: dentro de una
+  forma, la rellena a ella; **fuera, detecta la zona cerrada por los trazos que
+  la rodean** —el rombo que forman varias líneas cruzadas, que hasta ahora no
+  existía como objeto y no se podía colorear— y crea una mancha independiente,
+  por debajo de los trazos. Se mueve, se borra, se deshace y viaja en el archivo
+  como cualquier otro elemento.
+- Un clic en el lienzo vacío **pinta el fondo entero**.
+- Ajustes propios: **«Cerrar huecos»** (0-12 px) para que la pintura no se
+  escape por las junturas, **cuentagotas** para tomar un color del dibujo,
+  **pintar de golpe toda la selección** y **sustituir un color por otro en todo
+  el lienzo**. El color de la Tinta es el de relleno de la app, con sus modos
+  sólido y translúcido.
+- Repintar la misma zona **sustituye** la mancha en vez de apilar otra encima.
+
+### Notas
+
+- Limitaciones asumidas y documentadas: una zona con islas dentro se pinta
+  entera (el modal avisa de cuántas hay), la mancha no sigue a los trazos si
+  luego los mueves, y el aerógrafo es poroso por construcción —pintar dentro de
+  una nube exige subir el cierre de huecos—.
+
+## [2.31.0] — 2026-08-15
+
+### Añadido
+
+- **El aspecto del lienzo, en un clic.** Una fila de muestras en «Lienzo» con
+  cinco aspectos —Plano, Blanco, Milimetrado, Crema y Pizarra—, cada una con su
+  papel, su color de cuadrícula y si la enseña o no. Antes eran tres gestos, dos
+  de ellos dentro del diálogo de color del sistema, y la vuelta atrás exigía
+  recordar dos códigos que no estaban escritos en ninguna parte.
+- La cuadrícula encendida o apagada **se recuerda entre sesiones**, como los
+  colores.
+
+### Notas
+
+- Un aspecto describe el papel y nunca toca el color de la tinta: en «Pizarra»
+  hay que elegir un color claro en la paleta, igual que en un encerado de
+  verdad.
+
 ## [2.30.0] — 2026-08-15
 
 Auditoría severa de errores: cuatro auditores en paralelo por zonas (3D,
