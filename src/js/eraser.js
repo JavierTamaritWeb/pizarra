@@ -287,10 +287,32 @@ const Eraser = (function () {
    * Tramos de `points` que sobreviven al trazo del borrador, con puntos de
    * corte interpolados en cada transición. Cada tramo tiene ≥ 2 puntos;
    * ninguno si todo cae dentro del área borrada.
+   *
+   * `memo` (opcional, uno por elemento y por PASADA) hace la clasificación
+   * incremental: durante el arrastre el trazo solo crece, y un punto que ya
+   * cayó dentro no vuelve a salir, así que cada fotograma basta con probar
+   * los puntos aún vivos contra los tramos NUEVOS. Sin él, la
+   * previsualización reclasificaba todas las muestras contra todo el trazo en
+   * cada fotograma — O(muestras × tramos) creciendo con el arrastre, medido
+   * en 95-186 ms/fotograma en una escena de 12 formas (auditoría v2.35.0).
+   * El memo exige que `points` sea idéntico entre fotogramas (mismo muestreo
+   * del mismo elemento); quien lo pasa cachea también los puntos.
    */
-  function _survivingRuns(points, segs, r) {
+  function _survivingRuns(points, segs, r, memo) {
     if (!points || points.length < 2) return [];
-    const erased = points.map(p => _erasedAt(p, segs, r));
+    let erased;
+    if (memo && memo.erased && memo.erased.length === points.length) {
+      erased = memo.erased;
+      const nuevos = segs.slice(memo.nSegs || 0);
+      if (nuevos.length) {
+        for (let i = 0; i < points.length; i++) {
+          if (!erased[i] && _erasedAt(points[i], nuevos, r)) erased[i] = true;
+        }
+      }
+    } else {
+      erased = points.map(p => _erasedAt(p, segs, r));
+    }
+    if (memo) { memo.erased = erased; memo.nSegs = segs.length; }
     const runs = [];
     let current = erased[0] ? [] : [points[0]];
     for (let i = 0; i < points.length - 1; i++) {
@@ -332,13 +354,21 @@ const Eraser = (function () {
    * etiqueta) — cortar una flecha por la mitad no inventa una punta nueva
    * en el corte.
    */
-  function _splitLine(el, segs, r) {
+  function _splitLine(el, segs, r, memo) {
     // El mismo margen de tinta que usa `touches`: clasificar solo con `r`
     // dejaba una franja (entre el eje y el borde del trazo) que "tocaba"
     // sin borrar nada visible — y aun así reconstruía el elemento.
     const w = r + (el.lineWidth || 1) / 2;
-    const p1 = { x: el.x1, y: el.y1 }, p2 = { x: el.x2, y: el.y2 };
-    const runs = _survivingRuns(_sampleLine(p1, p2), segs, w);
+    // El muestreo se cachea junto a la clasificación: el memo incremental de
+    // _survivingRuns exige que los puntos sean LOS MISMOS entre fotogramas
+    // (las comprobaciones de "intacto" van por referencia a los extremos).
+    let pts = memo && memo.pts;
+    if (!pts) {
+      pts = _sampleLine({ x: el.x1, y: el.y1 }, { x: el.x2, y: el.y2 });
+      if (memo) memo.pts = pts;
+    }
+    const p1 = pts[0], p2 = pts[pts.length - 1];
+    const runs = _survivingRuns(pts, segs, w, memo);
     // Roce sin mordisco (contacto continuo justo entre dos muestras):
     // intacto POR REFERENCIA — reconstruirlo desanclaba la flecha y
     // apilaba un paso de undo sin ningún cambio visible.
@@ -373,10 +403,10 @@ const Eraser = (function () {
 
   /** Recorta un `pencil` contra el trazo del borrador: un hueco en medio del
       trazo lo parte en varios `pencil` independientes. */
-  function _splitPencil(el, segs, r) {
+  function _splitPencil(el, segs, r, memo) {
     const w = r + (el.lineWidth || 1) / 2; // mismo margen de tinta que `touches`
     const pts = el.points;
-    const runs = _survivingRuns(pts, segs, w);
+    const runs = _survivingRuns(pts, segs, w, memo);
     // Roce sin mordisco: intacto por referencia (ver _splitLine).
     if (runs.length === 1 &&
         runs[0][0] === pts[0] && runs[0][runs[0].length - 1] === pts[pts.length - 1]) {
@@ -429,13 +459,17 @@ const Eraser = (function () {
    * cortado deja de ser flecha. Se pierden puntas y etiqueta, que es lo
    * coherente — la punta estaba en el extremo que acaba de borrarse.
    */
-  function _splitCurve(el, segs, r, deps) {
+  function _splitCurve(el, segs, r, deps, memo) {
     const w = r + (el.lineWidth || 1) / 2;
-    const sampled = deps.sampleCurve ? deps.sampleCurve(el, 24)
-      : [{ x: el.x1, y: el.y1 }, { x: el.x2, y: el.y2 }];
-    const pts = _densify(sampled);
+    let pts = memo && memo.pts;
+    if (!pts) {
+      const sampled = deps.sampleCurve ? deps.sampleCurve(el, 24)
+        : [{ x: el.x1, y: el.y1 }, { x: el.x2, y: el.y2 }];
+      pts = _densify(sampled);
+      if (memo) memo.pts = pts;
+    }
     if (pts.length < 2) return null;   // curva degenerada: borrado íntegro
-    const runs = _survivingRuns(pts, segs, w);
+    const runs = _survivingRuns(pts, segs, w, memo);
     if (runs.length === 1 &&
         runs[0][0] === pts[0] && runs[0][runs[0].length - 1] === pts[pts.length - 1]) {
       return [el];                     // roce sin mordisco: intacta por referencia
@@ -449,13 +483,18 @@ const Eraser = (function () {
    * unir: sin eso, borrar por cualquier otro lado partiría la forma en dos
    * pedazos por un sitio donde el borrador no ha pasado.
    */
-  function _splitOutline(el, segs, r, deps) {
+  function _splitOutline(el, segs, r, deps, memo) {
     const w = r + (el.lineWidth || 1) / 2;
-    const ring = _shapeOutline(el, deps);
-    if (!ring || ring.length < 3) return null;
-    const closed = _densify(ring.concat([ring[0]]));
+    let closed = memo && memo.pts;
+    if (!closed) {
+      const ring = _shapeOutline(el, deps);
+      if (!ring || ring.length < 3) return null;
+      closed = _densify(ring.concat([ring[0]]));
+      if (memo) memo.pts = closed;
+    }
+    if (closed.length < 4) return null;
     const first = closed[0], last = closed[closed.length - 1];
-    const runs = _survivingRuns(closed, segs, w);
+    const runs = _survivingRuns(closed, segs, w, memo);
     if (runs.length === 1 &&
         runs[0][0] === first && runs[0][runs[0].length - 1] === last) {
       return [el];                     // roce sin mordisco: intacta por referencia
@@ -483,23 +522,34 @@ const Eraser = (function () {
    * se lleva ese tramo de banda entero, porque el eje que lo pinta está
    * debajo. Un soplo de un solo punto no tiene eje que partir: se borra entero.
    */
-  function _splitAirbrush(el, segs, r) {
+  function _splitAirbrush(el, segs, r, deps, memo) {
     if (!el.points || el.points.length < 2) return null;
     // El eje viene decimado a 2 px cuando lo dibuja la herramienta, pero un
     // proyecto importado o una mancha escalada pueden traerlo con vértices
     // muy separados, y entre dos muestras el borrador no ve nada que cortar.
-    const pts = _densify(el.points);
+    let pts = memo && memo.pts;
+    if (!pts) {
+      pts = _densify(el.points);
+      if (memo) memo.pts = pts;
+    }
     const w = r + (el.radius || 0) + (el.lineWidth || 1) / 2;
-    const runs = _survivingRuns(pts, segs, w);
+    const runs = _survivingRuns(pts, segs, w, memo);
     if (runs.length === 1 &&
         runs[0][0] === pts[0] && runs[0][runs[0].length - 1] === pts[pts.length - 1]) {
       return [el];
     }
-    return runs.map(run => {
+    let piezas = runs.map(run => {
       const piece = { ...el, points: run };
       delete piece.id;
       return piece;
     });
+    // Con área (`clip`), un trozo puede quedarse con TODAS sus gotas fuera de
+    // ella: invisible, pero contando en «Elementos» y viajando en el JSON —
+    // exactamente lo que onMouseUp impide al crear. `isEmpty` vive fuera del
+    // módulo (necesita regenerar la nube), así que llega inyectado; sin la
+    // dependencia se conservan todos los trozos, como antes.
+    if (deps && deps.isEmpty) piezas = piezas.filter(pz => !deps.isEmpty(pz));
+    return piezas;
   }
 
   /**
@@ -511,20 +561,73 @@ const Eraser = (function () {
   function erase(elements, pts, r, deps = {}) {
     const segs = _strokeSegments(pts);
     if (!segs.length || !elements || !elements.length) return elements;
+    // Caja del trazo completo, para el descarte rápido de elementos lejanos:
+    // durante el arrastre esto corre por FOTOGRAMA, y sin el descarte cada
+    // elemento pagaba un `touches` O(muestras × tramos) aunque el borrador
+    // estuviera en la otra punta del lienzo.
+    let sMinX = Infinity, sMinY = Infinity, sMaxX = -Infinity, sMaxY = -Infinity;
+    for (const sg of segs) {
+      if (sg.minX < sMinX) sMinX = sg.minX;
+      if (sg.minY < sMinY) sMinY = sg.minY;
+      if (sg.maxX > sMaxX) sMaxX = sg.maxX;
+      if (sg.maxY > sMaxY) sMaxY = sg.maxY;
+    }
+    // Memos por elemento y por pasada (deps.session, un Map que app.js crea al
+    // empezar el arrastre y tira al soltar): clasificación incremental de
+    // _survivingRuns y `touches` probado solo contra los tramos nuevos.
+    const memoOf = deps.session
+      ? el => {
+        let m = deps.session.get(el);
+        if (!m) { m = {}; deps.session.set(el, m); }
+        return m;
+      }
+      : () => null;
     let changed = false;
     const out = [];
     elements.forEach(el => {
-      if (el.type === 'eraser' || !touches(el, pts, r, deps)) { out.push(el); return; }
+      if (el.type === 'eraser') { out.push(el); return; }
+      const memo = memoOf(el);
+      // Descarte por caja. El margen cubre todo lo que `touches` puede
+      // alcanzar más allá de los bounds: el grosor del trazo del elemento (la
+      // banda del aerógrafo ya viene incluida en su visibleBox). Solo cuando
+      // la caja es medible — sin `boundsOf` inyectado, un pencil no la tiene.
+      if (!(memo && memo.touched)) {
+        const bb = (deps.boundsOf || _bounds)(el);
+        const margen = r + (el.lineWidth || 1);
+        if (Number.isFinite(bb.x) && Number.isFinite(bb.w) &&
+            (bb.x + bb.w + margen < sMinX || bb.x - margen > sMaxX ||
+             bb.y + bb.h + margen < sMinY || bb.y - margen > sMaxY)) {
+          out.push(el);
+          return;
+        }
+      }
+      // `touches` es monótono con el trazo (un tramo nuevo solo puede añadir
+      // alcance), así que con memo basta probar la cola nueva — con un punto
+      // de solape, para no perder el tramo que une lo viejo con lo nuevo.
+      let touched;
+      if (memo) {
+        if (memo.touched) {
+          touched = true;
+        } else {
+          const desde = Math.max(0, (memo.checkedPts || 0) - 1);
+          touched = touches(el, desde ? pts.slice(desde) : pts, r, deps);
+          memo.checkedPts = pts.length;
+          if (touched) memo.touched = true;
+        }
+      } else {
+        touched = touches(el, pts, r, deps);
+      }
+      if (!touched) { out.push(el); return; }
       let pieces = null;
-      if (el.type === 'pencil') pieces = _splitPencil(el, segs, r);
-      else if (el.type === 'line' || el.type === 'arrow') pieces = _splitLine(el, segs, r);
-      else if (el.type === 'curveArrow') pieces = _splitCurve(el, segs, r, deps);
-      else if (el.type === 'airbrush') pieces = _splitAirbrush(el, segs, r);
+      if (el.type === 'pencil') pieces = _splitPencil(el, segs, r, memo);
+      else if (el.type === 'line' || el.type === 'arrow') pieces = _splitLine(el, segs, r, memo);
+      else if (el.type === 'curveArrow') pieces = _splitCurve(el, segs, r, deps, memo);
+      else if (el.type === 'airbrush') pieces = _splitAirbrush(el, segs, r, deps, memo);
       // Una forma RELLENA se va entera: su dibujo es la superficie, y no hay
       // ningún tipo que represente una superficie mordida. Sin relleno, lo
       // dibujado es el contorno y el contorno sí se recorta.
       else if (OUTLINE_TYPES.includes(el.type) && !el.fill) {
-        pieces = _splitOutline(el, segs, r, deps);
+        pieces = _splitOutline(el, segs, r, deps, memo);
       }
       // Texto, emoji, imágenes y componentes de UI: no hay geometría que
       // partir, así que quien tenga un canvas (app.js, vía `deps.rasterErase`)

@@ -52,4 +52,23 @@
     align-items: center;
     gap: 0.8rem;
   }
+
+  // Aviso de autoguardado lleno. Declara display, así que necesita su regla
+  // [hidden] — la trampa que documenta _panel.scss: sin ella, el aviso
+  // estaría SIEMPRE visible y el atributo con el que app.js lo apaga no haría
+  // nada.
+  &__warn {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem 0.8rem;
+    border-radius: 0.6rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    background: rgba(231, 76, 60, 0.15);
+    color: #e74c3c;
+  }
+
+  &__warn[hidden] {
+    display: none;
+  }
 }

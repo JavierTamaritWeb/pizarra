@@ -573,9 +573,11 @@ body { font-family: ${FONT_CSS()}; background: #fff; }
   /* ── Validación de import ── */
 
   const HEX_COLOR = /^#[0-9a-f]{6}([0-9a-f]{2})?$/i;
-  // Solo data-URLs base64 de PNG/JPEG: evita javascript:/http: inyectados
-  // por un JSON manipulado en los exports SVG/HTML
-  const IMAGE_SRC = /^data:image\/(png|jpeg);base64,[a-z0-9+/=]+$/i;
+  // Solo data-URLs base64 de PNG/JPEG/WebP: evita javascript:/http: inyectados
+  // por un JSON manipulado en los exports SVG/HTML. WebP entró en v2.35.0: es
+  // lo que emite el borrado por trama al morder una foto (PNG sin pérdida
+  // multiplicaba su peso ×5-7 y reventaba la cuota de localStorage).
+  const IMAGE_SRC = /^data:image\/(png|jpeg|webp);base64,[a-z0-9+/=]+$/i;
   // TOOLS.SELECT, ARC y EMOJI son ids de herramienta que NO son tipos de
   // elemento: SELECT no crea nada; ARC crea un `curveArrow` y EMOJI un `text`.
   // Sin excluirlos, un JSON importado con type:'arc'/'emoji' pasaría la

@@ -206,3 +206,91 @@ test('el borrador no toca una forma por la que solo pasa cerca', async ({ page }
   expect(tras[0].type).toBe('circle');
   expect(tras[0].w).toBe(antes[0].w);
 });
+
+test('cambiar la letra del lienzo no hace que un roce sin tinta convierta el componente', async ({ page }) => {
+  // Auditoría v2.35.0: el recuento de «tinta previa» se cacheaba entre
+  // pasadas; tras cambiar la letra, el render nuevo contaba distinto y un
+  // roce que no borraba NI UN PÍXEL sustituía el nav por una imagen — perdía
+  // su editabilidad en silencio. Hoy el recuento se calcula fresco en cada
+  // commit, así que este test pinta el escenario exacto de la repro.
+  await openApp(page);
+  await selectTool(page, 'nav');
+  await drag(page, 200, 200, 800, 250);
+
+  await selectTool(page, 'eraser');
+  await drag(page, 500, 225, 510, 225);    // roce por una zona sin tinta
+  await settle(page);
+  expect((await elements(page))[0].type).toBe('nav');
+
+  await page.locator('#sketch-font').selectOption({ index: 1 });
+  await page.evaluate(() => document.fonts.ready);
+  await settle(page);
+
+  await drag(page, 500, 225, 510, 225);    // el MISMO roce, con la letra nueva
+  await settle(page);
+  await page.waitForTimeout(700);          // deja pasar el debounce del autosave
+  expect((await elements(page))[0].type, 'sin mordisco no hay conversión').toBe('nav');
+});
+
+test('morder una FOTO la re-serializa como WebP, no como un PNG siete veces más pesado', async ({ page }) => {
+  // Auditoría v2.35.0: `toDataURL('image/png')` incondicional convertía un
+  // JPEG de ~350 KB en un PNG de ~2,4 MB al primer mordisco; con la cuota de
+  // 5 MB de localStorage, dos fotos mordidas mataban el autoguardado.
+  await page.addInitScript(() => {
+    const cv = document.createElement('canvas');
+    cv.width = 800; cv.height = 500;
+    const c = cv.getContext('2d');
+    // Contenido fotográfico (degradados con ruido): es donde PNG se dispara.
+    const g = c.createLinearGradient(0, 0, 800, 500);
+    g.addColorStop(0, '#8a4d2f'); g.addColorStop(0.5, '#4d8a6b'); g.addColorStop(1, '#2f4d8a');
+    c.fillStyle = g; c.fillRect(0, 0, 800, 500);
+    for (let i = 0; i < 20000; i++) {
+      c.fillStyle = `rgba(${(i * 37) % 255},${(i * 91) % 255},${(i * 53) % 255},0.25)`;
+      c.fillRect((i * 173) % 800, (i * 257) % 500, 3, 3);
+    }
+    const src = cv.toDataURL('image/jpeg', 0.9);
+    localStorage.setItem('sketchwire.autosave', JSON.stringify({
+      elements: [{ type: 'image', x: 100, y: 100, w: 800, h: 500, src, color: '#1a1a2e', lineWidth: 2, seed: 1 }],
+      settings: { overlapMode: 'normal' },
+    }));
+  });
+  await openApp(page);
+  const antes = await elements(page);
+  expect(antes[0].type).toBe('image');
+  const jpegLen = antes[0].src.length;
+
+  await selectTool(page, 'eraser');
+  await drag(page, 120, 120, 180, 180);         // mordisco de esquina
+  await settle(page);
+  await expect.poll(async () => (await elements(page))[0].src.slice(0, 20))
+    .toContain('image/webp');
+  const tras = await elements(page);
+  // WebP con pérdida sobre contenido fotográfico: mismo orden de magnitud que
+  // el JPEG de origen, nunca los ×5-7 del PNG.
+  expect(tras[0].src.length).toBeLessThan(jpegLen * 3);
+});
+
+test('cuando el autoguardado no cabe, la topbar lo AVISA — y el aviso se apaga al volver a caber', async ({ page }) => {
+  await openApp(page);
+  await expect(page.locator('#autosave-warn')).toBeHidden();
+
+  // Se estrangula el setItem del autosave para simular la cuota llena.
+  await page.evaluate(() => {
+    const orig = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (k, v) {
+      if (k === 'sketchwire.autosave') throw new DOMException('QuotaExceededError');
+      return orig.call(this, k, v);
+    };
+    window.__restoreSetItem = () => { Storage.prototype.setItem = orig; };
+  });
+  await selectTool(page, 'rect');
+  await drag(page, 200, 200, 400, 350);
+  await page.waitForTimeout(700);               // deja disparar el autosave
+  await expect(page.locator('#autosave-warn'),
+    'el fallo de cuota no puede ser un catch mudo').toBeVisible();
+
+  await page.evaluate(() => window.__restoreSetItem());
+  await drag(page, 500, 200, 600, 300);
+  await page.waitForTimeout(700);
+  await expect(page.locator('#autosave-warn')).toBeHidden();
+});

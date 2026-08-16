@@ -858,7 +858,10 @@
 
   /** <input type="color"> solo acepta #rrggbb: recorta un eventual canal alfa
       (un color importado puede venir como #rrggbbaa y lo dejaría en negro). */
-  const hex6 = c => String(c).slice(0, 7);
+  // En minúsculas SIEMPRE: la validación de import acepta hex en mayúsculas
+  // (HEX_COLOR es case-insensitive), y sin normalizar, «Sustituir un color»
+  // listaba #FF0000 y #ff0000 como dos colores y sustituía solo la mitad.
+  const hex6 = c => String(c).slice(0, 7).toLowerCase();
 
   function newId() {
     let id;
@@ -1049,12 +1052,21 @@
   let autosaveTimer = null;
 
   function saveAutosaveNow() {
+    // El aviso refleja el estado REAL del último intento: se enciende cuando
+    // localStorage rechaza el guardado (cuota llena — dos fotos mordidas
+    // bastaban antes del WebP) y se apaga solo si un guardado posterior
+    // vuelve a caber. Antes esto era un catch mudo: la app decía que todo iba
+    // bien mientras cada autoguardado fallaba para siempre, y lo dibujado
+    // después de llenarse la cuota se perdía al recargar sin ninguna señal.
     try {
       localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({
         elements: state.elements,
         settings: { overlapMode: state.overlapMode },
       }));
-    } catch (_) { /* almacenamiento lleno o bloqueado: se ignora */ }
+      $('autosave-warn').hidden = true;
+    } catch (_) {
+      $('autosave-warn').hidden = false;
+    }
   }
 
   function scheduleAutosave() {
@@ -1473,10 +1485,6 @@
       tinta que queda de verdad. */
   const rasterPad = el => 16 + (el.lineWidth || 1) * 2 + (el.fontSize || 0) * 0.8;
 
-  /** Tinta previa de cada elemento, memorizada mientras dura el arrastre
-      (ver `rasterErase`). WeakMap: el elemento es la clave y desaparece con él. */
-  const _inkAntes = new WeakMap();
-
   function _rasterCanvas(w, h) {
     const cv = document.createElement('canvas');
     cv.width = w; cv.height = h;
@@ -1499,28 +1507,16 @@
     return { n, minX, minY, maxX, maxY };
   }
 
-  /**
-   * Aplica el trazo del borrador a un elemento rasterizable.
-   * Devuelve `[]` si no queda nada, `[el]` (la misma referencia) si el trazo
-   * no le ha quitado un solo píxel —lo que da alcance exacto de regalo:
-   * cruzar el hueco vacío de una tarjeta ya no se la lleva— o `[imagen]` con
-   * el mordisco. `preview` evita el `toDataURL` (caro, y su decodificación es
-   * asíncrona: en pleno arrastre el elemento parpadearía) y devuelve el propio
-   * canvas en `bitmap`, que el renderer sabe pintar y que nunca entra en
-   * `state.elements`.
-   */
-  function rasterErase(el, pts, r, preview) {
+  /** Prepara el lienzo con el elemento dibujado y su marco. Compartido por el
+      commit y por la previsualización; devuelve null si no se puede (caja
+      degenerada, tamaño absurdo, o el render lanza). */
+  function _rasterBase(el) {
     const box = getElementBounds(el);
     if (!(box.w > 0 && box.h > 0)) return null;
-    // Una imagen a medio decodificar se dibuja como marco punteado: rasterizar
-    // eso sustituiría la foto por su placeholder. Mejor no tocarla todavía.
-    if (el.type === 'image' && !Renderer.imageReady(el.src)) return [el];
-
     const pad = rasterPad(el);
     const x0 = Math.floor(box.x - pad), y0 = Math.floor(box.y - pad);
     const w = Math.ceil(box.w + pad * 2), h = Math.ceil(box.h + pad * 2);
     if (w < 1 || h < 1 || w > RASTER_MAX_SIDE || h > RASTER_MAX_SIDE) return null;
-
     const cv = _rasterCanvas(w, h);
     const c = cv.getContext('2d', { willReadFrequently: true });
     c.translate(-x0, -y0);
@@ -1530,20 +1526,14 @@
       console.warn('No se pudo rasterizar para borrar:', err);
       return null;
     }
-    // La tinta que tenía ANTES no cambia mientras dura el arrastre —el
-    // elemento es el mismo objeto en cada fotograma—, así que se recuerda:
-    // en una foto a pantalla completa ese recuento es un barrido de un millón
-    // de píxeles, y se hacía dos veces por fotograma.
-    let antesN = _inkAntes.get(el);
-    if (antesN === undefined) {
-      antesN = _inkStats(c.getImageData(0, 0, w, h).data, w, h).n;
-      _inkAntes.set(el, antesN);
-    }
-    if (!antesN) return [el];         // no dibuja nada: no hay nada que morder
+    return { cv, c, x0, y0, w, h };
+  }
 
-    // El hueco es el círculo del borrador barrido a lo largo del trazo: una
-    // polilínea de grosor 2r con extremos y uniones redondos. Un clic sin
-    // arrastrar es un disco.
+  /** Abre el hueco del borrador: el círculo barrido a lo largo de los puntos
+      `pts[from..]` — cada tramo con extremos redondos, cuya unión es idéntica
+      a la polilínea entera con uniones redondas, y es lo que permite a la
+      previsualización perforar solo los tramos NUEVOS de cada fotograma. */
+  function _rasterPunch(c, pts, r, from = 0) {
     c.globalCompositeOperation = 'destination-out';
     c.strokeStyle = '#000';
     c.fillStyle = '#000';
@@ -1556,15 +1546,41 @@
       c.fill();
     } else {
       c.beginPath();
-      c.moveTo(pts[0].x, pts[0].y);
-      for (let i = 1; i < pts.length; i++) c.lineTo(pts[i].x, pts[i].y);
+      for (let i = Math.max(1, from); i < pts.length; i++) {
+        c.moveTo(pts[i - 1].x, pts[i - 1].y);
+        c.lineTo(pts[i].x, pts[i].y);
+      }
       c.stroke();
     }
     c.globalCompositeOperation = 'source-over';
+  }
+
+  /**
+   * Aplica el trazo del borrador a un elemento rasterizable (commit).
+   * Devuelve `[]` si no queda nada, `[el]` (la misma referencia) si el trazo
+   * no le ha quitado un solo píxel —lo que da alcance exacto de regalo:
+   * cruzar el hueco vacío de una tarjeta ya no se la lleva— o `[imagen]` con
+   * el mordisco. Corre UNA vez por pasada, al soltar; los recuentos «antes» y
+   * «después» se calculan aquí mismo, frescos — la caché entre pasadas que
+   * hubo aquí (auditoría v2.35.0) devolvía un «antes» rancio tras un cambio
+   * de letra del lienzo y convertía el elemento sin haberle borrado nada.
+   */
+  function rasterErase(el, pts, r) {
+    // Una imagen a medio decodificar se dibuja como marco punteado: rasterizar
+    // eso sustituiría la foto por su placeholder. Mejor no tocarla todavía.
+    if (el.type === 'image' && !Renderer.imageReady(el.src)) return [el];
+    const base = _rasterBase(el);
+    if (!base) return null;
+    const { cv, c, x0, y0, w, h } = base;
+
+    const antes = _inkStats(c.getImageData(0, 0, w, h).data, w, h);
+    if (!antes.n) return [el];        // no dibuja nada: no hay nada que morder
+
+    _rasterPunch(c, pts, r);
 
     const queda = _inkStats(c.getImageData(0, 0, w, h).data, w, h);
     if (!queda.n) return [];                     // se lo ha llevado entero
-    if (queda.n === antesN) return [el];         // ni un píxel: intacto por referencia
+    if (queda.n === antes.n) return [el];        // ni un píxel: intacto por referencia
 
     // Se recorta a la tinta que queda: sin esto la imagen arrastraría todo el
     // margen vacío y su marco de selección mentiría.
@@ -1579,10 +1595,62 @@
       seed: el.seed !== undefined ? el.seed : 1,
     };
     if (el.buildingGroupId !== undefined) pieza.buildingGroupId = el.buildingGroupId;
-    if (preview) pieza.bitmap = crop;            // sólo vive lo que dura el arrastre
-    else pieza.src = crop.toDataURL('image/png');
+    // Una FOTO mordida no puede re-serializarse como PNG: sin pérdida sobre
+    // contenido fotográfico multiplica el peso ×5-7 y dos mordiscos bastan
+    // para pasarse de la cuota de localStorage (auditoría v2.35.0). WebP
+    // conserva el alfa del hueco con compresión con pérdida; se comprueba el
+    // prefijo del resultado porque un navegador sin WebP devuelve PNG
+    // silenciosamente. El dibujo de línea (texto, componentes) sigue en PNG,
+    // donde es más pequeño y no pierde nitidez.
+    const lossy = el.type === 'image' && /^data:image\/(jpeg|webp)/.test(el.src);
+    let src = null;
+    if (lossy) {
+      const webp = crop.toDataURL('image/webp', 0.8);
+      if (webp.startsWith('data:image/webp')) src = webp;
+    }
+    pieza.src = src || crop.toDataURL('image/png');
     return [pieza];
   }
+
+  /**
+   * Previsualización del mordisco por trama, incremental. El canvas con el
+   * elemento dibujado se crea UNA vez por pasada y cada fotograma solo perfora
+   * los tramos nuevos del trazo (`destination-out` acumula); no hay recuentos
+   * ni `toDataURL` —un getImageData de una foto grande costaba ~30 ms por
+   * fotograma, y la decodificación del data-URL es asíncrona y haría
+   * parpadear el elemento—. La pieza lleva el canvas vivo en `bitmap` y cubre
+   * la caja acolchada entera (el margen transparente no pinta nada); nunca
+   * entra en `state.elements`. Si el trazo no ha quitado nada, el bitmap es
+   * idéntico al dibujo del elemento: visualmente da igual.
+   */
+  function rasterErasePreview(el, pts, r, session) {
+    if (el.type === 'image' && !Renderer.imageReady(el.src)) return [el];
+    let s = session.get(el);
+    // Un trazo más corto que el ya perforado es una pasada nueva: se reinicia.
+    if (s && s.punched > pts.length) s = null;
+    if (!s) {
+      const base = _rasterBase(el);
+      if (!base) return null;
+      s = { ...base, punched: 0 };
+      session.set(el, s);
+    }
+    _rasterPunch(s.c, pts, r, s.punched);
+    s.punched = pts.length;
+    return [{
+      type: 'image',
+      x: s.x0, y: s.y0, w: s.w, h: s.h,
+      color: el.color, lineWidth: el.lineWidth,
+      seed: el.seed !== undefined ? el.seed : 1,
+      bitmap: s.cv,
+    }];
+  }
+
+  /** Estado por pasada de la previsualización del borrador: canvases del
+      recorte por trama y memos del recorte geométrico (eraser.js), ambos
+      claveados por elemento. Nace en el primer fotograma del arrastre y se
+      tira al soltar — nada sobrevive entre pasadas (auditoría v2.35.0: una
+      caché que sobrevivía devolvía recuentos rancios tras cambiar la letra). */
+  let eraserSession = null;
 
   /** Lo que Eraser necesita de fuera: bounds reales y siluetas de las formas
       con vértices, para que borrar coincida con lo que un clic seleccionaría,
@@ -1593,8 +1661,14 @@
     polygonVertices: el => (RegularPolygon.isType(el.type) ? RegularPolygon.vertices(el)
       : el.type === TOOLS.POLYGON ? el.points : null),
     trapezoidVertices: el => (el.type === TOOLS.TRAPEZOID ? Trapezoid.vertices(el) : null),
-    rasterErase: (el, pts, r) => (RASTER_ERASE_TYPES.includes(el.type)
-      ? rasterErase(el, pts, r, opts.preview) : null),
+    isEmpty: el => (el.type === 'airbrush' ? Airbrush.isEmpty(el) : false),
+    session: opts.preview ? eraserSession.geo : null,
+    rasterErase: (el, pts, r) => {
+      if (!RASTER_ERASE_TYPES.includes(el.type)) return null;
+      return opts.preview
+        ? rasterErasePreview(el, pts, r, eraserSession.raster)
+        : rasterErase(el, pts, r);
+    },
   });
 
   function redrawNow() {
@@ -1603,9 +1677,13 @@
     // ya cambia mientras se arrastra, así que lo que se ve durante el gesto es
     // exactamente el resultado. El estado no se toca hasta soltar (undo sigue
     // siendo un único paso por pasada).
-    const sceneElements = state.isDrawing &&
+    const erasing = state.isDrawing &&
       state.tool === TOOLS.ERASER &&
-      state.currentPath.length
+      state.currentPath.length;
+    if (erasing && !eraserSession) {
+      eraserSession = { raster: new Map(), geo: new Map() };
+    }
+    const sceneElements = erasing
       ? Eraser.erase(state.elements, state.currentPath, state.eraserSize / 2,
         eraserDeps({ preview: true }))
       : state.elements;
@@ -3237,6 +3315,7 @@
     // "borrado" reaparecía al mover el dibujo.
     if (state.tool === TOOLS.ERASER) {
       state.currentPath.push(pos);
+      eraserSession = null;   // la sesión de la previsualización muere con la pasada
       const result = Eraser.erase(
         state.elements, state.currentPath, state.eraserSize / 2, eraserDeps(),
       );

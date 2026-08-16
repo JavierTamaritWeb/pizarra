@@ -554,3 +554,78 @@ test('texto, imagen y componentes siguen borrándose enteros', () => {
     color: '#000000', lineWidth: 2, fontSize: 18 };
   assert.equal(Eraser.erase([texto], stroke([100, 105], [140, 105]), 6, DEPS).length, 0);
 });
+
+/* ────────────────────────────────────────────────────────────
+   Auditoría v2.35.0: sesión incremental y trozos vacíos
+   ──────────────────────────────────────────────────────────── */
+
+test('la previsualización incremental (session) da EXACTAMENTE lo mismo que el recorte completo', () => {
+  // La previsualización pasa un Map por pasada y el recorte clasifica cada
+  // fotograma solo contra los tramos nuevos del trazo. Si la incremental y la
+  // completa divergen, lo que se ve durante el arrastre deja de ser lo que se
+  // comete al soltar — la promesa entera de la previsualización.
+  const escena = [
+    { type: 'rect', x: 100, y: 100, w: 200, h: 200, color: '#000000', lineWidth: 2, seed: 1 },
+    { type: 'circle', x: 350, y: 100, w: 200, h: 200, color: '#000000', lineWidth: 2, seed: 2 },
+    { type: 'pencil', points: stroke([100, 400], [300, 400], [500, 420]), color: '#000000', lineWidth: 3, seed: 3 },
+    { type: 'line', x1: 100, y1: 500, x2: 600, y2: 500, color: '#000000', lineWidth: 2 },
+    { type: 'curveArrow', x1: 100, y1: 650, cx: 350, cy: 450, x2: 600, y2: 650, color: '#000000', lineWidth: 2, seed: 4 },
+    { type: 'airbrush', points: stroke([100, 700], [600, 700]), color: '#000000', lineWidth: 3, radius: 15, density: 40, seed: 5 },
+    { type: 'rect', x: 900, y: 700, w: 60, h: 60, color: '#000000', lineWidth: 2, seed: 6 }, // lejos: descarte por caja
+  ];
+  // Un barrido diagonal largo que cruza casi todo, entregado a trozos como
+  // hace el arrastre real (el trazo solo crece).
+  const trazo = [];
+  for (let i = 0; i <= 120; i++) trazo.push({ x: 80 + i * 4.5, y: 80 + i * 5 });
+
+  const session = new Map();
+  let incremental = escena;
+  for (let n = 10; n <= trazo.length; n += 10) {
+    incremental = Eraser.erase(escena, trazo.slice(0, n), 10, { ...DEPS, session });
+  }
+  const completo = Eraser.erase(escena, trazo, 10, DEPS);
+
+  assert.equal(incremental.length, completo.length, 'mismo número de piezas');
+  for (let i = 0; i < completo.length; i++) {
+    assert.deepEqual(JSON.parse(JSON.stringify(incremental[i])),
+      JSON.parse(JSON.stringify(completo[i])), `pieza ${i} idéntica`);
+  }
+});
+
+test('el descarte por caja no roba alcance: un elemento al borde del trazo se sigue tocando', () => {
+  // El margen del descarte tiene que cubrir todo lo que `touches` alcanza; si
+  // se queda corto, un elemento a tiro del borrador se salta sin probar.
+  const el = rect(200, 100, 100, 100);
+  const roce = stroke([100, 90], [195, 90]);   // caja del trazo acaba en x=195
+  // Con radio 12 el borde superior (y=100) está a tiro desde y=90, y la
+  // esquina (200,100) queda a 5px+10px de la caja del trazo: solo el margen
+  // la mete en juego.
+  assert.equal(Eraser.touches(el, roce, 12, DEPS), true, 'touches llega');
+  const conSesion = Eraser.erase([el], roce, 12, { ...DEPS, session: new Map() });
+  const sinSesion = Eraser.erase([el], roce, 12, DEPS);
+  assert.equal(conSesion.length, sinSesion.length,
+    'el camino con sesión no puede descartar lo que el normal recorta');
+  assert.notEqual(sinSesion.length && sinSesion[0], el, 'de verdad muerde');
+});
+
+test('el aerógrafo con área no deja trozos invisibles al partirse', () => {
+  // El eje va de 0 a 600 pero el área solo enseña x∈[290,310]: un corte por
+  // la zona visible dejaba dos trozos cuyas gotas caen TODAS fuera del área —
+  // invisibles, contando en «Elementos» y viajando en el JSON.
+  const { Airbrush } = ctx;
+  const el = spray({
+    points: stroke([0, 100], [600, 100]),
+    radius: 10,
+    clip: { x: 290, y: 60, w: 20, h: 80 },
+  });
+  const deps = { ...DEPS, isEmpty: e => (e.type === 'airbrush' ? Airbrush.isEmpty(e) : false) };
+  const paso = stroke([300, 80], [300, 120]);   // corta por el centro del área
+  const tras = Eraser.erase([el], paso, 6, deps);
+  for (const pieza of tras) {
+    assert.equal(Airbrush.isEmpty(pieza), false,
+      'ninguna pieza superviviente puede ser invisible');
+  }
+  // Y sin `isEmpty` inyectado se conservan, como antes (compatibilidad vm).
+  const sinDep = Eraser.erase([el], paso, 6, DEPS);
+  assert.ok(sinDep.length >= tras.length);
+});

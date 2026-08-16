@@ -2399,3 +2399,95 @@ el código roto (revertir el fix hace fallar exactamente sus tests).
   conserva el resto"*. Sólo pueden vivir en e2e: sin canvas no hay trama, y el
   arnés vm cae por diseño al borrado íntegro. Verificadas fallando las tres al
   quitar la rama `deps.rasterErase`.
+
+## Auditoría severa v2.35.0
+
+Tres auditores en paralelo (borrador v2.33-34, Tinta v2.32, transversal) con
+repro obligatoria. Cinco defectos confirmados, cinco corregidos; cada guarda
+verificada fallando contra su mutación.
+
+### Un roce sin tinta convertía el componente tras cambiar la letra del lienzo
+
+- **Síntoma:** con un `nav` (o texto, botón…) en el lienzo, rozar con el
+  borrador una zona SIN tinta lo dejaba intacto; tras cambiar la letra del
+  lienzo, el MISMO roce lo sustituía por una imagen — perdía su editabilidad
+  de componente sin ningún mordisco visible, en silencio.
+- **Causa:** el recuento de «tinta previa» de `rasterErase` se memorizaba en
+  un WeakMap que decía ser «mientras dura el arrastre» pero no se vaciaba
+  jamás. Con otra letra el render cuenta distinto, `queda.n !== antesN` y el
+  elemento se sustituía aunque el trazo no hubiera quitado un píxel.
+- **Fix:** `src/js/app.js` — la caché desapareció de raíz: el commit corre una
+  vez por pasada y calcula «antes» y «después» frescos; la previsualización ya
+  no cuenta píxeles (ver el siguiente). Todo el estado entre fotogramas vive
+  en `eraserSession`, que nace en el primer fotograma y muere al soltar.
+- **Guardia:** `e2e/eraser.spec.js` › *"cambiar la letra del lienzo no hace
+  que un roce sin tinta convierta el componente"* (la repro exacta).
+
+### La previsualización del borrador recalculaba TODO por fotograma
+
+- **Síntoma:** arrastrando el borrador por una escena de una docena de formas,
+  la previsualización iba a saltos: 95–186 ms por fotograma (presupuesto: 16),
+  y creciendo con la longitud del trazo.
+- **Causa:** cada `redrawNow` pasaba el trazo entero a `Eraser.erase`, que
+  reclasificaba todas las muestras de todos los elementos contra todos los
+  tramos — O(muestras × tramos) × fotogramas —, y el recorte por trama pagaba
+  además un `getImageData` completo por elemento y fotograma.
+- **Fix:** `src/js/eraser.js` + `src/js/app.js` — memos por pasada
+  (`deps.session`): el trazo solo crece y un punto borrado no des-borra, así
+  que cada fotograma clasifica solo contra los tramos NUEVOS; `touches` prueba
+  solo la cola nueva; un descarte por caja del trazo salta los elementos
+  lejanos; y la previsualización por trama perfora incrementalmente un canvas
+  vivo por elemento, sin recuentos ni `toDataURL`. Medido: 15,8 → 0,4 ms por
+  fotograma (el arrastre de 40 fotogramas cuesta ahora lo que costaba UNO).
+- **Guardia:** *"la previsualización incremental (session) da EXACTAMENTE lo
+  mismo que el recorte completo"* y *"el descarte por caja no roba alcance"*
+  (`tests/eraser.test.js`) — la equivalencia es la corrección; el número es
+  consecuencia.
+
+### Morder una foto la convertía en un PNG ×5-7 y mataba el autosave sin avisar
+
+- **Síntoma:** un mordisco de esquina a una foto JPEG de ~350 KB la
+  re-serializaba como PNG de ~2,4 MB; con dos fotos, `localStorage` superaba
+  su cuota, `setItem` lanzaba, el `catch` mudo lo tragaba y TODO lo dibujado
+  después se perdía al recargar — con la app diciendo que todo iba bien.
+- **Causa:** `toDataURL('image/png')` incondicional (PNG sin pérdida sobre
+  contenido fotográfico se dispara) + `catch (_)` sin señal en
+  `saveAutosaveNow`.
+- **Fix:** `src/js/app.js` — una foto (src JPEG/WebP) mordida se re-serializa
+  como **WebP con pérdida** (conserva el alfa del hueco; el dibujo de línea
+  sigue en PNG, donde es más pequeño y nítido), con caída a PNG si el
+  navegador no lo soporta; `IMAGE_SRC` (exporter.js) admite
+  `data:image/webp`. Y el fallo de cuota ya no es mudo: `#autosave-warn` en la
+  topbar se enciende mientras el guardado no quepa y se apaga solo al volver a
+  caber.
+- **Guardia:** `e2e/eraser.spec.js` › *"morder una FOTO la re-serializa como
+  WebP…"* y *"cuando el autoguardado no cabe, la topbar lo AVISA…"*, más el
+  WebP en la validación de import (`tests/exporter.test.js`).
+
+### El aerógrafo con área podía partirse en trozos invisibles
+
+- **Síntoma:** con un área armada que enseña solo un tramo del eje, borrar por
+  la zona visible dejaba trozos cuyas gotas caían TODAS fuera del área:
+  invisibles, pero contando en «Elementos», viajando en el JSON y con un marco
+  de selección sobre lienzo vacío — justo lo que `onMouseUp` impide al crear.
+- **Causa:** `_splitAirbrush` no filtraba trozos vacíos (no podía: `isEmpty`
+  necesita regenerar la nube y vive fuera del módulo puro).
+- **Fix:** `src/js/eraser.js` + `src/js/app.js` — `eraserDeps` inyecta
+  `deps.isEmpty` (Airbrush.isEmpty) y el split filtra las piezas invisibles;
+  sin la dependencia (arnés vm) se comporta como antes.
+- **Guardia:** `tests/eraser.test.js` › *"el aerógrafo con área no deja trozos
+  invisibles al partirse"*, verificada fallando sin el filtro.
+
+### «Sustituir un color» distinguía #FF0000 de #ff0000
+
+- **Síntoma:** tras importar un JSON con colores en mayúsculas (la validación
+  los acepta: `HEX_COLOR` es case-insensitive), el desplegable de la Tinta
+  listaba el mismo color dos veces y «Sustituir un color» cambiaba solo los
+  elementos que coincidían byte a byte.
+- **Causa:** `hex6` (app.js) recortaba a 7 caracteres sin normalizar la caja,
+  y tanto el agrupado de `inkSceneColors` como la comparación del botón usaban
+  esa clave.
+- **Fix:** `src/js/app.js` — `hex6` normaliza a minúsculas; todo lo que la app
+  genera ya era minúscula, así que solo cambia el trato a lo importado.
+- **Guardia:** `tests/app-interaction.test.js` › *"«Sustituir un color» no
+  distingue mayúsculas"*, verificada fallando sin el `toLowerCase`.

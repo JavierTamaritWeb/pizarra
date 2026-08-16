@@ -4433,3 +4433,28 @@ test('elegir la Tinta conserva la selección de formas, pero no otra cosa', () =
   otra.selectTool('ink');
   assert.equal(otra.$('btn-ink-selection').disabled, true);
 });
+
+test('«Sustituir un color» no distingue mayúsculas: #FF0000 y #ff0000 son el mismo', () => {
+  // La validación de import acepta hex en mayúsculas, así que un JSON externo
+  // puede traer #FF0000; sin normalizar, el desplegable lo listaba dos veces
+  // y la sustitución dejaba la mitad sin cambiar (auditoría v2.35.0).
+  const app = loadApp({
+    autosave: {
+      elements: [
+        { type: 'line', x1: 10, y1: 10, x2: 100, y2: 10, color: '#FF0000', lineWidth: 2 },
+        { type: 'line', x1: 10, y1: 40, x2: 100, y2: 40, color: '#ff0000', lineWidth: 2 },
+      ],
+      settings: { overlapMode: 'normal' },
+    },
+  });
+  assert.equal(app.elements().length, 2);
+
+  app.selectTool('ink');
+  app.$('ink-replace').value = '#ff0000';
+  app.$('ink-modal-fill-color').value = '#00aa00';
+  app.$('ink-modal-fill-color').__fire('input', { target: app.$('ink-modal-fill-color') });
+  app.$('btn-ink-replace').__fire('click', {});
+  app.flush();
+  assert.ok(app.elements().every(el => el.color === '#00aa00'),
+    'las DOS líneas cambian, no solo la que coincide byte a byte');
+});

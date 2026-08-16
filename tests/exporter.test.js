@@ -484,10 +484,15 @@ test('Exporter: gardenMeta se valida estrictamente y sobrevive el round-trip', (
 const PNG_SRC = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==';
 const elImage = { ...base, type: 'image', x: 100, y: 50, w: 200, h: 150, src: PNG_SRC };
 
-test('Exporter.isValidElement: image válida con data-URL PNG/JPEG', () => {
+test('Exporter.isValidElement: image válida con data-URL PNG/JPEG/WebP', () => {
   const ctx = freshCtx();
   assert.ok(ctx.Exporter.isValidElement(elImage));
   assert.ok(ctx.Exporter.isValidElement({ ...elImage, src: 'data:image/jpeg;base64,/9j/4AAQSkZJRg==' }));
+  // WebP es lo que emite el borrado por trama al morder una foto (auditoría
+  // v2.35.0: el PNG multiplicaba el peso ×5-7 y reventaba la cuota); si esto
+  // deja de validar, cada mordisco a una foto produce un elemento que no
+  // sobrevive a su propio export→import.
+  assert.ok(ctx.Exporter.isValidElement({ ...elImage, src: 'data:image/webp;base64,UklGRgAAAABXRUJQ' }));
 });
 
 test('Exporter.isValidElement: rechaza image con src peligroso o malformado', () => {
