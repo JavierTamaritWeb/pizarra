@@ -138,6 +138,26 @@ test('los nombres del sidebar caben enteros y no pisan su icono', async ({ page 
     return bad;
   });
   expect(await audit(), 'sidebar ancho (dos columnas)').toEqual([]);
+
+  // Caber no basta: a dos columnas los nombres largos ocupan casi todo su
+  // botón, así que la separación real entre dos rótulos vecinos es la calle
+  // del grid más lo poco que le sobre al más ancho. Con 0.2rem de calle eran
+  // 3.5px y «RECTÁNGULO REDONDEADO» se leía de corrido. Se mide el hueco, no
+  // el desbordamiento: ninguna de las comprobaciones de arriba lo veía.
+  const hueco = await page.evaluate(() => {
+    const names = [...document.querySelectorAll('.sidebar__tool-name')];
+    let peor = Infinity;
+    for (const a of names) {
+      for (const b of names) {
+        const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+        if (ra.left >= rb.left || Math.abs(ra.top - rb.top) > 3) continue;  // misma fila
+        peor = Math.min(peor, rb.left - ra.right);
+      }
+    }
+    return peor;
+  });
+  expect(hueco, 'los rótulos de dos botones vecinos se tocan').toBeGreaterThanOrEqual(6);
+
   await page.setViewportSize({ width: 1100, height: 800 });
   expect(await audit(), 'sidebar compacto (una columna)').toEqual([]);
 });

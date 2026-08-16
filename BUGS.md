@@ -2317,3 +2317,25 @@ el código roto (revertir el fix hace fallar exactamente sus tests).
   `hitTest`).
 - **Guardia:** los tests existentes de hit-test/selección siguen en verde (el
   comportamiento no cambia).
+
+### Los rótulos de dos herramientas vecinas se tocaban (sidebar a dos columnas)
+
+- **Síntoma:** por encima de 1201px, con el sidebar a dos columnas,
+  «RECTÁNGULO» y «REDONDEADO» —y las demás parejas de nombres largos— se leían
+  de corrido, como una sola palabra: entre el final de uno y el principio del
+  otro quedaban 3.5px.
+- **Causa:** el aire entre columnas era `0.2rem` (2px) y los nombres largos
+  ocupan casi todo el ancho de su botón (57.5px de 58.5), así que la
+  separación *visible* entre rótulos era la calle del grid más lo poco que le
+  sobraba al más ancho. La guarda de la v2.29.0 no lo veía porque medía otra
+  cosa: que el rótulo no desbordara su caja y que no fuera más ancho que su
+  botón — las dos ciertas mientras los textos se rozaban.
+- **Fix:** `src/scss/components/_sidebar.scss` — a dos columnas, la calle pasa
+  a `0.7rem` y el margen lateral del sidebar baja de `0.6rem` a `0.4rem` para
+  pagarla. El hueco real pasa de 3.5px a 8px. El cuerpo del rótulo **no** se
+  toca: encogerlo era la otra salida y cuesta legibilidad, que es justo lo que
+  se compró eligiendo OpenDyslexic.
+- **Guardia:** `e2e/responsive.spec.js` › *"los nombres del sidebar caben
+  enteros y no pisan su icono"*, ampliada con la medida del hueco mínimo entre
+  dos rótulos de la misma fila (≥6px). Verificada fallando contra el CSS
+  anterior.
