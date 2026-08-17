@@ -4720,3 +4720,49 @@ test('escalar un grupo vegetal escala también su gardenMeta, y regenerar no lo 
   assert.ok(b2.w > b1.w * 0.7,
     `regenerar no debe encoger la planta al tamaño original (quedó en ${b2.w.toFixed(0)}px de ${b1.w.toFixed(0)}px)`);
 });
+
+/* ── «Abrir proyecto» avisa antes de sustituir (v2.42.0) ────────── */
+
+test('abrir un proyecto sustituye el lienzo, y con dibujo dentro pregunta antes', async () => {
+  // El botón se llamaba «Importar» y no decía ni qué formato abre ni que se
+  // lleva por delante lo que haya en pantalla; el usuario preguntó qué hacía.
+  const app = loadApp();
+  const proyecto = () => {
+    const arr = [{ type: 'rect', x: 10, y: 10, w: 40, h: 30,
+      color: '#123456', lineWidth: 2 }];
+    Object.defineProperty(arr, 'overlapMode', { value: 'normal', enumerable: false });
+    return arr;
+  };
+  app.context.Exporter.importJSON = async () => proyecto();
+  const abrir = async () => {
+    app.$('btn-import').__fire('click', {});
+    await new Promise(r => setImmediate(r));
+    app.flush();
+  };
+
+  // Con el lienzo VACÍO no se molesta al usuario: no hay nada que perder.
+  await abrir();
+  assert.equal(app.context.confirms.length, 0,
+    'con el lienzo vacío no debe preguntar nada');
+  assert.equal(app.elements().length, 1, 'el proyecto se ha abierto');
+
+  // Con dibujo dentro, pregunta; y si se dice que NO, no toca nada.
+  app.selectTool('rect');
+  app.drag(200, 200, 300, 280);
+  const antes = app.elements();
+  app.context.confirmAnswer = false;
+  await abrir();
+  assert.equal(app.context.confirms.length, 1, 'tenía que preguntar');
+  assert.match(app.context.confirms[0], /sustituir/i);
+  assert.deepEqual(app.elements().map(e => e.type), antes.map(e => e.type),
+    'al decir que no, el dibujo se queda como estaba');
+
+  // Y si se dice que sí, sustituye —no fusiona— y se puede deshacer.
+  app.context.confirmAnswer = true;
+  await abrir();
+  assert.equal(app.elements().length, 1, 'sustituye el lienzo entero');
+  app.key('z', { ctrlKey: true });
+  app.flush();
+  assert.equal(app.elements().length, antes.length,
+    'Ctrl+Z devuelve el dibujo anterior');
+});

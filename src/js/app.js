@@ -7325,9 +7325,21 @@
     $('btn-rotate-sel').addEventListener('click', rotateSelection);
 
     // Import
+    // «Abrir proyecto»: lee un .json de los que produce Exportar → JSON y
+    // SUSTITUYE el lienzo con él — no fusiona. Se llamaba «Importar» a secas
+    // y no decía ni qué formato abre ni que se lleva por delante lo que haya
+    // (el usuario preguntó qué hacía el botón, v2.42.0).
     $('btn-import').addEventListener('click', async () => {
       const els = await Exporter.importJSON();
       if (els) {
+        // Con el lienzo ocupado se pregunta: sí, `saveUndo` lo deja
+        // recuperable con Ctrl+Z, pero enterarse DESPUÉS de que el dibujo ha
+        // desaparecido no consuela a nadie. Vacío no hay nada que perder y no
+        // se molesta. Diálogo nativo como los avisos del propio importJSON.
+        const n = state.elements.length;
+        if (n && !confirm(
+          `Se sustituirá el dibujo actual (${n} elemento${n === 1 ? '' : 's'}) ` +
+          'por el proyecto que vas a abrir. ¿Continuar?')) return;
         saveUndo();
         state.elements = withSeeds(els);
         state.overlapMode = els.overlapMode === 'hidden-dashed' ? 'hidden-dashed' : 'normal';

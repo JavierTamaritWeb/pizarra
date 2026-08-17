@@ -4,6 +4,21 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.42.0] — 2026-08-17
+
+### Cambiado
+
+- **«Importar» pasa a llamarse «Abrir proyecto»**, que es lo que hace: cargar
+  un `.json` de los que produce Exportar → JSON. El nombre viejo no decía ni
+  qué formato abre —de los cinco que exporta, solo ese se puede volver a
+  cargar— ni que **sustituye** el dibujo del lienzo en vez de fusionarlo con
+  él; el usuario preguntó qué hacía el botón. Ahora lo dicen el rótulo, su
+  ayuda emergente y una entrada nueva de la Ayuda, que además recuerda que
+  una imagen no se importa: se pega con `Ctrl+V`.
+- **Avisa antes de sustituir** cuando hay algo dibujado, diciendo cuántos
+  elementos se van a reemplazar. Con el lienzo vacío no molesta, y `Ctrl+Z`
+  sigue deshaciendo la apertura.
+
 ## [2.41.1] — 2026-08-17
 
 ### Arreglado

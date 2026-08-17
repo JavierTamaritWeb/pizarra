@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.41.1 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.42.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.41\.1</);
-  assert.match(html, /css\/styles\.css\?v=2\.41\.1/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.41\.1/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.41\.1/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.41\.1/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.41\.1/);
+  assert.match(html, /class="topbar__badge">v2\.42\.0</);
+  assert.match(html, /css\/styles\.css\?v=2\.42\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.42\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.42\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.42\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.42\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -64,8 +64,8 @@ test('index publica v2.41.1 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="modal-pyramid"/);
   assert.match(html, /id="modal-frustum"/);
   assert.match(html, /id="modal-sphere"/);
-  assert.match(html, /src\/js\/solid\.js\?v=2\.41\.1/);
-  assert.match(html, /src\/js\/airbrush\.js\?v=2\.41\.1/);
+  assert.match(html, /src\/js\/solid\.js\?v=2\.42\.0/);
+  assert.match(html, /src\/js\/airbrush\.js\?v=2\.42\.0/);
   // «Los clics acumulan selección» dejó el panel en la v2.17.0 y es el ajuste
   // de «Select». Si volviera a existir la casilla vieja habría dos controles
   // para un mismo estado, y solo uno cableado: el arnés `node:vm` fabrica un
@@ -157,6 +157,25 @@ test('los modales de ajustes llevan geometría y el emoji su tamaño acotado', (
 //      previo, y ninguna guarda del arnés lo notaría (allí `hidden` es una
 //      propiedad JS, no CSS).
 //   2. Las secciones que el JS oculta tienen que existir con ese id.
+test('«Abrir proyecto» dice lo que abre y lo que se lleva por delante', () => {
+  // Se llamaba «Importar» a secas: ni el formato (.json, y solo ese de los
+  // cinco que exporta) ni que SUSTITUYE el lienzo. El usuario preguntó qué
+  // hacía el botón (v2.42.0). El arnés vm no ve el texto ni el title.
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const btn = html.match(/<button[^>]*id="btn-import"[\s\S]*?<\/button>/);
+  assert.ok(btn, 'falta el botón de abrir proyecto');
+  assert.match(btn[0], /Abrir proyecto/,
+    'el botón tiene que decir que abre un proyecto, no «Importar» a secas');
+  assert.match(btn[0], /title="[^"]*\.json[^"]*"/,
+    'su ayuda tiene que nombrar el formato que abre');
+  assert.match(btn[0], /title="[^"]*[Ss]ustituye[^"]*"/,
+    'su ayuda tiene que avisar de que reemplaza el dibujo');
+  // Y la Ayuda explica el ciclo completo, incluido que los otros cuatro
+  // formatos no se pueden reabrir y que una imagen se pega con Ctrl+V.
+  assert.match(html, /Exportar → JSON<\/strong> baja el proyecto/,
+    'la Ayuda debe explicar cómo se guarda y se recupera un dibujo');
+});
+
 test('el panel tiene sus secciones contextuales y el CSS que las oculta', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
   for (const id of ['panel-sec-element', 'panel-sec-stroke', 'panel-sec-fill',

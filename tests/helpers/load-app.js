@@ -44,6 +44,11 @@ function loadApp({ prefs, autosave } = {}) {
     clearTimeout: handle => { if (handle) dom.timers[handle - 1] = null; },
     alert: msg => { sandbox.alerts.push(String(msg)); },
     alerts: [],
+    // `confirm` acumula lo preguntado y responde lo que diga
+    // `confirmAnswer`, para poder probar el sí y el no de un aviso.
+    confirm: msg => { sandbox.confirms.push(String(msg)); return sandbox.confirmAnswer; },
+    confirms: [],
+    confirmAnswer: true,
     createCtxStub,
     Image: class { set src(v) { this._src = v; } get src() { return this._src; } },
     Blob: class { constructor(parts = []) { this.parts = parts; } },
