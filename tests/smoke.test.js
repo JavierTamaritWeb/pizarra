@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v3.1.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v3.2.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v3\.1\.0</);
-  assert.match(html, /css\/styles\.css\?v=3\.1\.0/);
-  assert.match(html, /src\/js\/app\.js\?v=3\.1\.0/);
-  assert.match(html, /src\/js\/building\.js\?v=3\.1\.0/);
-  assert.match(html, /src\/js\/garden\.js\?v=3\.1\.0/);
-  assert.match(html, /src\/js\/config\.js\?v=3\.1\.0/);
+  assert.match(html, /class="topbar__badge">v3\.2\.0</);
+  assert.match(html, /css\/styles\.css\?v=3\.2\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=3\.2\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=3\.2\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=3\.2\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=3\.2\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -64,8 +64,8 @@ test('index publica v3.1.0 sin caché antigua y documenta el tamaño del borrado
   assert.match(html, /id="modal-pyramid"/);
   assert.match(html, /id="modal-frustum"/);
   assert.match(html, /id="modal-sphere"/);
-  assert.match(html, /src\/js\/solid\.js\?v=3\.1\.0/);
-  assert.match(html, /src\/js\/airbrush\.js\?v=3\.1\.0/);
+  assert.match(html, /src\/js\/solid\.js\?v=3\.2\.0/);
+  assert.match(html, /src\/js\/airbrush\.js\?v=3\.2\.0/);
   // «Los clics acumulan selección» dejó el panel en la v2.17.0 y es el ajuste
   // de «Select». Si volviera a existir la casilla vieja habría dos controles
   // para un mismo estado, y solo uno cableado: el arnés `node:vm` fabrica un
@@ -146,6 +146,17 @@ test('los modales de ajustes llevan geometría y el emoji su tamaño acotado', (
   const uiLabel = html.match(/<input[^>]*id="ui-modal-label"[^>]*>/);
   assert.match(uiLabel[0], /maxlength="120"/,
     'el rótulo debe recortarse donde se escribe, no solo al recargar');
+  // Curvatura (v3.2.0): el rango vive en config.js y en el HTML, y restorePrefs
+  // recorta contra él — si divergen, una comba guardada válida se recortaría a
+  // un valor que el mando no puede enseñar.
+  const curva = html.match(/<input[^>]*id="stroke-modal-curve"[^>]*>/);
+  assert.ok(curva, 'falta el deslizador de curvatura');
+  assert.match(curva[0], new RegExp(`min="${ctx.CURVE_BULGE_MIN}"`));
+  assert.match(curva[0], new RegExp(`max="${ctx.CURVE_BULGE_MAX}"`));
+  assert.match(curva[0], new RegExp(`step="${ctx.CURVE_BULGE_STEP}"`));
+  const curvePath = load('src/js/curve-path.js').CurvePath;
+  assert.match(curva[0], new RegExp(`value="${Math.round(curvePath.DEFAULT_BULGE * 100)}"`),
+    'el valor inicial del HTML debe ser la comba de fábrica de CurvePath');
 });
 
 // El panel se reorganizó en secciones que aparecen según la herramienta activa

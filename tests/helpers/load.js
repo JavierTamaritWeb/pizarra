@@ -48,6 +48,7 @@ const KNOWN_GLOBALS = [
   'SKETCHY_FONT', 'SKETCH_FONTS', 'sketchFont', 'sketchFontById', 'setSketchFont',
   'TEXT_SHADOWS', 'textShadowById', 'DEFAULT_SHADOW_COLOR', 'SHADOW_REF_SIZE',
   'UI_DEFAULTS', 'EMOJI_GROUPS', 'EMOJI_MIN_SIZE', 'EMOJI_MAX_SIZE',
+  'CURVE_BULGE_MIN', 'CURVE_BULGE_MAX', 'CURVE_BULGE_STEP',
   'Sketchy', 'Freehand', 'ArcMath', 'CurvePath', 'ShapeRotation', 'RegularPolygon',
   'Trapezoid', 'Airbrush', 'Flood', 'Eraser', 'Building', 'Garden', 'Solid',
   'Renderer', 'Exporter', 'Templates',

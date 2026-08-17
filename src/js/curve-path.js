@@ -7,8 +7,26 @@ const CurvePath = (() => {
 
   const MAX_SEGMENTS = 200;
 
-  function defaultCtrl(p1, p2, flip) {
-    const k = flip ? -0.25 : 0.25;
+  /** Comba de fábrica: el control al 25 % de la cuerda, perpendicular. */
+  const DEFAULT_BULGE = 0.25;
+
+  /**
+   * Control por defecto de una curva: perpendicular a la cuerda, a `bulge`
+   * veces su longitud del punto medio (con `flip`, al otro lado).
+   *
+   * `bulge` es OPCIONAL y su ausencia es la comba de siempre: hasta la v3.2.0
+   * esto era la constante 0.25 y decidía la forma de TODAS las curvas nuevas
+   * —de ahí que salieran todas iguales—. Dejar el valor por defecto en la
+   * firma es lo que impide que un llamador que no se enteró del parámetro
+   * cambie de forma en silencio.
+   *
+   * Ojo con la escala: en una cuadrática la comba real es la MITAD del
+   * desplazamiento del control, así que 0.25 dibuja una comba del 12,5 % de
+   * la cuerda.
+   */
+  function defaultCtrl(p1, p2, flip, bulge) {
+    const b = Number.isFinite(bulge) ? bulge : DEFAULT_BULGE;
+    const k = flip ? -b : b;
     return {
       cx: (p1.x + p2.x) / 2 - (p2.y - p1.y) * k,
       cy: (p1.y + p2.y) / 2 + (p2.x - p1.x) * k,
@@ -270,6 +288,7 @@ const CurvePath = (() => {
 
   return {
     MAX_SEGMENTS,
+    DEFAULT_BULGE,
     defaultCtrl,
     segments,
     isChain,

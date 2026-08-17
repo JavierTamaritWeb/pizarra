@@ -21,6 +21,43 @@ const chain = {
   seed: 7,
 };
 
+/* ── La comba es un parámetro, y su ausencia es la de siempre (v3.2.0) ──
+   Hasta esa versión el 0.25 estaba escrito dentro de defaultCtrl y decidía la
+   forma de TODAS las curvas nuevas: por eso salían idénticas. El valor por
+   defecto de la firma es lo que impide que un llamador que no se enteró del
+   parámetro cambie de forma en silencio. */
+test('CurvePath.defaultCtrl: sin comba dibuja la de siempre; con comba, la pedida', () => {
+  const p1 = { x: 0, y: 0 }, p2 = { x: 100, y: 0 };
+  // Los objetos nacen DENTRO del vm (otro Object.prototype), así que se
+  // comparan por estructura, no con deepStrictEqual contra un literal.
+  const ctrl = (flip, bulge) => {
+    const c = CurvePath.defaultCtrl(p1, p2, flip, bulge);
+    return [c.cx, c.cy];
+  };
+  // Cuerda horizontal: el control sale en vertical, a comba·|cuerda| del medio.
+  assert.deepEqual(ctrl(false), [50, 25]);
+  assert.equal(CurvePath.DEFAULT_BULGE, 0.25, 'la comba de fábrica no cambia');
+  assert.deepEqual(ctrl(false, 0.25), ctrl(false), 'pedir la de fábrica es no pedir nada');
+
+  assert.deepEqual(ctrl(false, 0.6), [50, 60]);
+  assert.deepEqual(ctrl(true, 0.6), [50, -60], 'flip cambia el lado, no la magnitud');
+  assert.deepEqual(ctrl(false, 0), [50, 0],
+    'comba 0 deja el control sobre la cuerda: la curva sale recta');
+
+  // Un valor imposible (NaN, undefined, una cadena) cae al de fábrica en vez
+  // de propagar NaN a cx/cy, que dejaría la curva sin dibujar y sin error.
+  for (const malo of [undefined, null, NaN, Infinity, '0.5']) {
+    assert.deepEqual(ctrl(false, malo), [50, 25],
+      `una comba ${String(malo)} tiene que caer en la de fábrica`);
+  }
+
+  // Y en diagonal, la perpendicular de verdad: |control − medio| = comba·|cuerda|
+  const d1 = { x: 0, y: 0 }, d2 = { x: 30, y: 40 }; // cuerda 50
+  const c = CurvePath.defaultCtrl(d1, d2, false, 0.4);
+  assert.ok(Math.abs(Math.hypot(c.cx - 15, c.cy - 20) - 20) < 1e-9);
+  assert.ok(Math.abs((c.cx - 15) * 30 + (c.cy - 20) * 40) < 1e-9, 'perpendicular a la cuerda');
+});
+
 test('CurvePath: normaliza curvas antiguas y reconoce cadenas', () => {
   const old = { type: 'curveArrow', x1: 0, y1: 0, cx: 50, cy: 80, x2: 100, y2: 0 };
   assert.equal(CurvePath.isChain(old), false);

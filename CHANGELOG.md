@@ -4,6 +4,27 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.2.0] — 2026-08-17
+
+### Añadido
+
+- **La curvatura de las flechas curvas se elige**, en los ajustes de la propia
+  herramienta: «Curvatura», del **0 %** —una recta con punta— al 100 % de la
+  distancia entre los extremos. Hasta ahora era una constante escrita en el
+  código, así que **todas las curvas salían con la misma forma**.
+- Con una curva **seleccionada**, el mismo mando **la edita** (conservando el
+  lado del giro y la forma en S), con un solo paso de deshacer por arrastre;
+  sin selección fija la comba de las próximas. La eligen también el **modo
+  encadenado** y el doble clic que resetea una curva.
+- **La muestra del modal se curva con el mando.** Antes dibujaba una recta
+  incluso con la Flecha curva puesta.
+
+### Nota
+
+- El elemento **no estrena ningún campo**: la curvatura ya viajaba dentro de
+  los puntos de control, así que ni el formato del proyecto ni las cinco
+  exportaciones cambian, y un dibujo anterior se ve exactamente igual.
+
 ## [3.1.0] — 2026-08-17
 
 ### Añadido

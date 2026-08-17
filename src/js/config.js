@@ -657,6 +657,18 @@ const EMOJI_GROUPS = [
 const CANVAS_W = 1200;
 const CANVAS_H = 800;
 
+/* Comba con la que nacen las flechas curvas, en PORCENTAJE de la cuerda
+   (v3.2.0). Hasta entonces era la constante 0.25 de CurvePath.defaultCtrl y
+   por eso todas las curvas salían idénticas. El deslizador de #modal-stroke
+   trabaja en enteros —de ahí el porcentaje— y su min/max deben coincidir con
+   los de #stroke-modal-curve en index.html; lo pina tests/smoke.test.js.
+   El 0 % es legítimo: una flecha curva sin comba es una recta, y es la manera
+   de tener recta y punta con la misma herramienta. */
+const CURVE_BULGE_MIN = 0;
+const CURVE_BULGE_MAX = 100;
+/** Paso del deslizador. 5 % se nota a simple vista y no obliga a hilar. */
+const CURVE_BULGE_STEP = 5;
+
 /** Tamaño mínimo al insertar un emoji, para que se lea como icono */
 const EMOJI_MIN_SIZE = 32;
 

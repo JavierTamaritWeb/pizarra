@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=3.1.0" />
+  <link rel="stylesheet" href="css/styles.css?v=3.2.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.1.0" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.2.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v3.1.0</span>
+        <span class="topbar__badge">v3.2.0</span>
         <!-- Aviso de autoguardado: visible SOLO mientras localStorage rechaza
              el guardado (cuota llena). Sin él, el fallo era un catch mudo y el
              trabajo posterior se perdía en silencio al recargar. -->
@@ -500,6 +500,7 @@
         <ul class="modal__help-list">
           <li>Al elegir <strong>Lápiz</strong> (<kbd>P</kbd>), <strong>Línea</strong> (<kbd>L</kbd>), <strong>Flecha</strong> (<kbd>A</kbd>), <strong>Flecha curva</strong> (<kbd>U</kbd>) o <strong>Semicírculo</strong> (<kbd>G</kbd>) se abren sus <strong>ajustes</strong>, con muestra en vivo: grosor, color, discontinuo y doble punta. Volver a pulsar la herramienta los reabre</li>
           <li><strong>«Trazo con presión»</strong> (solo el lápiz) hace que el grosor siga la <strong>velocidad del gesto</strong>: rápido sale fino, despacio grueso, y las puntas quedan afiladas, como un lápiz de verdad. Desmarcado, el lápiz dibuja con el grosor uniforme de siempre</li>
+          <li><strong>«Curvatura»</strong> (solo la flecha curva) decide con cuánta comba nacen: del <strong>0 %</strong> —una recta con punta— al 100 %, en porcentaje de la distancia entre los dos extremos. Antes era siempre la misma y todas las curvas salían iguales. La muestra del modal se curva con el mando</li>
           <li>Con algo seleccionado, esos mandos <strong>editan la selección</strong>; sin nada seleccionado, configuran lo próximo que dibujes</li>
           <li>El color del trazo se elige en la paleta del propio modal o en la del panel <strong>«Trazo»</strong>: son la misma</li>
         </ul>
@@ -611,6 +612,7 @@
           <li>Arrastrar sigue creando una flecha curva sencilla como antes</li>
           <li><kbd>F</kbd>: invertir el giro de la flecha curva · <kbd>Shift</kbd> al trazar: curva al otro lado</li>
           <li><kbd>D</kbd>: invertir la dirección · <kbd>S</kbd>: curva en S (dos handles)</li>
+          <li>La comba con la que <strong>nacen</strong> se elige en los ajustes de la herramienta («Curvatura»); con una curva seleccionada, ese mismo mando <strong>la cambia a ella</strong>, y el doble clic sobre su handle la devuelve a esa comba</li>
           <li><kbd>Shift</kbd> al curvar: arco simétrico · doble click en el handle: resetear · <kbd>+</kbd>/<kbd>−</kbd>: ajustar la curvatura</li>
           <li>Suelta el extremo de una flecha sobre un elemento para <strong>anclarla</strong>: lo seguirá al moverlo</li>
           <li>Arrastra el handle de la etiqueta para deslizarla por el trazo · doble click en él: recentrarla</li>
@@ -797,6 +799,18 @@
             </label>
             <label class="panel__check" id="stroke-modal-double-row">
               <input type="checkbox" id="stroke-modal-double" /> Doble punta
+            </label>
+            <!-- Comba de las flechas curvas (v3.2.0). Hasta entonces era una
+                 constante y todas las curvas salían idénticas. Va en porcentaje
+                 de la cuerda; el min/max son CURVE_BULGE_MIN/MAX de config.js
+                 y los pina tests/smoke.test.js. Se ATENÚA (no se oculta)
+                 cuando ni la herramienta ni la selección son una curva, el
+                 mismo criterio que el discontinuo y la presión. -->
+            <label class="panel__field" id="stroke-modal-curve-row" for="stroke-modal-curve">
+              <span class="modal__field-label">Curvatura: <span id="stroke-modal-curve-val">25</span>%</span>
+              <input class="panel__slider" type="range" id="stroke-modal-curve"
+                     min="0" max="100" step="5" value="25"
+                     aria-label="Curvatura de las flechas curvas" />
             </label>
           </fieldset>
 
@@ -2103,23 +2117,23 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=3.1.0"></script>
-  <script src="src/js/sketchy.js?v=3.1.0"></script>
-  <script src="src/js/freehand.js?v=3.1.0"></script>
-  <script src="src/js/arc.js?v=3.1.0"></script>
-  <script src="src/js/curve-path.js?v=3.1.0"></script>
-  <script src="src/js/shape-rotation.js?v=3.1.0"></script>
-  <script src="src/js/regular-polygon.js?v=3.1.0"></script>
-  <script src="src/js/trapezoid.js?v=3.1.0"></script>
-  <script src="src/js/airbrush.js?v=3.1.0"></script>
-  <script src="src/js/flood.js?v=3.1.0"></script>
-  <script src="src/js/eraser.js?v=3.1.0"></script>
-  <script src="src/js/building.js?v=3.1.0"></script>
-  <script src="src/js/garden.js?v=3.1.0"></script>
-  <script src="src/js/solid.js?v=3.1.0"></script>
-  <script src="src/js/renderer.js?v=3.1.0"></script>
-  <script src="src/js/exporter.js?v=3.1.0"></script>
-  <script src="src/js/templates.js?v=3.1.0"></script>
-  <script src="src/js/app.js?v=3.1.0"></script>
+  <script src="src/js/config.js?v=3.2.0"></script>
+  <script src="src/js/sketchy.js?v=3.2.0"></script>
+  <script src="src/js/freehand.js?v=3.2.0"></script>
+  <script src="src/js/arc.js?v=3.2.0"></script>
+  <script src="src/js/curve-path.js?v=3.2.0"></script>
+  <script src="src/js/shape-rotation.js?v=3.2.0"></script>
+  <script src="src/js/regular-polygon.js?v=3.2.0"></script>
+  <script src="src/js/trapezoid.js?v=3.2.0"></script>
+  <script src="src/js/airbrush.js?v=3.2.0"></script>
+  <script src="src/js/flood.js?v=3.2.0"></script>
+  <script src="src/js/eraser.js?v=3.2.0"></script>
+  <script src="src/js/building.js?v=3.2.0"></script>
+  <script src="src/js/garden.js?v=3.2.0"></script>
+  <script src="src/js/solid.js?v=3.2.0"></script>
+  <script src="src/js/renderer.js?v=3.2.0"></script>
+  <script src="src/js/exporter.js?v=3.2.0"></script>
+  <script src="src/js/templates.js?v=3.2.0"></script>
+  <script src="src/js/app.js?v=3.2.0"></script>
 </body>
 </html>

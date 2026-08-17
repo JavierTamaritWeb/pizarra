@@ -4858,3 +4858,154 @@ test('abrir un proyecto restaura su aspecto, y uno sin aspecto no lo toca', asyn
     'sin aspecto en el archivo, el del usuario se queda');
   assert.equal(app.$('check-grid').checked, false);
 });
+
+/* ── Curvatura ajustable al crear (v3.2.0) ──
+   Hasta esta versión la comba era la constante 0.25 de CurvePath.defaultCtrl,
+   así que TODAS las curvas salían con la misma forma. El mando vive en
+   #modal-stroke y su valor va en porcentaje de la cuerda. */
+
+/** Comba de una curva simple, como fracción de su cuerda (la magnitud lateral
+    del control entre la longitud de la cuerda). Es lo que el mando enseña. */
+function combaDe(el) {
+  const mx = (el.x1 + el.x2) / 2, my = (el.y1 + el.y2) / 2;
+  const dx = el.x2 - el.x1, dy = el.y2 - el.y1;
+  const len = Math.hypot(dx, dy);
+  const ux = -dy / len, uy = dx / len;
+  return Math.abs((el.cx - mx) * ux + (el.cy - my) * uy) / len;
+}
+
+function ponerComba(app, pct) {
+  const s = app.$('stroke-modal-curve');
+  s.value = String(pct);
+  s.__fire('input', { target: s });
+  s.__fire('change', { target: s });
+  app.flush();
+}
+
+test('la curvatura del mando es la que sale al dibujar, y de fábrica es la de siempre', () => {
+  const app = loadApp();
+  app.selectTool('curveArrow');
+  app.$('modal-stroke').close();
+  app.flush();
+  app.drag(100, 100, 300, 100);
+  app.flush();
+  assert.ok(Math.abs(combaDe(app.elements()[0]) - 0.25) < 1e-9,
+    'sin tocar nada, la comba de fábrica no cambia');
+
+  ponerComba(app, 60);
+  app.drag(100, 300, 300, 300);
+  app.flush();
+  const nueva = app.elements()[1];
+  assert.ok(Math.abs(combaDe(nueva) - 0.6) < 1e-9, 'la curva nace con la comba puesta');
+
+  // Y a 0 % la curva sale recta: el control cae sobre la cuerda. Es una
+  // posición legítima del mando (recta con punta, sin cambiar de herramienta).
+  ponerComba(app, 0);
+  app.drag(100, 500, 300, 500);
+  app.flush();
+  assert.ok(combaDe(app.elements()[2]) < 1e-9, 'al 0 % la curva sale recta');
+});
+
+test('el modo encadenado usa la misma comba que el arrastre', () => {
+  const app = loadApp();
+  app.selectTool('curveArrow');
+  app.$('modal-stroke').close();
+  app.flush();
+  ponerComba(app, 50);
+  // Clic sin arrastre abre la cadena; cada clic añade un tramo; Ctrl+clic cierra.
+  app.click(100, 400);
+  app.click(200, 400);
+  app.click(300, 400, { ctrlKey: true });
+  app.flush();
+  const cadena = app.elements()[0];
+  assert.ok(Array.isArray(cadena.segments) && cadena.segments.length >= 2, 'se creó la cadena');
+  for (const seg of cadena.segments) {
+    assert.ok(Math.abs(combaDe(seg) - 0.5) < 1e-9,
+      'cada tramo de la cadena nace con la comba puesta, no con la de fábrica');
+  }
+});
+
+test('con una curva seleccionada el mando la EDITA, y es un solo paso de undo', () => {
+  const app = loadApp();
+  app.selectTool('curveArrow');
+  app.$('modal-stroke').close();
+  app.flush();
+  app.drag(100, 100, 300, 100);
+  app.selectTool('select');
+  const antes = app.elements()[0];
+  app.click(
+    0.25 * antes.x1 + 0.5 * antes.cx + 0.25 * antes.x2,
+    0.25 * antes.y1 + 0.5 * antes.cy + 0.25 * antes.y2,
+  );
+  app.flush();
+
+  // Un arrastre del deslizador: varios 'input' y un solo 'change'.
+  const s = app.$('stroke-modal-curve');
+  for (const v of [30, 40, 50, 70]) {
+    s.value = String(v);
+    s.__fire('input', { target: s });
+  }
+  s.__fire('change', { target: s });
+  app.flush();
+
+  const editada = app.elements()[0];
+  assert.ok(Math.abs(combaDe(editada) - 0.7) < 1e-9, 'la curva seleccionada cambió de comba');
+  assert.equal(editada.x1, antes.x1, 'y no se movió de sitio');
+  assert.equal(editada.y2, antes.y2);
+  // El lado del giro se conserva: el signo lateral del control no cambia.
+  assert.equal(Math.sign(editada.cy - 100), Math.sign(antes.cy - 100),
+    'sube la comba por el lado que ya tenía, no la vuelca');
+
+  app.key('z', { ctrlKey: true });
+  app.flush();
+  assert.ok(Math.abs(combaDe(app.elements()[0]) - 0.25) < 1e-9,
+    'UN Ctrl+Z deshace el arrastre entero, no tono a tono');
+});
+
+test('editar la comba de una curva NO cambia el default de creación', () => {
+  const app = loadApp();
+  app.selectTool('curveArrow');
+  app.$('modal-stroke').close();
+  app.flush();
+  app.drag(100, 100, 300, 100);
+  app.selectTool('select');
+  const antes = app.elements()[0];
+  app.click(
+    0.25 * antes.x1 + 0.5 * antes.cx + 0.25 * antes.x2,
+    0.25 * antes.y1 + 0.5 * antes.cy + 0.25 * antes.y2,
+  );
+  app.flush();
+  ponerComba(app, 80);
+
+  // La semántica dual de siempre: con selección se edita la selección, y el
+  // valor con el que nacen las próximas se queda como estaba.
+  app.selectTool('curveArrow');
+  app.$('modal-stroke').close();
+  app.flush();
+  app.drag(100, 400, 300, 400);
+  app.flush();
+  const nueva = app.elements()[app.elements().length - 1];
+  assert.ok(Math.abs(combaDe(nueva) - 0.25) < 1e-9,
+    'la nueva nace con el default, que nadie tocó');
+});
+
+test('«Limpiar todo» devuelve la curvatura al 25 %', () => {
+  const app = loadApp();
+  app.selectTool('curveArrow');
+  app.$('modal-stroke').close();
+  app.flush();
+  ponerComba(app, 70);
+  assert.equal(app.$('stroke-modal-curve').value, '70');
+
+  app.$('btn-clear').__fire('click', { target: app.$('btn-clear') });
+  app.flush();
+  assert.equal(app.$('stroke-modal-curve').value, '25', 'el mando vuelve a fábrica');
+
+  app.selectTool('curveArrow');
+  app.$('modal-stroke').close();
+  app.flush();
+  app.drag(100, 100, 300, 100);
+  app.flush();
+  assert.ok(Math.abs(combaDe(app.elements()[0]) - 0.25) < 1e-9,
+    'y lo que se dibuja después también');
+});

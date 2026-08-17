@@ -152,6 +152,10 @@
       doubleHead:  false, // nuevas flechas con punta en ambos extremos
       dashed:      false, // nuevas líneas/flechas con trazo discontinuo
       strokeTaper: false, // nuevos trazos de lápiz con presión simulada (v2.37.0)
+      // Comba con la que nacen las flechas curvas, como fracción de la cuerda
+      // (v3.2.0). Es un ajuste de HERRAMIENTA: la curvatura ya viaja dentro de
+      // cx/cy, así que el elemento no estrena ningún campo.
+      curveBulge:  CurvePath.DEFAULT_BULGE,
       showGrid:    true,
       snapGrid:    false,
       // Tinta: cuánto se cierran los huecos entre trazos antes de buscar la
@@ -725,11 +729,20 @@
   /* ── Geometría de la flecha curva ── */
 
   /**
-   * Control por defecto de una curveArrow: perpendicular a la cuerda al 25%
-   * de su longitud. Con flip, hacia el otro lado.
+   * Control por defecto de una curveArrow: perpendicular a la cuerda, a la
+   * comba ACTUAL de la herramienta (`state.curveBulge`, 0.25 de fábrica).
+   * Con flip, hacia el otro lado.
+   *
+   * Todo lo que CREA una curva pasa por aquí —commit, previsualización del
+   * arrastre, cada tramo del modo encadenado, el reset por doble clic y la S—,
+   * que es lo que impide que la muestra prometa una comba y el lienzo dibuje
+   * otra. La excepción es `transformControlsToChord`: allí se REPARA un
+   * elemento existente cuya cuerda era degenerada, y usar el ajuste del
+   * momento haría que arrastrar un extremo cambiara la forma de una curva
+   * ajena; por eso llama a CurvePath.defaultCtrl sin comba.
    */
   function defaultCtrl(p1, p2, flip) {
-    return CurvePath.defaultCtrl(p1, p2, flip);
+    return CurvePath.defaultCtrl(p1, p2, flip, state.curveBulge);
   }
 
   /** Refleja el punto (px,py) respecto a la recta (x1,y1)–(x2,y2). */
@@ -778,7 +791,10 @@
       if (el.cx2 !== undefined) {
         return { ...el, ...defaultCubicCtrls(el, 0.25 * Math.hypot(ndx, ndy)) };
       }
-      const c = defaultCtrl({ x: el.x1, y: el.y1 }, { x: el.x2, y: el.y2 }, false);
+      // Comba FIJA (CurvePath.defaultCtrl sin ajuste): esto repara una curva
+      // que ya existía, no crea una nueva, y con la comba del momento
+      // arrastrar un extremo le cambiaría la forma a un elemento ajeno.
+      const c = CurvePath.defaultCtrl({ x: el.x1, y: el.y1 }, { x: el.x2, y: el.y2 }, false);
       return { ...el, cx: c.cx, cy: c.cy };
     }
     // r = (ndx + i·ndy) / (odx + i·ody), aplicado como z' = p1' + r·(z − p1)
@@ -1218,6 +1234,7 @@
         overlapMode: state.overlapMode,
         eraserSize: state.eraserSize,
         strokeTaper: state.strokeTaper,
+        curveBulge: state.curveBulge,
         alignGuides: state.alignGuides,
         buildFloors: state.buildFloors,
         buildBays: state.buildBays,
@@ -1313,6 +1330,12 @@
       }
       if (typeof prefs.textBold === 'boolean') state.textBold = prefs.textBold;
       if (typeof prefs.strokeTaper === 'boolean') state.strokeTaper = prefs.strokeTaper;
+      // La comba se acota al rango del mando: fuera de él no hay forma de
+      // devolverla a un valor razonable desde la interfaz.
+      if (Number.isFinite(prefs.curveBulge)) {
+        state.curveBulge = Math.min(CURVE_BULGE_MAX / 100,
+          Math.max(CURVE_BULGE_MIN / 100, prefs.curveBulge));
+      }
       if (typeof prefs.alignGuides === 'boolean') state.alignGuides = prefs.alignGuides;
       // Contra el catálogo, como la letra: un id de otra versión dejaría el
       // default apuntando a una sombra que ya no existe.
@@ -3855,7 +3878,7 @@
             // el doble clic fuera sobre el segundo handle.
             const len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
             const c = defaultCubicCtrls(
-              { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y }, 0.25 * len);
+              { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y }, state.curveBulge * len);
             state.elements[state.selection[0]] = CurvePath.withControl(
               CurvePath.withControl(sel, index, { x: c.cx, y: c.cy }, false),
               index, { x: c.cx2, y: c.cy2 }, true);
@@ -3869,7 +3892,7 @@
           state.elements[state.selection[0]] = toArc(sel);
         } else if (sel.cx2 !== undefined) {
           const len = Math.hypot(sel.x2 - sel.x1, sel.y2 - sel.y1);
-          state.elements[state.selection[0]] = { ...sel, ...defaultCubicCtrls(sel, 0.25 * len) };
+          state.elements[state.selection[0]] = { ...sel, ...defaultCubicCtrls(sel, state.curveBulge * len) };
         } else {
           const c = defaultCtrl({ x: sel.x1, y: sel.y1 }, { x: sel.x2, y: sel.y2 }, false);
           state.elements[state.selection[0]] = { ...sel, cx: c.cx, cy: c.cy };
@@ -5856,6 +5879,30 @@
     const taperable = state.tool === TOOLS.PENCIL || pencils.length > 0;
     $('stroke-modal-taper-row').classList.toggle('modal__field--off', !taperable);
     $('stroke-modal-taper').disabled = !taperable;
+    // Curvatura: se lee sobre las curvas SIMPLES —las únicas que el mando sabe
+    // editar—, no sobre toda la selección, y se mide como la magnitud lateral
+    // del control entre la longitud de la cuerda, que es justo lo que escribe
+    // applyCurveBulge. Con varias que discrepan, commonOf devuelve undefined y
+    // el control se deja como está (regla v2.12.0).
+    const curves = sel.filter(el => el.type === 'curveArrow' &&
+      !CurvePath.isChain(el) && el.arc !== true);
+    const bulgeOf = el => {
+      const fr = chordFrame(el);
+      const len = Math.hypot(el.x2 - el.x1, el.y2 - el.y1);
+      if (!fr || len < 1e-6) return undefined;
+      const s = (el.cx - fr.mx) * fr.ux + (el.cy - fr.my) * fr.uy;
+      return Math.round(Math.abs(s) / len * 100 / CURVE_BULGE_STEP) * CURVE_BULGE_STEP;
+    };
+    const bulge = sel.length
+      ? commonOf(curves, bulgeOf)
+      : Math.round(state.curveBulge * 100);
+    if (bulge !== undefined) {
+      $('stroke-modal-curve').value = String(bulge);
+      $('stroke-modal-curve-val').textContent = String(bulge);
+    }
+    const curvable = state.tool === TOOLS.CURVE_ARROW || curves.length > 0;
+    $('stroke-modal-curve-row').classList.toggle('modal__field--off', !curvable);
+    $('stroke-modal-curve').disabled = !curvable;
     renderStrokePreview();
   }
 
@@ -5916,6 +5963,23 @@
         type: 'pencil', points: pts, taper: true,
         color: el.color, lineWidth: el.lineWidth, seed: 7,
       });
+      return;
+    }
+    // Con la curvatura aplicable, la muestra es una CURVA de verdad y con la
+    // comba elegida: hasta la v3.2.0 dibujaba una recta incluso con la Flecha
+    // curva puesta, y con un deslizador de curvatura delante eso sería una
+    // muestra que miente. Se dibuja el elemento del modal (una curva simple),
+    // no el seleccionado, por lo mismo que el resto de la muestra: enseña lo
+    // que van a hacer estos ajustes.
+    if (!$('stroke-modal-curve').disabled) {
+      const bulge = (+$('stroke-modal-curve').value || 0) / 100;
+      const c = CurvePath.defaultCtrl(
+        { x: el.x1, y: el.y1 }, { x: el.x2, y: el.y2 }, false, bulge);
+      // `type: 'line'` aquí significa «sin punta» (lo decide el bloque de
+      // arriba), y en un curveArrow eso se dice con heads:'none': sin esto,
+      // una curva sin puntas se previsualizaría con una.
+      const heads = el.type === 'line' ? { heads: 'none' } : {};
+      Renderer.renderElement(pctx, { ...el, type: 'curveArrow', cx: c.cx, cy: c.cy, ...heads });
       return;
     }
     Renderer.renderElement(pctx, el);
@@ -6321,6 +6385,75 @@
       $(id).addEventListener('change', commitStrokeGesture);
       $(id).addEventListener('pointerup', commitStrokeGesture);
       $(id).addEventListener('pointercancel', commitStrokeGesture);
+    });
+
+    // Curvatura (v3.2.0) — semántica dual y un paso de undo por gesto, igual
+    // que el grosor. Con selección edita las curvas SIMPLES seleccionadas
+    // (fijando la magnitud lateral de cada control a comba·|cuerda| y
+    // CONSERVANDO su signo, que es lo que preserva el lado del giro y la forma
+    // en S); sin selección fija el default de creación.
+    //
+    // Cadenas y semicírculos se quedan fuera a propósito: en una cadena la
+    // comba es de cada tramo y en un arco es el radio, con su invariante de
+    // 180°. Por eso el mando se atenúa cuando no hay ninguna curva simple a la
+    // que aplicarse — no dibujar promesas que el gesto no cumple.
+    let curveGestureSnap = null;
+    const simpleCurves = () => state.selection.filter(i => {
+      const el = state.elements[i];
+      return el && el.type === 'curveArrow' && !CurvePath.isChain(el) && el.arc !== true;
+    });
+    const applyCurveBulge = pct => {
+      const bulge = pct / 100;
+      const curves = simpleCurves();
+      if (state.selection.length && curves.length) {
+        if (!curveGestureSnap) curveGestureSnap = snapshot();
+        curves.forEach(i => {
+          const el = state.elements[i];
+          const fr = chordFrame(el);
+          if (!fr) return;
+          const len = Math.hypot(el.x2 - el.x1, el.y2 - el.y1);
+          const put = (cx, cy) => {
+            // Signo actual del control: si está justo sobre el eje (comba 0)
+            // se toma el lado positivo, para que subir el mando saque la curva
+            // en lugar de dejarla plana para siempre.
+            const cur = (cx - fr.mx) * fr.ux + (cy - fr.my) * fr.uy;
+            const sign = Math.sign(cur) || 1;
+            const s = sign * bulge * len;
+            return { x: fr.mx + s * fr.ux, y: fr.my + s * fr.uy };
+          };
+          const c1 = put(el.cx, el.cy);
+          const copy = { ...el, cx: c1.x, cy: c1.y };
+          if (el.cx2 !== undefined) {
+            const c2 = put(el.cx2, el.cy2);
+            copy.cx2 = c2.x;
+            copy.cy2 = c2.y;
+          }
+          state.elements[i] = copy;
+        });
+        redraw();
+      } else if (!state.selection.length) {
+        state.curveBulge = bulge;
+      }
+      syncStrokeControls();
+    };
+    function commitCurveGesture() {
+      if (!curveGestureSnap) return;
+      const snap = curveGestureSnap;
+      curveGestureSnap = null;
+      const igual = snap.length === state.elements.length &&
+        snap.every((el, i) => el === state.elements[i] ||
+          (el.cx === state.elements[i].cx && el.cy === state.elements[i].cy));
+      if (igual) state.elements = snap; else pushUndo(snap);
+      if (!state.selection.length) savePrefs();
+    }
+    $('stroke-modal-curve').addEventListener('input', e => applyCurveBulge(+e.target.value));
+    ['change', 'pointerup', 'pointercancel'].forEach(ev => {
+      $('stroke-modal-curve').addEventListener(ev, () => {
+        commitCurveGesture();
+        // Sin selección no hay gesto que cerrar, pero el default sí hay que
+        // dejarlo guardado: si no, la comba elegida moriría con la pestaña.
+        if (!state.selection.length) savePrefs();
+      });
     });
 
     // Un ⚙ por sección, cada uno a los ajustes de la SUYA (v2.21.0). Todos
@@ -7665,7 +7798,7 @@
         // Cuadrática → S canónica conservando la intensidad lateral actual
         const fr = chordFrame(el);
         const len = Math.hypot(el.x2 - el.x1, el.y2 - el.y1);
-        let sVal = 0.25 * len;
+        let sVal = state.curveBulge * len;
         if (fr) {
           const cur = (el.cx - fr.mx) * fr.ux + (el.cy - fr.my) * fr.uy;
           if (Math.abs(cur) > 1) sVal = cur;
