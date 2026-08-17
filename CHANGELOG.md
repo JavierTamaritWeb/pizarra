@@ -4,6 +4,21 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.1.0] — 2026-08-17
+
+### Añadido
+
+- **El proyecto JSON guarda el aspecto del lienzo**, y al abrirlo se
+  restaura: papel, color de rejilla y si se ve. Un dibujo hecho sobre
+  «Pizarra» con tinta clara se abría sobre el papel de quien lo abre —blanco
+  muchas veces— y el trazo se volvía invisible sin que nada explicase por
+  qué. Solo el JSON lo lleva: PNG, JPG, SVG y HTML son dibujos terminados y
+  siguen saliendo sobre blanco limpio y sin rejilla.
+- Un proyecto **sin** esos campos —los anteriores a esta versión— deja el
+  aspecto que tengas puesto: la ausencia no se lee como «vuelve a fábrica».
+  Y un valor manipulado (un papel que no es un color) se descarta igual que
+  se descarta un elemento inválido.
+
 ## [3.0.0] — 2026-08-17
 
 ### Cambiado

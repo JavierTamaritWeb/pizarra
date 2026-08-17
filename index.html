@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=3.0.0" />
+  <link rel="stylesheet" href="css/styles.css?v=3.1.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.0.0" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.1.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v3.0.0</span>
+        <span class="topbar__badge">v3.1.0</span>
         <!-- Aviso de autoguardado: visible SOLO mientras localStorage rechaza
              el guardado (cuota llena). Sin él, el fallo era un catch mudo y el
              trabajo posterior se perdía en silencio al recargar. -->
@@ -562,6 +562,7 @@
           <li>Debajo siguen los dos selectores para componer el tuyo a mano; si lo haces, ninguna muestra queda marcada</li>
           <li>Papel, rejilla y su encendido se recuerdan entre sesiones, y son <strong>de pantalla</strong>: ninguna exportación los lleva</li>
           <li><strong>«Limpiar todo» respeta el aspecto</strong>: vacía el dibujo y devuelve el resto de ajustes a los de fábrica, pero el papel que hayas elegido se queda puesto</li>
+          <li>Y el aspecto <strong>viaja en el proyecto</strong>: <strong>Exportar → JSON</strong> lo guarda y <strong>Abrir proyecto</strong> lo restaura, así que un dibujo hecho sobre «Pizarra» con tinta clara se vuelve a ver como se dibujó. Un proyecto anterior, que no lo lleva, deja el aspecto que tengas</li>
         </ul>
       </section>
 
@@ -2102,23 +2103,23 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=3.0.0"></script>
-  <script src="src/js/sketchy.js?v=3.0.0"></script>
-  <script src="src/js/freehand.js?v=3.0.0"></script>
-  <script src="src/js/arc.js?v=3.0.0"></script>
-  <script src="src/js/curve-path.js?v=3.0.0"></script>
-  <script src="src/js/shape-rotation.js?v=3.0.0"></script>
-  <script src="src/js/regular-polygon.js?v=3.0.0"></script>
-  <script src="src/js/trapezoid.js?v=3.0.0"></script>
-  <script src="src/js/airbrush.js?v=3.0.0"></script>
-  <script src="src/js/flood.js?v=3.0.0"></script>
-  <script src="src/js/eraser.js?v=3.0.0"></script>
-  <script src="src/js/building.js?v=3.0.0"></script>
-  <script src="src/js/garden.js?v=3.0.0"></script>
-  <script src="src/js/solid.js?v=3.0.0"></script>
-  <script src="src/js/renderer.js?v=3.0.0"></script>
-  <script src="src/js/exporter.js?v=3.0.0"></script>
-  <script src="src/js/templates.js?v=3.0.0"></script>
-  <script src="src/js/app.js?v=3.0.0"></script>
+  <script src="src/js/config.js?v=3.1.0"></script>
+  <script src="src/js/sketchy.js?v=3.1.0"></script>
+  <script src="src/js/freehand.js?v=3.1.0"></script>
+  <script src="src/js/arc.js?v=3.1.0"></script>
+  <script src="src/js/curve-path.js?v=3.1.0"></script>
+  <script src="src/js/shape-rotation.js?v=3.1.0"></script>
+  <script src="src/js/regular-polygon.js?v=3.1.0"></script>
+  <script src="src/js/trapezoid.js?v=3.1.0"></script>
+  <script src="src/js/airbrush.js?v=3.1.0"></script>
+  <script src="src/js/flood.js?v=3.1.0"></script>
+  <script src="src/js/eraser.js?v=3.1.0"></script>
+  <script src="src/js/building.js?v=3.1.0"></script>
+  <script src="src/js/garden.js?v=3.1.0"></script>
+  <script src="src/js/solid.js?v=3.1.0"></script>
+  <script src="src/js/renderer.js?v=3.1.0"></script>
+  <script src="src/js/exporter.js?v=3.1.0"></script>
+  <script src="src/js/templates.js?v=3.1.0"></script>
+  <script src="src/js/app.js?v=3.1.0"></script>
 </body>
 </html>

@@ -579,6 +579,18 @@ body { font-family: ${FONT_CSS()}; background: #fff; }
       },
       elements,
     };
+    // El ASPECTO del lienzo (papel, color de rejilla y si se ve) viaja SOLO en
+    // el JSON, y esto no contradice la regla de que ninguna exportación lo
+    // lleva: PNG, JPG, SVG y HTML son dibujos terminados —lo que se imprime
+    // sale sobre blanco limpio— y el JSON es el proyecto, el único formato que
+    // se vuelve a abrir. Un dibujo hecho sobre «Pizarra» con tinta clara
+    // reaparecía sobre el papel de quien lo abre, que puede ser blanco: el
+    // trazo se volvía invisible sin que nada explicase por qué.
+    // Solo se escribe lo que es válido: un ajuste con basura dentro es peor
+    // que su ausencia, que ya significa «respeta el aspecto que tengas».
+    if (HEX_COLOR.test(String(options.canvasBg || ''))) data.settings.canvasBg = options.canvasBg;
+    if (HEX_COLOR.test(String(options.gridColor || ''))) data.settings.gridColor = options.gridColor;
+    if (typeof options.showGrid === 'boolean') data.settings.showGrid = options.showGrid;
     _downloadBlob('wireframe.json', new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   }
 
@@ -889,12 +901,25 @@ body { font-family: ${FONT_CSS()}; background: #fff; }
             if (discarded > 0) {
               alert(`Se descartaron ${discarded} elemento(s) inválido(s) del archivo`);
             }
+            const s = data.settings || {};
             Object.defineProperty(valid, 'overlapMode', {
-              value: data.settings && data.settings.overlapMode === 'hidden-dashed'
-                ? 'hidden-dashed'
-                : 'normal',
+              value: s.overlapMode === 'hidden-dashed' ? 'hidden-dashed' : 'normal',
               enumerable: false,
             });
+            // El aspecto del lienzo, si el archivo lo trae. `undefined` cuando
+            // falta o no es válido —un JSON anterior a la v3.1.0, o manipulado—
+            // y el llamador entiende esa ausencia como «no toques el aspecto»,
+            // que es lo que hacía la app antes de esto. No enumerables, como
+            // `overlapMode`: `valid` sigue siendo el array de elementos y nada
+            // de esto puede colarse en un `JSON.stringify` ni en un recorrido.
+            const aspecto = {
+              canvasBg:  HEX_COLOR.test(String(s.canvasBg || '')) ? s.canvasBg : undefined,
+              gridColor: HEX_COLOR.test(String(s.gridColor || '')) ? s.gridColor : undefined,
+              showGrid:  typeof s.showGrid === 'boolean' ? s.showGrid : undefined,
+            };
+            for (const k of Object.keys(aspecto)) {
+              Object.defineProperty(valid, k, { value: aspecto[k], enumerable: false });
+            }
             resolve(valid);
           } catch {
             alert('Archivo JSON inválido');

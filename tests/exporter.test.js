@@ -148,6 +148,63 @@ test('Exporter.json + importJSON: round-trip completo devuelve los mismos elemen
   assert.deepEqual(JSON.parse(JSON.stringify(await p)), elements);
 });
 
+/* ── El aspecto del lienzo viaja en el JSON (v3.1.0) ──
+   Un dibujo hecho sobre «Pizarra» con tinta clara se abría sobre el papel de
+   quien lo abre —blanco muchas veces— y el trazo se volvía invisible sin que
+   nada explicase por qué. El proyecto es el único formato que se vuelve a
+   abrir, así que es el único que lo lleva. */
+test('el JSON guarda el aspecto del lienzo y el import lo devuelve', async () => {
+  const ctx = freshCtx();
+  ctx.Exporter.json([elLine], {
+    overlapMode: 'normal', canvasBg: '#1f2b2a', gridColor: '#4e6b66', showGrid: false,
+  });
+  const jsonStr = lastBlob(ctx).content;
+  const data = JSON.parse(jsonStr);
+  assert.equal(data.settings.canvasBg, '#1f2b2a');
+  assert.equal(data.settings.gridColor, '#4e6b66');
+  assert.equal(data.settings.showGrid, false);
+
+  const p = ctx.Exporter.importJSON();
+  const input = ctx.document.created[ctx.document.created.length - 1];
+  input.onchange({ target: { files: [{ text: jsonStr }] } });
+  const els = await p;
+  assert.equal(els.canvasBg, '#1f2b2a');
+  assert.equal(els.gridColor, '#4e6b66');
+  assert.equal(els.showGrid, false);
+  // No enumerables, como overlapMode: `els` sigue siendo el array de elementos
+  // y nada de esto puede colarse en un stringify ni en un recorrido.
+  assert.deepEqual(Object.keys(JSON.parse(JSON.stringify(els))), ['0']);
+});
+
+test('un JSON sin aspecto —o con basura— no lo inventa: llega undefined', async () => {
+  const ctx = freshCtx();
+  // Sin `settings`: los proyectos anteriores a la v3.1.0. La ausencia es lo
+  // que el llamador lee como «no toques el aspecto que tengas puesto».
+  const viejo = JSON.stringify({ version: 1, elements: [elLine] });
+  let p = ctx.Exporter.importJSON();
+  let input = ctx.document.created[ctx.document.created.length - 1];
+  input.onchange({ target: { files: [{ text: viejo }] } });
+  let els = await p;
+  assert.equal(els.canvasBg, undefined);
+  assert.equal(els.gridColor, undefined);
+  assert.equal(els.showGrid, undefined);
+  assert.equal(els.overlapMode, 'normal', 'y el modo de solapamiento sigue cayendo a normal');
+
+  // Manipulado: un color que no es color acabaría en un `background` del CSS
+  // del panel y en el papel del lienzo. Vale más su ausencia.
+  const sucio = JSON.stringify({
+    version: 1, elements: [elLine],
+    settings: { canvasBg: 'red; background:url(x)', gridColor: '#nope', showGrid: 'sí' },
+  });
+  p = ctx.Exporter.importJSON();
+  input = ctx.document.created[ctx.document.created.length - 1];
+  input.onchange({ target: { files: [{ text: sucio }] } });
+  els = await p;
+  assert.equal(els.canvasBg, undefined, 'un papel que no es un hex no entra');
+  assert.equal(els.gridColor, undefined);
+  assert.equal(els.showGrid, undefined, 'y showGrid solo se acepta booleano');
+});
+
 test('Exporter.importJSON: JSON inválido alerta y resuelve null', async () => {
   const ctx = freshCtx();
   const p = ctx.Exporter.importJSON();

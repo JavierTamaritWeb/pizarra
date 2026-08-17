@@ -4819,3 +4819,42 @@ test('abrir un proyecto sustituye el lienzo, y con dibujo dentro pregunta antes'
   assert.equal(app.elements().length, antes.length,
     'Ctrl+Z devuelve el dibujo anterior');
 });
+
+/* ── Abrir un proyecto restaura el aspecto con el que se dibujó (v3.1.0) ──
+   Un dibujo hecho sobre «Pizarra» con tinta clara se abría sobre el papel de
+   quien lo abre —blanco muchas veces— y el trazo desaparecía sin que nada
+   explicase por qué. El JSON es el único formato que se vuelve a abrir, así
+   que es el único que lleva el aspecto. */
+test('abrir un proyecto restaura su aspecto, y uno sin aspecto no lo toca', async () => {
+  const app = loadApp();
+  const proyecto = extra => {
+    const arr = [{ type: 'rect', x: 10, y: 10, w: 40, h: 30, color: '#eeeeee', lineWidth: 2 }];
+    Object.defineProperty(arr, 'overlapMode', { value: 'normal', enumerable: false });
+    for (const k of Object.keys(extra || {})) {
+      Object.defineProperty(arr, k, { value: extra[k], enumerable: false });
+    }
+    return arr;
+  };
+  const abrir = async extra => {
+    app.context.Exporter.importJSON = async () => proyecto(extra);
+    app.$('btn-import').__fire('click', {});
+    await new Promise(r => setImmediate(r));
+    app.flush();
+  };
+
+  await abrir({ canvasBg: '#1f2b2a', gridColor: '#4e6b66', showGrid: false });
+  assert.equal(app.$('canvas-bg-picker').value, '#1f2b2a', 'el papel del proyecto');
+  assert.equal(app.$('grid-color-picker').value, '#4e6b66');
+  assert.equal(app.$('check-grid').checked, false, 'y la cuadrícula, apagada como venía');
+  // Queda guardado: si no, la recarga siguiente lo devolvería al de fábrica.
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.canvasBg, '#1f2b2a');
+
+  // Un proyecto ANTERIOR (o de otra herramienta) no trae aspecto, y la
+  // ausencia significa «deja el que tengas»: no se inventa uno de fábrica.
+  app.context.confirmAnswer = true;
+  await abrir({});
+  assert.equal(app.$('canvas-bg-picker').value, '#1f2b2a',
+    'sin aspecto en el archivo, el del usuario se queda');
+  assert.equal(app.$('check-grid').checked, false);
+});

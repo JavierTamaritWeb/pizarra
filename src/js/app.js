@@ -7359,6 +7359,15 @@
         state.elements = withSeeds(els);
         state.overlapMode = els.overlapMode === 'hidden-dashed' ? 'hidden-dashed' : 'normal';
         $('overlap-mode').value = state.overlapMode;
+        // Y el ASPECTO con el que se dibujó, si el archivo lo trae (v3.1.0).
+        // Un dibujo hecho sobre «Pizarra» con tinta clara se abría sobre el
+        // papel de quien lo abre —blanco, muchas veces— y el trazo se volvía
+        // invisible. La AUSENCIA de estos campos (un JSON anterior, o de otra
+        // herramienta) deja el aspecto como esté: no se inventa uno.
+        if (els.canvasBg)  { state.canvasBg  = els.canvasBg;  $('canvas-bg-picker').value = els.canvasBg; }
+        if (els.gridColor) { state.gridColor = els.gridColor; $('grid-color-picker').value = els.gridColor; }
+        if (typeof els.showGrid === 'boolean') { state.showGrid = els.showGrid; $('check-grid').checked = els.showGrid; }
+        updateCanvasPresetActive();
         savePrefs();
         // Los índices de selección previos apuntarían a elementos importados
         // arbitrarios; se limpia como al cargar una plantilla.
@@ -7791,7 +7800,16 @@
     closeOnBackdrop(exportModal);
     exportModal.querySelectorAll('[data-export]').forEach(btn => {
       btn.addEventListener('click', () => {
-        Exporter[btn.dataset.export](state.elements, { overlapMode: state.overlapMode });
+        // El aspecto se manda SIEMPRE y es el exportador quien decide: solo el
+        // JSON —el formato que se vuelve a abrir— lo escribe; los cuatro
+        // dibujos lo ignoran y salen sobre blanco limpio (guardado por
+        // «ninguna exportación lleva el color del lienzo ni la cuadrícula»).
+        Exporter[btn.dataset.export](state.elements, {
+          overlapMode: state.overlapMode,
+          canvasBg:    state.canvasBg,
+          gridColor:   state.gridColor,
+          showGrid:    state.showGrid,
+        });
         exportModal.close();
       });
     });
