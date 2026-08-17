@@ -923,3 +923,29 @@ test('las herramientas de jardín no son tipos de elemento válidos', () => {
       `type:'${tool}' colaría como elemento fantasma`);
   }
 });
+
+test('el dondiego de noche existe con su botánica y florece en planta y alzado', () => {
+  // Petición del usuario (v2.40.0): Mirabilis jalapa como arbusto. La ficha
+  // es lo que enseñan el catálogo y las etiquetas botánicas/acotadas, así que
+  // se fija aquí: mata de ~0,9 m con flor fucsia.
+  const spec = SHRUB_TYPES.find(s => s.id === 'mirabilis');
+  assert.ok(spec, 'la especie está en SHRUB_TYPES');
+  assert.equal(spec.name, 'Dondiego de noche');
+  assert.equal(spec.botanical, 'Mirabilis jalapa');
+  assert.ok(spec.heightM <= 1.2 && spec.spreadM <= 1.2, 'porte de mata baja');
+  assert.ok(/^#[0-9a-f]{6}$/.test(spec.accent), 'flor con color propio');
+
+  // En color natural, las trompetas salen con el acento fucsia — en planta
+  // (dos coronas de flores) y en alzado (corola + tubo).
+  for (const view of ['plan', 'elevation']) {
+    const els = make(TOOLS.GARDEN_SHRUB, 'mirabilis',
+      { plantColorMode: 'natural', plantView: view });
+    const flores = els.filter(el => el.type === 'circle' && el.color === spec.accent);
+    assert.ok(flores.length >= 6,
+      `en ${view} florece por toda la mata (${flores.length} corolas)`);
+    for (const el of els.filter(e => e.type !== 'text')) {
+      assert.ok(Exporter.isValidElement({ ...el, seed: 7 }),
+        `pieza inválida en ${view}: ${JSON.stringify(el)}`);
+    }
+  }
+});

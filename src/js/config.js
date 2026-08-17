@@ -353,6 +353,7 @@ const SHRUB_TYPES = Object.freeze([
   /* `pittosporum` se conserva como id interno para no romper proyectos
      guardados; la especie visible sí se sustituye por una mediterránea. */
   { id: 'pittosporum', name: 'Jara blanca', botanical: 'Cistus albidus', heightM: 1.5, spreadM: 1.5, habit: 'rounded', foliage: '#6f7a55', accent: '#c987a6' },
+  { id: 'mirabilis', name: 'Dondiego de noche', botanical: 'Mirabilis jalapa', heightM: 0.9, spreadM: 0.9, habit: 'mound', foliage: '#4c7d46', accent: '#c73a8b' },
 ]);
 
 /** Tipos del botón Aromáticas: las matas aromáticas de toda la vida y las

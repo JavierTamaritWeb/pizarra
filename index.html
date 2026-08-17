@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=2.39.1" />
+  <link rel="stylesheet" href="css/styles.css?v=2.40.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.39.1" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.40.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v2.39.1</span>
+        <span class="topbar__badge">v2.40.0</span>
         <!-- Aviso de autoguardado: visible SOLO mientras localStorage rechaza
              el guardado (cuota llena). Sin él, el fallo era un catch mudo y el
              trabajo posterior se perdía en silencio al recargar. -->
@@ -376,7 +376,7 @@
           <button class="btn btn--ghost btn--block" id="btn-duplicate-sel" hidden>
             ⧉ Duplicar selección
           </button>
-          <!-- Orden Z (v2.39.1): el orden del array ES el apilado. Cuatro
+          <!-- Orden Z (v2.40.0): el orden del array ES el apilado. Cuatro
                acciones en rejilla de dos columnas (.panel__zorder, con su
                regla [hidden] en _panel.scss — declara display). Atajos:
                Ctrl/Cmd+↑/↓ un paso, con Shift a los extremos. -->
@@ -627,7 +627,7 @@
         <h4 class="modal__help-title">🌳 Jardín</h4>
         <ul class="modal__help-list">
           <li><strong>Jardín</strong> (<kbd>8</kbd>), <strong>Árbol</strong> (<kbd>9</kbd>), <strong>Arbusto</strong> (<kbd>H</kbd>), <strong>Flor</strong> (<kbd>X</kbd>), <strong>Decoración</strong> (<kbd>Z</kbd>), <strong>Aromáticas</strong> y <strong>Trepadoras</strong>: cada una abre su catálogo; elige un tipo y dibuja en el lienzo</li>
-          <li>Las <strong>49 especies vegetales</strong> ofrecen vista de <strong>planta o alzado</strong>, etapa joven/en desarrollo/adulta, escala 8–50 px/m, tamaño 50–150 %, color natural y etiquetas comunes, botánicas o acotadas</li>
+          <li>Las <strong>50 especies vegetales</strong> ofrecen vista de <strong>planta o alzado</strong>, etapa joven/en desarrollo/adulta, escala 8–50 px/m, tamaño 50–150 %, color natural y etiquetas comunes, botánicas o acotadas</li>
           <li>Parcela, decoración y caminos mantienen la <strong>vista de planta</strong> propia del plano paisajístico; el alzado de las plantas enseña troncos, portes, floraciones y soportes de trepadoras</li>
           <li>En los catálogos, el <strong>icono es el dibujo real</strong> que vas a obtener, no una ilustración aparte</li>
           <li>Cada pieza nace con una <strong>etiqueta</strong> que la nombra; se apaga en el panel <strong>Jardín</strong> y la elección se recuerda</li>
@@ -2067,23 +2067,23 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=2.39.1"></script>
-  <script src="src/js/sketchy.js?v=2.39.1"></script>
-  <script src="src/js/freehand.js?v=2.39.1"></script>
-  <script src="src/js/arc.js?v=2.39.1"></script>
-  <script src="src/js/curve-path.js?v=2.39.1"></script>
-  <script src="src/js/shape-rotation.js?v=2.39.1"></script>
-  <script src="src/js/regular-polygon.js?v=2.39.1"></script>
-  <script src="src/js/trapezoid.js?v=2.39.1"></script>
-  <script src="src/js/airbrush.js?v=2.39.1"></script>
-  <script src="src/js/flood.js?v=2.39.1"></script>
-  <script src="src/js/eraser.js?v=2.39.1"></script>
-  <script src="src/js/building.js?v=2.39.1"></script>
-  <script src="src/js/garden.js?v=2.39.1"></script>
-  <script src="src/js/solid.js?v=2.39.1"></script>
-  <script src="src/js/renderer.js?v=2.39.1"></script>
-  <script src="src/js/exporter.js?v=2.39.1"></script>
-  <script src="src/js/templates.js?v=2.39.1"></script>
-  <script src="src/js/app.js?v=2.39.1"></script>
+  <script src="src/js/config.js?v=2.40.0"></script>
+  <script src="src/js/sketchy.js?v=2.40.0"></script>
+  <script src="src/js/freehand.js?v=2.40.0"></script>
+  <script src="src/js/arc.js?v=2.40.0"></script>
+  <script src="src/js/curve-path.js?v=2.40.0"></script>
+  <script src="src/js/shape-rotation.js?v=2.40.0"></script>
+  <script src="src/js/regular-polygon.js?v=2.40.0"></script>
+  <script src="src/js/trapezoid.js?v=2.40.0"></script>
+  <script src="src/js/airbrush.js?v=2.40.0"></script>
+  <script src="src/js/flood.js?v=2.40.0"></script>
+  <script src="src/js/eraser.js?v=2.40.0"></script>
+  <script src="src/js/building.js?v=2.40.0"></script>
+  <script src="src/js/garden.js?v=2.40.0"></script>
+  <script src="src/js/solid.js?v=2.40.0"></script>
+  <script src="src/js/renderer.js?v=2.40.0"></script>
+  <script src="src/js/exporter.js?v=2.40.0"></script>
+  <script src="src/js/templates.js?v=2.40.0"></script>
+  <script src="src/js/app.js?v=2.40.0"></script>
 </body>
 </html>

@@ -4,6 +4,17 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.40.0] — 2026-08-17
+
+### Añadido
+
+- **Dondiego de noche** (*Mirabilis jalapa*) en el catálogo de Arbustos del
+  Jardín, a petición del usuario: mata redondeada de ~0,9 m con profusión de
+  trompetas fucsias. En planta florece en dos coronas repartidas por toda la
+  superficie; en alzado cada corola lleva su tubo fino, el rasgo de la flor
+  que abre al caer la tarde. El jardín pasa a 50 especies (68 variantes) y la
+  Ayuda y el README lo dicen — atados por la guarda de recuentos.
+
 ## [2.39.1] — 2026-08-17
 
 Auditoría severa de errores: tres auditores en paralelo por zonas (presión

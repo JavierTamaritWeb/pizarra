@@ -661,6 +661,21 @@ const Garden = (function () {
                 _dot(cx, cy + ry * 0.5, Math.max(1.3, r * 0.1), a),
                 ..._spokes(cx, cy, rx, ry, 5, 0.2, 0.7, f)];
       }
+      case 'mirabilis': { // dondiego de noche: trompetas fucsias por TODA la mata
+        const a = _accentInk(o, _spec(TOOLS.GARDEN_SHRUB, type));
+        const flowers = [];
+        // Dos coronas de flores, no un anillo: el dondiego florece repartido
+        // por toda la superficie, y eso es lo que lo distingue en planta de
+        // la jara (un anillo de cinco) o el romero (seis y muchas ramas).
+        for (let i = 0; i < 8; i++) {
+          const ang = (i / 8) * Math.PI * 2 + 0.6;
+          const rad = i % 2 ? 0.62 : 0.36;
+          flowers.push(_dot(cx + Math.cos(ang) * rx * rad,
+            cy + Math.sin(ang) * ry * rad, Math.max(1.4, r * 0.11), a));
+        }
+        return [_blob(cx, cy, rx, ry, LOBES.clump, o),
+                ..._spokes(cx, cy, rx, ry, 4, 0.16, 0.6, f), ...flowers];
+      }
       case 'pittosporum': { // jara: mata grisácea con flores grandes de cinco pétalos
         const a = _accentInk(o, _spec(TOOLS.GARDEN_SHRUB, type));
         const flowers = [];
@@ -1106,6 +1121,7 @@ const Garden = (function () {
       clump: [[.01,.68],[.09,.48],[.27,.36],[.47,.43],[.68,.34],[.91,.46],[.99,.67],[.84,.82],[.61,.88],[.36,.84],[.1,.8]],
       oleander: [[.06,.38],[.14,.18],[.32,.06],[.48,.14],[.64,.04],[.84,.16],[.94,.38],[.84,.7],[.66,.91],[.5,.78],[.32,.91],[.15,.7]],
       mastic: [[.02,.5],[.1,.31],[.28,.2],[.46,.25],[.68,.18],[.9,.3],[.98,.49],[.87,.72],[.63,.82],[.4,.78],[.17,.84],[.05,.68]],
+      mirabilis: [[.04,.58],[.1,.32],[.26,.14],[.44,.2],[.6,.08],[.78,.22],[.94,.38],[.97,.6],[.84,.84],[.6,.95],[.36,.9],[.14,.82]],
       strawberryTree: [[.08,.34],[.16,.14],[.35,.04],[.52,.1],[.7,.03],[.9,.19],[.95,.39],[.83,.58],[.62,.67],[.43,.62],[.23,.68],[.08,.53]],
       rounded: [[.04,.48],[.1,.27],[.28,.12],[.48,.16],[.68,.08],[.89,.25],[.97,.48],[.86,.72],[.65,.9],[.44,.84],[.22,.92],[.07,.72]],
     };
@@ -1126,6 +1142,17 @@ const Garden = (function () {
         const y = b.y + b.h * (.25 + (i % 3) * .13);
         out.push(_line(x - b.w * .035, y + b.h * .025,
           x + b.w * .035, y - b.h * .025, f));
+      }
+    }
+    if (type === 'mirabilis') {
+      // Trompetas del atardecer: cada flor lleva su tubo fino colgando de la
+      // corola — es el rasgo que da nombre a la planta de las cuatro (la flor
+      // abre al caer la tarde) y lo que separa este alzado del de la jara.
+      for (let i = 0; i < 6; i++) {
+        const x = b.x + b.w * (0.16 + i * 0.136);
+        const y = b.y + b.h * (0.2 + (i % 3) * 0.16);
+        out.push(_line(x, y, x + b.w * 0.03, y + b.h * 0.055, f));
+        out.push(_dot(x, y, Math.max(1.4, Math.min(b.w, b.h) * 0.04), a));
       }
     }
     const flowers = { bush: 3, clump: 5, oleander: 7, strawberryTree: 4, pittosporum: 5 }[type] || 0;
