@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=3.2.0" />
+  <link rel="stylesheet" href="css/styles.css?v=3.3.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.2.0" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.3.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v3.2.0</span>
+        <span class="topbar__badge">v3.3.0</span>
         <!-- Aviso de autoguardado: visible SOLO mientras localStorage rechaza
              el guardado (cuota llena). Sin él, el fallo era un catch mudo y el
              trabajo posterior se perdía en silencio al recargar. -->
@@ -451,8 +451,43 @@
 
   <!-- ===== MODAL: AYUDA ===== -->
   <dialog class="modal modal--help" id="modal-help" aria-labelledby="modal-help-title">
-      <h3 class="modal__heading" id="modal-help-title">Ayuda</h3>
-      <p class="modal__sub">Atajos y trucos de Pizarra</p>
+      <!-- Cabecera pegajosa: título y buscador (v3.3.0). La ayuda son ya
+           veinte secciones, y sin filtro encontrar algo concreto era
+           desplazarse leyendo.
+
+           El título va DENTRO de la barra pegajosa, y no encima, por la
+           máscara: un elemento pegajoso se ancla a la caja de CONTENIDO, así
+           que hay que tapar con una sombra los 2.8rem de relleno superior del
+           diálogo por los que se ve pasar el texto — y esa sombra taparía
+           también lo que hubiera justo encima (ver .modal__cancel, que hace lo
+           mismo abajo y no lo sufre por ser el último elemento).
+
+           El campo es type="text" A PROPÓSITO: _uppercase.scss rescata de las
+           mayúsculas los `input[type="text"]`, y un buscador es texto que
+           escribe el usuario. -->
+      <div class="modal__help-search">
+        <h3 class="modal__heading modal__help-heading" id="modal-help-title">Ayuda</h3>
+        <input class="modal__help-input" type="text" id="help-search"
+               placeholder="Buscar en la ayuda…" autocomplete="off"
+               aria-label="Buscar en la ayuda" />
+        <span class="modal__help-count" id="help-count" hidden></span>
+      </div>
+      <p class="modal__sub">Atajos y trucos de Pizarra. El índice salta a cualquier sección.</p>
+      <nav class="modal__help-index" id="help-index" aria-label="Secciones de la ayuda"></nav>
+      <p class="modal__help-empty" id="help-empty" hidden>
+        Nada coincide con esa búsqueda. Prueba con una palabra suelta: «borrador», «curva», «exportar»…
+      </p>
+
+      <section class="modal__help-group">
+        <h4 class="modal__help-title">Primeros pasos</h4>
+        <ul class="modal__help-list">
+          <li>Elige una herramienta en la <strong>barra de la izquierda</strong> y arrastra sobre el lienzo. Al pulsarla se abren sus <strong>ajustes</strong>, con una muestra de lo que va a salir; ciérralos y ya estás dibujando</li>
+          <li>Con <strong>Mover</strong> (<kbd>V</kbd>) se selecciona, se arrastra, se redimensiona por las esquinas y se borra con <kbd>Supr</kbd>. Con <strong>«Select»</strong> se enmarca sin mover nada</li>
+          <li>Todo lo que hagas se <strong>guarda solo</strong> en este navegador: cierra y vuelve, y el dibujo sigue ahí. Para llevártelo a otro sitio, <strong>Exportar → JSON</strong></li>
+          <li>El panel de la derecha cambia con lo que estés haciendo: enseña las secciones que aplican a la herramienta activa o a lo que tengas seleccionado</li>
+          <li>Si te pierdes: <kbd>Ctrl</kbd>+<kbd>Z</kbd> deshace hasta 50 pasos</li>
+        </ul>
+      </section>
 
       <section class="modal__help-group">
         <h4 class="modal__help-title">General</h4>
@@ -552,6 +587,45 @@
           <li>Las <strong>estrellas de 5 y 6 puntas</strong> son las regulares clásicas —pentagrama y Estrella de David—; no tienen atajo, se eligen en el sidebar</li>
           <li>El trapecio se arrastra entre dos esquinas y puede redimensionarse libremente</li>
           <li>Admiten relleno sólido o translúcido y el modo de bordes ocultos</li>
+        </ul>
+      </section>
+
+      <section class="modal__help-group">
+        <h4 class="modal__help-title">🧩 Componentes e imágenes</h4>
+        <ul class="modal__help-list">
+          <li><strong>Botón</strong> (<kbd>B</kbd>), <strong>Input</strong> (<kbd>I</kbd>), <strong>Imagen</strong> (<kbd>M</kbd>), <strong>Navbar</strong> (<kbd>N</kbd>) y <strong>Tarjeta</strong> (<kbd>K</kbd>): arrastra su caja y sale el componente dibujado a mano</li>
+          <li>Un clic sin arrastrar los coloca a su <strong>tamaño natural</strong>, así que no hace falta acertar con la caja</li>
+          <li>Comparten un modal de ajustes con color, grosor y el <strong>rótulo</strong> con el que nacerán: escribe «Enviar» y los tres botones siguientes ya lo dirán. Con uno seleccionado, ese mismo campo cambia el suyo</li>
+          <li>Una <strong>imagen de verdad</strong> se pega con <kbd>Ctrl</kbd>+<kbd>V</kbd> o se suelta sobre el lienzo (PNG y JPG); viaja dentro del proyecto JSON, así que se recupera al abrirlo</li>
+        </ul>
+      </section>
+
+      <section class="modal__help-group">
+        <h4 class="modal__help-title">Posición y tamaño</h4>
+        <ul class="modal__help-list">
+          <li>Con algo seleccionado, la primera sección del panel enseña su <strong>X, Y, ancho y alto</strong>: teclea una medida y se aplica. Vale para cualquier cosa, incluidos los trazos a mano alzada y las selecciones de varios elementos</li>
+          <li>Los mismos campos están dentro de cada modal de ajustes, para no tener que ir al panel</li>
+          <li>Escribir una medida respeta las mismas reglas que arrastrar: un polígono regular o una figura compuesta escalan <strong>en proporción</strong>, porque de otro modo el proyecto dejaría de poder abrirse</li>
+          <li>Y nada se puede perder fuera del lienzo: al arrastrar o al teclear una posición, la selección se detiene en el borde</li>
+        </ul>
+      </section>
+
+      <section class="modal__help-group">
+        <h4 class="modal__help-title">Zoom y desplazamiento</h4>
+        <ul class="modal__help-list">
+          <li>El lienzo mide siempre <strong>1200×800</strong>; el zoom (30–300 %) solo cambia cómo lo ves, nunca lo que dibujas</li>
+          <li>Al abrir la app —y al cambiar el tamaño de la ventana— el zoom se <strong>ajusta solo</strong> para aprovechar el espacio. En cuanto tocas el deslizador, manda tu elección y deja de reajustarse</li>
+          <li>Con el lienzo más grande que la ventana, el área se desplaza con la rueda y las barras de scroll</li>
+        </ul>
+      </section>
+
+      <section class="modal__help-group">
+        <h4 class="modal__help-title">Guardar, abrir y plantillas</h4>
+        <ul class="modal__help-list">
+          <li>El dibujo se <strong>guarda solo</strong> en este navegador mientras trabajas: no hay botón de guardar, y nada sale de tu equipo</li>
+          <li>Si el navegador se queda sin sitio, aparece un aviso en la barra de arriba. Es el momento de <strong>exportar a JSON</strong>: mientras esté encendido, lo nuevo no se está guardando</li>
+          <li><strong>Exportar → JSON</strong> baja el proyecto entero —dibujo, ajustes y aspecto del lienzo— y <strong>Abrir proyecto</strong> lo devuelve tal cual. Los otros cuatro formatos son solo de salida</li>
+          <li><strong>Plantillas</strong> parte de una estructura hecha —landing, dashboard o formulario—, <em>sustituyendo</em> lo que haya en el lienzo; <kbd>Ctrl</kbd>+<kbd>Z</kbd> lo deshace</li>
         </ul>
       </section>
 
@@ -2117,23 +2191,23 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=3.2.0"></script>
-  <script src="src/js/sketchy.js?v=3.2.0"></script>
-  <script src="src/js/freehand.js?v=3.2.0"></script>
-  <script src="src/js/arc.js?v=3.2.0"></script>
-  <script src="src/js/curve-path.js?v=3.2.0"></script>
-  <script src="src/js/shape-rotation.js?v=3.2.0"></script>
-  <script src="src/js/regular-polygon.js?v=3.2.0"></script>
-  <script src="src/js/trapezoid.js?v=3.2.0"></script>
-  <script src="src/js/airbrush.js?v=3.2.0"></script>
-  <script src="src/js/flood.js?v=3.2.0"></script>
-  <script src="src/js/eraser.js?v=3.2.0"></script>
-  <script src="src/js/building.js?v=3.2.0"></script>
-  <script src="src/js/garden.js?v=3.2.0"></script>
-  <script src="src/js/solid.js?v=3.2.0"></script>
-  <script src="src/js/renderer.js?v=3.2.0"></script>
-  <script src="src/js/exporter.js?v=3.2.0"></script>
-  <script src="src/js/templates.js?v=3.2.0"></script>
-  <script src="src/js/app.js?v=3.2.0"></script>
+  <script src="src/js/config.js?v=3.3.0"></script>
+  <script src="src/js/sketchy.js?v=3.3.0"></script>
+  <script src="src/js/freehand.js?v=3.3.0"></script>
+  <script src="src/js/arc.js?v=3.3.0"></script>
+  <script src="src/js/curve-path.js?v=3.3.0"></script>
+  <script src="src/js/shape-rotation.js?v=3.3.0"></script>
+  <script src="src/js/regular-polygon.js?v=3.3.0"></script>
+  <script src="src/js/trapezoid.js?v=3.3.0"></script>
+  <script src="src/js/airbrush.js?v=3.3.0"></script>
+  <script src="src/js/flood.js?v=3.3.0"></script>
+  <script src="src/js/eraser.js?v=3.3.0"></script>
+  <script src="src/js/building.js?v=3.3.0"></script>
+  <script src="src/js/garden.js?v=3.3.0"></script>
+  <script src="src/js/solid.js?v=3.3.0"></script>
+  <script src="src/js/renderer.js?v=3.3.0"></script>
+  <script src="src/js/exporter.js?v=3.3.0"></script>
+  <script src="src/js/templates.js?v=3.3.0"></script>
+  <script src="src/js/app.js?v=3.3.0"></script>
 </body>
 </html>

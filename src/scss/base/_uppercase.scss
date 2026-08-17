@@ -39,3 +39,19 @@ input[type="number"],
 textarea {
   text-transform: none;
 }
+
+// Y la AYUDA tampoco es interfaz: es prosa. Un rótulo de tres palabras en
+// mayúsculas se lee de un vistazo, pero veinte secciones de frases enteras en
+// caja alta se leen letra a letra —desaparecen las mayúsculas iniciales, los
+// nombres propios y el perfil de cada palabra, que es de lo que tira la vista
+// al leer de corrido—. Los títulos de sección se quedan como están: los pone
+// en mayúsculas .modal__help-title con su propia regla, y ahí sí son rótulos.
+// Las pastillas del índice son <button>, y un botón NO hereda: hay que
+// nombrarlo. Se apunta al contenedor (que sí está en el HTML) y no a la clase
+// de la pastilla, que la crea app.js — un selector de clase que no casa con
+// nada no falla en ningún sitio, y por eso hay una guarda que lo comprueba.
+.modal__help-list,
+.modal__help-empty,
+.modal__help-index button {
+  text-transform: none;
+}

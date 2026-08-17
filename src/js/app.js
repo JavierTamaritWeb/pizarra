@@ -5906,6 +5906,81 @@
     renderStrokePreview();
   }
 
+  /* ── Ayuda: índice y buscador (v3.3.0) ──
+     Son ya veinte secciones, y encontrar algo concreto era desplazarse
+     leyendo. Dos añadidos, los dos construidos desde el propio HTML de la
+     ayuda para que una sección nueva no haya que apuntarla en ningún sitio. */
+
+  /** Pastillas que saltan a cada sección, sacadas de sus <h4>. */
+  function buildHelpIndex() {
+    const nav = $('help-index');
+    const grupos = $('modal-help').querySelectorAll('.modal__help-group');
+    nav.innerHTML = '';
+    grupos.forEach((g, i) => {
+      const h = g.querySelector('.modal__help-title');
+      if (!h) return;
+      if (!g.id) g.id = 'help-sec-' + i;
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'modal__help-chip';
+      // textContent, nunca innerHTML: el título puede llevar emoji y, sobre
+      // todo, es la regla de la casa para todo lo que se inyecta.
+      chip.textContent = h.textContent;
+      chip.addEventListener('click', () => {
+        g.scrollIntoView({ block: 'start' });
+      });
+      nav.appendChild(chip);
+    });
+  }
+
+  /**
+   * Filtra la ayuda por texto: deja las líneas que coinciden y esconde las
+   * secciones que se quedan sin ninguna. Con la búsqueda vacía lo devuelve
+   * todo, que es el estado de siempre.
+   *
+   * Se compara sobre `textContent` en minúsculas y sin acentos: la interfaz
+   * va en mayúsculas por CSS, pero el DOM conserva el texto original, así que
+   * buscar «boton» tiene que encontrar «Botón».
+   */
+  function filterHelp(texto) {
+    const q = normalizaBusqueda(texto);
+    const grupos = $('modal-help').querySelectorAll('.modal__help-group');
+    let vistos = 0;
+    grupos.forEach(g => {
+      const titulo = normalizaBusqueda(g.querySelector('.modal__help-title').textContent);
+      // Si lo buscado está en el título, la sección entera cuenta: quien
+      // escribe «jardín» quiere esa sección, no las tres líneas que además
+      // repiten la palabra.
+      const porTitulo = !!q && titulo.includes(q);
+      let hay = 0;
+      // `querySelectorAll('li')` a secas, y no `.modal__help-list li`: el
+      // arnés node:vm resuelve selectores simples, no descendientes, y con
+      // el compuesto el filtro no encontraba una sola línea ahí dentro —
+      // funcionaba en el navegador y la guarda no podía verlo.
+      g.querySelectorAll('li').forEach(li => {
+        const casa = !q || porTitulo || normalizaBusqueda(li.textContent).includes(q);
+        li.hidden = !casa;
+        if (casa) hay++;
+      });
+      g.hidden = !!q && hay === 0;
+      vistos += hay;
+    });
+    const count = $('help-count');
+    count.textContent = vistos === 1 ? '1 resultado' : vistos + ' resultados';
+    count.hidden = !q;
+    $('help-empty').hidden = !q || vistos > 0;
+    // El índice sobra mientras se filtra: apunta a secciones que pueden no
+    // estar en pantalla, y saltar a una sección oculta no lleva a ningún sitio.
+    $('help-index').hidden = !!q;
+  }
+
+  /** Minúsculas y sin acentos, para que «boton» encuentre «Botón». */
+  function normalizaBusqueda(s) {
+    return String(s || '').toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .trim();
+  }
+
   /** Abre los ajustes de trazo. Igual que el borrador, cerrarlo NO devuelve a
       la herramienta anterior (no hay nada que elegir: el trazo ya es usable),
       así que no pasa por opensVariantModal. */
@@ -7962,9 +8037,31 @@
     });
 
     const helpModal = $('modal-help');
+    buildHelpIndex();
     $('btn-help').addEventListener('click', () => helpModal.showModal());
     helpModal.querySelector('.modal__cancel').addEventListener('click', () => helpModal.close());
     closeOnBackdrop(helpModal);
+    $('help-search').addEventListener('input', e => filterHelp(e.target.value));
+    // Un <dialog showModal> enfoca su primer control, que ahora es este campo
+    // —bien: la ayuda se abre lista para escribir—, pero el atajo global «?»
+    // se rinde en cuanto el foco está en un input (la primera guarda del
+    // keydown), así que dejó de poder CERRAR la ayuda que él mismo abre.
+    // Se resuelve aquí, en local: buscar «?» en la ayuda no significa nada,
+    // y el atajo documentado tiene que seguir funcionando.
+    $('help-search').addEventListener('keydown', e => {
+      if (e.key === '?') {
+        e.preventDefault();
+        helpModal.close();
+      }
+    });
+    // Al cerrar se limpia el filtro: reabrir la ayuda y encontrarse media
+    // página oculta por una búsqueda de hace media hora se lee como que la
+    // ayuda ha encogido. `close` cubre las tres salidas (botón, Escape y
+    // clic en el fondo), así que no hay que acordarse en cada una.
+    helpModal.addEventListener('close', () => {
+      $('help-search').value = '';
+      filterHelp('');
+    });
 
     const eraserModal = $('modal-eraser');
     eraserModal.querySelector('.modal__cancel').addEventListener('click', () => eraserModal.close());

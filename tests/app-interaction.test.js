@@ -5009,3 +5009,80 @@ test('«Limpiar todo» devuelve la curvatura al 25 %', () => {
   assert.ok(Math.abs(combaDe(app.elements()[0]) - 0.25) < 1e-9,
     'y lo que se dibuja después también');
 });
+
+/* ── Ayuda: índice y buscador (v3.3.0) ──
+   Veinte secciones son demasiadas para leerlas de arriba abajo buscando una
+   cosa. El índice y el filtro se construyen desde el propio HTML de la ayuda,
+   así que una sección nueva entra sola — y esta guarda es lo que lo pina. */
+test('la Ayuda construye su índice desde sus propias secciones', () => {
+  const app = loadApp();
+  const grupos = app.$('modal-help').querySelectorAll('.modal__help-group');
+  const chips = app.$('help-index').querySelectorAll('.modal__help-chip');
+  assert.ok(grupos.length >= 15, 'la ayuda tiene que seguir teniendo secciones');
+  assert.equal(chips.length, grupos.length,
+    'una pastilla por sección: si no, hay una lista que mantener a mano');
+  assert.equal(chips[0].textContent, grupos[0].querySelector('.modal__help-title').textContent,
+    'la pastilla dice lo que dice su título, sin copiarlo a mano');
+  grupos.forEach(g => assert.ok(g.id, 'cada sección necesita id para poder saltar a ella'));
+});
+
+test('el buscador de la Ayuda enciende y apaga sus avisos, y vaciarlo lo devuelve todo', () => {
+  // Lo que se compara AQUÍ es la máquina de estados del buscador, no el
+  // emparejamiento: `dom-stub` no acumula el texto de los hijos, así que el
+  // `textContent` de una línea con <kbd>/<strong> llega vacío y ninguna
+  // búsqueda casaría. Que «boton» encuentre «Botón» se comprueba en
+  // e2e/help.spec.js, con texto de verdad.
+  const app = loadApp();
+  const buscar = q => {
+    const input = app.$('help-search');
+    input.value = q;
+    input.__fire('input', { target: input });
+    app.flush();
+  };
+  const grupos = app.$('modal-help').querySelectorAll('.modal__help-group');
+  const visibles = () => grupos.flatMap(g => g.querySelectorAll('li'))
+    .filter(li => !li.hidden).length;
+
+  const todas = visibles();
+  assert.ok(todas > 60, 'de partida se ve la ayuda entera');
+  assert.equal(app.$('help-count').hidden, true, 'sin búsqueda no hay recuento que dar');
+  assert.equal(app.$('help-empty').hidden, true);
+
+  buscar('zzzz');
+  assert.equal(visibles(), 0);
+  assert.equal(app.$('help-count').hidden, false);
+  assert.match(app.$('help-count').textContent, /resultados?/);
+  // Cero resultados avisan, en vez de dejar la ayuda vacía y muda.
+  assert.equal(app.$('help-empty').hidden, false);
+  // Y el índice se retira: apuntaría a secciones que no están en pantalla.
+  assert.equal(app.$('help-index').hidden, true);
+  for (const g of grupos) {
+    const hay = g.querySelectorAll('li').filter(li => !li.hidden).length;
+    assert.equal(g.hidden, hay === 0,
+      'una sección se esconde exactamente cuando se queda sin líneas');
+  }
+
+  buscar('');
+  assert.equal(visibles(), todas, 'vaciar el campo devuelve la ayuda entera');
+  assert.equal(grupos.filter(g => g.hidden).length, 0);
+  assert.equal(app.$('help-index').hidden, false);
+  assert.equal(app.$('help-empty').hidden, true);
+  assert.equal(app.$('help-count').hidden, true);
+});
+
+test('cerrar la Ayuda limpia la búsqueda', () => {
+  // Reabrirla y encontrarse media página oculta por una búsqueda de hace
+  // media hora se lee como que la ayuda ha encogido.
+  const app = loadApp();
+  const input = app.$('help-search');
+  input.value = 'curva';
+  input.__fire('input', { target: input });
+  app.flush();
+  assert.ok(app.$('modal-help').querySelectorAll('.modal__help-group').some(g => g.hidden));
+
+  app.$('modal-help').__fire('close', {});
+  app.flush();
+  assert.equal(input.value, '');
+  assert.equal(app.$('modal-help').querySelectorAll('.modal__help-group')
+    .filter(g => g.hidden).length, 0, 'vuelve la ayuda entera');
+});

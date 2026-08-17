@@ -918,6 +918,96 @@ input[type=range]::-moz-range-thumb {
   width: min(72rem, calc(100vw - 2.4rem));
 }
 
+/* Buscador de la ayuda. Pegajoso arriba por el mismo motivo por el que
+   «Cerrar» lo está abajo: el diálogo es más alto que la ventana y hace scroll
+   dentro, así que un filtro que se fuera hacia arriba obligaba a volver al
+   principio para cambiar la búsqueda. El fondo es opaco —el texto pasa por
+   debajo— y la sombra sin desenfoque tapa los 2.8rem de relleno superior del
+   diálogo, que quedan por encima de la caja de contenido a la que se ancla un
+   elemento pegajoso (misma máscara que .modal__cancel). */
+.modal__help-search {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  padding: 0 0 1rem;
+  background: var(--bg-surface);
+  box-shadow: 0 -2.8rem 0 var(--bg-surface);
+}
+
+/* El título vive dentro de la barra pegajosa (ver el comentario del HTML):
+   así la máscara de arriba no tiene nada que tapar por debajo de él. */
+.modal__help-heading {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.modal__help-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.8rem 1.2rem;
+  border-radius: 0.8rem;
+  border: 0.1rem solid var(--border-main);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 1.3rem;
+}
+
+.modal__help-count {
+  font-size: 1.1rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Declara display, así que necesita su propia regla [hidden]: la del
+   user-agent no gana (la trampa que documenta _panel.scss). */
+.modal__help-count[hidden] {
+  display: none;
+}
+
+/* Índice: un salto directo a cada sección. Se construye desde los <h4>, así
+   que no hay una segunda lista que mantener al día. */
+.modal__help-index {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 1.8rem;
+}
+
+.modal__help-index[hidden] {
+  display: none;
+}
+
+.modal__help-chip {
+  padding: 0.4rem 1rem;
+  border-radius: 999rem;
+  border: 0.1rem solid var(--border-main);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.modal__help-chip:hover,
+.modal__help-chip:focus-visible {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.modal__help-empty {
+  margin-bottom: 1.8rem;
+  font-size: 1.3rem;
+  color: var(--text-muted);
+}
+
+.modal__help-empty[hidden] {
+  display: none;
+}
+
 .modal__help-group {
   margin-bottom: 1.8rem;
 }
@@ -1489,6 +1579,12 @@ kbd {
 input[type=text],
 input[type=number],
 textarea {
+  text-transform: none;
+}
+
+.modal__help-list,
+.modal__help-empty,
+.modal__help-index button {
   text-transform: none;
 }
 

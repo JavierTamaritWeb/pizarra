@@ -4,6 +4,32 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.3.0] — 2026-08-17
+
+### Añadido
+
+- **La Ayuda tiene buscador.** Escribe «borrador», «curva» o «exportar» y se
+  queda solo con lo que menciona esa palabra, escondiendo las secciones que se
+  quedan sin líneas y diciendo cuántos resultados hay. Encuentra **sin
+  acentos y sin mayúsculas** («boton» encuentra «Botón»), y si buscas el
+  nombre de una sección te la trae **entera**. El campo se queda pegado arriba
+  mientras el diálogo hace scroll, y se limpia al cerrar.
+- **Índice de secciones**, en pastillas que saltan a cada una. Se construye
+  desde los propios títulos, así que una sección nueva aparece sola.
+- **Cinco secciones que faltaban**: «Primeros pasos», «Componentes e
+  imágenes», «Posición y tamaño», «Zoom y desplazamiento» y «Guardar, abrir y
+  plantillas» —el autoguardado, el aviso de que el navegador se quedó sin
+  sitio y las plantillas no estaban contados en ninguna parte—.
+
+### Cambiado
+
+- **La prosa de la Ayuda deja de ir en MAYÚSCULAS** (los títulos de sección
+  siguen igual, y el resto de la interfaz también). Un rótulo de tres
+  palabras en caja alta se lee de un vistazo; veinte secciones de frases
+  enteras se leen letra a letra, porque desaparecen las mayúsculas iniciales
+  y el perfil de cada palabra, que es de lo que tira la vista al leer de
+  corrido.
+
 ## [3.2.0] — 2026-08-17
 
 ### Añadido

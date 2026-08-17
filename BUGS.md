@@ -35,6 +35,26 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### v3.3.0 — El buscador de la Ayuda dejó mudo al atajo «?» que la abre
+
+- **Síntoma:** con la Ayuda abierta, pulsar `?` ya no la cerraba. El atajo
+  seguía abriéndola, así que la única forma de salir era el botón «Cerrar» o
+  `Escape` — un atajo documentado que funciona a la ida y no a la vuelta.
+- **Causa:** un `<dialog showModal>` enfoca su primer control focalizable, y
+  al añadir el buscador ese pasó a ser un `<input>`. La primera guarda del
+  `keydown` global es «no capturar mientras se escribe en cualquier control»
+  (`tag === 'INPUT'` → `return`), así que el bloque de `?` dejaba de correr.
+  Nada del código de la Ayuda cambió: cambió dónde estaba el foco.
+- **Fix:** un `keydown` propio del campo de búsqueda que cierra la ayuda con
+  `?` (app.js). Va en local y no relajando la guarda global: buscar «?» en la
+  ayuda no significa nada, y ablandar esa guarda afectaría a todos los campos
+  de la app. El foco en el buscador se conserva a propósito — la ayuda se abre
+  lista para escribir.
+- **Guardia:** `e2e/keyboard-focus.spec.js` → *«?» no apila la Ayuda sobre
+  otro modal, y su toggle sigue vivo*. Ya existía, y es quien lo cazó: es
+  exactamente el caso que el arnés `node:vm` no puede ver, porque allí el foco
+  no lo mueve nadie.
+
 ### v2.30.0 — Escalar una mancha de aerógrafo la volvía inválida: desaparecía al recargar, sin aviso
 
 - **Síntoma:** pintar con el Aerógrafo, agrandar la mancha (tiradores, campo

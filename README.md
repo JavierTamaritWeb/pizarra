@@ -168,7 +168,7 @@ Cada pieza de jardín nace con una **etiqueta** dentro del mismo grupo (se mueve
 4. Exporta como PNG, JPG, SVG o HTML — o guarda el proyecto como JSON para seguir más tarde.
 
 > [!TIP]
-> Pulsa `?` en cualquier momento para abrir la ayuda con todos los atajos.
+> Pulsa `?` en cualquier momento para abrir la ayuda: veinte secciones con **buscador** —escribe «borrador» o «curva» y se queda con lo que menciona esa palabra, sin necesidad de acentos— e **índice** para saltar a cualquiera de ellas.
 
 ## Atajos de teclado
 

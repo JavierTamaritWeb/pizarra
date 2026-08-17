@@ -89,6 +89,46 @@ Rules that keep the compiled output correct — each one broke, or would have br
 - stylelint is configured for the **legacy color notation on purpose** (`rgba(…)`, numeric alpha): the modern-notation autofix would rewrite every color and change the artifact's bytes. Don't "clean" that config without re-verifying the output.
 - The v1.25.0 migration kept `.panel__select`'s `var(--text-main)` typo verbatim on purpose; v2.0.0 fixed it to `--text-primary`, and `tests/smoke.test.js` now asserts that **every custom property used in the compiled CSS is defined** — a wrong `var()` name fails nowhere by itself (SCSS, stylelint and the browser all stay silent).
 
+### La Ayuda: buscador, índice y prosa (v3.3.0)
+
+`#modal-help` son ya veinte secciones, y encontrar algo concreto era
+desplazarse leyendo. Tres añadidos, con una regla común: **todo se construye
+desde el propio HTML de la ayuda**, así que una sección nueva entra sola —
+`buildHelpIndex()` saca las pastillas de los `<h4>` y les pone `id` a los
+grupos si no lo traen, y `filterHelp(q)` recorre esos mismos grupos. Cinco
+cosas que no se deducen del código:
+
+- **`filterHelp` usa `querySelectorAll('li')`, no `.modal__help-list li`**: el
+  arnés `node:vm` resuelve selectores simples, pero no descendientes, y con el
+  compuesto el filtro no encontraba ni una línea ahí dentro — funcionaba en el
+  navegador y ninguna guarda podía verlo.
+- **El emparejamiento SOLO se puede guardar en e2e**: `dom-stub` no acumula el
+  texto de los hijos, así que el `textContent` de una línea con `<kbd>`/
+  `<strong>` llega vacío. En `tests/` se comprueba la máquina de estados
+  (recuento, aviso de cero resultados, índice retirado, vaciar lo devuelve
+  todo); en `e2e/help.spec.js`, que «boton» encuentra «Botón».
+- **Coincidir con el TÍTULO trae la sección entera.** Quien escribe «jardín»
+  quiere esa sección, no las tres líneas que además repiten la palabra. Ojo al
+  escribir specs: «Jardín» aparece también dentro de Edificios, así que hay
+  que localizar el grupo por su `.modal__help-title`, no por `hasText`.
+- **El campo es `type="text"` a propósito** (`_uppercase.scss` rescata
+  `input[type="text"]`, y un buscador es texto del usuario), y el buscador es
+  `position: sticky; top: 0` por el mismo motivo por el que «Cerrar» lo es
+  abajo: el diálogo es más alto que la ventana. Necesita la misma máscara de
+  sombra sin desenfoque para tapar los 2.8rem de relleno superior.
+- **`.modal__help-count`, `.modal__help-index` y `.modal__help-empty` declaran
+  `display`**, así que llevan su propia regla `[hidden]` — la trampa que
+  documenta `_panel.scss`, por séptima vez.
+
+**Y la prosa de la ayuda deja de ir en mayúsculas** (`.modal__help-list`,
+`.modal__help-empty` y las pastillas del índice): un rótulo corto en caja alta
+se lee de un vistazo, pero frases enteras se leen letra a letra. Los `<h4>`
+siguen en mayúsculas por su propia regla, que es lo que ancla la ayuda al
+resto de la interfaz. La pastilla es un `<button>` y **no hereda**, así que el
+rescate la nombra a través de su contenedor (`.modal__help-index button`):
+apuntar a `.modal__help-chip` —una clase que crea app.js— habría fallado la
+guarda que exige que cada clase nombrada en ese partial exista en el HTML.
+
 ### La interfaz va en MAYÚSCULAS (v2.29.0)
 
 `src/scss/base/_uppercase.scss` pone en mayúsculas toda la interfaz. Se hace con **`text-transform`, nunca cambiando el texto del HTML**, y eso es lo que lo vuelve inocuo: `textContent` sigue diciendo «Cerrar», así que las guardas que leen el DOM (los `<legend>` de los modales, los rótulos del sidebar), las que leen `index.html` y cualquier comparación de cadenas de la app siguen valiendo — y revertirlo es borrar un fichero. Tres cosas que hay que saber:
