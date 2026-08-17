@@ -4,6 +4,21 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.41.1] — 2026-08-17
+
+### Arreglado
+
+- **La Decoración del Jardín salía verde**: el modo «color natural» tiñe con
+  el follaje de la especie, pero la decoración no tiene follaje —es mobiliario
+  y símbolos de plano— y su entrada de catálogo bastaba para que se le
+  aplicara el verde de reserva. Un banco, un pozo, una piscina y hasta la
+  flecha de norte y la escala gráfica se dibujaban en verde follaje. Ahora
+  mandan el color y la tinta del trazo, negra de fábrica. Las plantas
+  conservan su verde: el modo natural es suyo.
+- **La escalerilla de la piscina** llevaba los largueros paralelos al borde en
+  el que se ancla y se leía como una «H» flotando; ahora entra perpendicular,
+  como entra una escalera al agua, y las ondas arrancan después de ella.
+
 ## [2.41.0] — 2026-08-17
 
 Primer paso de `PLAN-JARDIN.md` (§1.1 y §1.3): las marcas que convierten un

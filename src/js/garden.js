@@ -177,7 +177,13 @@ const Garden = (function () {
     let o = { color: '#000000', lineWidth: 2, ...(opts || {}) };
     const variant = _variant(tool, o);
     if (variant === null) return [];     // no es una herramienta del jardín
-    o = _plantInk(o, _spec(tool, variant));
+    // El «color natural» es un ajuste BOTÁNICO: tiñe el dibujo con el follaje
+    // de la especie. La Decoración no tiene follaje —es mobiliario y símbolos
+    // de plano: un banco, un pozo, la flecha de norte, la escala—, pero su
+    // entrada de catálogo existe igual, así que `_plantInk` la daba por buena
+    // y le aplicaba su verde de reserva: TODA la decoración salía verde
+    // (reportado por el usuario, v2.41.1). Ahí manda el color del trazo.
+    if (tool !== TOOLS.GARDEN_DECOR) o = _plantInk(o, _spec(tool, variant));
     // El camino se resuelve aparte porque de su arrastre salen DOS cosas —el
     // recorrido por el lado largo y el grosor por el corto—, y porque su caja
     // por defecto no es un tamaño sino un largo. La etiqueta va bajo la caja

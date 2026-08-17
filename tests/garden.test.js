@@ -856,6 +856,29 @@ test('los dos relojes de sol no se confunden entre sí', () => {
     .filter(el => el.type === 'circle').length, 0);
 });
 
+test('la Decoración se dibuja con la tinta del trazo, nunca de verde', () => {
+  // El «color natural» tiñe con el follaje de la ESPECIE, y la decoración no
+  // tiene: es mobiliario y símbolos de plano. Su entrada de catálogo existe
+  // igual, así que `_plantInk` la daba por buena y le aplicaba su verde de
+  // reserva — un banco, un pozo y hasta la flecha de norte salían verdes
+  // (reportado por el usuario, v2.41.1).
+  for (const v of DECOR_TYPES) {
+    for (const modo of ['natural', 'ink']) {
+      const els = make(TOOLS.GARDEN_DECOR, v.id,
+        { plantColorMode: modo, labels: false });
+      const ajenos = [...new Set(els.map(el => el.color))]
+        .filter(c => c !== O.color);
+      assert.deepEqual(ajenos, [],
+        `"${v.name}" en modo ${modo} se dibuja con un color que no es el del trazo`);
+    }
+  }
+  // Y las plantas SÍ conservan su verde: el modo natural es suyo.
+  const arbol = make(TOOLS.GARDEN_TREE, 'broadleaf',
+    { plantColorMode: 'natural', labels: false });
+  assert.ok(arbol.some(el => el.color !== O.color),
+    'el modo natural tiene que seguir tiñendo las plantas');
+});
+
 /* ------- el norte, la escala y la piscina (v2.41.0) ------- */
 
 test('la flecha de norte apunta arriba y lleva su N dibujada, no escrita', () => {

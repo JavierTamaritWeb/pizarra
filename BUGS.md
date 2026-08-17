@@ -2606,3 +2606,39 @@ confirmados con sonda ejecutada, siete corregidos.
   `CHANGELOG.md` repone 2.37.0, 2.38.0 y 2.39.0. La lista de scripts de
   CLAUDE.md suma `freehand` y `flood`, que faltaban.
 - **Guardia:** la propia regla del bucle de smoke.
+
+### La Decoración del Jardín se dibujaba en verde follaje
+
+- **Síntoma:** todos los elementos de Decoración —banco, pozo, maceta,
+  piedra, estanque, piscina, y también la flecha de norte y la escala
+  gráfica— salían en verde en vez de en la tinta del trazo. Reportado por el
+  usuario tras la v2.41.0.
+- **Causa:** `_plantInk` (garden.js) aplica el follaje de la especie cuando el
+  modo de color es «natural», con `spec.foliage || '#4f7248'` de reserva. Para
+  la Decoración `_spec` SÍ devuelve una entrada —está en el catálogo— pero sin
+  `foliage`, así que caía en ese verde de reserva. El mando es botánico y vive
+  en los modales de planta; la decoración es mobiliario y símbolos de plano,
+  no vegetación.
+- **Fix:** `src/js/garden.js` — `elements()` no aplica `_plantInk` cuando la
+  herramienta es `GARDEN_DECOR`. Las plantas conservan su verde.
+- **Guardia:** `tests/garden.test.js` › *"la Decoración se dibuja con la tinta
+  del trazo, nunca de verde"*, verificada fallando al restaurar la línea
+  anterior. Comprueba las doce variantes en los dos modos de color, y que el
+  modo natural siga tiñendo un árbol.
+- **Pendiente relacionado:** Parcela y Camino comparten el mismo tinte de
+  reserva por la misma vía. Se dejan como estaban a la espera de decidir qué
+  debe pasar con el césped de la parcela, que sí es vegetación.
+
+### La escalerilla de la piscina se leía como una «H»
+
+- **Síntoma:** la escalerilla de la piscina (v2.41.0) parecía una «H» flotando
+  dentro del vaso, no una escalera.
+- **Causa:** sus largueros iban paralelos al borde en el que se ancla, en vez
+  de perpendiculares a él.
+- **Fix:** `src/js/garden.js` — `_poolTool` ancla la escalerilla al borde
+  izquierdo del vaso con los largueros perpendiculares, y el agua arranca
+  después de ella para no cruzarla.
+- **Guardia:** las tres aserciones de *"la piscina lleva andén, vaso, agua y
+  escalerilla"* siguen valiendo (el multiset de piezas no cambió); el defecto
+  era de lectura visual y se detectó en la pasada por Chrome, que es donde se
+  juzgan estas cosas.
