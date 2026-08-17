@@ -2491,3 +2491,118 @@ verificada fallando contra su mutación.
   genera ya era minúscula, así que solo cambia el trato a lo importado.
 - **Guardia:** `tests/app-interaction.test.js` › *"«Sustituir un color» no
   distingue mayúsculas"*, verificada fallando sin el `toLowerCase`.
+
+## Auditoría severa v2.39.1
+
+Tres auditores en paralelo (freehand v2.37, guías/orden Z v2.38-39,
+transversal) con repro obligatoria, más una pasada propia. Siete defectos
+confirmados con sonda ejecutada, siete corregidos.
+
+### Alt a mitad de arrastre hacía saltar la selección hacia atrás al soltarlo
+
+- **Síntoma:** arrastrando con Mover, pulsar Alt (el acelerador documentado
+  para suspender el imán) y soltarlo a media pasada hacía que la selección
+  retrocediera de golpe exactamente lo recorrido con Alt pulsado.
+- **Causa:** `alignAdjust` retornaba en la guarda `!alignGuides || altKey`
+  ANTES de acumular `free`, la posición libre del gesto. Los fotogramas con
+  Alt movían con el delta crudo pero `free` no avanzaba; al soltar Alt la
+  corrección se calculaba contra un `free` desfasado.
+- **Fix:** `src/js/app.js` — `free` acumula siempre que hay sesión, también
+  con Alt; los fotogramas suspendidos devuelven la posición libre.
+- **Guardia:** `tests/app-interaction.test.js` › *"Alt a mitad de arrastre
+  suspende el imán sin que el objeto salte atrás al soltarlo"* (sonda del
+  auditor, verificada fallando contra el código previo).
+
+### Imán en un solo eje + snapGrid: el otro eje sin imán Y sin cuadrícula
+
+- **Síntoma:** con «Ajustar a cuadrícula» activo, si la guía imantaba solo la
+  X, la Y se soltaba en un valor libre — ni alineada ni en la rejilla.
+- **Causa:** `alignSession.snapped` era un booleano único y el mouseup
+  saltaba el re-snap de cuadrícula ENTERO cuando el imán había pegado
+  cualquier eje.
+- **Fix:** `src/js/app.js` — `snappedX`/`snappedY` por separado; el mouseup
+  omite la rejilla solo en el eje donde ganó la guía.
+- **Guardia:** `tests/app-interaction.test.js` › *"imán solo en X con
+  snapGrid: la Y libre sí vuelve a la cuadrícula al soltar"*.
+
+### El imán pegaba a la posición fantasma de una flecha anclada
+
+- **Síntoma:** arrastrando un elemento con una flecha anclada a él, la guía
+  aparecía —y la selección se imantaba— sobre una coordenada vacía: la caja
+  que la flecha tenía ANTES de empezar el gesto.
+- **Causa:** los candidatos se congelan al primer fotograma («lo no
+  seleccionado no cambia durante el arrastre»), pero una flecha anclada a lo
+  arrastrado sí cambia: `resolveAnchors` la mueve en cada repintado. En la
+  práctica es parte de lo que se mueve y no debía ser candidata.
+- **Fix:** `src/js/app.js` — al construir los candidatos se excluyen los
+  elementos cuyo `startAnchor`/`endAnchor` apunte al `id` de algo
+  seleccionado, con el mismo criterio con que se excluye la selección.
+- **Guardia:** `tests/app-interaction.test.js` › *"el imán ignora la posición
+  vieja de una flecha anclada que viaja con la selección"*.
+
+### El borrador partía un lápiz con presión donde no había tinta visible
+
+- **Síntoma:** con un trazo `taper` dibujado rápido (tinta real de ~1,4 px de
+  semiancho con grosor nominal 8), una pasada del borrador a 10 px de la
+  tinta —sin tocarla— lo partía en dos, con paso de undo y re-afilado
+  visible de los fragmentos. La inversa exacta de la franja que corrigió la
+  v2.2.0, y una violación de la regla del borrador («lo que se ve, no la
+  caja»).
+- **Causa:** `_splitPencil` clasificaba con el margen nominal
+  `r + lineWidth/2`, pero con presión simulada el semiancho real baja hasta
+  `MIN_W` (35 %) en los tramos rápidos y al 10 % en las puntas.
+- **Fix:** `src/js/eraser.js` + `src/js/freehand.js` — `Freehand.halfWidths`
+  expone el semiancho visible por punto crudo y `_survivingRuns` acepta un
+  margen por muestra (array además de escalar); el corte interpolado usa la
+  media de sus dos extremos. Sin `Freehand` cargado (arnés suelto) se
+  conserva el margen nominal.
+- **Guardia:** `tests/eraser.test.js` › *"el borrador no parte un lápiz con
+  presión donde solo hay grosor nominal, no tinta"* y
+  `tests/freehand.test.js` › *"halfWidths es paralelo a los puntos…"*.
+
+### La envolvente del lápiz con presión rompía su cota con puntos dispersos
+
+- **Síntoma:** un `pencil` importado con puntos espaciados (válido:
+  `isValidElement` no exige densidad) dibujaba tinta a ~9 px del eje contra
+  el que miden bounds, hit-test y el alcance del borrador, rompiendo la cota
+  documentada («el semiancho máximo es lineWidth/2»).
+- **Causa:** el retraso del streamline es proporcional a la separación entre
+  puntos: en una esquina de segmentos largos el eje suavizado se aleja
+  ~0,43 · longitud del segmento del eje crudo.
+- **Fix:** `src/js/freehand.js` — `LAG_MAX` (2 px, el paso de decimación del
+  lápiz) acota el retraso; con los gestos de la app (≤ 2 px entre puntos) no
+  cambia nada.
+- **Guardia:** `tests/freehand.test.js` › *"el suavizado no aleja la tinta
+  del eje crudo más que un tope fijo"*.
+
+### Escalar un grupo vegetal no escalaba su `gardenMeta` y regenerar lo encogía
+
+- **Síntoma:** agrandar una planta (handle de grupo o Ancho/Alto de
+  «Posición y tamaño») y luego «Editar planta» —cambiar especie, vista o
+  etapa— la devolvía en silencio a su tamaño de dibujo original.
+- **Causa:** doble. `scaleElement` no mapeaba `gardenMeta.p1/p2` (al
+  contrario que `moveElement`, que sí los desplaza); y además las piezas
+  encadenadas (`curveArrow`, la mayoría de un árbol) salían por
+  `CurvePath.scale` con un return temprano que se saltaba TODOS los bloques
+  de meta — también `solidMeta.gesture`, el mismo escape latente.
+- **Fix:** `src/js/app.js` — `scaleElement` unifica la salida en `m` (cadena
+  o no) y aplica después los bloques de `solidMeta`/`gardenMeta`; los puntos
+  de inserción escalan con los mismos `mapX`/`mapY` que la pieza.
+- **Guardia:** `tests/app-interaction.test.js` › *"escalar un grupo vegetal
+  escala también su gardenMeta, y regenerar no lo encoge"* (sonda del
+  auditor: fallaba con meta ×1,0 frente a dibujo ×1,6).
+
+### `.panel__zorder[hidden]` existía sin guarda (y el CHANGELOG sin 2.37-2.39)
+
+- **Síntoma:** ninguno en runtime — deuda de guarda y de documentación.
+  Borrar la regla `[hidden]` del SCSS habría dejado los cuatro botones de
+  orden Z visibles sin selección y ningún test lo habría visto; y el
+  CHANGELOG se quedó sin las entradas 2.37.0–2.39.0 (tres versiones
+  publicadas solo en git).
+- **Causa:** la lista de reglas `[hidden]` de `tests/smoke.test.js` no se
+  actualizó al añadir la rejilla en v2.39.0; los tres commits de features
+  actualizaron `package.json` pero no el CHANGELOG.
+- **Fix:** `tests/smoke.test.js` suma `\.panel__zorder\[hidden\]` al bucle;
+  `CHANGELOG.md` repone 2.37.0, 2.38.0 y 2.39.0. La lista de scripts de
+  CLAUDE.md suma `freehand` y `flood`, que faltaban.
+- **Guardia:** la propia regla del bucle de smoke.

@@ -26,6 +26,15 @@ const Freehand = (() => {
      Es el «streamline» de perfect-freehand: mata el dentado del ratón sin
      redondear las esquinas de verdad. */
   const STREAMLINE = 0.3;
+  /* Tope en px del retraso que el streamline puede meter entre el eje crudo
+     y el suavizado (el paso de decimación del lápiz). Sin él, el retraso es
+     proporcional a la separación entre puntos, y un `pencil` importado con
+     puntos dispersos (que isValidElement acepta — la densidad no se exige)
+     dibujaba tinta a ~9 px del eje contra el que miden bounds, hit-test y el
+     borrador (`r + lineWidth/2`), rompiendo la cota documentada arriba. Con
+     la decimación de 2 px de la app el gesto queda por debajo del tope y no
+     cambia nada. */
+  const LAG_MAX = 2;
   /* Fracción del semiancho que conserva el trazo a toda velocidad: 0 aquí
      haría desaparecer los tramos rápidos en vez de afinarlos. */
   const MIN_W = 0.35;
@@ -47,11 +56,19 @@ const Freehand = (() => {
     const half = Math.max(0.5, baseWidth / 2);
     const pts = [];
     let prev = null;
-    for (const p of points) {
-      const q = prev
-        ? { x: prev.x + (p.x - prev.x) * (1 - STREAMLINE),
-            y: prev.y + (p.y - prev.y) * (1 - STREAMLINE) }
-        : { x: p.x, y: p.y };
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      let q;
+      if (!prev) {
+        q = { x: p.x, y: p.y, src: i };
+      } else {
+        // Streamline con el retraso acotado por LAG_MAX: equivale al clásico
+        // prev + (p − prev)·(1 − k), con k recortado para que el suavizado
+        // nunca se aleje del punto crudo más del tope.
+        const dd = Math.hypot(p.x - prev.x, p.y - prev.y);
+        const k = dd > 0 ? Math.min(STREAMLINE, LAG_MAX / dd) : 0;
+        q = { x: p.x - (p.x - prev.x) * k, y: p.y - (p.y - prev.y) * k, src: i };
+      }
       // Puntos clavados (el gesto se detuvo): no aportan dirección y
       // duplicarían el vértice del contorno.
       if (prev && Math.hypot(q.x - prev.x, q.y - prev.y) < 0.05) continue;
@@ -70,7 +87,7 @@ const Freehand = (() => {
       travelled += d;
       const target = 1 - Math.min(1, d / (half * SPEED_SPAN));
       pressure = pressure + (target - pressure) * EASE;
-      out.push({ x: pts[i].x, y: pts[i].y, d: travelled,
+      out.push({ x: pts[i].x, y: pts[i].y, d: travelled, src: pts[i].src,
         r: half * (MIN_W + (1 - MIN_W) * pressure) });
     }
     // Afilado de extremos sobre la longitud recorrida, no sobre el índice:
@@ -110,5 +127,26 @@ const Freehand = (() => {
     return left.concat(right);
   }
 
-  return { outline };
+  /**
+   * Semiancho VISIBLE del trazo en cada punto crudo, en un array paralelo a
+   * `points` (o null si no hay trazo útil). Es lo que necesita el borrador
+   * para no clasificar como tinta el margen entre el grosor nominal y el
+   * real: con presión simulada un tramo rápido baja hasta MIN_W y una punta
+   * al 10 %, y medir con lineWidth/2 partía trazos que el círculo del
+   * borrador nunca tocó. Los puntos clavados que el suavizado descarta
+   * heredan el semiancho del último punto vivo.
+   */
+  function halfWidths(points, baseWidth) {
+    const pts = _strokePoints(points || [], baseWidth || 1);
+    if (pts.length < 2) return null;
+    const out = new Array(points.length);
+    let j = 0, last = pts[0].r;
+    for (let i = 0; i < points.length; i++) {
+      while (j < pts.length && pts[j].src <= i) { last = pts[j].r; j++; }
+      out[i] = last;
+    }
+    return out;
+  }
+
+  return { outline, halfWidths };
 })();

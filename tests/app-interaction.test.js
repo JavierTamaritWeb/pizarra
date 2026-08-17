@@ -4527,6 +4527,81 @@ test('el imán de alineación pega el arrastre al borde del vecino, y apagado no
   assert.equal(els[1].y, 106);
 });
 
+test('Alt a mitad de arrastre suspende el imán sin que el objeto salte atrás al soltarlo', () => {
+  // `free` tiene que acumular TAMBIÉN en los fotogramas con Alt: si no, al
+  // soltar Alt la corrección se mide contra un free desfasado y la selección
+  // retrocede justo lo recorrido con Alt pulsado (auditoría v2.39.1).
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 180, 160);   // vecino lejano (no imanta en esta ruta)
+  app.drag(300, 300, 380, 360);   // el que se arrastra
+  app.selectTool('select');
+  app.click(340, 330);
+
+  const canvas = app.$('main-canvas');
+  const fire = (type, x, y, o = {}) =>
+    canvas.__fire(type, { clientX: x, clientY: y, pointerId: 1, button: 0, ...o });
+  fire('pointerdown', 340, 330);
+  fire('pointermove', 360, 330, { buttons: 1 });                 // +20 sin Alt
+  fire('pointermove', 420, 330, { buttons: 1, altKey: true });   // +60 con Alt
+  fire('pointermove', 421, 330, { buttons: 1 });                 // +1 ya sin Alt
+  fire('pointerup', 421, 330);
+  app.flush();
+
+  const B = app.elements()[1];
+  assert.ok(Math.abs(B.x - 381) <= 5,
+    `el puntero acabó 81 px a la derecha y B quedó en x=${B.x} (esperado ~381)`);
+});
+
+test('imán solo en X con snapGrid: la Y libre sí vuelve a la cuadrícula al soltar', () => {
+  // La guía gana a la rejilla SOLO en su eje: con un flag único, el eje donde
+  // el imán no pegó nada se quedaba sin imán Y sin cuadrícula a la vez.
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 180, 160);   // vecino: líneas x en 100/140/180
+  app.drag(300, 300, 380, 360);
+  const snap = app.$('check-snap');
+  snap.checked = true; snap.__fire('change', { target: snap });
+  app.flush();
+
+  // Suelta con el borde izquierdo a 3 px de x=100 (imán → 100) y la Y en 253,
+  // lejos de toda línea del vecino (la rejilla debe llevarla a 260).
+  app.selectTool('select');
+  app.drag(340, 330, 143, 283);
+  const B = app.elements()[1];
+  assert.equal(B.x, 100, 'X imantada al borde del vecino');
+  assert.equal(B.y % 20, 0,
+    `la Y debía volver a la cuadrícula y quedó en ${B.y}`);
+});
+
+test('el imán ignora la posición vieja de una flecha anclada que viaja con la selección', () => {
+  // Los candidatos se congelan al primer fotograma, pero una flecha anclada a
+  // lo arrastrado se mueve con ello (resolveAnchors): sus líneas iniciales
+  // eran candidatas fantasma y el imán clavaba la selección sobre aire vacío.
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 180, 160);   // rect A
+  app.selectTool('arrow');
+  app.drag(600, 400, 500, 300);   // flecha suelta
+  app.selectTool('select');
+  app.click(550, 350);            // selecciona la flecha
+  app.drag(500, 300, 140, 130);   // ancla su punta dentro de A
+  let els = app.elements();
+  assert.ok(els[1].endAnchor, 'prerrequisito: la punta quedó anclada a A');
+
+  app.click(120, 115);            // selecciona solo A
+  els = app.elements();
+  const a1 = els[1];
+  const oldCenterX = (Math.min(a1.x1, a1.x2) + Math.max(a1.x1, a1.x2)) / 2;
+  // Arrastra A hasta dejar su borde izquierdo a 3 px del centro-x VIEJO de la
+  // flecha: sin candidatos fantasma, A se queda en la posición libre.
+  const dx = (oldCenterX - 3) - 100;
+  app.drag(120, 115, 120 + dx, 115);
+  els = app.elements();
+  assert.equal(els[0].x, oldCenterX - 3,
+    `A debía quedarse libre en ${oldCenterX - 3} y quedó en ${els[0].x}`);
+});
+
 /* ── Orden Z: traer al frente / enviar al fondo (v2.39.0) ──────── */
 
 test('el orden Z se cambia por pasos y a los extremos, sin undo fantasma en el tope', () => {
@@ -4585,4 +4660,63 @@ test('reordenar un edificio lo mueve como bloque contiguo y con su orden interno
     grupo.map(el => [el.type, el.x, el.y]),
     before.filter(el => el.buildingGroupId === gid).map(el => [el.type, el.x, el.y]),
     'y conserva su orden interno pieza a pieza');
+});
+
+/* ── gardenMeta sigue al escalado (v2.39.1) ─────────────────────── */
+
+test('escalar un grupo vegetal escala también su gardenMeta, y regenerar no lo encoge', () => {
+  // scaleElement no mapeaba gardenMeta.p1/p2 (moveElement sí los desplaza), y
+  // además las piezas encadenadas (curveArrow) salían por CurvePath.scale con
+  // un return temprano que se saltaba TODAS las fichas de regeneración: tras
+  // agrandar una planta, «Editar planta» la devolvía en silencio a su tamaño
+  // de dibujo original (auditoría v2.39.1).
+  const app = loadApp();
+  app.selectTool('arbol');
+  app.drag(200, 200, 300, 300);
+  const bboxOf = els => {
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    const acc = (x, y) => {
+      x0 = Math.min(x0, x); y0 = Math.min(y0, y);
+      x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+    };
+    els.forEach(el => {
+      if (el.points) el.points.forEach(p => acc(p.x, p.y));
+      else if (el.x1 !== undefined) { acc(el.x1, el.y1); acc(el.x2, el.y2); }
+      else if (el.w !== undefined) { acc(el.x, el.y); acc(el.x + el.w, el.y + el.h); }
+      else acc(el.x || 0, el.y || 0);
+    });
+    return { w: x1 - x0, h: y1 - y0 };
+  };
+  const b0 = bboxOf(app.elements());
+
+  app.selectTool('select');
+  app.click(250, 250);
+  app.flush();
+  const wField = app.$('el-w');
+  wField.value = String(Math.round(b0.w * 2));
+  wField.__fire('change', { target: wField });
+  app.flush();
+
+  const scaled = app.elements();
+  const b1 = bboxOf(scaled);
+  const meta = scaled[0].gardenMeta;
+  assert.ok(b1.w > b0.w * 1.4, 'prerrequisito: el grupo se agrandó de verdad');
+  // La meta escala con el mismo factor que el dibujo (todas las piezas la
+  // llevan idéntica, cadenas incluidas).
+  const fMeta = (meta.p2.x - meta.p1.x) / 100;
+  const fBox = b1.w / b0.w;
+  assert.ok(Math.abs(fMeta - fBox) < 0.02,
+    `el gesto de la ficha escala como el dibujo (meta ×${fMeta.toFixed(3)}, bbox ×${fBox.toFixed(3)})`);
+  assert.ok(scaled.every(el => !el.gardenMeta ||
+    (el.gardenMeta.p1.x === meta.p1.x && el.gardenMeta.p2.x === meta.p2.x)),
+  'todas las piezas comparten la misma ficha escalada');
+
+  // Regenerar la MISMA especie parte del gesto escalado, no del original.
+  const btn = app.$('btn-edit-garden');
+  btn.__fire('click', { target: btn });
+  app.flush();
+  app.pickVariant('tree-catalog', 'modal__tree', 'broadleaf', 'tree');
+  const b2 = bboxOf(app.elements());
+  assert.ok(b2.w > b1.w * 0.7,
+    `regenerar no debe encoger la planta al tamaño original (quedó en ${b2.w.toFixed(0)}px de ${b1.w.toFixed(0)}px)`);
 });

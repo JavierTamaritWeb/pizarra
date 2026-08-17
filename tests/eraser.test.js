@@ -629,3 +629,26 @@ test('el aerógrafo con área no deja trozos invisibles al partirse', () => {
   const sinDep = Eraser.erase([el], paso, 6, DEPS);
   assert.ok(sinDep.length >= tras.length);
 });
+
+test('el borrador no parte un lápiz con presión donde solo hay grosor nominal, no tinta', () => {
+  // Con `taper` la tinta real es más estrecha que lineWidth/2 (MIN_W en los
+  // tramos rápidos, 10 % en las puntas): clasificar con el margen nominal
+  // partía trazos que el círculo nunca tocó — la inversa de la franja que
+  // corrigió la v2.2.0 (auditoría v2.39.1). El semiancho local sale de
+  // Freehand, cargado por loadAll igual que en el navegador.
+  const points = [];
+  for (let i = 0; i <= 10; i++) points.push({ x: 100 + i * 20, y: 200 });
+  const el = { type: 'pencil', points, color: '#000', lineWidth: 8, taper: true, seed: 1 };
+  // Pasada r=8 paralela a 11,5 px del eje: dentro del margen nominal (12),
+  // fuera de la tinta real (~1,4 px de semiancho a esta velocidad).
+  const roce = [];
+  for (let i = 0; i <= 10; i++) roce.push({ x: 100 + i * 20, y: 211.5 });
+  const out = ctx.Eraser.erase([el], roce, 8, {});
+  assert.equal(out.length, 1);
+  assert.equal(out[0], el, 'intacto POR REFERENCIA: ni corte ni undo fantasma');
+  // Y una pasada que sí cruza el trazo lo parte, conservando `taper`.
+  const cruce = [{ x: 200, y: 150 }, { x: 200, y: 250 }];
+  const partido = ctx.Eraser.erase([el], cruce, 8, {});
+  assert.ok(partido.length >= 2, 'cruzar el trazo sí lo parte');
+  assert.ok(partido.every(p => p.taper === true), 'los trozos conservan la presión');
+});

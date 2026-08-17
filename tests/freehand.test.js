@@ -122,3 +122,39 @@ test('el SVG de un lápiz con presión es un polígono relleno, no una polilíne
   const out = ctx.URL.blobs[ctx.URL.blobs.length - 1].content;
   assert.ok(/stroke="#4361ee"/.test(out) && !/fill="#4361ee"/.test(out));
 });
+
+test('el suavizado no aleja la tinta del eje crudo más que un tope fijo', () => {
+  // Un `pencil` importado puede traer puntos dispersos (isValidElement no
+  // exige densidad), y el retraso del streamline era proporcional a la
+  // separación: en una esquina de segmentos largos la tinta quedaba a ~9 px
+  // del eje contra el que miden bounds, hit-test y el borrador (auditoría
+  // v2.39.1). LAG_MAX lo acota: contorno ≤ lineWidth/2 + tope del eje crudo.
+  const Freehand = F();
+  const eje = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }];
+  const lw = 4;
+  const poly = Freehand.outline(eje, lw);
+  const dSeg = (p, a, b) => {
+    const vx = b.x - a.x, vy = b.y - a.y;
+    const t = Math.max(0, Math.min(1,
+      ((p.x - a.x) * vx + (p.y - a.y) * vy) / (vx * vx + vy * vy)));
+    return Math.hypot(p.x - (a.x + vx * t), p.y - (a.y + vy * t));
+  };
+  const desv = Math.max(...poly.map(p =>
+    Math.min(dSeg(p, eje[0], eje[1]), dSeg(p, eje[1], eje[2]))));
+  assert.ok(desv <= lw / 2 + 2 + 0.5,
+    `el contorno se aleja ${desv.toFixed(2)} px del eje crudo (tope: ${lw / 2 + 2})`);
+});
+
+test('halfWidths es paralelo a los puntos, acotado, y más fino donde el gesto corre', () => {
+  const Freehand = F();
+  const pts = gesto();
+  const halfs = Freehand.halfWidths(pts, 6);
+  assert.equal(halfs.length, pts.length, 'un semiancho por punto crudo');
+  assert.ok(halfs.every(h => h > 0 && h <= 3 + 1e-9), 'acotado por lineWidth/2');
+  // El gesto acelera hacia el final: el tramo rápido es más fino que el lento.
+  const lento = halfs[Math.floor(pts.length * 0.3)];
+  const rapido = halfs[pts.length - 3];
+  assert.ok(rapido < lento, `rápido (${rapido.toFixed(2)}) < lento (${lento.toFixed(2)})`);
+  // Sin trazo útil no hay semianchos.
+  assert.equal(Freehand.halfWidths([{ x: 1, y: 1 }], 6), null);
+});

@@ -562,23 +562,44 @@
 
   function alignAdjust(dx, dy, altKey) {
     state.alignGuideLines = null;
-    if (!state.alignGuides || altKey) return { dx, dy };
+    if (!state.alignGuides) return { dx, dy };
     const box = selectionBounds();
     if (!box) return { dx, dy };
     let s = state.alignSession;
     if (!s) {
       const selSet = new Set(state.selection);
+      // Una flecha anclada a lo seleccionado viaja CON la selección
+      // (resolveAnchors la recoloca en cada repintado), así que sus bordes
+      // del primer fotograma serían candidatos fantasma: el imán clavaría
+      // la selección sobre una coordenada donde ya no queda nada.
+      const selIds = new Set();
+      state.selection.forEach(i => {
+        const id = state.elements[i] && state.elements[i].id;
+        if (id) selIds.add(id);
+      });
+      const anchored = el =>
+        (el.startAnchor && selIds.has(el.startAnchor.id)) ||
+        (el.endAnchor && selIds.has(el.endAnchor.id));
       const xs = [], ys = [];
       state.elements.forEach((el, i) => {
-        if (selSet.has(i)) return;
+        if (selSet.has(i) || anchored(el)) return;
         const b = getElementBounds(el);
         if (!Number.isFinite(b.x) || !Number.isFinite(b.w)) return;
         xs.push(b.x, b.x + b.w / 2, b.x + b.w);
         ys.push(b.y, b.y + b.h / 2, b.y + b.h);
       });
-      s = state.alignSession = { free: { x: box.x, y: box.y }, xs, ys, snapped: false };
+      s = state.alignSession = { free: { x: box.x, y: box.y }, xs, ys,
+        snappedX: false, snappedY: false };
     }
+    // `free` acumula SIEMPRE, también con Alt: si los fotogramas suspendidos
+    // no avanzaran la posición libre, al soltar Alt la corrección se mediría
+    // contra un `free` desfasado y la selección saltaría hacia atrás justo
+    // lo recorrido con Alt pulsado.
     s.free.x += dx; s.free.y += dy;
+    if (altKey) {
+      s.snappedX = s.snappedY = false;
+      return { dx: s.free.x - box.x, dy: s.free.y - box.y };
+    }
     const best = (edges, targets) => {
       let corr = null, hit = null;
       for (const edge of edges) {
@@ -593,7 +614,11 @@
     };
     const bx = best([s.free.x, s.free.x + box.w / 2, s.free.x + box.w], s.xs);
     const by = best([s.free.y, s.free.y + box.h / 2, s.free.y + box.h], s.ys);
-    s.snapped = bx.hit !== null || by.hit !== null;
+    // Por eje, no un booleano único: si el imán pegó solo la X, la Y sigue
+    // siendo un valor libre y la cuadrícula del mouseup aún tiene que
+    // atenderla — con un solo flag ese eje se quedaba sin imán Y sin rejilla.
+    s.snappedX = bx.hit !== null;
+    s.snappedY = by.hit !== null;
     const lines = [];
     if (bx.hit !== null) lines.push({ axis: 'x', pos: bx.hit });
     if (by.hit !== null) lines.push({ axis: 'y', pos: by.hit });
@@ -2261,29 +2286,46 @@
     const sy = from.h ? to.h / from.h : 1;
     const mapX = v => to.x + (v - from.x) * sx;
     const mapY = v => to.y + (v - from.y) * sy;
+    // Las cadenas salen por CurvePath, pero NO con un return temprano: las
+    // fichas de regeneración (solidMeta/gardenMeta) de abajo también viajan
+    // en piezas encadenadas — un árbol es sobre todo curvas —, y saltárselas
+    // dejaba la meta de esas piezas sin escalar (auditoría v2.39.1).
+    let m;
     if (el.type === 'curveArrow' && CurvePath.isChain(el)) {
-      return CurvePath.scale(el, mapX, mapY);
-    }
-    const m = { ...el };
-    if (m.points) {
-      m.points = m.points.map(p => ({ x: mapX(p.x), y: mapY(p.y) }));
-    } else if (m.x1 !== undefined) {
-      m.x1 = mapX(m.x1); m.y1 = mapY(m.y1);
-      m.x2 = mapX(m.x2); m.y2 = mapY(m.y2);
-      if (m.cx !== undefined) { m.cx = mapX(m.cx); m.cy = mapY(m.cy); }
-      if (m.cx2 !== undefined) { m.cx2 = mapX(m.cx2); m.cy2 = mapY(m.cy2); }
-    } else if (m.type === 'text') {
-      m.x = mapX(el.x); m.y = mapY(el.y);
-      m.fontSize = Math.max(8, Math.round(m.fontSize * sy));
+      m = CurvePath.scale(el, mapX, mapY);
     } else {
-      m.x = mapX(el.x); m.y = mapY(el.y);
-      m.w = el.w * sx; m.h = el.h * sy;
+      m = { ...el };
+      if (m.points) {
+        m.points = m.points.map(p => ({ x: mapX(p.x), y: mapY(p.y) }));
+      } else if (m.x1 !== undefined) {
+        m.x1 = mapX(m.x1); m.y1 = mapY(m.y1);
+        m.x2 = mapX(m.x2); m.y2 = mapY(m.y2);
+        if (m.cx !== undefined) { m.cx = mapX(m.cx); m.cy = mapY(m.cy); }
+        if (m.cx2 !== undefined) { m.cx2 = mapX(m.cx2); m.cy2 = mapY(m.cy2); }
+      } else if (m.type === 'text') {
+        m.x = mapX(el.x); m.y = mapY(el.y);
+        m.fontSize = Math.max(8, Math.round(m.fontSize * sy));
+      } else {
+        m.x = mapX(el.x); m.y = mapY(el.y);
+        m.w = el.w * sx; m.h = el.h * sy;
+      }
     }
     if (m.solidMeta && m.solidMeta.gesture) {
       const g = m.solidMeta.gesture;
       m.solidMeta = {
         ...m.solidMeta,
         gesture: { x1: mapX(g.x1), y1: mapY(g.y1), x2: mapX(g.x2), y2: mapY(g.y2) },
+      };
+    }
+    // Los puntos de inserción botánicos escalan con la pieza, igual que se
+    // desplazan en moveElement: sin esto, «Editar planta» sobre un grupo ya
+    // escalado regeneraba con el gesto original y la planta ENCOGÍA en
+    // silencio a su tamaño de dibujo (auditoría v2.39.1).
+    if (m.gardenMeta) {
+      m.gardenMeta = {
+        ...m.gardenMeta,
+        p1: { x: mapX(m.gardenMeta.p1.x), y: mapY(m.gardenMeta.p1.y) },
+        p2: { x: mapX(m.gardenMeta.p2.x), y: mapY(m.gardenMeta.p2.y) },
       };
     }
     if (m.type === 'airbrush') {
@@ -3363,12 +3405,13 @@
         // Snap al soltar: se alinea el primer elemento y el resto conserva
         // sus distancias relativas. Si el imán de alineación acaba de pegar
         // la selección a otro elemento, GANA la guía (es más específica que
-        // la cuadrícula): re-snapear aquí desharía justo esa alineación.
-        if (state.snapGrid && !e.altKey &&
-            !(state.alignSession && state.alignSession.snapped)) {
+        // la cuadrícula) — pero solo EN SU EJE: el otro sigue libre y la
+        // rejilla aún tiene que atenderlo, o quedaría sin imán y sin snap.
+        if (state.snapGrid && !e.altKey) {
+          const al = state.alignSession;
           const b = getElementBounds(state.elements[state.selection[0]]);
-          const dx = snapVal(b.x) - b.x;
-          const dy = snapVal(b.y) - b.y;
+          const dx = (al && al.snappedX) ? 0 : snapVal(b.x) - b.x;
+          const dy = (al && al.snappedY) ? 0 : snapVal(b.y) - b.y;
           if (dx || dy) {
             state.selection.forEach(i => {
               state.elements[i] = moveElement(state.elements[i], dx, dy);

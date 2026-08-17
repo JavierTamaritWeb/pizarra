@@ -300,24 +300,31 @@ const Eraser = (function () {
    */
   function _survivingRuns(points, segs, r, memo) {
     if (!points || points.length < 2) return [];
+    // `r` puede ser un escalar o un array paralelo a `points` (el lápiz con
+    // presión simulada tiene semiancho DISTINTO en cada punto): el margen se
+    // resuelve por muestra, y el corte interpolado usa la media de sus dos
+    // extremos — la frontera exacta varía a lo largo del segmento y la
+    // bisección solo necesita un valor coherente con la clasificación.
+    const rAt = Array.isArray(r) ? i => r[i] : () => r;
     let erased;
     if (memo && memo.erased && memo.erased.length === points.length) {
       erased = memo.erased;
       const nuevos = segs.slice(memo.nSegs || 0);
       if (nuevos.length) {
         for (let i = 0; i < points.length; i++) {
-          if (!erased[i] && _erasedAt(points[i], nuevos, r)) erased[i] = true;
+          if (!erased[i] && _erasedAt(points[i], nuevos, rAt(i))) erased[i] = true;
         }
       }
     } else {
-      erased = points.map(p => _erasedAt(p, segs, r));
+      erased = points.map((p, i) => _erasedAt(p, segs, rAt(i)));
     }
     if (memo) { memo.erased = erased; memo.nSegs = segs.length; }
     const runs = [];
     let current = erased[0] ? [] : [points[0]];
     for (let i = 0; i < points.length - 1; i++) {
       if (erased[i] !== erased[i + 1]) {
-        const cross = _crossing(points[i], points[i + 1], segs, r, erased[i]);
+        const cross = _crossing(points[i], points[i + 1], segs,
+          (rAt(i) + rAt(i + 1)) / 2, erased[i]);
         if (erased[i]) {
           current = [cross]; // empieza un tramo nuevo justo al salir del área borrada
         } else {
@@ -404,8 +411,24 @@ const Eraser = (function () {
   /** Recorta un `pencil` contra el trazo del borrador: un hueco en medio del
       trazo lo parte en varios `pencil` independientes. */
   function _splitPencil(el, segs, r, memo) {
-    const w = r + (el.lineWidth || 1) / 2; // mismo margen de tinta que `touches`
     const pts = el.points;
+    let w = r + (el.lineWidth || 1) / 2; // mismo margen de tinta que `touches`
+    // Con presión simulada la tinta real es más estrecha que el grosor
+    // nominal (hasta MIN_W en los tramos rápidos y el 10 % en las puntas):
+    // clasificar con el margen nominal partía trazos que el círculo del
+    // borrador nunca tocó — la inversa exacta de la franja que corrigió la
+    // v2.2.0. El semiancho local sale de Freehand, un módulo puro hermano
+    // que carga antes (mismo trato que renderer/exporter le dan); el typeof
+    // cubre un arnés que cargue el borrador suelto, donde se conserva el
+    // margen nominal de siempre.
+    if (el.taper === true && typeof Freehand !== 'undefined' && Freehand.halfWidths) {
+      let halfs = memo && memo.halfs;
+      if (!halfs) {
+        halfs = Freehand.halfWidths(pts, el.lineWidth);
+        if (memo && halfs) memo.halfs = halfs;
+      }
+      if (halfs && halfs.length === pts.length) w = halfs.map(h => r + h);
+    }
     const runs = _survivingRuns(pts, segs, w, memo);
     // Roce sin mordisco: intacto por referencia (ver _splitLine).
     if (runs.length === 1 &&

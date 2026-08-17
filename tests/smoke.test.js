@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.39.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.39.1 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.39\.0</);
-  assert.match(html, /css\/styles\.css\?v=2\.39\.0/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.39\.0/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.39\.0/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.39\.0/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.39\.0/);
+  assert.match(html, /class="topbar__badge">v2\.39\.1</);
+  assert.match(html, /css\/styles\.css\?v=2\.39\.1/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.39\.1/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.39\.1/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.39\.1/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.39\.1/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -64,8 +64,8 @@ test('index publica v2.39.0 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="modal-pyramid"/);
   assert.match(html, /id="modal-frustum"/);
   assert.match(html, /id="modal-sphere"/);
-  assert.match(html, /src\/js\/solid\.js\?v=2\.39\.0/);
-  assert.match(html, /src\/js\/airbrush\.js\?v=2\.39\.0/);
+  assert.match(html, /src\/js\/solid\.js\?v=2\.39\.1/);
+  assert.match(html, /src\/js\/airbrush\.js\?v=2\.39\.1/);
   // «Los clics acumulan selección» dejó el panel en la v2.17.0 y es el ajuste
   // de «Select». Si volviera a existir la casilla vieja habría dos controles
   // para un mismo estado, y solo uno cableado: el arnés `node:vm` fabrica un
@@ -172,7 +172,7 @@ test('el panel tiene sus secciones contextuales y el CSS que las oculta', () => 
   const hiddenRule = /\{\s*display:\s*none/;
   for (const sel of ['\\.panel__section\\[hidden\\]', '\\.panel__check\\[hidden\\]',
     '\\.panel__field\\[hidden\\]', '\\.panel__gear\\[hidden\\]',
-    '\\.panel__canvas-colors\\[hidden\\]']) {
+    '\\.panel__zorder\\[hidden\\]', '\\.panel__canvas-colors\\[hidden\\]']) {
     assert.match(css, new RegExp(sel + '[^{]*' + hiddenRule.source),
       `sin ${sel.replace(/\\/g, '')} el atributo hidden no oculta nada`);
   }

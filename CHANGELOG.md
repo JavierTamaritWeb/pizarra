@@ -4,6 +4,65 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.39.1] — 2026-08-17
+
+Auditoría severa de errores: tres auditores en paralelo por zonas (presión
+simulada v2.37, guías y orden Z v2.38-39, transversal) más una pasada propia,
+cada hallazgo reproducido con sonda antes de arreglarlo y con su entrada y
+guarda en `BUGS.md`. Siete defectos corregidos.
+
+### Arreglado
+
+- **Alt a mitad de arrastre hacía saltar la selección hacia atrás al
+  soltarlo**: la posición libre del imán no acumulaba durante los fotogramas
+  suspendidos. Ahora acumula siempre.
+- **Con imán en un solo eje y «Ajustar a cuadrícula», el otro eje se quedaba
+  sin imán y sin rejilla**: la marca de imantado pasa a ser por eje, y la
+  cuadrícula solo cede en el eje donde ganó la guía.
+- **El imán pegaba a la posición fantasma de una flecha anclada** que viajaba
+  con la selección: los elementos anclados a lo seleccionado ya no son
+  candidatos.
+- **El borrador partía un lápiz con presión donde no había tinta visible**:
+  ahora clasifica con el semiancho real de cada punto (`Freehand.halfWidths`),
+  no con el grosor nominal.
+- **La envolvente del lápiz con presión se alejaba hasta 9 px del eje** con
+  puntos dispersos importados: el retraso del suavizado queda acotado a 2 px.
+- **Escalar un grupo vegetal no escalaba su ficha botánica** y «Editar
+  planta» lo devolvía al tamaño original; las piezas encadenadas además se
+  saltaban todas las fichas de regeneración al escalar.
+- **Deuda de guardas y documentación**: la regla `.panel__zorder[hidden]`
+  entra en el bucle de smoke, y el CHANGELOG repone las entradas 2.37-2.39.
+
+## [2.39.0] — 2026-08-16
+
+### Añadido
+
+- **Orden Z de la selección**, la idea de Excalidraw: al frente, adelantar,
+  retrasar y al fondo, con la rejilla 2×2 en «Elementos» y los atajos
+  Ctrl/Cmd+↑/↓ (con Shift, a los extremos — flechas y no corchetes: en el
+  teclado español `[`/`]` exigen AltGr). La selección se mueve como bloque
+  contiguo y en el tope no apila undo fantasma.
+
+## [2.38.0] — 2026-08-16
+
+### Añadido
+
+- **Guías de alineación al arrastrar**, al estilo Excalidraw: los bordes y
+  centros de la selección se imantan (5 px) a los de los demás elementos y
+  una guía discontinua enseña con quién. Mando «Guías de alineación» en los
+  ajustes de selección (persistido, activo de fábrica); Alt lo suspende en
+  caliente. Si el imán pega, la cuadrícula no re-snapea al soltar.
+
+## [2.37.0] — 2026-08-16
+
+### Añadido
+
+- **Lápiz con presión simulada** («Trazo con presión», en los ajustes de
+  trazo), la idea de perfect-freehand: el grosor sigue a la velocidad del
+  gesto —rápido fino, lento grueso— y las puntas se afilan. Campo opcional
+  `taper` en el `pencil` (la ausencia es el lápiz clásico), envolvente
+  acotada por el grosor nominal y export SVG como polígono relleno.
+
 ## [2.36.0] — 2026-08-16
 
 ### Cambiado
