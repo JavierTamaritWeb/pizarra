@@ -3732,9 +3732,62 @@ test('«Limpiar todo» devuelve TODOS los ajustes a los de fábrica, no solo uno
   assert.equal(app.$('modal-stroke').open, false,
     'volver al Lápiz al limpiar no puede abrir un modal que nadie pidió');
   const despues = fotoDeAjustes(app);
-  const supervivientes = Object.keys(fabrica).filter(k => String(fabrica[k]) !== String(despues[k]));
+  // El ASPECTO del lienzo es la excepción deliberada (v3.0.0): papel, color de
+  // rejilla y si se ve sobreviven al borrado, porque describen la mesa de
+  // trabajo y no el dibujo. Todo lo demás vuelve a fábrica.
+  const ASPECTO = ['cuadricula', 'fondo', 'rejilla'];
+  const supervivientes = Object.keys(fabrica)
+    .filter(k => !ASPECTO.includes(k))
+    .filter(k => String(fabrica[k]) !== String(despues[k]));
   assert.deepEqual(supervivientes, [],
     'estos ajustes sobrevivieron a «Limpiar todo» en vez de volver a fábrica');
+  for (const k of ASPECTO) {
+    assert.notEqual(String(despues[k]), String(fabrica[k]),
+      `«${k}» es aspecto del lienzo: «Limpiar todo» debe respetarlo, no resetearlo`);
+  }
+});
+
+/* ── «Limpiar todo» respeta el aspecto del lienzo (v3.0.0) ──
+   El botón vacía el dibujo y devuelve los ajustes a fábrica, pero el papel no
+   es un ajuste de dibujo: es cómo está puesta la mesa. Volver al azul de
+   fábrica en cada limpieza obligaba a recomponer «Pizarra» o «Blanco» a mano,
+   y el camino de vuelta son dos códigos de color que no aparecen en ninguna
+   parte de la interfaz. */
+test('«Limpiar todo» conserva el aspecto del lienzo, y lo deja guardado', () => {
+  const app = loadApp();
+  const poner = (id, valor) => {
+    const e = app.$(id);
+    e.value = String(valor);
+    e.__fire('input', { target: e });
+    e.__fire('change', { target: e });
+    app.flush();
+  };
+  // «Pizarra»: papel oscuro, rejilla verdosa, con cuadrícula.
+  poner('canvas-bg-picker', '#1f2b2a');
+  poner('grid-color-picker', '#4e6b66');
+
+  app.selectTool('rect');
+  app.$('modal-shape').close();
+  app.flush();
+  app.drag(100, 100, 300, 300);
+  app.flush();
+  assert.ok(app.elements().length > 0);
+
+  app.$('btn-clear').__fire('click', { target: app.$('btn-clear') });
+  app.flush();
+
+  assert.deepEqual(app.elements(), [], 'el dibujo sí se vacía');
+  assert.equal(app.$('canvas-bg-picker').value, '#1f2b2a', 'el papel se queda');
+  assert.equal(app.$('grid-color-picker').value, '#4e6b66', 'y el color de la rejilla');
+
+  // Y sobrevive a la recarga: el botón borra la clave de prefs, así que el
+  // aspecto conservado tiene que quedar reescrito en el acto o volvería al de
+  // fábrica por el camino largo.
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.canvasBg, '#1f2b2a');
+  assert.equal(prefs.gridColor, '#4e6b66');
+  const app2 = loadApp({ prefs });
+  assert.equal(app2.$('canvas-bg-picker').value, '#1f2b2a');
 });
 
 test('tras «Limpiar todo», el siguiente guardado no resucita los ajustes borrados', () => {

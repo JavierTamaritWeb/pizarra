@@ -590,7 +590,20 @@ no volver a separar:
   sería un modal que nadie pidió — el mismo motivo por el que las cuatro
   activaciones automáticas de Mover pasan ese flag.
 
-Lo único que **no** vuelve a un valor fijo es el zoom, que re-ejecuta el
+**El ASPECTO del lienzo es la excepción deliberada (v3.0.0): papel, color de
+rejilla y `showGrid` sobreviven al borrado.** No describen el dibujo sino la
+mesa de trabajo, y el camino de vuelta a «Pizarra» o «Blanco» son dos códigos de
+color que no aparecen en ninguna parte de la interfaz: resetearlos obligaba a
+recomponer el aspecto a mano después de cada limpieza. Se conservan copiando los
+tres campos **antes** del `Object.assign` y reponiéndolos detrás de
+`appDefaults()`, y se **reescriben en prefs en el acto** (`savePrefs()` justo
+después del `removeItem`) en vez de confiar en que otro mando guarde más tarde
+— si no, el aspecto conservado moriría en la siguiente recarga. Guardado por
+*«Limpiar todo» conserva el aspecto del lienzo, y lo deja guardado*, y la guarda
+grande exceptúa esos tres mandos **exigiendo** que sobrevivan, para que nadie
+los devuelva a fábrica sin enterarse.
+
+Lo único que además **no** vuelve a un valor fijo es el zoom, que re-ejecuta el
 auto-ajuste (`zoomManual = false` + `fitZoomToViewport()`, la pareja que corre
 `init()`): forzar el 100 % encogía el lienzo y dejaba el auto-ajuste apagado el
 resto de la sesión (ver `BUGS.md`). Guardado por *«Limpiar todo» devuelve TODOS
@@ -599,13 +612,13 @@ contra un arranque limpio.
 
 ### Canvas background / grid color
 
-`state.canvasBg` and `state.gridColor` (defaults `DEFAULT_CANVAS_BG`/`DEFAULT_GRID_COLOR` in app.js) are cosmetic prefs, not part of `state.elements` — they persist to their own `localStorage` key (`sketchwire.prefs`, via `savePrefs`/`restorePrefs`) separately from the autosave, and are not undo-tracked (same treatment as `state.zoom`/`showGrid`). `Renderer.drawGrid(ctx, w, h, color)` takes a single base color and varies only `globalAlpha` for the minor vs. major grid lines, rather than two hardcoded colors. "Limpiar todo" resets them and re-runs the zoom auto-fit (`zoomManual = false` + `fitZoomToViewport()` — the same pair `init()` runs), in addition to clearing elements: the button promises the app as freshly opened, and there the canvas fills the available space. Forcing 100% and setting `zoomManual` instead — the original behaviour — both shrank the canvas and disabled the auto-fit for the rest of the session (see `BUGS.md`).
+`state.canvasBg` and `state.gridColor` (defaults `DEFAULT_CANVAS_BG`/`DEFAULT_GRID_COLOR` in app.js) are cosmetic prefs, not part of `state.elements` — they persist to their own `localStorage` key (`sketchwire.prefs`, via `savePrefs`/`restorePrefs`) separately from the autosave, and are not undo-tracked (same treatment as `state.zoom`/`showGrid`). `Renderer.drawGrid(ctx, w, h, color)` takes a single base color and varies only `globalAlpha` for the minor vs. major grid lines, rather than two hardcoded colors. "Limpiar todo" **keeps them** (v3.0.0 — see the section above) and re-runs the zoom auto-fit (`zoomManual = false` + `fitZoomToViewport()` — the same pair `init()` runs), in addition to clearing elements: the button promises the app as freshly opened, and there the canvas fills the available space. Forcing 100% and setting `zoomManual` instead — the original behaviour — both shrank the canvas and disabled the auto-fit for the rest of the session (see `BUGS.md`).
 
 **Since v2.31.0 the aspect is one click: `CANVAS_PRESETS` (config.js) and the row of swatches at the top of «Lienzo».** Each preset sets the three fields at once — paper, grid colour and grid on/off — because composing them by hand was three gestures, two of them inside the system's colour dialog, and the way *back* meant remembering two hex codes written nowhere in the interface: whoever turned the canvas white could not return. Five entries (Plano, Blanco, Milimetrado, Crema, Pizarra), `buildCanvasPresets`/`applyCanvasPreset`/`updateCanvasPresetActive` in app.js, mirroring the `buildColorGrid`/`applyColor`/`updateColorActive` trio. Six things to keep:
 
 - **A preset never touches the ink.** It describes the paper; the drawing colour is another control. Accepted consequence: on «Pizarra» you must pick a light colour in the palette or the stroke is invisible. Making the preset swap `state.color` was rejected — a control that reaches across into another one is exactly what the panel stopped doing.
 - **It does not enter undo** (no `saveUndo`), same as the two colour pickers it sits above: it is screen cosmetics, and it changes nothing that is exported or serialized into elements.
-- **The first entry IS the factory state**, pinned against `DEFAULT_CANVAS_BG`/`DEFAULT_GRID_COLOR` and `appDefaults()`'s `showGrid` — same contract as `SKETCH_FONTS[0]` with `--font-sketch`. So «Limpiar todo» returns to it for free, through `appDefaults()` + `syncAllControls()`.
+- **The first entry IS the factory state**, pinned against `DEFAULT_CANVAS_BG`/`DEFAULT_GRID_COLOR` and `appDefaults()`'s `showGrid` — same contract as `SKETCH_FONTS[0]` with `--font-sketch`. It is what a *fresh* app shows; since v3.0.0 «Limpiar todo» no longer returns to it — the aspect is the one thing that survives the button.
 - **`showGrid` is persisted since this version** (`savePrefs`/`restorePrefs`, validated by type; a pre-2.31.0 prefs simply lacks it and falls back to on). Without that, the white-and-flat canvas came back with its grid lit on the next reload and the aspect no longer matched any swatch.
 - **The swatch draws the grid, and that is load-bearing**: «Blanco» and «Milimetrado» share both colours and differ *only* by `showGrid`, so without the lines the row would show two identical white squares. Paper and grid colour reach the CSS as inline custom properties (`--preset-bg`/`--preset-grid`, the latter `transparent` when there is no grid) — which is why `tests/smoke.test.js`'s "every custom property is defined" guard now allows properties that app.js writes with `setProperty`, provided they are used with a fallback.
 - **When nothing matches, nothing is marked.** Retouching a picker by hand leaves the row with no active swatch rather than claiming an aspect that isn't on screen; the grid colour is ignored in that comparison while the grid is off, since an invisible colour cannot decide which aspect is showing.

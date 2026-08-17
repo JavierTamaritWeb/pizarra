@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.42.1 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v3.0.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.42\.1</);
-  assert.match(html, /css\/styles\.css\?v=2\.42\.1/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.42\.1/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.42\.1/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.42\.1/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.42\.1/);
+  assert.match(html, /class="topbar__badge">v3\.0\.0</);
+  assert.match(html, /css\/styles\.css\?v=3\.0\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=3\.0\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=3\.0\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=3\.0\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=3\.0\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -64,8 +64,8 @@ test('index publica v2.42.1 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="modal-pyramid"/);
   assert.match(html, /id="modal-frustum"/);
   assert.match(html, /id="modal-sphere"/);
-  assert.match(html, /src\/js\/solid\.js\?v=2\.42\.1/);
-  assert.match(html, /src\/js\/airbrush\.js\?v=2\.42\.1/);
+  assert.match(html, /src\/js\/solid\.js\?v=3\.0\.0/);
+  assert.match(html, /src\/js\/airbrush\.js\?v=3\.0\.0/);
   // «Los clics acumulan selección» dejó el panel en la v2.17.0 y es el ajuste
   // de «Select». Si volviera a existir la casilla vieja habría dos controles
   // para un mismo estado, y solo uno cableado: el arnés `node:vm` fabrica un
@@ -654,6 +654,32 @@ test('la Ayuda y el README cuentan el modo «De pie» mientras exista su mando',
     'existe #pyramid-apex pero la Ayuda no menciona el modo «De pie»');
   assert.ok(/[Dd]e pie/.test(readme),
     'existe #pyramid-apex pero el README no menciona el modo «De pie»');
+});
+
+/*
+ * Misma clase de olvido, contada en la actualización de la Ayuda de la v3.0.0:
+ * cuatro cosas llevaban versiones existiendo en el HTML sin una línea donde el
+ * usuario lee qué hace la app —el trazo con presión del lápiz (v2.37.0), las
+ * guías de alineación (v2.38.0), la letra del lienzo y el estilo del texto
+ * (negrita y sombras, v2.16.0)—. Cada mando se ata aquí a la palabra que lo
+ * nombra en la Ayuda: mientras el mando exista, la Ayuda tiene que contarlo.
+ */
+test('la Ayuda cuenta los mandos que existen en el HTML', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const ayuda = html.slice(html.indexOf('id="modal-help"'));
+  const texto = ayuda.slice(0, ayuda.indexOf('</dialog>'))
+    .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  const pares = [
+    ['id="stroke-modal-taper"', /presión/i,               'el trazo con presión del lápiz'],
+    ['id="select-modal-align"', /guías de alineación/i,   'las guías de alineación'],
+    ['id="text-modal-bold"',    /negrita/i,               'la negrita del texto'],
+    ['id="text-shadow"',        /sombra/i,                'las sombras del texto'],
+    ['id="sketch-font"',        /letra del lienzo/i,      'la letra del lienzo'],
+  ];
+  for (const [mando, patron, nombre] of pares) {
+    if (!html.includes(mando)) continue; // el mando se retiró: nada que contar
+    assert.match(texto, patron, `existe ${mando} pero la Ayuda no cuenta ${nombre}`);
+  }
 });
 
 /*

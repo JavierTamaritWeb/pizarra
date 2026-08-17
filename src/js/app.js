@@ -7293,7 +7293,17 @@
       // —dieciséis sobrevivían al borrado— y, en los que se persisten, el
       // siguiente savePrefs() reescribía lo que el removeItem de abajo acababa
       // de borrar.
-      Object.assign(state, appDefaults());
+      // ...MENOS el ASPECTO del lienzo (papel, color de rejilla y si se ve).
+      // Eso no es algo que se haya dibujado: es cómo tienes puesta la mesa de
+      // trabajo, y quien eligió «Pizarra» o «Blanco» no quiere volver al azul
+      // de fábrica cada vez que vacía el lienzo — el camino de vuelta son dos
+      // colores que no están escritos en ninguna parte de la interfaz.
+      const aspecto = {
+        canvasBg:  state.canvasBg,
+        gridColor: state.gridColor,
+        showGrid:  state.showGrid,
+      };
+      Object.assign(state, appDefaults(), aspecto);
       state.airbrushAreaPending = false;   // transitorio: no está en los defaults
       // Y la herramienta vuelve al Lápiz, que es con la que arranca la app.
       // Con `silent`, como las activaciones automáticas de Mover: aquí nadie ha
@@ -7311,6 +7321,11 @@
         localStorage.removeItem(AUTOSAVE_KEY);
         localStorage.removeItem(PREFS_KEY);
       } catch (_) {}
+      // El aspecto conservado se vuelve a dejar escrito EN EL ACTO, sin
+      // confiar en que algún otro mando guarde después: acaba de borrarse
+      // PREFS_KEY, y un aspecto que sólo viviera en `state` volvería al de
+      // fábrica en la siguiente recarga.
+      savePrefs();
       redraw();
     });
 

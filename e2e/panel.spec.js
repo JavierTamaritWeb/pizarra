@@ -368,7 +368,9 @@ test('«Limpiar todo» deja la app como recién abierta y utilizable', async ({ 
   await expect(page.locator('#color-picker')).toHaveValue('#1a1a2e');
   await expect(page.locator('#check-fill-transparent')).toBeChecked();
   await expect(page.locator('#fill-color-picker')).toHaveValue('#1a1a2e');
-  await expect(page.locator('#check-grid')).toBeChecked();
+  // El ASPECTO del lienzo es la excepción (v3.0.0): la cuadrícula se quedó
+  // apagada porque es cómo está puesta la mesa, no parte del dibujo.
+  await expect(page.locator('#check-grid')).not.toBeChecked();
   await expect(page.locator('#sketch-font')).toHaveValue('architects');
   // Ningún diálogo abierto: uno solo dejaría el lienzo inerte justo después
   // de limpiarlo, y la app se leería como bloqueada.

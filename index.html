@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=2.42.1" />
+  <link rel="stylesheet" href="css/styles.css?v=3.0.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=2.42.1" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.0.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v2.42.1</span>
+        <span class="topbar__badge">v3.0.0</span>
         <!-- Aviso de autoguardado: visible SOLO mientras localStorage rechaza
              el guardado (cuota llena). Sin él, el fallo era un catch mudo y el
              trabajo posterior se perdía en silencio al recargar. -->
@@ -464,7 +464,8 @@
           <li>Con un polígono regular, una estrella o un trapecio seleccionados, <kbd>←</kbd> y <kbd>→</kbd> lo <strong>giran</strong> una orientación en cada sentido; <kbd>↑</kbd> y <kbd>↓</kbd> siguen moviendo</li>
           <li>Y con una <strong>figura compuesta</strong> —un sólido 3D, un edificio, una planta—, esas mismas teclas y <kbd>Shift</kbd>+<kbd>R</kbd> la giran <strong>entera</strong> un cuarto de vuelta</li>
           <li>Cada herramienta muestra su tecla en el tooltip</li>
-          <li><kbd>Alt</kbd> desactiva el ajuste a cuadrícula</li>
+          <li><kbd>Alt</kbd> desactiva el ajuste a cuadrícula, y también suspende las guías de alineación mientras lo mantengas</li>
+          <li>En pantallas estrechas la app se recoge sola: los botones de arriba se quedan en <strong>icono</strong> (el tooltip sigue diciendo qué hace cada uno) y el panel de la derecha pasa a ser un <strong>cajón</strong> que abre el botón <strong>Panel</strong></li>
           <li><strong>Guardar y recuperar un dibujo</strong>: <strong>Exportar → JSON</strong> baja el proyecto entero, y <strong>Abrir proyecto</strong> vuelve a cargar ese <code>.json</code>, <em>sustituyendo</em> lo que haya en el lienzo (avisa antes, y <kbd>Ctrl</kbd>+<kbd>Z</kbd> lo deshace). Los otros cuatro formatos —PNG, JPG, SVG y HTML— son solo de salida: no se pueden volver a abrir</li>
           <li>Para meter una <strong>imagen</strong> en el lienzo no hace falta importar nada: se pega con <kbd>Ctrl</kbd>+<kbd>V</kbd></li>
         </ul>
@@ -474,6 +475,7 @@
         <h4 class="modal__help-title">Selección y portapapeles</h4>
         <ul class="modal__help-list">
           <li>Multi-selección: arrastre en vacío, o la casilla <strong>«Los clics acumulan selección»</strong> que sale al pulsar <strong>Mover</strong> o <strong>«Select»</strong>, y que reabre el ⚙ de <strong>«Elementos»</strong> con cualquier herramienta (cada clic añade; un clic sobre lo ya seleccionado lo quita) · <kbd>Shift</kbd>+click es el atajo · arrastra el grupo desde cualquier punto de su marco</li>
+          <li><strong>Guías de alineación</strong>: al arrastrar con <strong>Mover</strong>, lo seleccionado se <strong>imanta</strong> a los bordes y a los centros de lo demás, y una línea discontinua enseña con quién queda alineado. Vienen activadas; se apagan en la casilla del mismo modal que abre <strong>Mover</strong> o <strong>«Select»</strong>, y <kbd>Alt</kbd> las suspende sin desmarcarlas</li>
           <li><kbd>Ctrl</kbd>+<kbd>C</kbd> copia la selección · <kbd>Ctrl</kbd>+<kbd>V</kbd> la pega (también entre pestañas)</li>
           <li><kbd>Ctrl</kbd>+<kbd>V</kbd> o arrastrar un archivo: imágenes PNG/JPG</li>
           <li><kbd>Shift</kbd>+<kbd>R</kbd> o <strong>Rotar selección</strong>: cuadrado 45° · trapecio/triángulo/rectángulo 90° · pentágono y estrella de 5 puntas 36° · hexágono y estrella de 6 puntas 30°</li>
@@ -490,6 +492,16 @@
           <li><strong>"Relleno translúcido"</strong> alterna entre relleno sólido y relleno con transparencia</li>
           <li><strong>"Opacidad"</strong> va del 0% (invisible) al 100% (opaco); el valor inicial es 40%</li>
           <li>Con selección, estos controles modifican las formas seleccionadas; sin selección, configuran las próximas</li>
+        </ul>
+      </section>
+
+      <section class="modal__help-group">
+        <h4 class="modal__help-title">✏️ Lápiz y trazo</h4>
+        <ul class="modal__help-list">
+          <li>Al elegir <strong>Lápiz</strong> (<kbd>P</kbd>), <strong>Línea</strong> (<kbd>L</kbd>), <strong>Flecha</strong> (<kbd>A</kbd>), <strong>Flecha curva</strong> (<kbd>U</kbd>) o <strong>Semicírculo</strong> (<kbd>G</kbd>) se abren sus <strong>ajustes</strong>, con muestra en vivo: grosor, color, discontinuo y doble punta. Volver a pulsar la herramienta los reabre</li>
+          <li><strong>«Trazo con presión»</strong> (solo el lápiz) hace que el grosor siga la <strong>velocidad del gesto</strong>: rápido sale fino, despacio grueso, y las puntas quedan afiladas, como un lápiz de verdad. Desmarcado, el lápiz dibuja con el grosor uniforme de siempre</li>
+          <li>Con algo seleccionado, esos mandos <strong>editan la selección</strong>; sin nada seleccionado, configuran lo próximo que dibujes</li>
+          <li>El color del trazo se elige en la paleta del propio modal o en la del panel <strong>«Trazo»</strong>: son la misma</li>
         </ul>
       </section>
 
@@ -549,6 +561,7 @@
           <li>Un aspecto describe el <strong>papel</strong> y nunca toca el color de la tinta: en «Pizarra» elige un color claro en la paleta, como en un encerado de verdad</li>
           <li>Debajo siguen los dos selectores para componer el tuyo a mano; si lo haces, ninguna muestra queda marcada</li>
           <li>Papel, rejilla y su encendido se recuerdan entre sesiones, y son <strong>de pantalla</strong>: ninguna exportación los lleva</li>
+          <li><strong>«Limpiar todo» respeta el aspecto</strong>: vacía el dibujo y devuelve el resto de ajustes a los de fábrica, pero el papel que hayas elegido se queda puesto</li>
         </ul>
       </section>
 
@@ -561,6 +574,18 @@
           <li>El resto del borde inferior y todo el borde de la forma superior permanecen sólidos</li>
           <li>La forma creada más tarde queda encima; mover o redimensionar recalcula automáticamente los tramos ocultos</li>
           <li>El modo elegido se conserva al guardar y se respeta en PNG, JPG, SVG, HTML y JSON</li>
+        </ul>
+      </section>
+
+      <section class="modal__help-group">
+        <h4 class="modal__help-title">🔤 Texto</h4>
+        <ul class="modal__help-list">
+          <li>Con <strong>Texto</strong> (<kbd>T</kbd>), un clic en el lienzo abre el editor; <kbd>Esc</kbd> cancela. Doble clic sobre un texto ya escrito vuelve a editarlo</li>
+          <li>Sus ajustes se abren con la herramienta: <strong>tamaño</strong> (10–96 px), <strong>letra del lienzo</strong>, <strong>negrita</strong>, grosor y <strong>color</strong>, con muestra en vivo</li>
+          <li>La <strong>letra del lienzo</strong> ofrece siete familias, y cada una se lee escrita en sí misma. Cinco son manuscritas (Architects Daughter, Caveat, Patrick Hand, Kalam e Indie Flower) y dos no lo son: <strong>OpenDyslexic</strong>, pensada para leerse con dislexia, y <strong>Montserrat Alternates</strong>, geométrica. Todas van <strong>dentro de la app</strong>: no se descarga ninguna, así que funcionan sin conexión</li>
+          <li>El mismo selector está en el panel <strong>«Lienzo»</strong>, y cambia todo el texto ya escrito: es la letra con la que dibuja el lienzo, no un estilo por elemento</li>
+          <li><strong>Sombra</strong>: <em>suave</em>, <em>dura</em> o <em>halo</em>, con su color. Crece con el tamaño de la letra, así que un título grande la lleva proporcionada</li>
+          <li>Con un texto seleccionado, todos esos mandos lo editan; sin selección, configuran el próximo</li>
         </ul>
       </section>
 
@@ -637,6 +662,7 @@
         <ul class="modal__help-list">
           <li><strong>Jardín</strong> (<kbd>8</kbd>), <strong>Árbol</strong> (<kbd>9</kbd>), <strong>Arbusto</strong> (<kbd>H</kbd>), <strong>Flor</strong> (<kbd>X</kbd>), <strong>Decoración</strong> (<kbd>Z</kbd>), <strong>Aromáticas</strong> y <strong>Trepadoras</strong>: cada una abre su catálogo; elige un tipo y dibuja en el lienzo</li>
           <li>Las <strong>50 especies vegetales</strong> ofrecen vista de <strong>planta o alzado</strong>, etapa joven/en desarrollo/adulta, escala 8–50 px/m, tamaño 50–150 %, color natural y etiquetas comunes, botánicas o acotadas</li>
+          <li><strong>Decoración</strong> incluye, además del mobiliario, la <strong>piscina</strong> y las dos marcas que convierten un croquis en plano: la <strong>flecha de norte</strong> y la <strong>escala gráfica</strong>, cuyos tramos miden <strong>un metro de verdad</strong> según la escala (px/m) que tengas puesta</li>
           <li>Parcela, decoración y caminos mantienen la <strong>vista de planta</strong> propia del plano paisajístico; el alzado de las plantas enseña troncos, portes, floraciones y soportes de trepadoras</li>
           <li>En los catálogos, el <strong>icono es el dibujo real</strong> que vas a obtener, no una ilustración aparte</li>
           <li>Cada pieza nace con una <strong>etiqueta</strong> que la nombra; se apaga en el panel <strong>Jardín</strong> y la elección se recuerda</li>
@@ -2076,23 +2102,23 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=2.42.1"></script>
-  <script src="src/js/sketchy.js?v=2.42.1"></script>
-  <script src="src/js/freehand.js?v=2.42.1"></script>
-  <script src="src/js/arc.js?v=2.42.1"></script>
-  <script src="src/js/curve-path.js?v=2.42.1"></script>
-  <script src="src/js/shape-rotation.js?v=2.42.1"></script>
-  <script src="src/js/regular-polygon.js?v=2.42.1"></script>
-  <script src="src/js/trapezoid.js?v=2.42.1"></script>
-  <script src="src/js/airbrush.js?v=2.42.1"></script>
-  <script src="src/js/flood.js?v=2.42.1"></script>
-  <script src="src/js/eraser.js?v=2.42.1"></script>
-  <script src="src/js/building.js?v=2.42.1"></script>
-  <script src="src/js/garden.js?v=2.42.1"></script>
-  <script src="src/js/solid.js?v=2.42.1"></script>
-  <script src="src/js/renderer.js?v=2.42.1"></script>
-  <script src="src/js/exporter.js?v=2.42.1"></script>
-  <script src="src/js/templates.js?v=2.42.1"></script>
-  <script src="src/js/app.js?v=2.42.1"></script>
+  <script src="src/js/config.js?v=3.0.0"></script>
+  <script src="src/js/sketchy.js?v=3.0.0"></script>
+  <script src="src/js/freehand.js?v=3.0.0"></script>
+  <script src="src/js/arc.js?v=3.0.0"></script>
+  <script src="src/js/curve-path.js?v=3.0.0"></script>
+  <script src="src/js/shape-rotation.js?v=3.0.0"></script>
+  <script src="src/js/regular-polygon.js?v=3.0.0"></script>
+  <script src="src/js/trapezoid.js?v=3.0.0"></script>
+  <script src="src/js/airbrush.js?v=3.0.0"></script>
+  <script src="src/js/flood.js?v=3.0.0"></script>
+  <script src="src/js/eraser.js?v=3.0.0"></script>
+  <script src="src/js/building.js?v=3.0.0"></script>
+  <script src="src/js/garden.js?v=3.0.0"></script>
+  <script src="src/js/solid.js?v=3.0.0"></script>
+  <script src="src/js/renderer.js?v=3.0.0"></script>
+  <script src="src/js/exporter.js?v=3.0.0"></script>
+  <script src="src/js/templates.js?v=3.0.0"></script>
+  <script src="src/js/app.js?v=3.0.0"></script>
 </body>
 </html>

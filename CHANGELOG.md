@@ -4,6 +4,32 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.0.0] — 2026-08-17
+
+### Cambiado
+
+- **«Limpiar todo» ahora respeta el aspecto del lienzo.** Vacía el dibujo y
+  devuelve el resto de ajustes a los de fábrica, pero el **papel**, el color
+  de la **rejilla** y si se ve **se quedan como los tuvieras**. El aspecto no
+  describe el dibujo sino la mesa de trabajo, y el camino de vuelta a
+  «Pizarra» o «Blanco» son dos códigos de color que no aparecen en ninguna
+  parte de la interfaz: quien limpiaba el lienzo se encontraba el papel de
+  fábrica y tenía que recomponerlo a mano. El aspecto conservado se reescribe
+  en las preferencias en el acto, así que sobrevive también a la recarga.
+
+### Añadido
+
+- **La Ayuda cuenta lo que faltaba.** Cuatro cosas llevaban versiones
+  existiendo sin una línea donde el usuario lee qué hace la app: el **trazo
+  con presión** del lápiz (v2.37.0), las **guías de alineación** (v2.38.0),
+  la **letra del lienzo** con sus siete familias y el **estilo del texto**
+  —negrita y sombras— (v2.16.0). Estrenan dos secciones propias, «Lápiz y
+  trazo» y «Texto», y se cuentan además la piscina, la flecha de norte y la
+  escala gráfica de Decoración (v2.41.0) y el recogido de la barra superior
+  en pantallas estrechas (v2.42.1).
+- Guarda nueva que ata cada uno de esos mandos a la palabra que lo nombra en
+  la Ayuda: mientras el mando exista en el HTML, la Ayuda tiene que contarlo.
+
 ## [2.42.1] — 2026-08-17
 
 ### Arreglado
