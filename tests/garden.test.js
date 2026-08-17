@@ -935,14 +935,22 @@ test('el dondiego de noche existe con su botánica y florece en planta y alzado'
   assert.ok(spec.heightM <= 1.2 && spec.spreadM <= 1.2, 'porte de mata baja');
   assert.ok(/^#[0-9a-f]{6}$/.test(spec.accent), 'flor con color propio');
 
-  // En color natural, las trompetas salen con el acento fucsia — en planta
+  // En color natural, las trompetas mezclan el acento fucsia con corolas
+  // BLANCAS — la especie da ambas incluso en la misma mata, y el usuario
+  // pidió expresamente que el dibujo lo recordara (v2.40.1) — en planta
   // (dos coronas de flores) y en alzado (corola + tubo).
   for (const view of ['plan', 'elevation']) {
     const els = make(TOOLS.GARDEN_SHRUB, 'mirabilis',
       { plantColorMode: 'natural', plantView: view });
-    const flores = els.filter(el => el.type === 'circle' && el.color === spec.accent);
-    assert.ok(flores.length >= 6,
-      `en ${view} florece por toda la mata (${flores.length} corolas)`);
+    const fucsias = els.filter(el => el.type === 'circle' && el.color === spec.accent);
+    const blancas = els.filter(el => el.type === 'circle' &&
+      el.color !== spec.accent && /^#e/.test(el.color || ''));
+    assert.ok(fucsias.length >= 4,
+      `en ${view} florece por toda la mata (${fucsias.length} corolas fucsias)`);
+    assert.ok(blancas.length >= 2,
+      `en ${view} también hay corolas blancas (${blancas.length})`);
+    assert.ok(fucsias.length > blancas.length,
+      'la fucsia sigue siendo la tinta dominante');
     for (const el of els.filter(e => e.type !== 'text')) {
       assert.ok(Exporter.isValidElement({ ...el, seed: 7 }),
         `pieza inválida en ${view}: ${JSON.stringify(el)}`);

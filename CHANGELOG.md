@@ -4,6 +4,16 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.40.1] — 2026-08-17
+
+### Cambiado
+
+- **El dondiego de noche también da flor blanca**, y su dibujo lo recuerda:
+  en modo natural una de cada tres corolas sale en blanco cálido —la especie
+  (también llamada «don Pedro») mezcla fucsia y blanco incluso en la misma
+  mata—, en planta y en alzado. En modo tinta ambas caen al trazo fino,
+  como siempre. Petición del usuario, con su guarda en `tests/garden.test.js`.
+
 ## [2.40.0] — 2026-08-17
 
 ### Añadido

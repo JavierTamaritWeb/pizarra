@@ -111,6 +111,11 @@ const Garden = (function () {
     ? { ...o, color: spec.accent }
     : _fine(o);
 
+  /* Segunda tinta de flor del dondiego de noche: la especie mezcla corolas
+     fucsias y blancas en la misma mata, así que su `accent` no basta. Blanco
+     cálido, en la familia de los cremas que ya usan mirto y alcaparra. */
+  const MIRABILIS_WHITE = '#ece4d6';
+
   const _trunkInk = o => o.plantColorMode === 'natural'
     ? { ...o, color: '#755642', fillColor: '#9a7658' }
     : o;
@@ -661,8 +666,14 @@ const Garden = (function () {
                 _dot(cx, cy + ry * 0.5, Math.max(1.3, r * 0.1), a),
                 ..._spokes(cx, cy, rx, ry, 5, 0.2, 0.7, f)];
       }
-      case 'mirabilis': { // dondiego de noche: trompetas fucsias por TODA la mata
+      case 'mirabilis': { // dondiego de noche: trompetas por TODA la mata
         const a = _accentInk(o, _spec(TOOLS.GARDEN_SHRUB, type));
+        // La especie (también llamada «don Pedro») mezcla flores fucsias y
+        // BLANCAS incluso en la misma mata: una de cada tres sale en blanco
+        // cálido en modo natural (en tinta, ambas caen a _fine, como el
+        // accent). Petición del usuario, v2.40.1.
+        const w = o.plantColorMode === 'natural'
+          ? { ...o, color: MIRABILIS_WHITE } : f;
         const flowers = [];
         // Dos coronas de flores, no un anillo: el dondiego florece repartido
         // por toda la superficie, y eso es lo que lo distingue en planta de
@@ -671,7 +682,8 @@ const Garden = (function () {
           const ang = (i / 8) * Math.PI * 2 + 0.6;
           const rad = i % 2 ? 0.62 : 0.36;
           flowers.push(_dot(cx + Math.cos(ang) * rx * rad,
-            cy + Math.sin(ang) * ry * rad, Math.max(1.4, r * 0.11), a));
+            cy + Math.sin(ang) * ry * rad, Math.max(1.4, r * 0.11),
+            i % 3 === 1 ? w : a));
         }
         return [_blob(cx, cy, rx, ry, LOBES.clump, o),
                 ..._spokes(cx, cy, rx, ry, 4, 0.16, 0.6, f), ...flowers];
@@ -1148,11 +1160,16 @@ const Garden = (function () {
       // Trompetas del atardecer: cada flor lleva su tubo fino colgando de la
       // corola — es el rasgo que da nombre a la planta de las cuatro (la flor
       // abre al caer la tarde) y lo que separa este alzado del de la jara.
+      // Como en planta, una de cada tres corolas sale blanca: la especie
+      // mezcla fucsia y blanco en la misma mata (v2.40.1).
+      const w = o.plantColorMode === 'natural'
+        ? { ...o, color: MIRABILIS_WHITE } : f;
       for (let i = 0; i < 6; i++) {
         const x = b.x + b.w * (0.16 + i * 0.136);
         const y = b.y + b.h * (0.2 + (i % 3) * 0.16);
         out.push(_line(x, y, x + b.w * 0.03, y + b.h * 0.055, f));
-        out.push(_dot(x, y, Math.max(1.4, Math.min(b.w, b.h) * 0.04), a));
+        out.push(_dot(x, y, Math.max(1.4, Math.min(b.w, b.h) * 0.04),
+          i % 3 === 1 ? w : a));
       }
     }
     const flowers = { bush: 3, clump: 5, oleander: 7, strawberryTree: 4, pittosporum: 5 }[type] || 0;
