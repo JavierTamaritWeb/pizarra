@@ -4,6 +4,26 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.3.1] — 2026-08-17
+
+### Cambiado
+
+- **Los estilos hablan con nombre propio: fin de los números mágicos.** Toda
+  medida repetida, acoplada o con significado de diseño —tintes de la marca,
+  los tres rojos del proyecto, sombras y veladuras, la escala de radios, el
+  relleno de los diálogos y las sombras que lo tapan, la duración del cajón
+  del panel, capas y espaciados— vive ahora en un único fichero de variables
+  en vez de estar repetida a mano por los estilos. No cambia nada visible: el
+  CSS compilado salió byte a byte idéntico en casi todo el refactor.
+
+### Corregido
+
+- Dos medidas llevaban tiempo desviadas un píxel de su propia escala sin que
+  nada lo detectara: un radio de esquina en la ficha de dimensiones botánicas
+  y el grosor del anillo de foco de la herramienta activa del sidebar. Quedan
+  alineadas con el resto y con una guarda que impide que vuelva a pasar
+  inadvertido.
+
 ## [3.3.0] — 2026-08-17
 
 ### Añadido

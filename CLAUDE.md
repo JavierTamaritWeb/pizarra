@@ -129,6 +129,65 @@ rescate la nombra a través de su contenedor (`.modal__help-index button`):
 apuntar a `.modal__help-chip` —una clase que crea app.js— habría fallado la
 guarda que exige que cada clase nombrada en ese partial exista en el HTML.
 
+### Tokens sin números mágicos (v3.3.1)
+
+`src/scss/abstracts/_variables.scss` es ahora la fuente única de **toda**
+medida repetida, acoplada o con significado de diseño — no solo la paleta y
+las cuatro dimensiones que ya vivían ahí. El criterio, escrito en la cabecera
+del propio fichero: se nombra lo repetido, lo acoplado y lo que codifica una
+decisión; un padding/gap/font-size de un solo uso sin significado transversal
+**no** se nombra — cuarenta variables de un solo uso serían ruido, no
+documentación. Los nuevos tokens son **solo `$vars` Sass**, nunca custom
+properties: nada de lo añadido se necesita en runtime, así que
+`base/_tokens.scss` no se tocó y las dos reglas que exigen que ciertos valores
+sigan siendo custom properties (`--sidebar-w`, `--font-sketch`, ver arriba)
+quedan intactas.
+
+Todo el refactor se hizo bajo una sola disciplina: **el CSS compilado tiene
+que salir byte a byte idéntico**, comprobado con `shasum` tras cada tanda de
+sustituciones. dart-sass emite `rgba($var, α)` en la misma notación legacy que
+ya estaba en los fuentes y que exige stylelint, así que casi todo el trabajo
+fue una sustitución de identidad garantizada. Cinco grupos de tokens y por qué
+cada uno merecía nombre:
+
+- **Derivados translúcidos de la marca** (`$primary-tint`/`-strong`/`-ring`):
+  el color de marca aparecía descompuesto a mano como `rgba(78, 205, 196, α)`
+  en cuatro parciales — si `$color-primary` cambiara, esas copias no lo
+  habrían seguido.
+- **Los tres rojos del proyecto, nombrados por separado a propósito**:
+  `$color-danger` (el texto AA, v2.2.0), `$danger-bg-base` — el
+  **antiguo** `$color-danger` (`#e94560`), que los fondos del botón
+  destructivo conservan a propósito porque el aclarado a `#f4778c` fue solo
+  del texto — y `$color-warn` (`#autosave-warn`). Nombrarlos por separado deja
+  constancia de que **no son el mismo rojo** y de que unificarlos sería una
+  decisión aparte, no una limpieza.
+- **`$modal-pad`/`$modal-gutter`**: dos acoplamientos que antes vivían solo en
+  comentarios. Las sombras-máscara sticky de `.modal__cancel` y
+  `.modal__help-search` miden `± $modal-pad` porque **tienen que tapar
+  exactamente el relleno del diálogo** — si `$modal-pad` cambia sin tocar las
+  sombras, vuelve a asomar el hueco que documenta el comentario de
+  `.modal__cancel`. Iguales de acoplados: `mx.modal-width($max)` (mixin nuevo
+  en `abstracts/_mixins.scss`) reemplaza las cuatro repeticiones manuales de
+  `min(Xrem, calc(100vw - 2.4rem))`.
+- **`$ease-slow`/`$dur-slow`**: en `_panel-drawer.scss` la duración de la
+  transición y el delay de `visibility` tienen que coincidir exactamente —
+  antes eran dos literales `0.2s` que nada obligaba a moverse juntos. Ahora
+  comparten variable. `e2e/helpers.js` sigue esperando esos 0.2s en el sizer
+  del lienzo (`setZoom`); no tocar la duración sin revisar ese helper.
+- **Escala de radios** (`$radius-sm` a `$radius-2xl`), z-index con nombre
+  (`$z-canvas-overlay`/`-drawer-backdrop`/`-drawer`), `$swatch-size`,
+  `$sidebar-btn-w` y `$tracking-wide`: cierran la lista de valores que se
+  repetían sin una fuente común.
+
+El refactor descubrió **dos únicas desviaciones reales** de esas escalas —un
+`border-radius: 0.7rem` en la ficha de dimensiones botánicas y un
+`outline: 0.15rem` en la herramienta activa del sidebar, ambos a un píxel de
+la escala vigente (0.8rem y 0.2rem)— y son la única parte del cambio que
+**sí** movió bytes en el CSS compilado, corregidas con el visto bueno
+explícito del usuario. Ver la entrada correspondiente en `BUGS.md` y la guarda
+*"las escalas tokenizadas no tienen desviaciones en el CSS compilado"* en
+`tests/smoke.test.js`, que rechaza esos dos valores exactos.
+
 ### La interfaz va en MAYÚSCULAS (v2.29.0)
 
 `src/scss/base/_uppercase.scss` pone en mayúsculas toda la interfaz. Se hace con **`text-transform`, nunca cambiando el texto del HTML**, y eso es lo que lo vuelve inocuo: `textContent` sigue diciendo «Cerrar», así que las guardas que leen el DOM (los `<legend>` de los modales, los rótulos del sidebar), las que leen `index.html` y cualquier comparación de cadenas de la app siguen valiendo — y revertirlo es borrar un fichero. Tres cosas que hay que saber:
