@@ -1623,25 +1623,32 @@ const Garden = (function () {
     const inset = Math.min(b.w, b.h) * 0.12;
     const vw = Math.max(1, b.w - inset * 2), vh = Math.max(1, b.h - inset * 2);
     const vx = b.x + inset, vy = b.y + inset;
+    const cy = vy + vh / 2;
     const els = [_rectEl(b.x, b.y, b.w, b.h, o),       // andén
                  _rectEl(vx, vy, vw, vh, o)];          // vaso
-    if (vw > 12 && vh > 8) {
-      // Dos ondas a lo largo del vaso, en el tercio central: bastan para que
-      // se lea como lámina de agua sin llenar la piscina de rayas.
+    // Escalerilla anclada al borde izquierdo del vaso y PERPENDICULAR a él,
+    // que es como entra una escalera al agua. Con los largueros paralelos a
+    // ese borde —la primera versión— se leía como una «H» flotando dentro de
+    // la piscina; visto en el navegador. Va con el trazo de la pieza: es
+    // herraje, no agua.
+    const len = Math.max(2, Math.min(vw * 0.18, vh * 0.4));
+    const sep = Math.max(2, Math.min(vh * 0.24, len));
+    els.push(_line(vx, cy - sep / 2, vx + len, cy - sep / 2, o),
+             _line(vx, cy + sep / 2, vx + len, cy + sep / 2, o));
+    for (let i = 1; i <= 2; i++) {
+      const px = vx + (len * i) / 3;
+      els.push(_line(px, cy - sep / 2, px, cy + sep / 2, o));
+    }
+    // Agua: dos ondas a partir de la escalerilla, para no cruzarla. En el
+    // tercio central bastan para leer la lámina sin llenarla de rayas, y se
+    // omiten si el vaso no da de sí: en una caja degenerada se apelotonarían.
+    const wx0 = vx + len + vw * 0.06, wx1 = vx + vw * 0.94;
+    if (wx1 - wx0 > 10 && vh > 8) {
       for (let i = 1; i <= 2; i++) {
         const wy = vy + (vh * i) / 3;
-        els.push(_wave(vx + vw * 0.12, wy, vx + vw * 0.88, wy,
-          Math.max(1, vh * 0.06), 3, f));
+        els.push(_wave(wx0, wy, wx1, wy, Math.max(1, vh * 0.07), 3, f));
       }
     }
-    // Escalerilla en el extremo izquierdo, con sus dos largueros y dos
-    // peldaños; va con el trazo de la pieza, que es herrajes, no agua.
-    const lw = Math.max(2, vw * 0.1), lh = Math.max(2, vh * 0.26);
-    const lx = vx + vw * 0.06, ly = vy + (vh - lh) / 2;
-    els.push(_line(lx, ly, lx, ly + lh, o),
-             _line(lx + lw, ly, lx + lw, ly + lh, o),
-             _line(lx, ly + lh / 3, lx + lw, ly + lh / 3, o),
-             _line(lx, ly + (lh * 2) / 3, lx + lw, ly + (lh * 2) / 3, o));
     return els;
   }
 
