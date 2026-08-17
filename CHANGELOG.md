@@ -4,6 +4,21 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.42.1] — 2026-08-17
+
+### Arreglado
+
+- **La barra superior desbordaba** por debajo de unos 1040 px de ancho y
+  dejaba «Exportar» fuera de la pantalla, sin scroll que lo alcanzara (138 px
+  de exceso en una ventana de 900). Nuevo breakpoint `$topbar-icons`
+  (1060 px): por debajo, los botones se quedan en **icono**. No desaparece
+  ninguno, solo su rótulo, que se oculta a la vista pero no a un lector de
+  pantalla; todos conservan su ayuda emergente.
+- Y de paso, un defecto que la propia suite cazó al hacerlo: recortar el
+  rótulo con `position: absolute` —la técnica clásica— hacía que **escapara
+  del recorte de la barra** y estirase el scroll horizontal de la página a
+  531 px en un móvil de 320. Se recorta en flujo.
+
 ## [2.42.0] — 2026-08-17
 
 ### Cambiado

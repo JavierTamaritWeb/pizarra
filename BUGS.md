@@ -2642,3 +2642,65 @@ confirmados con sonda ejecutada, siete corregidos.
   escalerilla"* siguen valiendo (el multiset de piezas no cambió); el defecto
   era de lectura visual y se detectó en la pasada por Chrome, que es donde se
   juzgan estas cosas.
+
+### «Importar» no decía qué importaba ni que sustituía el dibujo
+
+- **Síntoma:** el usuario preguntó directamente qué hacía el botón. Decía solo
+  «Importar», y ni el rótulo ni la interfaz explicaban que abre un `.json` de
+  los que produce Exportar → JSON —el único de los cinco formatos que se
+  puede volver a cargar— ni que **sustituye** el lienzo en lugar de fusionar.
+  Tampoco avisaba antes de llevarse por delante el dibujo en curso.
+- **Causa:** el nombre describía una categoría genérica, no la acción. El
+  formato solo aparecía en el `title` (visible al pasar el ratón) y en la
+  letra pequeña del modal de exportación.
+- **Fix:** `index.html` + `src/js/app.js` (v2.42.0) — el botón pasa a «Abrir
+  proyecto», su ayuda emergente nombra el `.json` y avisa del reemplazo, y con
+  el lienzo ocupado se pide confirmación diciendo cuántos elementos se
+  sustituyen. La Ayuda estrena el ciclo guardar/recuperar y recuerda que una
+  imagen se pega con `Ctrl+V`.
+- **Guardia:** `tests/app-interaction.test.js` › *"abrir un proyecto sustituye
+  el lienzo, y con dibujo dentro pregunta antes"* (vacío no pregunta, el «no»
+  no toca nada, el «sí» sustituye y `Ctrl+Z` lo deshace), verificada fallando
+  sin el aviso; y en `tests/smoke.test.js`, que el rótulo y el `title` digan
+  formato y reemplazo — el arnés vm no ve textos ni tooltips.
+
+### La barra superior desbordaba en pantallas medianas y pequeñas
+
+- **Síntoma:** por debajo de unos 1040 px de ancho, los botones de la barra no
+  cabían y «Exportar» quedaba fuera de la pantalla, sin scroll que lo
+  alcanzara. Medido: 138 px de exceso a 900 px de ventana. Defecto viejo, no
+  de la v2.42.0 (renombrar el botón solo añadía 3 px).
+- **Causa:** siete botones con rótulo, y el de «Panel» aparece justo al pasar
+  el panel a cajón (1100 px), que es cuando menos sitio hay. Nada reducía la
+  barra al estrecharse.
+- **Fix:** `src/scss/abstracts/_breakpoints.scss` + `components/_topbar.scss`
+  (v2.42.1) — nuevo breakpoint `$topbar-icons` (1060 px): por debajo, los
+  botones se quedan en **icono**. No se oculta ningún botón, solo su rótulo, y
+  se oculta a la vista pero no a un lector de pantalla, así que cada uno
+  conserva su nombre; todos tienen `title` para el usuario vidente.
+- **Guardia:** `e2e/responsive.spec.js` › *"la barra superior se queda en
+  iconos antes de desbordar"* (mide el exceso y la posición de «Exportar» a
+  1200/1060/900/700 px), y en `tests/smoke.test.js` que **todo** botón de la
+  barra envuelva su rótulo en `.btn__label` y tenga `title`: uno nuevo con el
+  texto suelto no tendría nada que ocultar y reabriría el desborde.
+
+### Un rótulo recortado en `position: absolute` estiraba el scroll del móvil
+
+- **Síntoma:** al ocultar los rótulos de la barra con la técnica clásica de
+  «visually hidden» (`position: absolute` + recorte), la página pasó a
+  desbordar horizontalmente a 320 px: `scrollWidth` 531 sobre 320 de ancho.
+  Regresión introducida y detectada dentro de la misma pasada, por el spec de
+  320 px que ya existía.
+- **Causa:** un descendiente **absoluto escapa del `overflow: hidden`** del
+  ancestro que recorta la barra, porque ese ancestro no está posicionado. Los
+  rótulos, aun midiendo un píxel, quedaban colocados lejos a la derecha y
+  estiraban el área desplazable. El texto suelto de antes, al ir en flujo, sí
+  se recortaba: por eso la barra podía desbordar 834 px sin que la página
+  hiciera scroll.
+- **Fix:** `src/scss/components/_topbar.scss` — el rótulo se recorta **en
+  flujo** (`display: inline-block`, un píxel de ancho, `overflow: hidden` y
+  `clip-path`), nunca en absolute.
+- **Guardia:** el spec de 320 px que la detectó (*"a 320px de ancho los
+  modales caben sin desborde horizontal"*), más una aserción en
+  `tests/smoke.test.js` que rechaza `position: absolute` en esa regla del CSS
+  compilado, con el motivo escrito al lado.

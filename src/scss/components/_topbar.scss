@@ -1,3 +1,5 @@
+@use '../abstracts/breakpoints' as bp;
+
 /* ============================================================
    BLOCK: topbar
    ============================================================ */
@@ -70,5 +72,31 @@
 
   &__warn[hidden] {
     display: none;
+  }
+}
+
+/* Barra estrecha: solo iconos.
+   Por debajo de $topbar-icons los siete botones con su rótulo no caben —el de
+   «Panel» aparece justo ahí, al pasar el panel a cajón— y la barra desbordaba
+   en silencio, dejando «Exportar» fuera de la pantalla. Se ocultan los
+   rótulos, no los botones: cada uno conserva su icono, su tooltip y su nombre
+   accesible, porque el rótulo se esconde a la vista pero sigue leyéndose con
+   un lector de pantalla (de ahí el recorte, y no `display: none`). */
+@include bp.until(bp.$topbar-icons) {
+  /* Recortado EN FLUJO, nunca `position: absolute`: un descendiente absoluto
+     escapa del `overflow: hidden` del ancestro que recorta la barra, y los
+     rótulos —aun midiendo un píxel— estiraban el scroll horizontal de la
+     página hasta 531px en un móvil de 320px. El texto en flujo sí se recorta,
+     que es lo que hacía el rótulo suelto de antes. */
+  .topbar__actions .btn__label {
+    display: inline-block;
+    width: 0.1rem;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .topbar__actions .btn {
+    gap: 0;
   }
 }

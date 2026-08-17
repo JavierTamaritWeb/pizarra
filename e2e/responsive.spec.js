@@ -161,3 +161,40 @@ test('los nombres del sidebar caben enteros y no pisan su icono', async ({ page 
   await page.setViewportSize({ width: 1100, height: 800 });
   expect(await audit(), 'sidebar compacto (una columna)').toEqual([]);
 });
+
+// La barra superior desbordaba en silencio por debajo de ~1040px: ahí aparece
+// el botón «Panel» (el panel pasa a cajón) y los siete rótulos dejan de caber,
+// así que «Exportar» se salía de la pantalla. Por debajo de $topbar-icons los
+// botones se quedan en icono. Se prueba a los dos lados del breakpoint, y que
+// el rótulo siga estando para un lector de pantalla.
+test('la barra superior se queda en iconos antes de desbordar', async ({ page }) => {
+  await openApp(page, { viewport: { width: 1200, height: 800 } });
+  // El rótulo se mide por ANCHO, no con toBeVisible: oculto sigue teniendo
+  // una caja de 1px (se recorta, no se quita) y Playwright lo daría por
+  // visible.
+  const rotuloAncho = () => page.locator('#btn-export .btn__label')
+    .evaluate(el => el.getBoundingClientRect().width);
+  expect(await rotuloAncho(), 'ancha: el rótulo se lee').toBeGreaterThan(10);
+
+  const exceso = () => page.locator('.topbar')
+    .evaluate(el => el.scrollWidth - el.clientWidth);
+  expect(await exceso(), 'ancha: cabe con rótulos').toBeLessThanOrEqual(0);
+
+  // Justo por debajo del breakpoint: rótulos fuera y la barra deja de desbordar.
+  for (const width of [1060, 900, 700]) {
+    await page.setViewportSize({ width, height: 800 });
+    expect(await exceso(), `a ${width}px la barra no puede desbordar`)
+      .toBeLessThanOrEqual(0);
+    expect(await rotuloAncho(), `a ${width}px el rótulo se oculta`)
+      .toBeLessThan(3);
+    // El icono sigue, y el botón sigue estando dentro de la pantalla.
+    await expect(page.locator('#btn-export .btn__icon')).toBeVisible();
+    const dentro = await page.locator('#btn-export').evaluate(
+      el => el.getBoundingClientRect().right <= window.innerWidth + 1);
+    expect(dentro, `a ${width}px «Exportar» tiene que estar en pantalla`).toBe(true);
+  }
+  // El rótulo se oculta a la VISTA, no al lector de pantalla: el botón
+  // conserva su nombre.
+  expect(await page.locator('#btn-export').evaluate(el => el.textContent.trim()))
+    .toContain('Exportar');
+});

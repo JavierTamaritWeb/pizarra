@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v2.42.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v2.42.1 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v2\.42\.0</);
-  assert.match(html, /css\/styles\.css\?v=2\.42\.0/);
-  assert.match(html, /src\/js\/app\.js\?v=2\.42\.0/);
-  assert.match(html, /src\/js\/building\.js\?v=2\.42\.0/);
-  assert.match(html, /src\/js\/garden\.js\?v=2\.42\.0/);
-  assert.match(html, /src\/js\/config\.js\?v=2\.42\.0/);
+  assert.match(html, /class="topbar__badge">v2\.42\.1</);
+  assert.match(html, /css\/styles\.css\?v=2\.42\.1/);
+  assert.match(html, /src\/js\/app\.js\?v=2\.42\.1/);
+  assert.match(html, /src\/js\/building\.js\?v=2\.42\.1/);
+  assert.match(html, /src\/js\/garden\.js\?v=2\.42\.1/);
+  assert.match(html, /src\/js\/config\.js\?v=2\.42\.1/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -64,8 +64,8 @@ test('index publica v2.42.0 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="modal-pyramid"/);
   assert.match(html, /id="modal-frustum"/);
   assert.match(html, /id="modal-sphere"/);
-  assert.match(html, /src\/js\/solid\.js\?v=2\.42\.0/);
-  assert.match(html, /src\/js\/airbrush\.js\?v=2\.42\.0/);
+  assert.match(html, /src\/js\/solid\.js\?v=2\.42\.1/);
+  assert.match(html, /src\/js\/airbrush\.js\?v=2\.42\.1/);
   // «Los clics acumulan selección» dejó el panel en la v2.17.0 y es el ajuste
   // de «Select». Si volviera a existir la casilla vieja habría dos controles
   // para un mismo estado, y solo uno cableado: el arnés `node:vm` fabrica un
@@ -157,6 +157,37 @@ test('los modales de ajustes llevan geometría y el emoji su tamaño acotado', (
 //      previo, y ninguna guarda del arnés lo notaría (allí `hidden` es una
 //      propiedad JS, no CSS).
 //   2. Las secciones que el JS oculta tienen que existir con ese id.
+test('todo botón de la barra superior envuelve su rótulo en .btn__label', () => {
+  // Por debajo de $topbar-icons la barra se queda en iconos ocultando
+  // `.btn__label`. Un botón cuyo texto vaya suelto —como iban los siete hasta
+  // la v2.42.1— no tiene nada que el CSS pueda ocultar y vuelve a desbordar
+  // la barra, dejando «Exportar» fuera de la pantalla. El arnés vm no lo ve.
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const nav = html.match(/<nav class="topbar__actions">[\s\S]*?<\/nav>/);
+  assert.ok(nav, 'falta la barra de acciones');
+  const botones = nav[0].match(/<button[\s\S]*?<\/button>/g) || [];
+  assert.ok(botones.length >= 7, `sólo se encontraron ${botones.length} botones`);
+  for (const b of botones) {
+    const id = (b.match(/id="([^"]+)"/) || [])[1] || '(sin id)';
+    assert.match(b, /<span class="btn__label">/,
+      `el rótulo de #${id} va suelto: hay que envolverlo en .btn__label`);
+    // Sin rótulo a la vista, el tooltip es lo único que queda para saber qué
+    // hace el botón.
+    assert.match(b, /title="/, `#${id} se queda sin tooltip al ir en icono`);
+  }
+  // Y la regla que los oculta tiene que estar en el artefacto compilado.
+  const css = fs.readFileSync(path.resolve(__dirname, '..', 'css', 'styles.css'), 'utf8');
+  assert.match(css, /max-width:\s*1060px/,
+    'falta el breakpoint que deja la barra en iconos');
+  assert.match(css, /\.topbar__actions \.btn__label/,
+    'falta la regla que oculta los rótulos de la barra');
+  // Nunca en absolute: escaparía del recorte del ancestro y estiraría el
+  // scroll horizontal de la página en un móvil (regresión de la v2.42.1).
+  const regla = css.match(/\.topbar__actions \.btn__label\s*\{[^}]*\}/);
+  assert.ok(regla && !/position:\s*absolute/.test(regla[0]),
+    'el rótulo recortado no puede ser absolute: escapa del overflow y crea scroll');
+});
+
 test('«Abrir proyecto» dice lo que abre y lo que se lleva por delante', () => {
   // Se llamaba «Importar» a secas: ni el formato (.json, y solo ese de los
   // cinco que exporta) ni que SUSTITUYE el lienzo. El usuario preguntó qué
