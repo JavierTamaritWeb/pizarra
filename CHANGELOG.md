@@ -4,6 +4,27 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [2.41.0] — 2026-08-17
+
+Primer paso de `PLAN-JARDIN.md` (§1.1 y §1.3): las marcas que convierten un
+croquis del Jardín en un plano.
+
+### Añadido
+
+- **Flecha de norte** en Decoración: la rosa, la aguja y su «N» —dibujada con
+  tres líneas, no escrita: cada variante del jardín lleva una sola etiqueta de
+  texto, la suya—.
+- **Escala gráfica**, la primera pieza que **dibuja** la escala que la app ya
+  conocía: tramos de un metro exacto a los px/m activos, con los pares en
+  sólido y una división por junta. Mide metros de verdad aunque eso la deje
+  más corta que el arrastre —una escala estirada hasta llenar el gesto
+  mentiría— y se corta en diez tramos para no volverse una cremallera.
+- **Piscina**: andén, vaso, dos ondas de agua y su escalerilla. Por defecto
+  8×4 m a la escala de referencia de la sección.
+
+El Jardín pasa a **71 variantes** en ocho catálogos; los tres iconos salen
+solos de la geometría real, como todos.
+
 ## [2.40.1] — 2026-08-17
 
 ### Cambiado

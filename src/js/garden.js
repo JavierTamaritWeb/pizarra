@@ -46,6 +46,9 @@ const Garden = (function () {
      hileras de los extremos para que no asomen por los bordes. */
   const PATH_ROWS = 6, PATH_ROW_H = 17, PATH_STONES = 96, PATH_SPREAD = 0.92;
   const PLANT_PX_PER_M_MIN = 8, PLANT_PX_PER_M_MAX = 50;
+  /* Tope de tramos de la escala gráfica: a 8 px/m un arrastre ancho pediría
+     veinte y la barra se volvería una cremallera ilegible. */
+  const SCALE_BAR_MAX_M = 10;
   const PLANT_SCALE_MIN = 50, PLANT_SCALE_MAX = 150;
   const PLANT_TOOLS = Object.freeze([
     TOOLS.GARDEN_TREE, TOOLS.GARDEN_SHRUB, TOOLS.GARDEN_FLOWER,
@@ -77,7 +80,12 @@ const Garden = (function () {
       pot: { w: 34, h: 40 },  well:  { w: 44, h: 44 },  can:  { w: 36, h: 30 },
       stone: { w: 40, h: 32 }, bench: { w: 62, h: 24 }, fountain: { w: 70, h: 70 },
       pond: { w: 150, h: 95 },
-      sundial: { w: 64, h: 64 }, sundialWall: { w: 60, h: 46 } } },
+      sundial: { w: 64, h: 64 }, sundialWall: { w: 60, h: 46 },
+      // La piscina es una pieza física: 8×4 m a la escala de referencia de la
+      // sección (20 px/m). Las otras dos son símbolos de plano, así que su
+      // tamaño es el que se lee bien, no una medida del jardín.
+      pool: { w: 160, h: 80 }, north: { w: 48, h: 64 },
+      scalebar: { w: 120, h: 26 } } },
     // El camino no está aquí: no se define por una caja sino por un eje, y su
     // tamaño por defecto vive en PATH_LEN / PATH_W_* (ver `_pathAxis`).
   };
@@ -1588,12 +1596,121 @@ const Garden = (function () {
       case 'pond':      // lámina de agua con su orilla
         return [_blob(cx, cy, rx, ry, LOBES.pond, o),
                 _blob(cx, cy, rx * 0.74, ry * 0.74, LOBES.pond, f)];
+      case 'pool':      // piscina: andén, vaso, agua y escalerilla
+        return _poolTool(b, o);
+      case 'north':     // flecha de norte
+        return _northTool(b, o);
+      case 'scalebar':  // escala gráfica
+        return _scaleBarTool(b, o);
       case 'sundial': case 'sundialWall':
         return _sundialTool(b, o, type);
       default:          // maceta: borde y boca
         return [_circleEl(b.x, b.y, b.w, b.h, o),
                 _dot(cx, cy, r * 0.72, f)];
     }
+  }
+
+  /**
+   * Piscina vista desde arriba: el andén, el vaso, el agua y la escalerilla.
+   *
+   * El vaso va con el trazo del contorno (es la pieza) y el agua y la
+   * escalerilla, finas. El agua se omite si el vaso no da de sí: en una caja
+   * degenerada las ondas se apelotonarían en una raya, y una cadena sin
+   * recorrido no dice nada.
+   */
+  function _poolTool(b, o) {
+    const f = _fine(o);
+    const inset = Math.min(b.w, b.h) * 0.12;
+    const vw = Math.max(1, b.w - inset * 2), vh = Math.max(1, b.h - inset * 2);
+    const vx = b.x + inset, vy = b.y + inset;
+    const els = [_rectEl(b.x, b.y, b.w, b.h, o),       // andén
+                 _rectEl(vx, vy, vw, vh, o)];          // vaso
+    if (vw > 12 && vh > 8) {
+      // Dos ondas a lo largo del vaso, en el tercio central: bastan para que
+      // se lea como lámina de agua sin llenar la piscina de rayas.
+      for (let i = 1; i <= 2; i++) {
+        const wy = vy + (vh * i) / 3;
+        els.push(_wave(vx + vw * 0.12, wy, vx + vw * 0.88, wy,
+          Math.max(1, vh * 0.06), 3, f));
+      }
+    }
+    // Escalerilla en el extremo izquierdo, con sus dos largueros y dos
+    // peldaños; va con el trazo de la pieza, que es herrajes, no agua.
+    const lw = Math.max(2, vw * 0.1), lh = Math.max(2, vh * 0.26);
+    const lx = vx + vw * 0.06, ly = vy + (vh - lh) / 2;
+    els.push(_line(lx, ly, lx, ly + lh, o),
+             _line(lx + lw, ly, lx + lw, ly + lh, o),
+             _line(lx, ly + lh / 3, lx + lw, ly + lh / 3, o),
+             _line(lx, ly + (lh * 2) / 3, lx + lw, ly + (lh * 2) / 3, o));
+    return els;
+  }
+
+  /**
+   * Flecha de norte: la rosa, la aguja y la «N».
+   *
+   * La «N» se dibuja con TRES LÍNEAS y no con un elemento `text`, y no es un
+   * capricho: cada variante del jardín emite una sola etiqueta de texto —la
+   * suya, que pone `_labelled`—, y con `labels:false` no puede quedar ninguna.
+   * Un rótulo dentro del dibujo rompería las dos cosas. Además el temblor de
+   * Sketchy le da a la letra el mismo aire manuscrito que al resto.
+   */
+  function _northTool(b, o) {
+    const f = _fine(o);
+    const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+    const rx = b.w / 2, ry = b.h / 2;
+    // La punta se queda a media altura para dejarle sitio a la «N» ENCIMA,
+    // que es donde se rotula un norte de verdad: probado en el navegador con
+    // la letra bajo la punta, a tamaño de icono se fundía con el eje.
+    const tipY = cy - ry * 0.42, wing = Math.max(1, rx * 0.18);
+    const els = [_circleEl(b.x, b.y, b.w, b.h, o),
+                 _line(cx, cy + ry * 0.62, cx, tipY, o),        // eje
+                 _line(cx - wing, cy - ry * 0.06, cx, tipY, o), // alas de la punta
+                 _line(cx + wing, cy - ry * 0.06, cx, tipY, o)];
+    const nh = Math.max(2, ry * 0.32), nw = Math.max(1.5, rx * 0.26);
+    const ny = cy - ry * 0.52, nx = cx - nw / 2;
+    els.push(_line(nx, ny, nx, ny - nh, f),
+             _line(nx + nw, ny, nx + nw, ny - nh, f),
+             _line(nx, ny - nh, nx + nw, ny, f));
+    return els;
+  }
+
+  /**
+   * Escala gráfica: la barra de tramos de un metro.
+   *
+   * Mide METROS DE VERDAD, leyendo `o.plantPxPerM` —la escala que la app ya
+   * conoce y que hasta ahora no dibujaba nadie—, así que la barra puede salir
+   * algo más corta o más larga que el arrastre: una escala que se estirara
+   * hasta llenar el gesto estaría mintiendo, que es lo único que no puede
+   * hacer. Los tramos pares van rellenos, como en un plano de verdad.
+   *
+   * Ojo, y es la contrapartida de que los elementos sean planos: la barra
+   * guarda la escala del momento en que se dibujó. Si luego se cambia el
+   * px/m, la barra vieja sigue diciendo lo que decía —hay que rehacerla—,
+   * igual que el alzado de una planta no se rehace solo.
+   */
+  function _scaleBarTool(b, o) {
+    const f = _fine(o);
+    const px = Math.max(PLANT_PX_PER_M_MIN, Math.min(PLANT_PX_PER_M_MAX,
+      Number.isFinite(o.plantPxPerM) ? o.plantPxPerM : 20));
+    const tramos = Math.max(1, Math.min(SCALE_BAR_MAX_M, Math.round(b.w / px)));
+    const barW = tramos * px;
+    const barH = Math.max(3, Math.min(b.h * 0.5, px * 0.4));
+    const x0 = b.x + (b.w - barW) / 2, y0 = b.y + (b.h - barH) / 2;
+    const els = [_rectEl(x0, y0, barW, barH, o)];
+    // Tramos pares en sólido. El `fillColor` va SIEMPRE explícito: sin él,
+    // `Renderer.fillStyle` cae en el tinte al 12 % del trazo, que es
+    // retrocompatibilidad de las formas planas y aquí saldría desvaído.
+    const solido = { ...o, fill: true, fillColor: o.fillColor || o.color,
+      fillTransparent: false };
+    for (let i = 0; i < tramos; i += 2) {
+      els.push(_rectEl(x0 + i * px, y0, px, barH, solido));
+    }
+    // Una división fina por junta, para que se cuenten los metros aunque el
+    // relleno no se vea (modo tinta sobre papel oscuro, por ejemplo).
+    for (let i = 1; i < tramos; i++) {
+      els.push(_line(x0 + i * px, y0, x0 + i * px, y0 + barH, f));
+    }
+    return els;
   }
 
   /**

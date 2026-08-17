@@ -72,7 +72,7 @@ Objetivo: que un boceto del Jardín se lea como plano de plantación. Todo son
 entradas de catálogo + cases nuevos; sin elemento nuevo, sin gesto nuevo, sin
 tocar `gardenMeta`. Ítems independientes entre sí.
 
-### 1.1 Flecha de norte y escala gráfica (Decoración)
+### 1.1 Flecha de norte y escala gráfica (Decoración) — ✅ HECHO (v2.41.0)
 - **Prioridad:** alta · **Esfuerzo:** bajo · **Archivos:** `src/js/config.js`
   (DECOR_TYPES), `src/js/garden.js` (`_decorTool`), tests
 - Dos variantes nuevas de `DECOR_TYPES`: `north` (círculo + flecha + «N»,
@@ -107,7 +107,7 @@ tocar `gardenMeta`. Ítems independientes entre sí.
   ejemplar mordido por el borrador (fragmentos con el mismo gid) cuenta UNA
   vez; el estampado es un paso de undo.
 
-### 1.3 Piscina (Decoración)
+### 1.3 Piscina (Decoración) — ✅ HECHO (v2.41.0)
 - **Prioridad:** alta · **Esfuerzo:** bajo · **Archivos:** config.js,
   garden.js (`_decorTool`), tests
 - El ausente más flagrante del jardín español. Variante `pool` de
@@ -361,8 +361,12 @@ publicar una propia desde `variantIcon` es una oportunidad, no un consumo.
 
 Cada ítem es una versión con su entrada de CHANGELOG, como siempre:
 
-1. **1.1 + 1.3** (norte, escala, piscina) — una tarde, el plano empieza a
-   parecer plano.
+1. ~~**1.1 + 1.3** (norte, escala, piscina)~~ — **hecho en la v2.41.0**. Dos
+   cosas que aprendió: una variante del jardín **no puede escribir dentro de
+   su dibujo** (cada una emite una sola etiqueta `text`, y con `labels:false`
+   ninguna), así que la «N» son tres líneas y la unidad de la escala vive en
+   el nombre del catálogo; y la barra mide **metros exactos** aunque quede
+   más corta que el arrastre. El resto de la fase sigue igual de válido.
 2. **1.2** (leyenda/listado de plantación) — la funcionalidad «profesional»
    más barata del plan.
 3. **2.0 + 1.4 + 1.5** (Poisson + suelos + densificar masas) — el módulo

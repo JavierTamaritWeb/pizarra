@@ -414,6 +414,14 @@ const DECOR_TYPES = Object.freeze([
   { id: 'sundial',     name: 'Reloj de sol' },
   { id: 'sundialWall', name: 'Reloj de sol de pared' },
   { id: 'pond',     name: 'Estanque' },
+  { id: 'pool',     name: 'Piscina' },
+  /* Las dos marcas que convierten un croquis en plano (v2.41.0). El nombre de
+     la escala dice su unidad a propósito: las cifras no pueden ir dentro del
+     dibujo —cada variante emite UNA sola etiqueta de texto, la suya— así que
+     el rótulo que estampa `_labelled` es donde cabe decir cuánto mide cada
+     tramo. La «N» del norte, por lo mismo, se dibuja con tres líneas. */
+  { id: 'north',    name: 'Flecha de norte' },
+  { id: 'scalebar', name: 'Escala gráfica (tramos de 1 m)' },
 ]);
 
 /**

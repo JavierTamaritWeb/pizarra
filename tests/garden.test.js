@@ -856,6 +856,74 @@ test('los dos relojes de sol no se confunden entre sí', () => {
     .filter(el => el.type === 'circle').length, 0);
 });
 
+/* ------- el norte, la escala y la piscina (v2.41.0) ------- */
+
+test('la flecha de norte apunta arriba y lleva su N dibujada, no escrita', () => {
+  const els = make(TOOLS.GARDEN_DECOR, 'north', { labels: false });
+  assert.equal(els.filter(el => el.type === 'text').length, 0,
+    'la «N» no puede ser un texto: rompería la etiqueta única de cada variante');
+  assert.equal(els.filter(el => el.type === 'circle').length, 1, 'falta la rosa');
+  const cy = (P1.y + P2.y) / 2;
+  const lines = els.filter(el => el.type === 'line');
+  const aguja = lines.filter(l => l.lineWidth === O.lineWidth);
+  assert.equal(aguja.length, 3, 'la aguja es el eje y las dos alas de la punta');
+  assert.ok(aguja.every(l => Math.min(l.y1, l.y2) < cy),
+    'la aguja tiene que subir por encima del centro: apunta al norte');
+  const ene = lines.filter(l => l.lineWidth < O.lineWidth);
+  assert.equal(ene.length, 3, 'la «N» son dos montantes y la diagonal');
+  assert.ok(ene.every(l => l.y1 <= cy && l.y2 <= cy),
+    'la «N» va en la mitad superior, bajo la punta');
+});
+
+test('la escala gráfica mide metros de verdad y no se pasa de tramos', () => {
+  const barra = (px, p2) => {
+    const els = Garden.elements(TOOLS.GARDEN_DECOR, P1, p2 || P2,
+      { ...O, decorType: 'scalebar', labels: false, plantPxPerM: px });
+    const rects = els.filter(el => el.type === 'rect');
+    const marco = rects[0];
+    // Un tramo por relleno (los pares) y una división por junta.
+    const tramos = els.filter(el => el.type === 'line').length + 1;
+    return { marco, tramos, rects };
+  };
+  for (const px of [10, 20, 40]) {
+    const { marco, tramos } = barra(px, { x: 160, y: 140 });   // caja de 60 px
+    assert.equal(marco.w / tramos, px,
+      `a ${px} px/m cada tramo tiene que medir un metro exacto`);
+    assert.ok(marco.w > 0 && marco.h > 0);
+  }
+  // El tope: a 8 px/m una caja ancha pediría veinte tramos y saldría ilegible.
+  assert.equal(barra(8).tramos, 10, 'la barra se corta en diez metros');
+  // Los tramos pares van sólidos, y con su color explícito (si faltara,
+  // Renderer.fillStyle caería en el tinte al 12 % del trazo).
+  const rellenos = barra(20).rects.slice(1);
+  assert.ok(rellenos.length > 0, 'faltan los tramos sólidos');
+  for (const t of rellenos) {
+    assert.equal(t.fill, true);
+    assert.equal(t.fillTransparent, false);
+    assert.equal(t.fillColor, O.color);
+  }
+});
+
+test('la piscina lleva andén, vaso, agua y escalerilla', () => {
+  const els = make(TOOLS.GARDEN_DECOR, 'pool', { labels: false });
+  const rects = els.filter(el => el.type === 'rect');
+  assert.equal(rects.length, 2, 'andén y vaso');
+  const [anden, vaso] = rects;
+  assert.ok(vaso.x > anden.x && vaso.y > anden.y &&
+    vaso.x + vaso.w < anden.x + anden.w && vaso.y + vaso.h < anden.y + anden.h,
+  'el vaso tiene que quedar dentro del andén');
+  const agua = els.filter(el => el.type === 'curveArrow');
+  assert.equal(agua.length, 2, 'dos ondas de agua');
+  for (const w of agua) {
+    assert.ok(w.lineWidth < O.lineWidth, 'el agua va con el trazo fino');
+    assert.ok(w.x1 > vaso.x && w.x2 < vaso.x + vaso.w, 'el agua se sale del vaso');
+  }
+  const escalera = els.filter(el => el.type === 'line');
+  assert.equal(escalera.length, 4, 'dos largueros y dos peldaños');
+  assert.ok(escalera.every(l => l.x1 < vaso.x + vaso.w / 2),
+    'la escalerilla va en un extremo, no repartida por la piscina');
+});
+
 test('la fuente y la maceta son anillos concéntricos', () => {
   const centro = els => els.filter(el => el.type === 'circle')
     .map(el => `${el.x + el.w / 2},${el.y + el.h / 2}`);
