@@ -1,3 +1,19 @@
+@use 'variables' as v;
+
+// Anillo de foco estándar (teclado). Un solo cuerpo para _focus.scss y los
+// controles del modal que lo repiten con :focus-visible propio.
+@mixin focus-ring($w: v.$focus-ring-w) {
+  outline: $w solid var(--color-primary);
+  outline-offset: $w;
+}
+
+// Ancho de un modal acotado al viewport. Interpolado como cadena: dart-sass
+// aplanaría el calc() dentro de min() (salida válida pero distinta byte a
+// byte del CSS de referencia).
+@mixin modal-width($max) {
+  width: #{"min(#{$max}, calc(100vw - #{v.$modal-gutter}))"};
+}
+
 // Cuerpo común de los pulgares del slider. Cada navegador necesita SU regla:
 // un selector vendor desconocido invalida el grupo entero, así que
 // ::-webkit-slider-thumb y ::-moz-range-thumb no pueden compartir una lista

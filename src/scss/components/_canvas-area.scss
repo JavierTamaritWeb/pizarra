@@ -1,3 +1,5 @@
+@use '../abstracts/variables' as v;
+
 /* ============================================================
    BLOCK: canvas-area
    ============================================================ */
@@ -9,7 +11,7 @@
   display: flex;
   padding: 1.2rem;
   background: var(--bg-app);
-  background-image: radial-gradient(circle at 50% 50%, #1a1d2e 0%, var(--bg-app) 70%);
+  background-image: radial-gradient(circle at 50% 50%, v.$bg-canvas-halo 0%, var(--bg-app) 70%);
 }
 
 /* El sizer ocupa en layout el tamaño ya escalado del lienzo (lo fija
@@ -20,7 +22,7 @@
 .canvas-area__sizer {
   margin: auto;
   flex-shrink: 0;
-  transition: width 0.2s ease, height 0.2s ease;
+  transition: width v.$ease-slow, height v.$ease-slow;
 }
 
 .canvas-area__wrapper {
@@ -29,16 +31,14 @@
   /* Se ciñe a los canvas: sin esto se estiraría al ancho del sizer (que ya
      está escalado) y el transform lo volvería a escalar sobre eso */
   width: fit-content;
-  border-radius: 0.8rem;
+  border-radius: v.$radius-lg;
   overflow: hidden;
-  box-shadow:
-    0 0.8rem 4rem rgba(0, 0, 0, 0.38),
-    0 0 0 0.1rem var(--border-main);
+  box-shadow: v.$shadow-canvas;
 
   /* top left: el lienzo crece hacia la derecha/abajo desde el origen del
      sizer, así el desbordamiento cae dentro del área scrollable */
   transform-origin: top left;
-  transition: transform 0.2s ease;
+  transition: transform v.$ease-slow;
 }
 
 .canvas-area__canvas {
@@ -100,16 +100,16 @@
 
 .canvas-area__text-input {
   position: absolute;
-  background: #fff;
+  background: v.$color-paper;
   border: 0.2rem solid var(--color-primary);
-  border-radius: 0.4rem;
+  border-radius: v.$radius-sm;
   padding: 0.6rem;
   font-family: var(--font-sketch);
-  color: #1a1a2e;
+  color: v.$color-ink;
   outline: none;
   min-width: 12rem;
   min-height: 3.2rem;
-  z-index: 10;
-  box-shadow: 0 0.4rem 1.2rem rgba(0, 0, 0, 0.2);
+  z-index: v.$z-canvas-overlay;
+  box-shadow: v.$shadow-overlay;
   resize: none;
 }

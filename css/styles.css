@@ -426,7 +426,7 @@ input[type=range]::-moz-range-thumb {
 .sidebar__tool--active {
   background: rgba(78, 205, 196, 0.12);
   color: var(--color-primary);
-  outline: 0.15rem solid rgba(78, 205, 196, 0.25);
+  outline: 0.2rem solid rgba(78, 205, 196, 0.25);
 }
 .sidebar__tool-name {
   font-size: 0.9rem;
@@ -1311,7 +1311,7 @@ kbd {
   min-height: 3.2rem;
   margin: 0;
   padding: 0.8rem 1rem;
-  border-radius: 0.7rem;
+  border-radius: 0.8rem;
   background: rgba(78, 205, 196, 0.08);
   color: var(--text-secondary);
   font-size: 1.2rem;

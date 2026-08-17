@@ -1,4 +1,5 @@
 @use '../abstracts/breakpoints' as bp;
+@use '../abstracts/variables' as v;
 
 /* ============================================================
    BLOCK: topbar
@@ -42,10 +43,10 @@
     display: inline-flex;
     align-items: center;
     padding: 0.3rem 0.8rem;
-    border-radius: 0.6rem;
+    border-radius: v.$radius-md;
     font-size: 1rem;
     font-weight: 600;
-    background: rgba(78, 205, 196, 0.08);
+    background: v.$primary-tint;
     color: var(--color-primary);
   }
 
@@ -63,11 +64,11 @@
     display: inline-flex;
     align-items: center;
     padding: 0.3rem 0.8rem;
-    border-radius: 0.6rem;
+    border-radius: v.$radius-md;
     font-size: 1.1rem;
     font-weight: 600;
-    background: rgba(231, 76, 60, 0.15);
-    color: #e74c3c;
+    background: v.$warn-bg;
+    color: v.$color-warn;
   }
 
   &__warn[hidden] {

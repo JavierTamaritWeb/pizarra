@@ -2724,3 +2724,26 @@ confirmados con sonda ejecutada, siete corregidos.
   modales caben sin desborde horizontal"*), más una aserción en
   `tests/smoke.test.js` que rechaza `position: absolute` en esa regla del CSS
   compilado, con el motivo escrito al lado.
+
+### Dos medidas desviadas de sus escalas: un radio de 0.7rem y un foco de 0.15rem
+
+- **Síntoma:** (v3.3.1, tokenización de estilos) la ficha de dimensiones
+  botánicas llevaba `border-radius: 0.7rem` —la escala de radios del proyecto
+  es 0.4/0.6/0.8/1/1.6— y el anillo de la herramienta activa del sidebar,
+  `outline: 0.15rem` frente al `0.2rem` estándar del foco. Invisibles a simple
+  vista (1px cada una), pero cualquier retoque futuro que «igualara» valores a
+  ojo podía caer en cualquiera de los dos lados.
+- **Causa:** valores escritos a mano en momentos distintos, sin una fuente
+  única que los nombrara. Es el defecto que la tokenización de v3.3.1 elimina:
+  toda medida repetida o con significado vive ahora en
+  `src/scss/abstracts/_variables.scss` (radios, sombras, tintes de marca,
+  z-index, `$ease-slow`, `$modal-pad`…), y estas dos eran las únicas cuyo
+  arreglo cambiaba píxeles reales (el resto del refactor dejó el CSS compilado
+  byte a byte idéntico).
+- **Fix:** `_modal.scss` (`.modal__plant-dimensions` → `v.$radius-lg`) y
+  `_sidebar.scss` (`.sidebar__tool--active` → `v.$focus-ring-w`), con el OK
+  explícito del usuario por cambiar píxeles.
+- **Guardia:** `tests/smoke.test.js` › *"las escalas tokenizadas no tienen
+  desviaciones en el CSS compilado"* — rechaza `border-radius: 0.7rem` y
+  `outline: 0.15rem` en el artefacto, los dos valores exactos que convivieron
+  con sus escalas.

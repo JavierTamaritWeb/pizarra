@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v3.3.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v3.3.1 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v3\.3\.0</);
-  assert.match(html, /css\/styles\.css\?v=3\.3\.0/);
-  assert.match(html, /src\/js\/app\.js\?v=3\.3\.0/);
-  assert.match(html, /src\/js\/building\.js\?v=3\.3\.0/);
-  assert.match(html, /src\/js\/garden\.js\?v=3\.3\.0/);
-  assert.match(html, /src\/js\/config\.js\?v=3\.3\.0/);
+  assert.match(html, /class="topbar__badge">v3\.3\.1</);
+  assert.match(html, /css\/styles\.css\?v=3\.3\.1/);
+  assert.match(html, /src\/js\/app\.js\?v=3\.3\.1/);
+  assert.match(html, /src\/js\/building\.js\?v=3\.3\.1/);
+  assert.match(html, /src\/js\/garden\.js\?v=3\.3\.1/);
+  assert.match(html, /src\/js\/config\.js\?v=3\.3\.1/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -64,8 +64,8 @@ test('index publica v3.3.0 sin caché antigua y documenta el tamaño del borrado
   assert.match(html, /id="modal-pyramid"/);
   assert.match(html, /id="modal-frustum"/);
   assert.match(html, /id="modal-sphere"/);
-  assert.match(html, /src\/js\/solid\.js\?v=3\.3\.0/);
-  assert.match(html, /src\/js\/airbrush\.js\?v=3\.3\.0/);
+  assert.match(html, /src\/js\/solid\.js\?v=3\.3\.1/);
+  assert.match(html, /src\/js\/airbrush\.js\?v=3\.3\.1/);
   // «Los clics acumulan selección» dejó el panel en la v2.17.0 y es el ajuste
   // de «Select». Si volviera a existir la casilla vieja habría dos controles
   // para un mismo estado, y solo uno cableado: el arnés `node:vm` fabrica un
@@ -399,6 +399,18 @@ test('css/styles.css es el artefacto compilado y conserva sus contratos', () => 
   assert.ok(m, 'falta --font-sketch en :root');
   const ctx = load('src/js/config.js'); // sin getComputedStyle: SKETCHY_FONT es el fallback
   assert.equal(m[1].trim().replace(/"/g, "'"), ctx.SKETCHY_FONT);
+});
+
+// Regresión de la tokenización v3.3.1 (BUGS.md): dos medidas convivían
+// desviadas 1px de sus escalas —un radio de 0.7rem (la escala es
+// 0.4/0.6/0.8/1/1.6) y un foco de 0.15rem (el estándar es 0.2rem)— y nada las
+// detectaba: SCSS, stylelint y el navegador aceptan cualquier número.
+test('las escalas tokenizadas no tienen desviaciones en el CSS compilado', () => {
+  const css = fs.readFileSync(path.resolve(__dirname, '..', 'css', 'styles.css'), 'utf8');
+  assert.ok(!css.includes('border-radius: 0.7rem'),
+    'un radio de 0.7rem se ha colado fuera de la escala de $radius-* (_variables.scss)');
+  assert.ok(!css.includes('outline: 0.15rem'),
+    'un anillo de foco de 0.15rem se ha colado fuera de $focus-ring-w (_variables.scss)');
 });
 
 // Regresión de var(--text-main) (BUGS.md): una custom property usada pero no

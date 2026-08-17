@@ -1,4 +1,5 @@
 @use '../abstracts/breakpoints' as bp;
+@use '../abstracts/variables' as v;
 
 /* ── Responsive mínimo ── */
 
@@ -20,8 +21,8 @@
   display: none;
   position: fixed;
   inset: var(--topbar-h) 0 0 0;
-  background: rgba(0, 0, 0, 0.45);
-  z-index: 40;
+  background: v.$scrim-drawer;
+  z-index: v.$z-drawer-backdrop;
 }
 
 @include bp.until(bp.$panel-drawer) {
@@ -33,7 +34,7 @@
     top: var(--topbar-h);
     right: 0;
     bottom: 0;
-    z-index: 50;
+    z-index: v.$z-drawer;
     transform: translateX(100%);
 
     /* El cajón cerrado debe salir también del árbol de accesibilidad y del
@@ -42,14 +43,14 @@
        pantalla). visibility respeta el deslizamiento gracias al delay: se
        oculta al ACABAR la transición y al abrir se muestra al instante. */
     visibility: hidden;
-    transition: transform 0.2s ease, visibility 0s 0.2s;
-    box-shadow: -0.8rem 0 4rem rgba(0, 0, 0, 0.4);
+    transition: transform v.$ease-slow, visibility 0s v.$dur-slow;
+    box-shadow: v.$shadow-drawer;
   }
 
   .app--panel-open .panel {
     transform: translateX(0);
     visibility: visible;
-    transition: transform 0.2s ease, visibility 0s 0s;
+    transition: transform v.$ease-slow, visibility 0s 0s;
   }
 
   .app--panel-open .panel-backdrop {

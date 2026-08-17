@@ -1,4 +1,6 @@
 @use '../abstracts/breakpoints' as bp;
+@use '../abstracts/mixins' as mx;
+@use '../abstracts/variables' as v;
 
 /* ============================================================
    BLOCK: modal
@@ -14,22 +16,23 @@
   margin: auto;
   background: var(--bg-surface);
   color: var(--text-primary);
-  border-radius: 1.6rem;
-  padding: 2.8rem;
+  border-radius: v.$radius-2xl;
+  padding: v.$modal-pad;
 
   /* Se adapta a pantallas estrechas (móvil ~320px) sin desbordar el viewport,
      y hace scroll vertical si el contenido supera el alto disponible. */
-  // Interpolado como cadena: dart-sass aplanaría el calc() dentro de min()
-  // (salida válida pero distinta byte a byte del CSS de referencia).
-  width: #{"min(46rem, calc(100vw - 2.4rem))"};
-  max-height: calc(100vh - 2.4rem);
+  // El mixin interpola como cadena: dart-sass aplanaría el calc() dentro de
+  // min() (salida válida pero distinta byte a byte del CSS de referencia).
+  @include mx.modal-width(46rem);
+
+  max-height: calc(100vh - #{v.$modal-gutter});
   overflow-y: auto;
   border: 0.1rem solid var(--border-main);
-  box-shadow: 0 2rem 6rem rgba(0, 0, 0, 0.4);
+  box-shadow: v.$shadow-modal;
 }
 
 .modal::backdrop {
-  background: rgba(0, 0, 0, 0.5);
+  background: v.$scrim-modal;
   backdrop-filter: blur(0.4rem);
 }
 
@@ -70,7 +73,7 @@
   background: var(--bg-surface);
   box-shadow:
     0 -0.8rem 1.2rem 0.4rem var(--bg-surface),
-    0 2.8rem 0 0 var(--bg-surface);
+    0 v.$modal-pad 0 0 var(--bg-surface);
 }
 
 /* Export grid */
@@ -90,7 +93,7 @@
   gap: 0.4rem;
   padding: 1.6rem;
   border: none;
-  border-radius: 1rem;
+  border-radius: v.$radius-xl;
   background: var(--bg-hover);
   color: var(--text-primary);
   cursor: pointer;
@@ -98,7 +101,7 @@
 }
 
 .modal__option:hover {
-  background: #353850;
+  background: v.$bg-hover-elevated;
   transform: translateY(-0.1rem);
 }
 
@@ -122,8 +125,7 @@
 /* Ayuda */
 .modal--help {
   /* Más ancho que el modal estándar, pero igualmente limitado al viewport. */
-  // Cadena interpolada por lo mismo que en .modal (min + calc).
-  width: #{"min(62rem, calc(100vw - 2.4rem))"};
+  @include mx.modal-width(62rem);
 
   /* La lista es larga: se limita al alto de la ventana y hace scroll dentro */
   max-height: 85vh;
@@ -133,7 +135,7 @@
    miniatura, cinco ajustes y cotas. El límite al viewport sigue siendo el
    mismo, por lo que no introduce scroll horizontal en pantallas pequeñas. */
 .modal--plant {
-  width: #{"min(72rem, calc(100vw - 2.4rem))"};
+  @include mx.modal-width(72rem);
 }
 
 /* Buscador de la ayuda. Pegajoso arriba por el mismo motivo por el que
@@ -152,7 +154,7 @@
   gap: 1.2rem;
   padding: 0 0 1rem;
   background: var(--bg-surface);
-  box-shadow: 0 -2.8rem 0 var(--bg-surface);
+  box-shadow: 0 (0 - v.$modal-pad) 0 var(--bg-surface);
 }
 
 /* El título vive dentro de la barra pegajosa (ver el comentario del HTML):
@@ -166,7 +168,7 @@
   flex: 1;
   min-width: 0;
   padding: 0.8rem 1.2rem;
-  border-radius: 0.8rem;
+  border-radius: v.$radius-lg;
   border: 0.1rem solid var(--border-main);
   background: var(--bg-panel);
   color: var(--text-primary);
@@ -234,7 +236,7 @@
   margin-bottom: 0.8rem;
   font-size: 1.1rem;
   text-transform: uppercase;
-  letter-spacing: 0.15rem;
+  letter-spacing: v.$tracking-wide;
   color: var(--color-primary);
   font-weight: 700;
 }
@@ -273,7 +275,7 @@ kbd {
   padding: 0.1rem 0.6rem;
   border: 0.1rem solid var(--border-main);
   border-bottom-width: 0.2rem;
-  border-radius: 0.4rem;
+  border-radius: v.$radius-sm;
   background: var(--bg-hover);
   color: var(--text-primary);
   font-family: inherit;
@@ -293,7 +295,7 @@ kbd {
   margin-bottom: 0.6rem;
   font-size: 1rem;
   text-transform: uppercase;
-  letter-spacing: 0.15rem;
+  letter-spacing: v.$tracking-wide;
   color: var(--text-muted);
   font-weight: 600;
 }
@@ -309,14 +311,14 @@ kbd {
   font-size: 2.4rem;
   line-height: 1.2;
   border: 0.2rem solid transparent;
-  border-radius: 0.8rem;
+  border-radius: v.$radius-lg;
   background: var(--bg-hover);
   cursor: pointer;
   transition: all var(--ease);
 }
 
 .modal__emoji:hover {
-  background: #353850;
+  background: v.$bg-hover-elevated;
   transform: scale(1.12);
 }
 
@@ -325,8 +327,7 @@ kbd {
 }
 
 .modal__emoji:focus-visible {
-  outline: 0.2rem solid var(--color-primary);
-  outline-offset: 0.2rem;
+  @include mx.focus-ring;
 }
 
 /* Selector de forma de planta (Edificios) */
@@ -367,7 +368,7 @@ kbd {
   width: 17.6rem;
   height: 16.8rem;
   border: 0.1rem solid var(--border-main);
-  border-radius: 0.8rem;
+  border-radius: v.$radius-lg;
 }
 
 .modal__build-fields {
@@ -406,8 +407,8 @@ kbd {
   margin: 0;
   padding: 1.2rem;
   border: 0.1rem solid var(--border-main);
-  border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.025);
+  border-radius: v.$radius-xl;
+  background: v.$highlight-subtle;
 }
 
 /* El <legend> nativo se incrusta en el borde y arrastra su propio padding; se
@@ -430,7 +431,7 @@ kbd {
    como un bloque de color. Aquí se fijan al tamaño de la muestra. Las seis
    columnas se conservan: cada tanda de seis de COLORS es una fila visible. */
 .modal__palette .panel__color-grid {
-  grid-template-columns: repeat(6, 2.8rem);
+  grid-template-columns: repeat(6, v.$swatch-size);
   justify-content: start;
 }
 
@@ -446,7 +447,7 @@ kbd {
    una ventana de 1201px de ancho no provoca scroll horizontal. */
 @include bp.from(bp.$sidebar-2col) {
   .modal--settings {
-    width: #{"min(76rem, calc(100vw - 2.4rem))"};
+    @include mx.modal-width(76rem);
   }
 
   .modal--settings .modal__build-fields {
@@ -499,8 +500,8 @@ kbd {
   align-items: start;
   padding: 1.2rem;
   border: 0.1rem solid var(--border-main);
-  border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.025);
+  border-radius: v.$radius-xl;
+  background: v.$highlight-subtle;
 }
 
 .modal__plant-fields {
@@ -534,8 +535,8 @@ kbd {
   min-height: 3.2rem;
   margin: 0;
   padding: 0.8rem 1rem;
-  border-radius: 0.7rem;
-  background: rgba(78, 205, 196, 0.08);
+  border-radius: v.$radius-lg;
+  background: v.$primary-tint;
   color: var(--text-secondary);
   font-size: 1.2rem;
   line-height: 1.35;
@@ -599,7 +600,7 @@ kbd {
   gap: 1rem;
   padding: 1.6rem 1rem;
   border: 0.2rem solid transparent;
-  border-radius: 1rem;
+  border-radius: v.$radius-xl;
   background: var(--bg-hover);
   color: var(--text-primary);
   font-family: var(--font-ui);
@@ -610,7 +611,7 @@ kbd {
 }
 
 .modal__shape:hover {
-  background: #353850;
+  background: v.$bg-hover-elevated;
 }
 
 .modal__shape svg {
@@ -628,7 +629,7 @@ kbd {
 .modal__shape-icon {
   width: 5.6rem;
   height: 4.8rem;
-  border-radius: 0.4rem;
+  border-radius: v.$radius-sm;
 }
 
 .modal__shape-name {
@@ -650,7 +651,7 @@ kbd {
 
 .modal__shape--active {
   border-color: var(--color-primary);
-  background: rgba(78, 205, 196, 0.12);
+  background: v.$primary-tint-strong;
 }
 
 .modal__shape--active svg {
@@ -658,8 +659,7 @@ kbd {
 }
 
 .modal__shape:focus-visible {
-  outline: 0.2rem solid var(--color-primary);
-  outline-offset: 0.2rem;
+  @include mx.focus-ring;
 }
 
 /* Templates list */
@@ -675,7 +675,7 @@ kbd {
   gap: 1.2rem;
   padding: 1.4rem 1.6rem;
   border: none;
-  border-radius: 1rem;
+  border-radius: v.$radius-xl;
   background: var(--bg-hover);
   color: var(--text-primary);
   text-align: left;
@@ -684,7 +684,7 @@ kbd {
 }
 
 .modal__template:hover {
-  background: #353850;
+  background: v.$bg-hover-elevated;
   transform: translateX(0.2rem);
 }
 

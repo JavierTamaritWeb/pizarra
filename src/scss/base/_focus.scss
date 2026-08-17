@@ -1,3 +1,5 @@
+@use '../abstracts/mixins' as mx;
+
 /* Foco visible solo al navegar con teclado */
 .btn:focus-visible,
 .sidebar__tool:focus-visible,
@@ -7,6 +9,5 @@ input[type="checkbox"]:focus-visible,
 .panel__select:focus-visible,
 .modal__option:focus-visible,
 .modal__template:focus-visible {
-  outline: 0.2rem solid var(--color-primary);
-  outline-offset: 0.2rem;
+  @include mx.focus-ring;
 }

@@ -1,3 +1,5 @@
+@use '../abstracts/variables' as v;
+
 /* ============================================================
    BLOCK: panel
    ============================================================ */
@@ -48,7 +50,7 @@
   &__title {
     font-size: 1.1rem;
     text-transform: uppercase;
-    letter-spacing: 0.15rem;
+    letter-spacing: v.$tracking-wide;
     color: var(--text-muted);
     font-weight: 600;
   }
@@ -76,7 +78,7 @@
     font-size: 1.3rem;
     line-height: 1;
     padding: 0.2rem 0.4rem;
-    border-radius: 0.6rem;
+    border-radius: v.$radius-md;
 
     // Objetivo mínimo de 24×24px (WCAG 2.5.8): con solo el padding quedaba
     // en ~21×17px — el peor objetivo de la app para motricidad limitada.
@@ -119,7 +121,7 @@
   &__select {
     width: 100%;
     border: 0.1rem solid var(--border-main);
-    border-radius: 0.6rem;
+    border-radius: v.$radius-md;
     padding: 0.7rem 0.9rem;
     color: var(--text-primary);
     background: var(--bg-hover);
@@ -157,7 +159,7 @@
     gap: 0.3rem;
     font-size: 1.1rem;
     text-transform: uppercase;
-    letter-spacing: 0.15rem;
+    letter-spacing: v.$tracking-wide;
     color: var(--text-muted);
     font-weight: 600;
   }
@@ -167,7 +169,7 @@
     width: 100%;
     min-width: 0;
     border: 0.1rem solid var(--border-main);
-    border-radius: 0.6rem;
+    border-radius: v.$radius-md;
     padding: 0.7rem 0.9rem;
     color: var(--text-primary);
     background: var(--bg-hover);
@@ -191,9 +193,9 @@
   // así que compartirla dejaría las del relleno marcando el color del trazo.
   &__color-swatch,
   &__fill-swatch {
-    width: 2.8rem;
-    height: 2.8rem;
-    border-radius: 0.6rem;
+    width: v.$swatch-size;
+    height: v.$swatch-size;
+    border-radius: v.$radius-md;
     border: 0.2rem solid transparent;
     cursor: pointer;
     transition: all var(--ease);
@@ -207,7 +209,7 @@
   &__color-swatch--active,
   &__fill-swatch--active {
     border-color: var(--color-primary);
-    outline: 0.2rem solid rgba(78, 205, 196, 0.25);
+    outline: 0.2rem solid v.$primary-ring;
     outline-offset: 0.1rem;
   }
 
@@ -228,7 +230,7 @@
     width: 3.2rem;
     height: 2.8rem;
     border: none;
-    border-radius: 0.4rem;
+    border-radius: v.$radius-sm;
     cursor: pointer;
     background: none;
     padding: 0;
@@ -245,9 +247,9 @@
   }
 
   &__canvas-preset {
-    width: 2.8rem;
-    height: 2.8rem;
-    border-radius: 0.6rem;
+    width: v.$swatch-size;
+    height: v.$swatch-size;
+    border-radius: v.$radius-md;
     border: 0.2rem solid transparent;
     cursor: pointer;
     padding: 0;
@@ -270,7 +272,7 @@
 
   &__canvas-preset--active {
     border-color: var(--color-primary);
-    outline: 0.2rem solid rgba(78, 205, 196, 0.25);
+    outline: 0.2rem solid v.$primary-ring;
     outline-offset: 0.1rem;
   }
 

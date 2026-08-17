@@ -25,18 +25,18 @@
   &__group-label {
     font-size: 1.1rem;
     text-transform: uppercase;
-    letter-spacing: 0.15rem;
+    letter-spacing: v.$tracking-wide;
     color: var(--text-muted);
     margin: 1rem 0 0.4rem;
     font-weight: 600;
   }
 
   &__tool {
-    width: 6.8rem;
+    width: v.$sidebar-btn-w;
     min-height: 4.4rem;
     padding: 0.3rem 0.2rem;
     border: none;
-    border-radius: 0.8rem;
+    border-radius: v.$radius-lg;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -50,14 +50,14 @@
   }
 
   &__tool:hover {
-    background: rgba(78, 205, 196, 0.08);
+    background: v.$primary-tint;
     color: var(--text-primary);
   }
 
   &__tool--active {
-    background: rgba(78, 205, 196, 0.12);
+    background: v.$primary-tint-strong;
     color: var(--color-primary);
-    outline: 0.15rem solid rgba(78, 205, 196, 0.25);
+    outline: v.$focus-ring-w solid v.$primary-ring;
   }
 
   &__tool-name {
@@ -67,8 +67,8 @@
     text-align: center;
 
     // OpenDyslexic es más ancha que una sans típica: el botón mide lo justo
-    // (6.8rem) para que la palabra más larga del catálogo («Redondeado»,
-    // ~59px a 0.9rem sin letter-spacing) quepa entera. Nada de
+    // ($sidebar-btn-w, ver _variables.scss) para que la palabra más larga del
+    // catálogo («Redondeado») quepa entera. Nada de
     // overflow-wrap: anywhere aquí: partiría palabras por cualquier sitio
     // («Rectán / gulo»); los nombres de varias palabras saltan por el espacio.
   }

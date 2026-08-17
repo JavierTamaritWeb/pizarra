@@ -1,3 +1,5 @@
+@use '../abstracts/variables' as v;
+
 /* ============================================================
    BLOCK: btn
    ============================================================ */
@@ -10,7 +12,7 @@
   gap: 0.6rem;
   padding: 0.8rem 1.4rem;
   border: none;
-  border-radius: 0.8rem;
+  border-radius: v.$radius-lg;
   font-size: 1.2rem;
   font-weight: 600;
   transition: all var(--ease);
@@ -51,13 +53,13 @@
 }
 
 .btn--danger {
-  background: rgba(233, 69, 96, 0.12);
+  background: v.$danger-bg;
   color: var(--color-danger);
-  border: 0.1rem solid rgba(233, 69, 96, 0.25);
+  border: 0.1rem solid v.$danger-border;
 }
 
 .btn--danger:hover {
-  background: rgba(233, 69, 96, 0.22);
+  background: v.$danger-bg-hover;
 }
 
 .btn--block {

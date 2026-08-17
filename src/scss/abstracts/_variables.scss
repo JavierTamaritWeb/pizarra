@@ -7,8 +7,20 @@
 // fichero, abstracts/_fonts.scss.
 // ============================================================
 
+// Criterio de tokenización (v3.3.1): aquí se nombra lo repetido, lo acoplado
+// y lo que codifica una decisión de diseño. Un padding/gap/font-size de un
+// solo uso sin significado transversal NO se nombra: cuarenta variables de un
+// uso son ruido, no documentación.
+
 // Marca
 $color-primary: #4ecdc4;
+
+// Derivados translúcidos de la marca. Se resuelven en compilación y dart-sass
+// los emite en la notación legacy que exige stylelint (rgba(78, 205, 196, α));
+// si $color-primary cambia, los tintes le siguen solos.
+$primary-tint: rgba($color-primary, 0.08); // hover suave
+$primary-tint-strong: rgba($color-primary, 0.12); // activo/seleccionado
+$primary-ring: rgba($color-primary, 0.25); // anillo/borde de énfasis
 
 // Aclarado de #e94560 en v2.2.0: como texto de .btn--danger sobre su fondo
 // rgba(233,69,96,.12/.22) daba 4.13:1 (3.61 en hover) — por debajo del AA
@@ -16,11 +28,26 @@ $color-primary: #4ecdc4;
 // Guardia: smoke.test.js calcula el ratio real del artefacto compilado.
 $color-danger: #f4778c;
 
+// Fondos del botón destructivo. #e94560 es el ANTIGUO $color-danger: al
+// aclarar el texto a #f4778c (AA, v2.2.0, ver arriba) los fondos conservaron
+// la base histórica a propósito. Guardia: smoke.test.js compone estos rgba
+// sobre --bg-panel y exige ≥4.5:1 con el texto — NO cambiar los valores.
+$danger-bg-base: #e94560;
+$danger-bg: rgba($danger-bg-base, 0.12);
+$danger-bg-hover: rgba($danger-bg-base, 0.22);
+$danger-border: rgba($danger-bg-base, 0.25);
+
+// Aviso de autoguardado lleno (#autosave-warn): tercer rojo del proyecto,
+// deliberadamente distinto de $color-danger y de $danger-bg-base.
+$color-warn: #e74c3c;
+$warn-bg: rgba($color-warn, 0.15);
+
 // Superficies
 $bg-app: #0f1019;
 $bg-panel: #161822;
 $bg-surface: #1c1f2e;
 $bg-hover: #2a2d3e;
+$bg-hover-elevated: #353850; // hover de las superficies elevadas del modal
 
 // Texto
 $text-primary: #e0e4ea;
@@ -40,11 +67,63 @@ $slider-track: #61678a;
 // Bordes
 $border-main: #2a2d3e;
 
+// Lienzo — OJO: $bg-canvas-halo (#1a1d2e, centro del radial-gradient del área
+// de trabajo) y $color-ink (#1a1a2e, la tinta por defecto de config.js, que el
+// editor de texto flotante repite) se parecen pero NO son el mismo color: no
+// unificar sin decisión explícita.
+$bg-canvas-halo: #1a1d2e;
+$color-ink: #1a1a2e;
+$color-paper: #fff; // papel del lienzo (y del editor de texto que flota sobre él)
+$highlight-subtle: rgba(#fff, 0.025); // realce apenas visible de los bloques del modal
+
+// Elevación: veladuras y sombras
+$scrim-modal: rgba(#000, 0.5); // ::backdrop del <dialog>
+$scrim-drawer: rgba(#000, 0.45); // .panel-backdrop del cajón
+$shadow-overlay: 0 0.4rem 1.2rem rgba(#000, 0.2); // editor de texto flotante
+$shadow-drawer: -0.8rem 0 4rem rgba(#000, 0.4); // panel como cajón
+$shadow-modal: 0 2rem 6rem rgba(#000, 0.4);
+$shadow-canvas: 0 0.8rem 4rem rgba(#000, 0.38), 0 0 0 0.1rem var(--border-main);
+
+// Radios (la escala de facto del proyecto)
+$radius-sm: 0.4rem;
+$radius-md: 0.6rem;
+$radius-lg: 0.8rem;
+$radius-xl: 1rem;
+$radius-2xl: 1.6rem; // solo el <dialog>
+
+// Foco visible (mixin focus-ring en abstracts/_mixins.scss)
+$focus-ring-w: 0.2rem;
+
+// Espaciado con acoplamiento — la razón de nombrarlos: otro sitio depende de
+// su valor en silencio.
+$modal-gutter: 2.4rem; // margen diálogo↔viewport (el min() de los anchos y el max-height)
+$modal-pad: 2.8rem; // relleno del diálogo; las sombras-máscara sticky (0 ±2.8rem)
+                    // existen para tapar ese relleno — DEBEN medir lo que él
+$swatch-size: 2.8rem; // muestra de color/relleno/aspecto, y las columnas de su rejilla en modales
+
 // Dimensiones (1rem = 10px, ver base/_reset.scss)
 $topbar-h: 5.2rem;
 $sidebar-w: 7.2rem; // barra compacta de una columna
 $sidebar-w-wide: 13.2rem; // dos columnas, desde $sidebar-2col (_breakpoints.scss)
 $panel-w: 22rem;
 
-// Movimiento
+// OpenDyslexic es más ancha que una sans típica: el botón de herramienta mide
+// lo justo para que la palabra más larga del catálogo («Redondeado», ~59px a
+// 0.9rem sin letter-spacing) quepa entera en una línea (ver _sidebar.scss).
+$sidebar-btn-w: 6.8rem;
+
+// Capas. Los z-index 1/2 de dentro del <dialog> quedan fuera a propósito:
+// son locales de su propio contexto de apilamiento.
+$z-canvas-overlay: 10; // editor de texto sobre el lienzo
+$z-drawer-backdrop: 40;
+$z-drawer: 50;
+
+// Movimiento. $ease-slow es la transición "lenta" (zoom del sizer, cajón del
+// panel); e2e/helpers.js espera los 0.2s en el sizer (setZoom aguarda el
+// tamaño final) — no cambiar la duración a la ligera.
 $ease: 0.15s ease;
+$dur-slow: 0.2s;
+$ease-slow: $dur-slow ease;
+
+// Tipografía
+$tracking-wide: 0.15rem; // rótulos cortos en MAYÚSCULAS (grupos del sidebar, títulos de ayuda…)
