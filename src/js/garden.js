@@ -1541,6 +1541,17 @@ const Garden = (function () {
     }
     out.push(_wave(b.x, b.y + b.h * 0.3, b.x + b.w, b.y + b.h * 0.42, b.h * 0.14, 5, o));
     out.push(_wave(b.x + b.w * 0.05, b.y + b.h * 0.7, b.x + b.w * 0.95, b.y + b.h * 0.58, b.h * 0.12, 4, o));
+    out.push(_wave(b.x + b.w * 0.02, b.y + b.h * 0.16, b.x + b.w * 0.98, b.y + b.h * 0.24, b.h * 0.1, 5, f));
+    out.push(_wave(b.x + b.w * 0.06, b.y + b.h * 0.86, b.x + b.w * 0.94, b.y + b.h * 0.78, b.h * 0.09, 4, f));
+    // Matas de hoja moteando el manto: elipses rellenas (un _blob no se
+    // rellena), para que la pérgola se vea tupida desde arriba
+    const massF = { ..._massInk(o, spec, 0.24), lineWidth: f.lineWidth };
+    for (let i = 0; i < 8; i++) {
+      const lx = b.x + b.w * (0.08 + ((i * 0.29) % 0.84));
+      const ly = b.y + b.h * (0.14 + ((i * 0.37) % 0.72));
+      const rx = b.w * 0.045, ry = b.h * 0.085;
+      out.push(_circleEl(lx - rx, ly - ry, rx * 2, ry * 2, massF));
+    }
     for (let i = 0; i < 4; i++) {
       const x = b.x + b.w * (0.15 + i * 0.7 / 3);
       out.push(..._climberMark('malvasia', x, b.y + b.h * (i % 2 ? 0.32 : 0.6),
@@ -1552,7 +1563,8 @@ const Garden = (function () {
   function _malvasiaPergolaElevation(b, o, spec) {
     const f = _fine(o), a = _accentInk(o, spec), wood = _trunkInk(o);
     const out = [_ground(b, o)];
-    const topY = b.y + b.h * 0.16, beamY = topY + b.h * 0.08;
+    // El tercio superior es para el manto de hojas: la estructura queda debajo
+    const topY = b.y + b.h * 0.3, beamY = topY + b.h * 0.07;
     for (const px of [0.06, 0.5, 0.94]) {
       const x = b.x + b.w * px;
       out.push(_line(x, beamY, x, b.y + b.h, wood));
@@ -1568,9 +1580,33 @@ const Garden = (function () {
     const tx = b.x + b.w * 0.86;
     out.push(_wave(tx - b.w * 0.035, b.y + b.h, tx + b.w * 0.02, beamY, b.w * 0.03, 4, wood));
     out.push(_wave(tx + b.w * 0.04, b.y + b.h, tx - b.w * 0.025, beamY, b.w * 0.025, 3, wood));
-    // El manto de hojas cabalga la cubierta: es lo que da la sombra
-    out.push(_wave(b.x, topY - b.h * 0.05, b.x + b.w, topY - b.h * 0.05, b.h * 0.055, 7, o));
-    out.push(_wave(b.x + b.w * 0.04, topY - b.h * 0.11, b.x + b.w * 0.96, topY - b.h * 0.1, b.h * 0.045, 6, f));
+    // El manto de pámpanos cabalga la cubierta: es lo que da la sombra, así
+    // que va frondoso de verdad — dos filas desacompasadas de masas lobuladas
+    // solapadas, más el sarmiento serpenteando por su base y hojas
+    // descolgándose entre los racimos, como en una parra de verano.
+    // Las masas son elipses RELLENAS (el `curveArrow` de un _blob no se
+    // rellena nunca en el renderer), con los lóbulos encima como textura.
+    const crownH = b.h * 0.28, mass = _massInk(o, spec, 0.28);
+    const billows = [0.95, 1.25, 1.05, 1.3, 1];
+    for (let i = 0; i < 5; i++) {
+      const bx = b.x + b.w * ((i + 0.5) / 5);
+      const rx = b.w * 0.16, ry = crownH * billows[i] * 0.55;
+      const cyc = topY - crownH * 0.42;
+      out.push(_circleEl(bx - rx, cyc - ry, rx * 2, ry * 2, mass));
+    }
+    for (let i = 0; i < 4; i++) {
+      const bx = b.x + b.w * ((i + 1) / 5);
+      out.push(_blob(bx, topY - crownH * 0.82, b.w * 0.12,
+        crownH * 0.45, LOBES.olive, f));
+    }
+    out.push(_wave(b.x, topY - crownH * 0.2, b.x + b.w, topY - crownH * 0.28,
+      crownH * 0.3, 7, f));
+    for (let i = 0; i < 7; i++) {
+      const lx = b.x + b.w * (0.06 + ((i * 0.31) % 0.88));
+      const drop = b.h * (0.05 + ((i * 0.17) % 0.06));
+      out.push(_curve(lx, beamY, lx + b.w * 0.018, beamY + drop * 1.35,
+        lx - b.w * 0.012, beamY + drop, f));
+    }
     // Y los racimos cuelgan del plano de sombra, no de un muro
     for (let i = 0; i < 5; i++) {
       const x = b.x + b.w * (0.1 + i * 0.8 / 4);
