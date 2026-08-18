@@ -1520,13 +1520,70 @@ const Garden = (function () {
     }
   }
 
+  /** La malvasía no tapiza un muro: se empárra sobre una estructura de sombra.
+      En alzado, pies derechos, larguero doble con las correas y el tronco
+      retorcido subiendo por un lado, con los racimos colgando del plano del
+      techo; en planta, el marco de vigas visto desde arriba bajo el manto de
+      pámpanos. La madera va con `_trunkInk` para salir marrón en natural. */
+  function _malvasiaPergolaPlan(b, o, spec) {
+    const f = _fine(o), a = _accentInk(o, spec), w = _fine(_trunkInk(o));
+    const out = [_rectEl(b.x, b.y, b.w, b.h, _trunkInk(o))];
+    const beams = 4;
+    for (let i = 1; i < beams; i++) {
+      const y = b.y + b.h * i / beams;
+      out.push(_line(b.x, y, b.x + b.w, y, w));
+    }
+    out.push(_wave(b.x, b.y + b.h * 0.3, b.x + b.w, b.y + b.h * 0.42, b.h * 0.14, 5, o));
+    out.push(_wave(b.x + b.w * 0.05, b.y + b.h * 0.7, b.x + b.w * 0.95, b.y + b.h * 0.58, b.h * 0.12, 4, o));
+    for (let i = 0; i < 4; i++) {
+      const x = b.x + b.w * (0.15 + i * 0.7 / 3);
+      out.push(..._climberMark('malvasia', x, b.y + b.h * (i % 2 ? 0.32 : 0.6),
+        Math.max(1.3, b.h * 0.05), a, f));
+    }
+    return out;
+  }
+
+  function _malvasiaPergolaElevation(b, o, spec) {
+    const f = _fine(o), a = _accentInk(o, spec), wood = _trunkInk(o);
+    const out = [_ground(b, o)];
+    const topY = b.y + b.h * 0.16, beamY = topY + b.h * 0.08;
+    for (const px of [0.06, 0.5, 0.94]) {
+      const x = b.x + b.w * px;
+      out.push(_line(x, beamY, x, b.y + b.h, wood));
+    }
+    out.push(_line(b.x, topY, b.x + b.w, topY, wood));
+    out.push(_line(b.x, beamY, b.x + b.w, beamY, _fine(wood)));
+    const ticks = Math.max(4, Math.round(b.w / 34));
+    for (let i = 1; i < ticks; i++) {
+      const x = b.x + b.w * i / ticks;
+      out.push(_line(x, topY, x, beamY, _fine(wood)));
+    }
+    // El tronco viejo trepa retorciéndose por un pie, como junto a la casa
+    const tx = b.x + b.w * 0.86;
+    out.push(_wave(tx - b.w * 0.035, b.y + b.h, tx + b.w * 0.02, beamY, b.w * 0.03, 4, wood));
+    out.push(_wave(tx + b.w * 0.04, b.y + b.h, tx - b.w * 0.025, beamY, b.w * 0.025, 3, wood));
+    // El manto de hojas cabalga la cubierta: es lo que da la sombra
+    out.push(_wave(b.x, topY - b.h * 0.05, b.x + b.w, topY - b.h * 0.05, b.h * 0.055, 7, o));
+    out.push(_wave(b.x + b.w * 0.04, topY - b.h * 0.11, b.x + b.w * 0.96, topY - b.h * 0.1, b.h * 0.045, 6, f));
+    // Y los racimos cuelgan del plano de sombra, no de un muro
+    for (let i = 0; i < 5; i++) {
+      const x = b.x + b.w * (0.1 + i * 0.8 / 4);
+      const drop = b.h * (0.06 + (i % 2) * 0.05);
+      out.push(_line(x, beamY, x, beamY + drop, f));
+      out.push(..._climberMark('malvasia', x, beamY + drop + b.h * 0.05,
+        Math.max(1.4, b.w * 0.016), a, f));
+    }
+    return out;
+  }
+
   function _climberPlan(b, o, type) {
     const spec = _spec(TOOLS.GARDEN_CLIMBER, type);
+    if (type === 'malvasia') return _malvasiaPergolaPlan(b, o, spec);
     const f = _fine(o), a = _accentInk(o, spec), cy = b.y + b.h / 2;
     const out = [_line(b.x, b.y, b.x + b.w, b.y, o),
       _wave(b.x, cy, b.x + b.w, cy, b.h * 0.22, 5, f),
       _wave(b.x, cy + b.h * 0.2, b.x + b.w, cy + b.h * 0.2, b.h * 0.16, 4, f)];
-    const n = { ivy: 8, vine: 6, malvasia: 4, wisteria: 7, jasmine: 5, climbingRose: 10, bougainvillea: 9 }[type] || 5;
+    const n = { ivy: 8, vine: 6, wisteria: 7, jasmine: 5, climbingRose: 10, bougainvillea: 9 }[type] || 5;
     for (let i = 0; i < n; i++) {
       const x = b.x + b.w * (i + 0.5) / n;
       out.push(..._climberMark(type, x, cy + (i % 2 ? -1 : 1) * b.h * 0.16,
@@ -1537,6 +1594,7 @@ const Garden = (function () {
 
   function _climberElevation(b, o, type) {
     const spec = _spec(TOOLS.GARDEN_CLIMBER, type);
+    if (type === 'malvasia') return _malvasiaPergolaElevation(b, o, spec);
     const f = _fine(o), a = _accentInk(o, spec), out = [_ground(b, o)];
     // Soporte ligero: muestra el porte sin confundirse con una masa arbustiva.
     out.push(_line(b.x + b.w * 0.04, b.y, b.x + b.w * 0.04, b.y + b.h, f));
@@ -1552,7 +1610,7 @@ const Garden = (function () {
       out.push(_wave(x1, b.y + b.h, x2, b.y + b.h * 0.04,
         b.w * (type === 'wisteria' ? 0.055 : 0.035), 5, o));
     }
-    const flowers = { bougainvillea: 12, jasmine: 8, vine: 7, malvasia: 6, wisteria: 10,
+    const flowers = { bougainvillea: 12, jasmine: 8, vine: 7, wisteria: 10,
       ivy: 5, climbingRose: 9 }[type] || 6;
     for (let i = 0; i < flowers; i++) {
       const x = b.x + b.w * (0.1 + ((i * 0.37) % 0.8));

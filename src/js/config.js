@@ -398,7 +398,7 @@ const CLIMBER_TYPES = Object.freeze([
   { id: 'bougainvillea', name: 'Buganvilla', botanical: 'Bougainvillea glabra', heightM: 6, spreadM: 5, depthM: 0.6, habit: 'climber', foliage: '#4b7444', accent: '#c44188' },
   { id: 'jasmine', name: 'Jazmín', botanical: 'Jasminum officinale', heightM: 5, spreadM: 4, depthM: 0.5, habit: 'climber', foliage: '#3f714b', accent: '#f0ead2' },
   { id: 'vine', name: 'Parra', botanical: 'Vitis vinifera', heightM: 3, spreadM: 6, depthM: 0.8, habit: 'climber', foliage: '#5e7d42', accent: '#76557c' },
-  { id: 'malvasia', name: 'Parra malvasía', botanical: 'Vitis vinifera \'Malvasía\'', heightM: 2.5, spreadM: 8, depthM: 0.8, habit: 'climber', foliage: '#6f8f4a', accent: '#ccd47d' },
+  { id: 'malvasia', name: 'Parra malvasía', botanical: 'Vitis vinifera \'Malvasía\'', heightM: 2.5, spreadM: 8, depthM: 5, habit: 'climber', foliage: '#6f8f4a', accent: '#ccd47d' },
   { id: 'wisteria', name: 'Glicinia', botanical: 'Wisteria sinensis', heightM: 8, spreadM: 6, depthM: 0.7, habit: 'climber', foliage: '#52734e', accent: '#7463a0' },
   { id: 'ivy', name: 'Hiedra', botanical: 'Hedera helix', heightM: 8, spreadM: 5, depthM: 0.4, habit: 'climber', foliage: '#365f42' },
   { id: 'climbingRose', name: 'Rosal trepador', botanical: 'Rosa spp.', heightM: 4, spreadM: 3, depthM: 0.6, habit: 'climber', foliage: '#477045', accent: '#c74f61' },
