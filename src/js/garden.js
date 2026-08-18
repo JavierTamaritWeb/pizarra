@@ -1543,14 +1543,12 @@ const Garden = (function () {
     out.push(_wave(b.x + b.w * 0.05, b.y + b.h * 0.7, b.x + b.w * 0.95, b.y + b.h * 0.58, b.h * 0.12, 4, o));
     out.push(_wave(b.x + b.w * 0.02, b.y + b.h * 0.16, b.x + b.w * 0.98, b.y + b.h * 0.24, b.h * 0.1, 5, f));
     out.push(_wave(b.x + b.w * 0.06, b.y + b.h * 0.86, b.x + b.w * 0.94, b.y + b.h * 0.78, b.h * 0.09, 4, f));
-    // Matas de hoja moteando el manto: elipses rellenas (un _blob no se
-    // rellena), para que la pérgola se vea tupida desde arriba
-    const massF = { ..._massInk(o, spec, 0.24), lineWidth: f.lineWidth };
+    // Matas de hoja moteando el manto: siluetas lobuladas, no círculos — una
+    // elipse a ese tamaño se lee como una burbuja, no como follaje
     for (let i = 0; i < 8; i++) {
       const lx = b.x + b.w * (0.08 + ((i * 0.29) % 0.84));
       const ly = b.y + b.h * (0.14 + ((i * 0.37) % 0.72));
-      const rx = b.w * 0.045, ry = b.h * 0.085;
-      out.push(_circleEl(lx - rx, ly - ry, rx * 2, ry * 2, massF));
+      out.push(_blob(lx, ly, b.w * 0.045, b.h * 0.085, LOBES.olive, f));
     }
     for (let i = 0; i < 4; i++) {
       const x = b.x + b.w * (0.15 + i * 0.7 / 3);
@@ -1580,27 +1578,46 @@ const Garden = (function () {
     const tx = b.x + b.w * 0.86;
     out.push(_wave(tx - b.w * 0.035, b.y + b.h, tx + b.w * 0.02, beamY, b.w * 0.03, 4, wood));
     out.push(_wave(tx + b.w * 0.04, b.y + b.h, tx - b.w * 0.025, beamY, b.w * 0.025, 3, wood));
-    // El manto de pámpanos cabalga la cubierta: es lo que da la sombra, así
-    // que va frondoso de verdad — dos filas desacompasadas de masas lobuladas
-    // solapadas, más el sarmiento serpenteando por su base y hojas
-    // descolgándose entre los racimos, como en una parra de verano.
-    // Las masas son elipses RELLENAS (el `curveArrow` de un _blob no se
-    // rellena nunca en el renderer), con los lóbulos encima como textura.
-    const crownH = b.h * 0.28, mass = _massInk(o, spec, 0.28);
-    const billows = [0.95, 1.25, 1.05, 1.3, 1];
-    for (let i = 0; i < 5; i++) {
-      const bx = b.x + b.w * ((i + 0.5) / 5);
-      const rx = b.w * 0.16, ry = crownH * billows[i] * 0.55;
-      const cyc = topY - crownH * 0.42;
-      out.push(_circleEl(bx - rx, cyc - ry, rx * 2, ry * 2, mass));
+    // El manto de pámpanos cabalga la cubierta: es lo que da la sombra. Tiene
+    // que leerse como UNA copa continua, no como globos: varias elipses
+    // translúcidas solapadas se oscurecen en cada solape y enseñan la
+    // construcción (el chapuzo de la v3.4.3). Así que el relleno es UN solo
+    // `polygon` sin contorno —tinte uniforme— siguiendo la misma silueta
+    // festoneada que el ÚNICO contorno lobulado dibujado encima. Los puntos
+    // interpolan la tabla de lóbulos para que relleno y trazo no discrepen.
+    // La silueta se construye como se dibuja una copa a mano: la panza abajo,
+    // casi recta, descansando sobre el larguero, y una fila de BORBOTONES
+    // semicirculares de alturas variadas recorriendo el borde superior, con
+    // valles que nunca bajan del cuarto de copa. El contorno (_chain cerrada)
+    // recorre los MISMOS puntos que el relleno, así que no pueden discrepar.
+    const crownH = b.h * 0.32;
+    const cL = b.x + b.w * 0.015, cR = b.x + b.w * 0.985;
+    // Festones más anchos que altos: con muchos borbotones estrechos la copa
+    // sale picuda como una corona, no mullida como el follaje
+    const bumps = [0.75, 1, 0.8, 0.95, 0.7, 1, 0.85];
+    const pts = [];
+    for (let i = 0; i <= 8; i++) {
+      const t = i / 8;
+      pts.push({ x: cL + (cR - cL) * t,
+                 y: topY + Math.sin(t * Math.PI * 3) * b.h * 0.008 });
     }
-    for (let i = 0; i < 4; i++) {
-      const bx = b.x + b.w * ((i + 1) / 5);
-      out.push(_blob(bx, topY - crownH * 0.82, b.w * 0.12,
-        crownH * 0.45, LOBES.olive, f));
+    for (let j = bumps.length - 1; j >= 0; j--) {
+      const x0 = cL + (cR - cL) * (j + 1) / bumps.length;
+      const x1 = cL + (cR - cL) * j / bumps.length;
+      for (let s = 1; s <= 5; s++) {
+        const t = s / 5;
+        pts.push({ x: x0 + (x1 - x0) * t,
+          y: topY - crownH * (0.55 + Math.sin(t * Math.PI) * bumps[j] * 0.45) });
+      }
     }
-    out.push(_wave(b.x, topY - crownH * 0.2, b.x + b.w, topY - crownH * 0.28,
-      crownH * 0.3, 7, f));
+    if (o.plantColorMode === 'natural') {
+      out.push({ type: 'polygon', points: pts.map(p => ({ ...p })),
+        color: spec.foliage, lineWidth: o.lineWidth, fill: true, stroke: false,
+        fillColor: spec.foliage, fillTransparent: true, fillOpacity: 0.26 });
+    }
+    out.push(_chain(pts, o, true));
+    out.push(_wave(b.x + b.w * 0.05, topY - crownH * 0.4,
+      b.x + b.w * 0.95, topY - crownH * 0.52, crownH * 0.22, 7, f));
     for (let i = 0; i < 7; i++) {
       const lx = b.x + b.w * (0.06 + ((i * 0.31) % 0.88));
       const drop = b.h * (0.05 + ((i * 0.17) % 0.06));
