@@ -1496,6 +1496,17 @@ const Garden = (function () {
       case 'vine':
         return [_dot(x, y, r * .55, a), _dot(x - r * .42, y + r * .65, r * .42, a),
           _dot(x + r * .42, y + r * .65, r * .42, a), _dot(x, y + r * 1.2, r * .38, a)];
+      case 'malvasia': {
+        // Racimo cónico y suelto de uva blanca, con raspón y la baya que
+        // remata la punta — el porte alargado es lo que distingue la malvasía
+        // del racimo compacto de la parra tinta.
+        const grapes = [_line(x, y - r * .85, x, y - r * .15, f)];
+        const rows = [[-.6, 0, .6], [-.35, .35], [0]];
+        rows.forEach((cols, ri) => cols.forEach(c =>
+          grapes.push(_dot(x + c * r, y + ri * r * .72, r * .45, a))));
+        grapes.push(_dot(x + r * .3, y + r * 2.1, r * .32, a));
+        return grapes;
+      }
       case 'wisteria':
         return [_line(x, y, x, y + r * 2.1, a), _dot(x, y + r * .7, r * .42, a),
           _dot(x, y + r * 1.35, r * .34, a), _dot(x, y + r * 1.95, r * .26, a)];
@@ -1515,7 +1526,7 @@ const Garden = (function () {
     const out = [_line(b.x, b.y, b.x + b.w, b.y, o),
       _wave(b.x, cy, b.x + b.w, cy, b.h * 0.22, 5, f),
       _wave(b.x, cy + b.h * 0.2, b.x + b.w, cy + b.h * 0.2, b.h * 0.16, 4, f)];
-    const n = { ivy: 8, vine: 6, wisteria: 7, jasmine: 5, climbingRose: 10, bougainvillea: 9 }[type] || 5;
+    const n = { ivy: 8, vine: 6, malvasia: 4, wisteria: 7, jasmine: 5, climbingRose: 10, bougainvillea: 9 }[type] || 5;
     for (let i = 0; i < n; i++) {
       const x = b.x + b.w * (i + 0.5) / n;
       out.push(..._climberMark(type, x, cy + (i % 2 ? -1 : 1) * b.h * 0.16,
@@ -1541,7 +1552,7 @@ const Garden = (function () {
       out.push(_wave(x1, b.y + b.h, x2, b.y + b.h * 0.04,
         b.w * (type === 'wisteria' ? 0.055 : 0.035), 5, o));
     }
-    const flowers = { bougainvillea: 12, jasmine: 8, vine: 7, wisteria: 10,
+    const flowers = { bougainvillea: 12, jasmine: 8, vine: 7, malvasia: 6, wisteria: 10,
       ivy: 5, climbingRose: 9 }[type] || 6;
     for (let i = 0; i < flowers; i++) {
       const x = b.x + b.w * (0.1 + ((i * 0.37) % 0.8));

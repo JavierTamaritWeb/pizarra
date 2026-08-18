@@ -133,13 +133,13 @@ test('Arbusto y Flor muestran el repertorio mediterráneo sin especies tóxicas 
   await expect(flowers).not.toContainText(/Amapola|Iris|Gladiolo|Baladre|Adelfa/i);
 });
 
-test('Trepadoras ofrece seis especies y el modal botánico cabe en móvil', async ({ page }) => {
+test('Trepadoras ofrece siete especies y el modal botánico cabe en móvil', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 740 });
   await openApp(page);
   await selectTool(page, 'trepadora');
   const modal = page.locator('#modal-climber');
   await expect(modal).toBeVisible();
-  await expect(page.locator('#climber-catalog .modal__climber')).toHaveCount(6);
+  await expect(page.locator('#climber-catalog .modal__climber')).toHaveCount(7);
   const box = await modal.boundingBox();
   expect(box.x).toBeGreaterThanOrEqual(0);
   expect(box.x + box.width).toBeLessThanOrEqual(360);
