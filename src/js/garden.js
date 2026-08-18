@@ -520,6 +520,9 @@ const Garden = (function () {
   }
 
   function _treeTool(b, o, type) {
+    if (type === 'malvasia') {
+      return _malvasiaPergolaPlan(b, o, _spec(TOOLS.GARDEN_TREE, type));
+    }
     const f = _fine(o);
     const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
     const rx = b.w / 2, ry = b.h / 2, r = Math.min(rx, ry);
@@ -981,6 +984,7 @@ const Garden = (function () {
 
   function _treeElevation(b, o, type) {
     const spec = _spec(TOOLS.GARDEN_TREE, type);
+    if (type === 'malvasia') return _malvasiaPergolaElevation(b, o, spec);
     const f = _fine(o), a = _accentInk(o, spec), mass = _massInk(o, spec);
     const cx = b.x + b.w / 2, baseY = b.y + b.h;
     const out = [_ground(b, o)];
@@ -1520,11 +1524,13 @@ const Garden = (function () {
     }
   }
 
-  /** La malvasía no tapiza un muro: se empárra sobre una estructura de sombra.
+  /** La malvasía no tapiza un muro: se empárra sobre una estructura de sombra,
+      y por eso vive en el catálogo de ÁRBOLES aunque la vid sea trepadora.
       En alzado, pies derechos, larguero doble con las correas y el tronco
       retorcido subiendo por un lado, con los racimos colgando del plano del
       techo; en planta, el marco de vigas visto desde arriba bajo el manto de
-      pámpanos. La madera va con `_trunkInk` para salir marrón en natural. */
+      pámpanos. La madera va con `_trunkInk` para salir marrón en natural.
+      Su racimo sigue siendo el caso 'malvasia' de `_climberMark`. */
   function _malvasiaPergolaPlan(b, o, spec) {
     const f = _fine(o), a = _accentInk(o, spec), w = _fine(_trunkInk(o));
     const out = [_rectEl(b.x, b.y, b.w, b.h, _trunkInk(o))];
@@ -1578,7 +1584,6 @@ const Garden = (function () {
 
   function _climberPlan(b, o, type) {
     const spec = _spec(TOOLS.GARDEN_CLIMBER, type);
-    if (type === 'malvasia') return _malvasiaPergolaPlan(b, o, spec);
     const f = _fine(o), a = _accentInk(o, spec), cy = b.y + b.h / 2;
     const out = [_line(b.x, b.y, b.x + b.w, b.y, o),
       _wave(b.x, cy, b.x + b.w, cy, b.h * 0.22, 5, f),
@@ -1594,7 +1599,6 @@ const Garden = (function () {
 
   function _climberElevation(b, o, type) {
     const spec = _spec(TOOLS.GARDEN_CLIMBER, type);
-    if (type === 'malvasia') return _malvasiaPergolaElevation(b, o, spec);
     const f = _fine(o), a = _accentInk(o, spec), out = [_ground(b, o)];
     // Soporte ligero: muestra el porte sin confundirse con una masa arbustiva.
     out.push(_line(b.x + b.w * 0.04, b.y, b.x + b.w * 0.04, b.y + b.h, f));

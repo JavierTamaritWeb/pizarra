@@ -337,6 +337,10 @@ const TREE_TYPES = Object.freeze([
   { id: 'lemon',     name: 'Limonero', botanical: 'Citrus limon', heightM: 5, spreadM: 5, habit: 'rounded', foliage: '#4d8240', accent: '#e1c83e' },
   { id: 'jacaranda', name: 'Jacaranda', botanical: 'Jacaranda mimosifolia', heightM: 12, spreadM: 10, habit: 'umbrella', foliage: '#557d55', accent: '#7655a6' },
   { id: 'persimmon', name: 'Caqui', botanical: 'Diospyros kaki', heightM: 8, spreadM: 7, habit: 'spreading', foliage: '#3f6b3c', accent: '#e0721f' },
+  // La parra emparrada vive entre los árboles a propósito: botánicamente es
+  // trepadora, pero su porte es una estructura de sombra exenta — más un árbol
+  // de copa plana que un tapiz de muro. `depthM` es la huella de la pérgola.
+  { id: 'malvasia', name: 'Parra malvasía', botanical: 'Vitis vinifera \'Malvasía\'', heightM: 3, spreadM: 8, depthM: 5, habit: 'pergola', foliage: '#6f8f4a', accent: '#ccd47d' },
 ]);
 
 /** Tipos del botón Arbusto: primero las formas genéricas, luego los arbustos
@@ -398,7 +402,6 @@ const CLIMBER_TYPES = Object.freeze([
   { id: 'bougainvillea', name: 'Buganvilla', botanical: 'Bougainvillea glabra', heightM: 6, spreadM: 5, depthM: 0.6, habit: 'climber', foliage: '#4b7444', accent: '#c44188' },
   { id: 'jasmine', name: 'Jazmín', botanical: 'Jasminum officinale', heightM: 5, spreadM: 4, depthM: 0.5, habit: 'climber', foliage: '#3f714b', accent: '#f0ead2' },
   { id: 'vine', name: 'Parra', botanical: 'Vitis vinifera', heightM: 3, spreadM: 6, depthM: 0.8, habit: 'climber', foliage: '#5e7d42', accent: '#76557c' },
-  { id: 'malvasia', name: 'Parra malvasía', botanical: 'Vitis vinifera \'Malvasía\'', heightM: 2.5, spreadM: 8, depthM: 5, habit: 'climber', foliage: '#6f8f4a', accent: '#ccd47d' },
   { id: 'wisteria', name: 'Glicinia', botanical: 'Wisteria sinensis', heightM: 8, spreadM: 6, depthM: 0.7, habit: 'climber', foliage: '#52734e', accent: '#7463a0' },
   { id: 'ivy', name: 'Hiedra', botanical: 'Hedera helix', heightM: 8, spreadM: 5, depthM: 0.4, habit: 'climber', foliage: '#365f42' },
   { id: 'climbingRose', name: 'Rosal trepador', botanical: 'Rosa spp.', heightM: 4, spreadM: 3, depthM: 0.6, habit: 'climber', foliage: '#477045', accent: '#c74f61' },

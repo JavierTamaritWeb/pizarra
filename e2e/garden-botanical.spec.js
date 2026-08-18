@@ -49,8 +49,8 @@ test('Jardín botánico: planta/alzado, escala, especies y persistencia', async 
   await selectTool(page, 'arbol');
   const modal = page.locator('#modal-tree');
   await expect(modal).toBeVisible();
-  await expect(page.locator('#tree-catalog .modal__tree')).toHaveCount(13);
-  await expect(page.locator('#tree-catalog .modal__shape-note--botanical')).toHaveCount(13);
+  await expect(page.locator('#tree-catalog .modal__tree')).toHaveCount(14);
+  await expect(page.locator('#tree-catalog .modal__shape-note--botanical')).toHaveCount(14);
   await expect(page.locator('#tree-plant-view')).toHaveValue('plan');
   await expect(page.locator('#tree-plant-stage')).toHaveValue('adult');
   await expect(page.locator('#tree-plant-scale')).toHaveValue('100');
@@ -133,13 +133,13 @@ test('Arbusto y Flor muestran el repertorio mediterráneo sin especies tóxicas 
   await expect(flowers).not.toContainText(/Amapola|Iris|Gladiolo|Baladre|Adelfa/i);
 });
 
-test('Trepadoras ofrece siete especies y el modal botánico cabe en móvil', async ({ page }) => {
+test('Trepadoras ofrece seis especies y el modal botánico cabe en móvil', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 740 });
   await openApp(page);
   await selectTool(page, 'trepadora');
   const modal = page.locator('#modal-climber');
   await expect(modal).toBeVisible();
-  await expect(page.locator('#climber-catalog .modal__climber')).toHaveCount(7);
+  await expect(page.locator('#climber-catalog .modal__climber')).toHaveCount(6);
   const box = await modal.boundingBox();
   expect(box.x).toBeGreaterThanOrEqual(0);
   expect(box.x + box.width).toBeLessThanOrEqual(360);

@@ -1896,11 +1896,11 @@ test('Jardín botánico acota preferencias inválidas y conserva defaults seguro
   assert.equal(app.$('tree-plant-natural').checked, true);
 });
 
-test('Trepadoras tiene botón, modal y siete especies en planta y alzado', () => {
+test('Trepadoras tiene botón, modal y seis especies en planta y alzado', () => {
   const app = loadApp();
   app.selectTool('trepadora');
   assert.equal(app.$('modal-climber').open, true);
-  assert.equal(app.$('climber-catalog').querySelectorAll('.modal__climber').length, 7);
+  assert.equal(app.$('climber-catalog').querySelectorAll('.modal__climber').length, 6);
   const view = app.$('climber-plant-view');
   view.value = 'elevation'; view.__fire('change', { target: view });
   app.pickVariant('climber-catalog', 'modal__climber', 'wisteria', 'climber');
@@ -1910,18 +1910,19 @@ test('Trepadoras tiene botón, modal y siete especies en planta y alzado', () =>
   assert.ok(els.filter(el => el.type === 'curveArrow').length >= 3, 'faltan tallos colgantes');
 });
 
-// La parra malvasía (v3.4.0) es la segunda Vitis del catálogo: su racimo es
-// cónico —raspón en línea más bayas en filas—, no el racimo compacto de la
-// parra tinta, y eso es lo que las distingue en el icono.
-test('la parra malvasía se dibuja, se etiqueta y no es la parra tinta', () => {
+// La parra malvasía (v3.4.0) vive en ÁRBOLES desde la v3.4.2: su porte
+// emparrado es una estructura de sombra exenta, no un tapiz de muro. En
+// planta emite el marco de vigas (un rect que ningún otro árbol lleva) y
+// sus racimos cónicos de uva blanca — raspón en línea más bayas en filas.
+test('la parra malvasía es un árbol: pérgola en planta con racimos', () => {
   const app = loadApp();
-  app.selectTool('trepadora');
-  app.pickVariant('climber-catalog', 'modal__climber', 'malvasia', 'climber');
-  app.drag(100, 100, 340, 190);
+  app.selectTool('arbol');
+  app.pickVariant('tree-catalog', 'modal__tree', 'malvasia', 'tree');
+  app.drag(100, 100, 340, 250);
   const els = app.elements();
   assert.match(els.find(el => el.type === 'text').value, /malvasía/i);
-  // El raspón de cada racimo es una línea que la marca de 'vine' no tiene
-  assert.ok(els.filter(el => el.type === 'line').length > 1, 'faltan los raspones');
+  assert.ok(els.some(el => el.type === 'rect'), 'falta el marco de vigas de la pérgola');
+  assert.ok(els.filter(el => el.type === 'line').length > 1, 'faltan las vigas o los raspones');
   assert.ok(els.filter(el => el.type === 'circle').length >= 8, 'faltan las bayas');
 });
 
