@@ -1533,26 +1533,59 @@ const Garden = (function () {
       Su racimo sigue siendo el caso 'malvasia' de `_climberMark`. */
   function _malvasiaPergolaPlan(b, o, spec) {
     const f = _fine(o), a = _accentInk(o, spec), w = _fine(_trunkInk(o));
+    // Debajo, la estructura: el marco y las vigas, que se transparentan a
+    // través del manto en modo natural
     const out = [_rectEl(b.x, b.y, b.w, b.h, _trunkInk(o))];
     const beams = 4;
     for (let i = 1; i < beams; i++) {
       const y = b.y + b.h * i / beams;
       out.push(_line(b.x, y, b.x + b.w, y, w));
     }
-    out.push(_wave(b.x, b.y + b.h * 0.3, b.x + b.w, b.y + b.h * 0.42, b.h * 0.14, 5, o));
-    out.push(_wave(b.x + b.w * 0.05, b.y + b.h * 0.7, b.x + b.w * 0.95, b.y + b.h * 0.58, b.h * 0.12, 4, o));
-    out.push(_wave(b.x + b.w * 0.02, b.y + b.h * 0.16, b.x + b.w * 0.98, b.y + b.h * 0.24, b.h * 0.1, 5, f));
-    out.push(_wave(b.x + b.w * 0.06, b.y + b.h * 0.86, b.x + b.w * 0.94, b.y + b.h * 0.78, b.h * 0.09, 4, f));
-    // Matas de hoja moteando el manto: siluetas lobuladas, no círculos — una
-    // elipse a ese tamaño se lee como una burbuja, no como follaje
-    for (let i = 0; i < 8; i++) {
-      const lx = b.x + b.w * (0.08 + ((i * 0.29) % 0.84));
-      const ly = b.y + b.h * (0.14 + ((i * 0.37) % 0.72));
-      out.push(_blob(lx, ly, b.w * 0.045, b.h * 0.085, LOBES.olive, f));
+    // Encima, la copa vista desde arriba: cubre casi TODA la huella y
+    // desborda un poco el marco, como el emparrado real — misma técnica que
+    // en alzado: un solo `polygon` de relleno y una `_chain` cerrada con los
+    // MISMOS puntos, festoneada por los cuatro lados
+    const heights = [0.8, 1, 0.7, 0.95, 0.75, 1];
+    const amp = Math.min(b.w, b.h) * 0.085;
+    const inset = amp * 0.5;
+    const L = b.x + inset, R = b.x + b.w - inset;
+    const T = b.y + inset, Bt = b.y + b.h - inset;
+    const pts = [];
+    let hi = 0;
+    const edge = (x0, y0, x1, y1, nx, ny, n) => {
+      for (let j = 0; j < n; j++) {
+        const h = heights[hi++ % heights.length];
+        for (let s = 1; s <= 4; s++) {
+          const t = (j + s / 4) / n;
+          const k = Math.sin((s / 4) * Math.PI) * amp * h;
+          pts.push({ x: x0 + (x1 - x0) * t + nx * k,
+                     y: y0 + (y1 - y0) * t + ny * k });
+        }
+      }
+    };
+    edge(L, T, R, T, 0, -1, 5);
+    edge(R, T, R, Bt, 1, 0, 3);
+    edge(R, Bt, L, Bt, 0, 1, 5);
+    edge(L, Bt, L, T, -1, 0, 3);
+    if (o.plantColorMode === 'natural') {
+      out.push({ type: 'polygon', points: pts.map(p => ({ ...p })),
+        color: spec.foliage, lineWidth: o.lineWidth, fill: true, stroke: false,
+        fillColor: spec.foliage, fillTransparent: true, fillOpacity: 0.26 });
     }
-    for (let i = 0; i < 4; i++) {
-      const x = b.x + b.w * (0.15 + i * 0.7 / 3);
-      out.push(..._climberMark('malvasia', x, b.y + b.h * (i % 2 ? 0.32 : 0.6),
+    out.push(_chain(pts, o, true));
+    // Detalle sobre el manto: sarmientos, matas de hoja y algún racimo asomando
+    out.push(_wave(b.x + b.w * 0.06, b.y + b.h * 0.35,
+      b.x + b.w * 0.94, b.y + b.h * 0.45, b.h * 0.1, 5, f));
+    out.push(_wave(b.x + b.w * 0.08, b.y + b.h * 0.7,
+      b.x + b.w * 0.92, b.y + b.h * 0.62, b.h * 0.09, 4, f));
+    for (let i = 0; i < 5; i++) {
+      const lx = b.x + b.w * (0.12 + ((i * 0.31) % 0.76));
+      const ly = b.y + b.h * (0.2 + ((i * 0.41) % 0.6));
+      out.push(_blob(lx, ly, b.w * 0.05, b.h * 0.09, LOBES.olive, f));
+    }
+    for (let i = 0; i < 3; i++) {
+      const x = b.x + b.w * (0.22 + i * 0.28);
+      out.push(..._climberMark('malvasia', x, b.y + b.h * (i % 2 ? 0.3 : 0.6),
         Math.max(1.3, b.h * 0.05), a, f));
     }
     return out;
