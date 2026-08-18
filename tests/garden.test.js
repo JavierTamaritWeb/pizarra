@@ -305,6 +305,47 @@ test('dentro de un catálogo, dos variantes nunca se dibujan igual', () => {
   }
 });
 
+// v3.4.3: la copa de la parra se pintó con `_massInk` sobre un `_blob` y no
+// se rellenó nada. `Renderer.renderElement` NUNCA rellena un `curveArrow`:
+// recorre sus segmentos y traza, punto. El fallo es MUDO —el elemento viaja
+// con `fill: true` y su `fillColor`, la validación de import lo acepta, el
+// export lo copia— y en pantalla sólo hay contorno. Un relleno del jardín
+// tiene que ir en un tipo rellenable (`polygon`, `circle`, `rect`…).
+test('el jardín nunca confía un relleno a una curva: un curveArrow no se rellena', () => {
+  for (const { tool, id, name } of ALL_VARIANTS) {
+    for (const mode of ['natural', 'ink']) {
+      for (const view of ['plan', 'elevation']) {
+        for (const el of make(tool, id, { plantColorMode: mode, plantView: view })) {
+          assert.ok(!(el.type === 'curveArrow' && el.fill),
+            `${tool}/${name} (${mode}, ${view}) rellena un curveArrow: el renderer lo ignora`);
+        }
+      }
+    }
+  }
+});
+
+// La parra malvasía es un emparrado: su copa es una superficie, no un trazo.
+// En natural la lleva un `polygon` relleno —uno solo, o los solapes de varias
+// piezas translúcidas oscurecen las costuras y se ve la construcción (el
+// chapuzo de la v3.4.3)—; en tinta no hay relleno y queda la silueta.
+test('la copa de la parra malvasía es UNA superficie rellena, no piezas solapadas', () => {
+  for (const view of ['plan', 'elevation']) {
+    const natural = make(TOOLS.GARDEN_TREE, 'malvasia',
+      { plantColorMode: 'natural', plantView: view });
+    const filled = natural.filter(el => el.fill);
+    assert.equal(filled.length, 1,
+      `en ${view} la copa debe ser una sola pieza rellena, hay ${filled.length}`);
+    assert.equal(filled[0].type, 'polygon', 'y de un tipo que el renderer rellene');
+    assert.equal(filled[0].stroke, false,
+      'sin contorno propio: el contorno lo dibuja la cadena que va encima');
+
+    const ink = make(TOOLS.GARDEN_TREE, 'malvasia',
+      { plantColorMode: 'ink', plantView: view });
+    assert.ok(!ink.some(el => el.fill),
+      `en tinta (${view}) la copa va sin relleno, como el resto del jardín`);
+  }
+});
+
 /* ---------------- etiquetas ---------------- */
 
 test('cada pieza lleva una etiqueta de texto con el nombre de su variante', () => {

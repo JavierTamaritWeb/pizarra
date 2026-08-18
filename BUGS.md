@@ -35,6 +35,56 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### v3.4.4 — El «volumen suave» de la copa no se pintaba: un `curveArrow` no se rellena
+
+- **Síntoma:** la copa de la parra malvasía se dibujó con el mismo
+  `_massInk(...)` que usan las copas de los árboles, sobre un `_blob`, y en
+  pantalla no aparecía relleno ninguno: sólo el contorno. Nada fallaba —ni un
+  error, ni un test rojo—, así que el primer diagnóstico fue «se ve poco» y se
+  subió la opacidad, que tampoco hizo nada.
+- **Causa:** `_blob` devuelve un `_chain`, y un `_chain` es un **`curveArrow`**.
+  La rama `case 'curveArrow'` de `Renderer.renderElement` recorre los segmentos
+  y **traza**, sin mirar `el.fill` jamás. El elemento viajaba con `fill: true` y
+  su `fillColor`, `isValidElement` lo aceptaba y el export lo copiaba: un fallo
+  perfectamente mudo de punta a punta. Las copas de los árboles no lo sufren
+  porque su masa es un `circle`, no un blob.
+- **Arreglo:** el relleno de la copa va en un **`polygon`** (tipo rellenable,
+  el mismo que usan las caras de los sólidos y las manchas de la Tinta), con
+  `stroke: false`, y el contorno lo dibuja encima una `_chain` cerrada que
+  recorre **los mismos puntos**, de modo que tinta y trazo no pueden discrepar.
+- **Guardia:** *"el jardín nunca confía un relleno a una curva: un curveArrow
+  no se rellena"* en `tests/garden.test.js` — recorre las 72 variantes en los
+  dos modos de color y las dos vistas. **Verificada fallando** al devolver el
+  relleno a la cadena.
+- **Lección:** «lo dibujo igual que aquello» sólo vale si el **tipo de
+  elemento** es el mismo. La pareja campo/renderer se rompe por el lado que
+  nadie mira: un campo que el renderer de ese tipo no consulta no da error,
+  simplemente no existe.
+
+### v3.4.4 — La copa como piezas translúcidas solapadas: se veían los globos y las costuras
+
+- **Síntoma:** el manto de la pérgola, ya relleno, se leía como una fila de
+  globos verdes: cada solape salía más oscuro que el resto y dibujaba las
+  costuras de la construcción. El usuario lo describió como «un chapuzo», y en
+  la captura se veía exactamente eso.
+- **Causa:** la copa eran cinco elipses **translúcidas** solapadas. El alfa se
+  **acumula** en cada solape (es el mismo principio que hace funcionar al
+  aerógrafo translúcido, aquí en contra), así que las intersecciones delataban
+  las piezas en vez de fundirse en una masa.
+- **Arreglo:** una sola silueta. **Un** `polygon` de relleno con la forma
+  completa —tinte uniforme, imposible de oscurecer por solape— y **un** contorno
+  festoneado encima: panza recta apoyada en el larguero y festones redondeados,
+  más anchos que altos, por el borde superior (en planta, por el perímetro
+  entero). La proporción se calibró en un navegador real sobre papel blanco:
+  con festones estrechos la copa sale picuda como una corona.
+- **Guardia:** *"la copa de la parra malvasía es UNA superficie rellena, no
+  piezas solapadas"* en `tests/garden.test.js` — exige exactamente **una** pieza
+  con relleno en cada vista, que sea `polygon` y que en modo tinta no haya
+  ninguna. **Verificada fallando** con dos elipses solapadas.
+- **Lección:** varias piezas translúcidas del mismo color no componen una masa,
+  componen un diagrama de Venn. Cuando lo que se quiere es **una** superficie,
+  hay que emitir una.
+
 ### v3.3.0 — El buscador de la Ayuda dejó mudo al atajo «?» que la abre
 
 - **Síntoma:** con la Ayuda abierta, pulsar `?` ya no la cerraba. El atajo

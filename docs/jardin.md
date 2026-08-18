@@ -16,3 +16,46 @@ The **panel** keeps the global label switch and Camino's angle/width controls. B
 
 **A settings modal's way out must survive the modal growing (v2.16.2).** `.modal__cancel` is `position: sticky; bottom: 0` so the close button stays anchored to the bottom of the dialog while its content scrolls. A `<dialog showModal>` makes everything behind it **inert**, so a close button pushed below the viewport doesn't just look bad — the canvas stops responding and the whole app reads as broken, which is exactly how the user reported it after v2.16.0 added three controls to `#modal-text`. Three details that took two attempts: `bottom` must be **0, never negative** (a negative offset restores the very permission to sit below the edge), a negative bottom margin lifts it and lets the next control peek through the gap, and since a sticky element anchors to its containing block's **content** box, a second blur-less shadow is needed to mask the dialog's 2.8rem of bottom padding. Guarded by `e2e/modal-fit.spec.js` at a deliberately short 1160×560 viewport — at `NARROW`'s 700 the modal fits and the guard would guard nothing; verified it fails when the rule is reverted.
 
+
+### La parra malvasía es una pérgola, y vive entre los ÁRBOLES (v3.4.0–3.4.5)
+
+*Vitis vinifera* 'Malvasía' (H 3 m · Ø 8 m, huella 8×5 m) entró en `TREE_TYPES`,
+no en `CLIMBER_TYPES`, y esa es la primera decisión: la vid es botánicamente
+trepadora, pero lo que se dibuja aquí es un **emparrado** —una estructura de
+sombra exenta, más cerca de un árbol de copa plana que de un tapiz de muro—, y
+entre los árboles es donde alguien lo busca. Se eligió tras probarla en
+Trepadoras: el catálogo se anuncia «para muros, fachadas, verjas y pérgolas»,
+así que cabía, pero el porte no se parecía a ninguna de sus hermanas.
+
+`_malvasiaPergolaPlan`/`_malvasiaPergolaElevation` son su geometría propia,
+despachadas desde `_treeTool`/`_treeElevation` por `type === 'malvasia'`. Es la
+única especie del jardín con dibujo propio en vez de una entrada de tabla, y se
+gana el sitio por lo mismo que se ganó su catálogo: no hay copa que lobular,
+hay una estructura. La madera va con `_trunkInk` (marrón en natural,
+monocroma en tinta) y los racimos siguen siendo el caso `'malvasia'` de
+`_climberMark` —racimo cónico y suelto, con raspón y la baya que remata la
+punta—, que se quedó donde estaba aunque la especie se mudara: es una marca de
+dibujo, no una propiedad del catálogo.
+
+Cinco cosas que costaron iteraciones delante de un navegador y no se deducen
+del código:
+
+- **El relleno de la copa NO puede ir en un `_blob`.** Un blob es un `_chain`,
+  y un `_chain` es un `curveArrow`: el renderer lo **traza** y no mira `fill`
+  jamás. Va en un `polygon` con `stroke: false` —el tipo rellenable que ya
+  usaban las caras de los sólidos y la Tinta— y el contorno lo dibuja encima
+  una `_chain` cerrada **por los mismos puntos**, así que tinta y trazo no
+  pueden discrepar. Ver las dos entradas v3.4.4 de `BUGS.md` y sus guardas.
+- **Una superficie es UNA pieza.** Varias elipses translúcidas del mismo color
+  no componen una masa: el alfa se acumula en cada solape y dibuja las
+  costuras. Guardado exigiendo exactamente una pieza rellena por vista.
+- **Los festones, más anchos que altos.** Con borbotones estrechos la copa sale
+  picuda como una corona; el alzado acabó en siete festones sobre una panza
+  casi recta que descansa en el larguero, y la planta en un manto que cubre
+  casi toda la huella y **desborda un poco** el marco, con el enrejado
+  transparentándose debajo — que es lo que se ve en una foto cenital.
+- **En modo tinta no hay relleno**, sólo la silueta: la regla del módulo, y
+  parte de la guarda.
+- **La planta usa `depthM: 5`** en vez de heredar la banda mural: una pérgola
+  exenta tiene huella real, y `plantSize` ya honra ese campo en cualquier
+  herramienta. Con él, el clic sin arrastrar da los 8×5 m de la pérgola.
