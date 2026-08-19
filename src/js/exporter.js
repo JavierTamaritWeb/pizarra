@@ -670,6 +670,10 @@ body { font-family: ${FONT_CSS()}; background: #fff; }
     // que también es un `polygon` sin contorno y sí debe frenar la pintura.
     if (el.ink !== undefined &&
         !(el.type === 'polygon' && el.ink === true)) return false;
+    // locked (v3.8.0): el candado. Solo `true` — la ausencia es el estado
+    // normal, patrón de `ink`/`taper` — y en cualquier tipo: proteger un
+    // texto o una foto vale tanto como proteger una forma.
+    if (el.locked !== undefined && el.locked !== true) return false;
     // size: ancho real del borrador nuevo (v1.8.1). Si falta, se conserva la
     // compatibilidad histórica usando lineWidth × 4.
     if (el.size !== undefined &&

@@ -156,6 +156,7 @@ Cada pieza de jardín nace con una **etiqueta** dentro del mismo grupo (se mueve
 - **Pan**: mantén la **barra espaciadora** (la mano) o usa el **botón central** del ratón y arrastra para mover la vista con cualquier herramienta, sin tocar el dibujo. Y si te alejas tanto que lo pierdes de vista, aparece el botón flotante **«Volver al dibujo»**: un clic y lo encuadra.
 - **La app enseña lo que va a hacer**: con Mover o «Select», el elemento (o el grupo entero) bajo el puntero se **resalta antes del clic**; al crear o redimensionar, una pastilla junto al puntero da el **ancho × alto en vivo**, y al arrastrar, la **posición X, Y** — los mismos números que el panel, sin soltar el ratón.
 - **Las acciones sin rastro avisan**: copiar, pegar, duplicar, exportar y abrir proyecto confirman con un **toast** discreto que se descarta solo (y que el lector de pantalla anuncia — la región es `role="status"`). **Deshacer y Rehacer se atenúan** cuando su pila está vacía, en vez de prometer lo que no harán, y el **lienzo vacío da la bienvenida** con qué hacer y dónde está la ayuda.
+- **Menú contextual**: el **clic derecho** abre las acciones de la selección —duplicar, copiar/pegar estilo, orden Z, bloquear, eliminar— con su atajo al lado, o las del lienzo en el vacío. **`Alt`+arrastrar** algo ya seleccionado se lleva una **copia** (sobre una pieza sin seleccionar, `Alt` sigue aislándola de su grupo); **`Ctrl+Alt+C`/`V`** copian y pegan el **estilo** —color, grosor, discontinuo, relleno, letra— campo a campo y solo donde significa algo; y **`Ctrl+Mayús+L` bloquea** la selección: invisible al clic, a la marquesina y al borrador, con el clic derecho como única llave.
 - **Táctil de verdad**: **dos dedos** mueven la vista y hacen zoom de pinza —un trazo a medias se aborta, no deja un punto—; el **doble toque** equivale al doble clic (editar un texto, bajar a una pieza); **mantener el dedo quieto** medio segundo sobre una pieza la aísla de su grupo, con un anillo que avisa del progreso — el Alt+clic que el dedo no tiene. Los tiradores perdonan el triple con el dedo, y en un móvil el zoom inicial **baja del 100 %** para que el lienzo entero quepa en pantalla.
 
 ### Exportación
@@ -201,6 +202,9 @@ Cada pieza de jardín nace con una **etiqueta** dentro del mismo grupo (se mueve
 | `F` · `D` · `S` | Invertir giro · invertir dirección · curva en S |
 | `Q` | Convertir flecha curva ↔ semicírculo |
 | `+` · `−` (+`Shift`) | Ajustar curvatura — en semicírculos, el radio (fino) |
+| `Ctrl/Cmd+Alt+C` · `Ctrl/Cmd+Alt+V` | Copiar el estilo de la selección · pegárselo a otra |
+| `Ctrl/Cmd+Mayús+L` | Bloquear la selección (la llave es el clic derecho) |
+| `Alt`+arrastrar | Duplicar la selección arrastrando la copia |
 | `Ctrl/Cmd`+rueda | Zoom centrado en el cursor (la rueda a secas desplaza) |
 | `Espacio` (mantenida) · botón central | Mover la vista arrastrando, con cualquier herramienta |
 | `Mayús+1` · `Mayús+2` · `Ctrl/Cmd+0` | Encuadrar el dibujo · encuadrar la selección · volver al 100 % |

@@ -339,3 +339,33 @@ sobre el `buildingGroupId` que ya existía.
   excepción explícita a la invariante del auto-fit.
 - Guardas: `e2e/touch.spec.js` (pinch por CDP, doble-tap, long-press, auto-fit
   móvil).
+
+## Fase 4 — Manipulación y atajos ✅ (v3.8.0)
+
+El área que quedó fuera del alcance inicial, incorporada a petición del
+usuario. Tool-lock se descartó al comprobar que no aplica: en Pizarra la
+herramienta ya se queda puesta tras dibujar (el dolor de Excalidraw que ese
+candado resuelve no existe aquí).
+
+- ✅ **Menú contextual** (clic derecho): acciones de la selección con su
+  atajo a la derecha —duplicar, copiar/pegar estilo, orden Z, bloquear,
+  eliminar— o, en el vacío, las del lienzo (seleccionar todo, encuadrar,
+  desbloquear todo). No es un `<dialog>`: el keydown lo atiende aparte
+  (Escape cierra, el resto del teclado no toca el lienzo). Descubribilidad,
+  jamás única vía: todo lo que ofrece existe como atajo o botón.
+- ✅ **Alt+arrastre duplica** — solo sobre la selección YA hecha: sobre una
+  pieza sin seleccionar, Alt sigue aislándola de su grupo (sacar una pieza de
+  un edificio en un gesto es un flujo que no se toca). La copia nace en el
+  primer movimiento real (un Alt+clic no deja duplicados apilados) y
+  clonar+mover es UN paso de deshacer.
+- ✅ **Copiar/pegar estilo** (`Ctrl+Alt+C`/`V`, por `e.code`: en macOS
+  Option+C escribe «ç»): el «traje» campo a campo y solo donde significa algo
+  (relleno a rellenables, texto a textos, discontinuo con el corte de
+  `DASHABLE_TYPES`); un campo ausente en el origen se borra en el destino.
+- ✅ **Bloquear** (`Ctrl+Mayús+L`, campo `locked: true` con el patrón de
+  `ink`): invisible al clic, la marquesina, Ctrl+A, el hover y el borrador;
+  se dibuja y exporta igual. La ÚNICA llave es el clic derecho («Desbloquear»
+  libera el grupo entero, o «Desbloquear todo» en el menú del lienzo).
+- Guardas: `tests/app-interaction.test.js` (duplicado con Alt, no-duplicado
+  sin arrastre, estilo con un undo, candado contra clic/Ctrl+A/borrador) y
+  `e2e/manipulation.spec.js` (menú real, candado con su llave, Alt+arrastre).

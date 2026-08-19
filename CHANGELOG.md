@@ -4,6 +4,26 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.8.0] — 2026-08-19
+
+### Añadido
+
+- **Menú contextual**: el clic derecho abre las acciones de la selección
+  —duplicar, copiar/pegar estilo, orden Z, bloquear, eliminar— con su atajo
+  al lado, o las del lienzo en el vacío (seleccionar todo, encuadrar,
+  desbloquear todo). Todo lo que ofrece existe también como atajo o botón.
+- **`Alt`+arrastrar duplica**: sobre algo ya seleccionado, el arrastre se
+  lleva una **copia** y el original se queda quieto; clonar y mover son un
+  solo paso de deshacer. Sobre una pieza sin seleccionar, `Alt` sigue
+  aislándola de su grupo, como siempre.
+- **Copiar y pegar estilo** (`Ctrl+Alt+C` / `Ctrl+Alt+V`): el «traje» de un
+  elemento —color, grosor, discontinuo, relleno, estilo de texto, presión—
+  aplicado campo a campo y solo donde significa algo.
+- **Bloquear elementos** (`Ctrl+Mayús+L`): lo bloqueado se dibuja y exporta
+  igual pero es invisible al clic, a la marquesina, a Ctrl+A y al borrador.
+  La llave es el clic derecho sobre ello («Desbloquear» libera el grupo
+  entero) o «Desbloquear todo» en el menú del lienzo.
+
 ## [3.7.1] — 2026-08-19
 
 ### Cambiado

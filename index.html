@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=3.7.1" />
+  <link rel="stylesheet" href="css/styles.css?v=3.8.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.7.1" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.8.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v3.7.1</span>
+        <span class="topbar__badge">v3.8.0</span>
         <!-- Aviso de autoguardado: visible SOLO mientras localStorage rechaza
              el guardado (cuota llena). Sin él, el fallo era un catch mudo y el
              trabajo posterior se perdía en silencio al recargar. -->
@@ -104,6 +104,10 @@
              exportar, abrir…). role=status + aria-live para que el lector los
              anuncie; los rellena showToast (app.js) y nunca interceptan. -->
         <div class="toasts" id="toast-region" role="status" aria-live="polite"></div>
+        <!-- Menú contextual (v3.8.0): lo rellena showContextMenu (app.js) por
+             invocación, con las acciones de la selección o del lienzo y su
+             atajo a la derecha. [hidden] obligatoria: la clase declara display. -->
+        <div class="ctxmenu" id="context-menu" hidden></div>
       </main>
 
       <!-- Right Panel
@@ -536,6 +540,10 @@
           <li><strong>Guías de alineación</strong>: al arrastrar con <strong>Mover</strong>, lo seleccionado se <strong>imanta</strong> a los bordes y a los centros de lo demás, y una línea discontinua enseña con quién queda alineado. Vienen activadas; se apagan en la casilla del mismo modal que abre <strong>Mover</strong> o <strong>«Select»</strong>, y <kbd>Alt</kbd> las suspende sin desmarcarlas</li>
           <li><kbd>Ctrl</kbd>+<kbd>C</kbd> copia la selección · <kbd>Ctrl</kbd>+<kbd>V</kbd> la pega (también entre pestañas)</li>
           <li><kbd>Ctrl</kbd>+<kbd>V</kbd> o arrastrar un archivo: imágenes PNG/JPG</li>
+          <li>El <strong>clic derecho</strong> abre un menú con las acciones de la selección —duplicar, estilo, orden, bloquear, eliminar— o, en el vacío, las del lienzo; cada una enseña su atajo al lado</li>
+          <li><kbd>Alt</kbd>+<strong>arrastrar</strong> algo ya seleccionado se lleva una <strong>copia</strong> y deja el original quieto (sobre una pieza sin seleccionar, <kbd>Alt</kbd> sigue aislándola de su grupo)</li>
+          <li><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> copia el <strong>estilo</strong> de lo seleccionado —color, grosor, discontinuo, relleno, letra— y <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>V</kbd> se lo pone a otra selección, cada campo solo donde significa algo</li>
+          <li><kbd>Ctrl</kbd>+<kbd>Mayús</kbd>+<kbd>L</kbd> <strong>bloquea</strong> la selección: ni el clic, ni la marquesina, ni el borrador la tocan. La llave es el <strong>clic derecho</strong> sobre lo bloqueado («Desbloquear»), o «Desbloquear todo» en el menú del lienzo</li>
           <li><kbd>Shift</kbd>+<kbd>R</kbd> o <strong>Rotar selección</strong>: cuadrado 45° · trapecio/triángulo/rectángulo 90° · pentágono y estrella de 5 puntas 36° · hexágono y estrella de 6 puntas 30°</li>
           <li>Si la selección es una <strong>figura compuesta</strong> (un sólido 3D, un edificio, una planta), gira entera un <strong>cuarto de vuelta</strong> alrededor de su centro, en vez de girar cada pieza por su lado</li>
         </ul>
@@ -599,6 +607,7 @@
           <li>El tamaño se ajusta solo ahí: el regulador <strong>«Trazo»</strong> del panel, que antes cambiaba a <strong>«Tamaño del borrador»</strong> mientras el borrador estaba activo, se retiró en la v2.21.0 junto con el ⚙ de esa sección</li>
           <li>El tamaño se ajusta entre 4 y 100 px (16 px por defecto) y es independiente del lápiz y de las formas</li>
           <li>El círculo del cursor muestra el alcance; cada pasada se deshace y rehace como una sola acción</li>
+          <li>Un elemento <strong>bloqueado</strong> (<kbd>Ctrl</kbd>+<kbd>Mayús</kbd>+<kbd>L</kbd>) es intocable también para el borrador: pasar por encima no se lo lleva</li>
         </ul>
       </section>
 
@@ -2220,23 +2229,23 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=3.7.1"></script>
-  <script src="src/js/sketchy.js?v=3.7.1"></script>
-  <script src="src/js/freehand.js?v=3.7.1"></script>
-  <script src="src/js/arc.js?v=3.7.1"></script>
-  <script src="src/js/curve-path.js?v=3.7.1"></script>
-  <script src="src/js/shape-rotation.js?v=3.7.1"></script>
-  <script src="src/js/regular-polygon.js?v=3.7.1"></script>
-  <script src="src/js/trapezoid.js?v=3.7.1"></script>
-  <script src="src/js/airbrush.js?v=3.7.1"></script>
-  <script src="src/js/flood.js?v=3.7.1"></script>
-  <script src="src/js/eraser.js?v=3.7.1"></script>
-  <script src="src/js/building.js?v=3.7.1"></script>
-  <script src="src/js/garden.js?v=3.7.1"></script>
-  <script src="src/js/solid.js?v=3.7.1"></script>
-  <script src="src/js/renderer.js?v=3.7.1"></script>
-  <script src="src/js/exporter.js?v=3.7.1"></script>
-  <script src="src/js/templates.js?v=3.7.1"></script>
-  <script src="src/js/app.js?v=3.7.1"></script>
+  <script src="src/js/config.js?v=3.8.0"></script>
+  <script src="src/js/sketchy.js?v=3.8.0"></script>
+  <script src="src/js/freehand.js?v=3.8.0"></script>
+  <script src="src/js/arc.js?v=3.8.0"></script>
+  <script src="src/js/curve-path.js?v=3.8.0"></script>
+  <script src="src/js/shape-rotation.js?v=3.8.0"></script>
+  <script src="src/js/regular-polygon.js?v=3.8.0"></script>
+  <script src="src/js/trapezoid.js?v=3.8.0"></script>
+  <script src="src/js/airbrush.js?v=3.8.0"></script>
+  <script src="src/js/flood.js?v=3.8.0"></script>
+  <script src="src/js/eraser.js?v=3.8.0"></script>
+  <script src="src/js/building.js?v=3.8.0"></script>
+  <script src="src/js/garden.js?v=3.8.0"></script>
+  <script src="src/js/solid.js?v=3.8.0"></script>
+  <script src="src/js/renderer.js?v=3.8.0"></script>
+  <script src="src/js/exporter.js?v=3.8.0"></script>
+  <script src="src/js/templates.js?v=3.8.0"></script>
+  <script src="src/js/app.js?v=3.8.0"></script>
 </body>
 </html>

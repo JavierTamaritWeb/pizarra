@@ -600,6 +600,78 @@ test('undo y redo se atenúan cuando sus pilas están vacías', () => {
   assert.equal(app.$('btn-redo').disabled, false, 'lo deshecho se puede rehacer');
 });
 
+/* ── Manipulación (v3.8.0): Alt+arrastre duplica, estilo y candado ── */
+
+test('Alt+arrastre sobre la selección se lleva una copia y deja el original quieto', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 200, 180);
+  app.selectTool('select');
+  app.click(150, 140);                            // seleccionar el rectángulo
+  app.drag(150, 140, 300, 260, { altKey: true }); // Alt+arrastre = duplicar
+  const els = app.elements();
+  assert.equal(els.length, 2, 'el arrastre con Alt crea una copia');
+  assert.equal(els[0].x, 100, 'el original no se mueve');
+  assert.equal(els[1].x, 250, 'la copia viaja con el puntero');
+  // Y es UN solo paso de deshacer: clonar y mover juntos.
+  app.key('z', { ctrlKey: true });
+  assert.equal(app.elements().length, 1, 'Ctrl+Z quita la copia entera de una vez');
+});
+
+test('Alt+clic sin arrastre no deja ningún duplicado apilado', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 200, 180);
+  app.selectTool('select');
+  app.click(150, 140);
+  app.click(150, 140, { altKey: true }); // clic con Alt sobre lo ya seleccionado
+  assert.equal(app.elements().length, 1, 'sin movimiento no nace copia alguna');
+});
+
+test('copiar y pegar estilo viste al destino, y quitarlo es UN undo', () => {
+  const app = loadApp();
+  app.selectTool('line');
+  app.drag(100, 100, 200, 100);   // A
+  app.drag(300, 100, 380, 100);   // B
+  app.selectTool('select');
+  app.click(150, 100);            // seleccionar A
+  const dash = app.$('check-dash');
+  dash.checked = true;
+  dash.__fire('change', { target: dash });
+  assert.equal(app.elements()[0].dash, true, 'A queda discontinuo');
+  app.key('ç', { ctrlKey: true, altKey: true, code: 'KeyC' }); // copiar estilo (tecla física)
+  app.click(340, 100);            // seleccionar B
+  app.key('v', { ctrlKey: true, altKey: true, code: 'KeyV' }); // pegar estilo
+  let els = app.elements();
+  assert.equal(els[1].dash, true, 'B hereda el discontinuo');
+  assert.equal(els[0].dash, true, 'A conserva el suyo');
+  app.key('z', { ctrlKey: true });
+  els = app.elements();
+  assert.equal(els[1].dash, undefined, 'un Ctrl+Z revierte el pegado entero');
+});
+
+test('un elemento bloqueado es invisible al puntero, a Ctrl+A y al borrador', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 200, 180);
+  app.key('a', { ctrlKey: true });
+  app.key('l', { ctrlKey: true, shiftKey: true, code: 'KeyL' }); // bloquear
+  assert.equal(app.elements()[0].locked, true, 'el candado viaja en el elemento (y en el autosave)');
+  // El clic ya no lo selecciona: Supr no tiene sobre qué actuar.
+  app.selectTool('select');
+  app.click(150, 140);
+  app.key('Delete');
+  assert.equal(app.elements().length, 1, 'clic + Supr no lo tocan');
+  // Ctrl+A tampoco lo coge.
+  app.key('a', { ctrlKey: true });
+  app.key('Delete');
+  assert.equal(app.elements().length, 1, 'Ctrl+A lo deja fuera');
+  // Y el borrador pasa por encima sin llevárselo.
+  app.selectTool('eraser');
+  app.drag(90, 140, 210, 140);
+  assert.equal(app.elements().length, 1, 'el borrador no borra lo bloqueado');
+});
+
 /* ── Regresión: el borrador elimina de verdad, no enmascara ── */
 
 test('el borrador elimina los elementos y no deja ninguna máscara en la escena', () => {

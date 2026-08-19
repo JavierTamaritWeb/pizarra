@@ -226,7 +226,7 @@ const Eraser = (function () {
   function doomedIndices(elements, pts, r, deps = {}) {
     const out = [];
     (elements || []).forEach((el, i) => {
-      if (el.type === 'eraser') return;
+      if (el.type === 'eraser' || el.locked) return;
       if (touches(el, pts, r, deps)) out.push(i);
     });
     return out;
@@ -613,6 +613,10 @@ const Eraser = (function () {
     const out = [];
     elements.forEach(el => {
       if (el.type === 'eraser') { out.push(el); return; }
+      // Un elemento BLOQUEADO (v3.8.0) es intocable también para el borrador:
+      // el candado protege de cualquier alteración con el puntero, y borrar
+      // es la peor de todas. Se devuelve por referencia, como los intactos.
+      if (el.locked) { out.push(el); return; }
       const memo = memoOf(el);
       // Descarte por caja. El margen cubre todo lo que `touches` puede
       // alcanzar más allá de los bounds: el grosor del trazo del elemento (la

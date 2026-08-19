@@ -209,6 +209,9 @@
     editingIdx:  null,
     dragLast:    null,  // última posición durante un arrastre de selección
     dragSnapshot: null,
+    // Alt+arrastre duplica (v3.8.0): armado en mousedown sobre la selección
+    // ya hecha, consumado en el primer fotograma con movimiento real.
+    altDup: false,
     didDrag:     false,
     marquee:     null,  // rectángulo de selección en curso {x1,y1,x2,y2}
     pickDown:    null,  // gesto de «Select» pendiente de resolver {idx, alt}
@@ -345,11 +348,17 @@
   const distToSegment = (p, x1, y1, x2, y2) =>
     Eraser.distToSegment(p, { x: x1, y: y1 }, { x: x2, y: y2 });
 
-  function hitTest(pos) {
+  function hitTest(pos, opts) {
+    // lockedOnly (v3.8.0): el modo del clic derecho para ENCONTRAR un
+    // elemento bloqueado — la única puerta de vuelta del candado. En el modo
+    // normal los bloqueados son invisibles al puntero, que es lo que los
+    // protege de selección, arrastre y hover a la vez.
+    const lockedOnly = !!(opts && opts.lockedOnly);
     for (let i = state.elements.length - 1; i >= 0; i--) {
       const el = state.elements[i];
       // Los trazos de borrador no son seleccionables
       if (el.type === 'eraser') continue;
+      if (!!el.locked !== lockedOnly) continue;
       // Líneas y flechas: distancia al segmento, no bounding box
       if (el.type === 'line' || el.type === 'arrow') {
         if (distToSegment(pos, el.x1, el.y1, el.x2, el.y2) <= el.lineWidth / 2 + 6) return i;
@@ -2820,6 +2829,11 @@
         // seleccionado (no en un hueco del marco) y el gesto acaba sin
         // arrastre, mouseup lo quitará de la selección; arrastrar gana.
         if (state.multiSelect && idx >= 0) state.pendingUnselect = idx;
+        // Alt+arrastre duplica (v3.8.0): con Alt sobre la selección YA hecha,
+        // el arrastre se lleva una COPIA y el original se queda quieto. Se
+        // arma aquí y se consuma en el primer movimiento real: un Alt+clic
+        // sin arrastre no debe dejar un duplicado invisible apilado debajo.
+        state.altDup = e.altKey;
         state.dragLast = pos;
         // Snapshot ANTES de que el drag mute state.elements
         state.dragSnapshot = snapshot();
@@ -2842,7 +2856,13 @@
       //    retirada — que solo se consuma en mouseup si no hubo arrastre,
       //    para que arrastrar la selección siga funcionando.
       if (idx >= 0) {
-        if (e.altKey) setSelection([idx]);
+        // Alt sobre algo YA seleccionado no re-aísla: arma el Alt+arrastre
+        // que duplica (v3.8.0). Sobre algo sin seleccionar, Alt sigue
+        // aislando la pieza — y su arrastre la mueve, como siempre: sacar una
+        // pieza de un edificio en un solo gesto es un flujo que no se toca.
+        if (e.altKey && state.selection.includes(idx)) {
+          state.altDup = true;
+        } else if (e.altKey) setSelection([idx]);
         else if (!state.selection.includes(idx)) {
           const grp = groupIndicesOf(idx);
           setSelection(state.multiSelect ? [...state.selection, ...grp] : grp);
@@ -3550,6 +3570,18 @@
       const dx = pos.x - state.dragLast.x;
       const dy = pos.y - state.dragLast.y;
       if (dx || dy) {
+        // Alt+arrastre duplica (v3.8.0): la copia nace en el primer
+        // movimiento real, en el sitio exacto del original, y es ELLA la que
+        // viaja (insertClones deja los clones seleccionados). El snapshot del
+        // mousedown es anterior al clon, así que el mouseup empaqueta clonar
+        // y mover en UN solo paso de deshacer. Los originales quedan quietos
+        // y entran como candidatos del imán de alineación, que calcula sus
+        // candidatos en este mismo primer fotograma.
+        if (state.altDup) {
+          state.altDup = false;
+          insertClones(state.selection.map(i => state.elements[i]), 0, 0);
+          state.pendingUnselect = null;
+        }
         // Frenado en el borde: lanzar algo fuera del lienzo lo perdía. El
         // puntero sigue libre (dragLast guarda su posición REAL, no la
         // recortada), así que en cuanto vuelve hacia dentro el objeto lo
@@ -3637,7 +3669,7 @@
       if (rw > 3 || rh > 3) {
         const sel = [];
         state.elements.forEach((el, i) => {
-          if (el.type === 'eraser') return;
+          if (el.type === 'eraser' || el.locked) return;
           const b = getElementBounds(el);
           if (b.x < rx + rw && b.x + b.w > rx && b.y < ry + rh && b.y + b.h > ry) sel.push(i);
         });
@@ -3697,6 +3729,8 @@
       state.dragLast = null;
       state.dragSnapshot = null;
       state.didDrag = false;
+      state.altDup = false; // un Alt+clic sin arrastre no deja duplicado
+
       // El imán muere con el gesto: sesión y guías fuera, y un repintado del
       // overlay para que la guía no quede colgada tras soltar.
       state.alignSession = null;
@@ -4752,6 +4786,121 @@
     insertClones(state.selection.map(i => state.elements[i]), 15, 15);
     redraw();
     showToast(`⧉ Duplicado (${n} elemento${n === 1 ? '' : 's'})`);
+  }
+
+  /* ── Copiar y pegar ESTILO (v3.8.0) ── */
+
+  // El «traje» de un elemento —color, grosor, discontinuo, relleno, estilo de
+  // texto, presión— sin su geometría. Vive en memoria y no en el portapapeles
+  // del sistema, a propósito: el estilo referencia el aspecto de algo que se
+  // está viendo, no un dato que viaje entre pestañas.
+  let styleClipboard = null;
+
+  function copySelectionStyle() {
+    if (!state.selection.length) return;
+    const el = state.elements[state.selection[0]];
+    styleClipboard = {
+      color: el.color, lineWidth: el.lineWidth, fontSize: el.fontSize,
+      dash: el.dash, fill: el.fill, fillColor: el.fillColor,
+      fillTransparent: el.fillTransparent, fillOpacity: el.fillOpacity,
+      bold: el.bold, shadow: el.shadow, shadowColor: el.shadowColor,
+      taper: el.taper,
+    };
+    showToast('🎨 Estilo copiado');
+  }
+
+  // Aplica el estilo copiado a la selección, campo a campo y SOLO donde ese
+  // campo significa algo: el relleno a los rellenables, el estilo de texto a
+  // los textos, el discontinuo nunca a un lápiz (el renderer no se lo aplica
+  // y serializaría un adorno mentiroso — la lección de _asPencil). Un campo
+  // AUSENTE en el origen se BORRA en el destino: pegar el estilo de un texto
+  // sin negrita quita la negrita, porque el estilo es el aspecto entero.
+  function styledCopy(el) {
+    const copy = { ...el };
+    if (styleClipboard.color) copy.color = styleClipboard.color;
+    if (Number.isFinite(styleClipboard.lineWidth)) copy.lineWidth = styleClipboard.lineWidth;
+    const put = (key, ok) => {
+      if (!ok) return;
+      if (styleClipboard[key] === undefined) delete copy[key];
+      else copy[key] = styleClipboard[key];
+    };
+    put('dash', DASHABLE_TYPES.includes(el.type)); // el mismo corte que applyDash
+    const fillable = FILLABLE_TYPES.includes(el.type);
+    ['fill', 'fillColor', 'fillTransparent', 'fillOpacity'].forEach(k => put(k, fillable));
+    const isText = el.type === 'text';
+    if (isText && Number.isFinite(styleClipboard.fontSize)) copy.fontSize = styleClipboard.fontSize;
+    ['bold', 'shadow', 'shadowColor'].forEach(k => put(k, isText));
+    put('taper', el.type === 'pencil' && styleClipboard.taper === true);
+    return copy;
+  }
+
+  function pasteSelectionStyle() {
+    if (!styleClipboard || !state.selection.length) return;
+    const updated = state.selection.map(i => [i, styledCopy(state.elements[i])]);
+    // Regla del no-op (la de applyGeometry): si nada cambia de verdad, ni
+    // paso de undo fantasma ni repintado.
+    if (updated.every(([i, c]) => JSON.stringify(c) === JSON.stringify(state.elements[i]))) return;
+    saveUndo();
+    updated.forEach(([i, c]) => { state.elements[i] = c; });
+    redraw();
+    showToast('🎨 Estilo aplicado');
+  }
+
+  /* ── Bloquear elementos (v3.8.0) ── */
+
+  // Un elemento bloqueado (locked: true) es invisible al puntero: ni clic, ni
+  // marquesina, ni Ctrl+A, ni hover, ni borrador. Se dibuja y exporta igual.
+  // La ÚNICA puerta de vuelta es el clic derecho sobre él («Desbloquear»),
+  // así que ese camino no puede romperse sin dejar candados sin llave.
+  function lockSelection() {
+    if (!state.selection.length) return;
+    const n = state.selection.length;
+    saveUndo();
+    state.selection.forEach(i => { state.elements[i] = { ...state.elements[i], locked: true }; });
+    setSelection([]);
+    redraw();
+    showToast(`🔒 Bloqueado (${n}) — se libera con clic derecho`);
+  }
+
+  // Desbloquea la pieza y todo su grupo: un edificio bloqueado con una sola
+  // pieza suelta seguiría igual de atascado. Queda seleccionado, que es lo
+  // que se quiere hacer con algo recién liberado.
+  function unlockAt(idx) {
+    const grp = groupIndicesOf(idx).filter(i => state.elements[i].locked);
+    if (!grp.length) return;
+    saveUndo();
+    grp.forEach(i => {
+      const copy = { ...state.elements[i] };
+      delete copy.locked;
+      state.elements[i] = copy;
+    });
+    selectTool(TOOLS.SELECT, { silent: true });
+    setSelection(grp);
+    redraw();
+    showToast('🔓 Desbloqueado');
+  }
+
+  function unlockAll() {
+    if (!state.elements.some(el => el.locked)) return;
+    saveUndo();
+    state.elements = state.elements.map(el => {
+      if (!el.locked) return el;
+      const copy = { ...el };
+      delete copy.locked;
+      return copy;
+    });
+    redraw();
+    showToast('🔓 Todo desbloqueado');
+  }
+
+  // Seleccionar todo: máscaras de borrador heredadas y bloqueados fuera.
+  // Extraído del atajo Ctrl+A para que el menú contextual use el mismo código.
+  function selectAll() {
+    selectTool(TOOLS.SELECT, { silent: true });
+    setSelection(state.elements
+      .map((el, i) => (el.type === 'eraser' || el.locked) ? -1 : i)
+      .filter(i => i >= 0));
+    redraw();
   }
 
   /**
@@ -7977,6 +8126,20 @@
     // forma nativa. (El '?' de arriba sí sigue funcionando para cerrar la ayuda.)
     if (document.querySelector('dialog[open]')) return;
 
+    // Con el menú contextual abierto, el teclado es suyo: Escape lo cierra y
+    // Enter/Tab navegan sus botones (acciones nativas); ningún otro atajo
+    // debe tocar el lienzo de detrás — mismo invariante que dialog[open].
+    {
+      const ctxMenu = $('context-menu');
+      if (ctxMenu && !ctxMenu.hidden) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          hideContextMenu();
+        }
+        return;
+      }
+    }
+
     // Espacio mantenido = pan (v3.5.0): mientras dure, el arrastre desplaza el
     // scroll en vez de dibujar. Acelerador, no única vía (regla de una mano):
     // el scroll nativo y el botón central hacen lo mismo sin teclado. El
@@ -8016,6 +8179,29 @@
       return;
     }
 
+    // Copiar / pegar ESTILO (v3.8.0): Ctrl/Cmd+Alt+C / V. Por e.code, no por
+    // e.key: en macOS Option+C escribe «ç» y el atajo es la tecla física.
+    if ((e.ctrlKey || e.metaKey) && e.altKey && e.code === 'KeyC') {
+      e.preventDefault();
+      copySelectionStyle();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.altKey && e.code === 'KeyV') {
+      e.preventDefault();
+      pasteSelectionStyle();
+      return;
+    }
+
+    // Bloquear la selección (v3.8.0): Ctrl/Cmd+Mayús+L. La vuelta es el clic
+    // derecho sobre el elemento bloqueado (o «Desbloquear todo» en el menú
+    // del lienzo) — regla de una mano: el menú es la vía sin teclado de todo
+    // este bloque.
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyL') {
+      e.preventDefault();
+      lockSelection();
+      return;
+    }
+
     // Undo / Redo (Cmd+Shift+Z es el redo estándar en macOS)
     if ((e.ctrlKey || e.metaKey) && k === 'z') {
       e.preventDefault();
@@ -8052,11 +8238,9 @@
     // Ctrl/Cmd+A: seleccionar todo (con la herramienta Mover)
     if ((e.ctrlKey || e.metaKey) && k === 'a') {
       e.preventDefault();
-      // Silencioso: un atajo de teclado no debe sacar un diálogo que, encima,
-      // deja inerte el lienzo que se acaba de seleccionar entero.
-      selectTool(TOOLS.SELECT, { silent: true });
-      setSelection(state.elements.map((el, i) => el.type === 'eraser' ? -1 : i).filter(i => i >= 0));
-      redraw();
+      // Silencioso (dentro de selectAll): un atajo de teclado no debe sacar
+      // un diálogo que, encima, deja inerte el lienzo recién seleccionado.
+      selectAll();
       return;
     }
 
@@ -9815,6 +9999,86 @@
     });
   }
 
+  /* ── Menú contextual (v3.8.0) ── */
+
+  // El menú del clic derecho, la idea de Excalidraw: acciones sobre la
+  // selección con su atajo a la derecha, o acciones del lienzo en el vacío.
+  // Se construye por invocación con createElement/textContent (nunca
+  // innerHTML) y NO es un <dialog>: el guard de dialog[open] del teclado no
+  // lo cubre, por eso el keydown lo atiende aparte. Cada camino que ofrece ya
+  // existe como atajo o botón — el menú es descubribilidad, jamás única vía.
+  function hideContextMenu() {
+    const m = $('context-menu');
+    if (m && !m.hidden) m.hidden = true;
+  }
+
+  function showContextMenu(x, y, items) {
+    const m = $('context-menu');
+    if (!m) return;
+    m.textContent = '';
+    items.forEach(it => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'ctxmenu__item';
+      const lab = document.createElement('span');
+      lab.textContent = it.label;
+      b.appendChild(lab);
+      if (it.kbd) {
+        const kb = document.createElement('span');
+        kb.className = 'ctxmenu__kbd';
+        kb.textContent = it.kbd;
+        b.appendChild(kb);
+      }
+      if (it.disabled) b.disabled = true;
+      b.addEventListener('click', () => {
+        hideContextMenu();
+        it.run();
+      });
+      m.appendChild(b);
+    });
+    m.hidden = false;
+    // Posicionar y re-anclar si se sale del viewport (medido ya visible)
+    m.style.left = `${x}px`;
+    m.style.top = `${y}px`;
+    const r = m.getBoundingClientRect();
+    if (r.width && r.right > window.innerWidth) m.style.left = `${Math.max(8, window.innerWidth - r.width - 8)}px`;
+    if (r.height && r.bottom > window.innerHeight) m.style.top = `${Math.max(8, window.innerHeight - r.height - 8)}px`;
+    const first = m.querySelector('button');
+    if (first && first.focus) first.focus();
+  }
+
+  function selectionMenuItems() {
+    return [
+      { label: '⧉ Duplicar', kbd: 'Ctrl+D', run: duplicateSelection },
+      { label: '🎨 Copiar estilo', kbd: 'Ctrl+Alt+C', run: copySelectionStyle },
+      { label: '🎨 Pegar estilo', kbd: 'Ctrl+Alt+V', disabled: !styleClipboard, run: pasteSelectionStyle },
+      { label: '⏫ Traer al frente', kbd: 'Ctrl+Mayús+↑', run: () => reorderSelection('front') },
+      { label: '⏬ Enviar al fondo', kbd: 'Ctrl+Mayús+↓', run: () => reorderSelection('back') },
+      { label: '🔒 Bloquear', kbd: 'Ctrl+Mayús+L', run: lockSelection },
+      { label: '🗑 Eliminar', kbd: 'Supr', run: deleteSelection },
+    ];
+  }
+
+  function canvasMenuItems() {
+    const items = [
+      { label: '⬚ Seleccionar todo', kbd: 'Ctrl+A', run: selectAll },
+      { label: '🔍 Encuadrar el dibujo', kbd: 'Mayús+1', run: zoomToFitContent },
+    ];
+    if (state.elements.some(el => el.locked)) {
+      items.push({ label: '🔓 Desbloquear todo', run: unlockAll });
+    }
+    return items;
+  }
+
+  ['pointerdown', 'wheel'].forEach(ev => document.addEventListener(ev, e => {
+    const m = $('context-menu');
+    // El guard de contains protege también al arnés vm, cuyo stub no lo trae.
+    const inside = m && typeof m.contains === 'function' && m.contains(e.target);
+    if (m && !m.hidden && !inside) hideContextMenu();
+  }, true));
+  if (canvasArea) canvasArea.addEventListener('scroll', hideContextMenu);
+  window.addEventListener('resize', hideContextMenu);
+
   /* ── Canvas event binding ── */
 
   // Pointer events con captura: funciona con ratón, táctil y stylus, y el
@@ -10088,10 +10352,43 @@
     lastPos = null;
     scheduleOverlay();
   });
-  // En macOS Ctrl+clic abre el menú contextual; durante una cadena debe
-  // reservarse para terminarla igual que Cmd+clic.
+  // Clic derecho = menú contextual (v3.8.0). Durante una cadena de curvas el
+  // gesto sigue reservado para terminarla (en macOS Ctrl+clic emite
+  // contextmenu), como antes de existir el menú. Sobre un elemento BLOQUEADO
+  // el menú es la única llave («Desbloquear»); sobre uno sin seleccionar,
+  // primero se selecciona con la misma semántica de grupo que el clic normal.
   mainCanvas.addEventListener('contextmenu', e => {
-    if (state.tool === TOOLS.CURVE_ARROW && state.curveChain) e.preventDefault();
+    if (state.tool === TOOLS.CURVE_ARROW && state.curveChain) {
+      e.preventDefault();
+      return;
+    }
+    e.preventDefault();
+    if (gestureActive()) return; // a media interacción, ni menú ni cambios
+    const pos = getPos(e);
+    const lockedIdx = hitTest(pos, { lockedOnly: true });
+    // Un elemento NORMAL encima gana al bloqueado de debajo (hitTest normal
+    // primero): el candado no debe robar el menú de lo que se ve delante.
+    const idx = hitTest(pos);
+    if (idx < 0 && lockedIdx >= 0) {
+      showContextMenu(e.clientX, e.clientY, [
+        { label: '🔓 Desbloquear', run: () => unlockAt(lockedIdx) },
+      ]);
+      return;
+    }
+    if (SELECTION_TOOLS.includes(state.tool) && idx >= 0) {
+      if (!state.selection.includes(idx)) {
+        setSelection(groupIndicesOf(idx));
+        redraw();
+      }
+      showContextMenu(e.clientX, e.clientY, selectionMenuItems());
+      return;
+    }
+    if (SELECTION_TOOLS.includes(state.tool) && state.selection.length &&
+        posInSelectionBounds(pos)) {
+      showContextMenu(e.clientX, e.clientY, selectionMenuItems());
+      return;
+    }
+    showContextMenu(e.clientX, e.clientY, canvasMenuItems());
   });
 
   /* ── Init ── */
