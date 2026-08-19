@@ -35,6 +35,73 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### v3.7.0 — El long-press no aislaba nada: el marco combinado se comía el Alt
+
+- **Síntoma:** mantener el dedo quieto sobre la pieza de una fachada —el
+  Alt+clic táctil recién estrenado— disparaba su anillo, re-ejecutaba el
+  mousedown con `altKey: true`… y al pulsar Supr caía la fachada **entera**:
+  la selección seguía siendo el grupo completo, como si el long-press no
+  hubiera pasado.
+- **Causa:** el `pointerdown` del dedo ya había seleccionado el grupo entero
+  antes de que el temporizador venciera, así que cuando el mousedown se
+  re-decide con Alt el punto cae **dentro del marco combinado de la
+  selección**, y esa rama (arrastrar la selección) corre antes de que el
+  hit-test con Alt pueda aislar nada. Con ratón el orden es el correcto —Alt
+  se pulsa antes del clic—; el long-press es el único camino donde la
+  selección de grupo ocurre *primero*.
+- **Arreglo:** el disparo del long-press **vacía la selección**
+  (`setSelection([])`) antes de re-ejecutar `onMouseDown`, además de
+  descartar `dragLast`/`resizing`/`marquee`. Así el mousedown con Alt se
+  resuelve fresco y aísla la pieza, que queda arrastrable sin levantar el dedo.
+- **Guardia:** *"el long-press aísla la pieza (el Alt+clic que el táctil no
+  tiene)"* en `e2e/touch.spec.js` — long-press real por CDP sobre una fachada
+  de ~99 piezas y Supr debe eliminar exactamente **una**. **Verificada
+  fallando** contra el código sin el `setSelection([])` (borraba las 99).
+- **Lección:** re-ejecutar un handler «como si» fuera otro gesto exige
+  reconstruir también el **estado previo** que ese gesto habría encontrado.
+  El orden de precedencia del mousedown (handles → marco combinado → hitTest)
+  está pensado para clics que llegan de cero, no para clics que llegan con la
+  selección que ellos mismos acaban de crear.
+
+### v3.6.0 — La cota en vivo contaminó la medición de tinta de los specs de sólidos
+
+- **Síntoma:** al estrenar la cota `ancho × alto` junto al puntero, dos specs
+  de `e2e/solids.spec.js` se pusieron rojos: la comparación «la
+  previsualización dibuja lo mismo que aparece al soltar» pasó de ~0.05 a
+  0.29 de desviación, sin que la previsualización hubiera cambiado.
+- **Causa:** esos specs miden la tinta del overlay contando píxeles opacos
+  (`overlayInk`), y la pastilla de la cota —relleno `#4ecdc4` + texto
+  `#12121c`— vive en ese mismo overlay junto al puntero: ~1.100 píxeles que no
+  son tinta del sólido inflaban el lado «preview» de la comparación.
+- **Arreglo:** `overlayInk` excluye los **dos colores exactos** de la pastilla
+  (78,205,196 y 18,18,28). El trazo del sólido es `#1a1a2e` (26,26,46) y no
+  colisiona; los píxeles de antialiasing del borde quedan dentro de la
+  tolerancia.
+- **Guardia:** los propios specs (`la previsualización dibuja lo mismo…` y
+  `la miniatura del modal…`), que son los que fallaban.
+- **Lección:** el overlay es un espacio **compartido**: cualquier cosa nueva
+  que se pinte ahí (guías, cotas, anillos) aparece en las mediciones de todo
+  test que cuente píxeles del overlay. Al añadir un adorno junto al puntero,
+  buscar `overlay` en `e2e/` antes de dar la suite por verde.
+
+### v3.6.0–3.7.0 — Dos trampas de e2e que costaron una tarde en total
+
+- **`Ctrl+C` sintético no despacha `copy`:** en Chromium headless, pulsar
+  Ctrl+C por teclado sin una selección de **texto** del documento no emite el
+  evento `copy` que la app escucha — el toast de «Copiado» jamás aparecía en
+  el spec aunque en un navegador de verdad funciona. El evento real se dispara
+  con `document.execCommand('copy')` (ver `e2e/feedback.spec.js`).
+- **Un control dentro del panel-cajón cerrado no tiene `innerText`:** a 393 px
+  de ancho el panel es un cajón con `visibility: hidden`, y el `#zoom-val`
+  oculto devuelve `innerText` vacío → `Number('') === 0`, con lo que el spec
+  del auto-fit móvil «pasaba» su `< 100` con un cero absurdo y fallaba el
+  `>= 30`. La lectura robusta es el **`value` del slider**, que existe igual
+  esté visible o no (ver `e2e/touch.spec.js`).
+- **Guardia:** los dos specs citados, que documentan el porqué en su comentario.
+- **Lección:** cuando un spec e2e falla contra una funcionalidad que en el
+  navegador se ve funcionar, sospecha primero del **arnés** — y deja el motivo
+  escrito en el propio spec, que es donde el siguiente lo va a pisar.
+
 ### v3.4.4 — El «volumen suave» de la copa no se pintaba: un `curveArrow` no se rellena
 
 - **Síntoma:** la copa de la parra malvasía se dibujó con el mismo

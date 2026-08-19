@@ -34,6 +34,7 @@ Pizarra es una aplicación de wireframing sobre `<canvas>` escrita en JavaScript
     - [Flechas de nivel diagrama](#flechas-de-nivel-diagrama)
     - [Edificios y Jardín](#edificios-y-jardín)
     - [Edición](#edición)
+    - [Navegación, feedback y táctil](#navegación-feedback-y-táctil)
     - [Exportación](#exportación)
   - [Cómo usar Pizarra](#cómo-usar-pizarra)
   - [Atajos de teclado](#atajos-de-teclado)
@@ -149,6 +150,14 @@ Cada pieza de jardín nace con una **etiqueta** dentro del mismo grupo (se mueve
 - **Pulsar la herramienta de un elemento seleccionado lo edita**: la selección se conserva si es del tipo que esa herramienta crea, y su modal abre mostrando y editando ese elemento — color, relleno, giro, rótulo y también **posición y tamaño**, con los mismos límites que los tiradores (un polígono regular se mantiene cuadrado, un grupo escala en proporción). Empezar a dibujar suelta la selección: crear y editar no se pisan.
 - **Interfaz responsive**: la barra de herramientas pasa a dos columnas desde 1201 px y el panel se convierte en un cajón deslizable por debajo de 1100 px.
 
+### Navegación, feedback y táctil
+
+- **Zoom al cursor**: `Ctrl/Cmd`+rueda acerca o aleja **sobre el punto que señala el puntero** —el pinch del trackpad entra por el mismo camino—, y la rueda a secas sigue desplazando, como en Excalidraw o Figma. **Encuadres**: `Mayús+1` ajusta el zoom a todo el dibujo (también el botón «Encuadrar el dibujo» del panel), `Mayús+2` a la selección, y `Ctrl+0` —o un clic en el **porcentaje** del zoom, que es un botón— vuelve al 100 %.
+- **Pan**: mantén la **barra espaciadora** (la mano) o usa el **botón central** del ratón y arrastra para mover la vista con cualquier herramienta, sin tocar el dibujo. Y si te alejas tanto que lo pierdes de vista, aparece el botón flotante **«Volver al dibujo»**: un clic y lo encuadra.
+- **La app enseña lo que va a hacer**: con Mover o «Select», el elemento (o el grupo entero) bajo el puntero se **resalta antes del clic**; al crear o redimensionar, una pastilla junto al puntero da el **ancho × alto en vivo**, y al arrastrar, la **posición X, Y** — los mismos números que el panel, sin soltar el ratón.
+- **Las acciones sin rastro avisan**: copiar, pegar, duplicar, exportar y abrir proyecto confirman con un **toast** discreto que se descarta solo (y que el lector de pantalla anuncia — la región es `role="status"`). **Deshacer y Rehacer se atenúan** cuando su pila está vacía, en vez de prometer lo que no harán, y el **lienzo vacío da la bienvenida** con qué hacer y dónde está la ayuda.
+- **Táctil de verdad**: **dos dedos** mueven la vista y hacen zoom de pinza —un trazo a medias se aborta, no deja un punto—; el **doble toque** equivale al doble clic (editar un texto, bajar a una pieza); **mantener el dedo quieto** medio segundo sobre una pieza la aísla de su grupo, con un anillo que avisa del progreso — el Alt+clic que el dedo no tiene. Los tiradores perdonan el triple con el dedo, y en un móvil el zoom inicial **baja del 100 %** para que el lienzo entero quepa en pantalla.
+
 ### Exportación
 
 | Formato | Detalle |
@@ -192,6 +201,9 @@ Cada pieza de jardín nace con una **etiqueta** dentro del mismo grupo (se mueve
 | `F` · `D` · `S` | Invertir giro · invertir dirección · curva en S |
 | `Q` | Convertir flecha curva ↔ semicírculo |
 | `+` · `−` (+`Shift`) | Ajustar curvatura — en semicírculos, el radio (fino) |
+| `Ctrl/Cmd`+rueda | Zoom centrado en el cursor (la rueda a secas desplaza) |
+| `Espacio` (mantenida) · botón central | Mover la vista arrastrando, con cualquier herramienta |
+| `Mayús+1` · `Mayús+2` · `Ctrl/Cmd+0` | Encuadrar el dibujo · encuadrar la selección · volver al 100 % |
 | `?` | Abrir la ayuda con todos los atajos |
 
 Las herramientas que abren catálogo (Edificios y Jardín) muestran su modal de tipos al pulsar el atajo. **Aerógrafo**, **Balcón**, **Muro**, **Verjas**, **Cancela**, **Caminos**, **Aromáticas** y **Trepadoras** no tienen atajo: ya no queda ninguna tecla suelta libre.
@@ -265,7 +277,7 @@ Cuatro convenciones que conviene conocer:
 
 ## Tests
 
-**632 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
+**825 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
 de runtime:
 
 ```bash
@@ -275,7 +287,7 @@ node --test tests/exporter.test.js    # un archivo
 
 Los módulos se cargan en un contexto `node:vm` con stubs de canvas y DOM, incluido `src/js/app.js` completo: los tests lanzan gestos reales —puntero, teclado, modales— y leen el resultado del autoguardado, sin ningún hook de test en el código de producción.
 
-**66 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco, acciones por defecto del navegador, los flujos completos de Verjas y Cancela y el Jardín botánico en escritorio, móvil y anchos intermedios.
+**143 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco, acciones por defecto del navegador, la navegación del lienzo (zoom al cursor, pan, encuadres), el feedback en vivo, los gestos multitáctiles (despachados por CDP), los flujos completos de Verjas y Cancela y el Jardín botánico en escritorio, móvil y anchos intermedios.
 
 ```bash
 npm install && npm run e2e:install    # una vez (descarga Chromium)
@@ -292,7 +304,7 @@ npm run test:all                      # las dos
 | --- | --- |
 | [`CHANGELOG.md`](CHANGELOG.md) | Historial de versiones |
 | [`BUGS.md`](BUGS.md) | Cada error corregido con su síntoma, causa raíz y **guardia de regresión** |
-| [`PLAN.md`](PLAN.md) | Plan histórico de las fases iniciales (las fases 1–3 ya están completadas) |
+| [`PLAN.md`](PLAN.md) | Plan histórico de las fases iniciales, y la hoja de ruta UX 2026-08 (navegación, feedback y táctil — las tres fases completadas) |
 | [`CLAUDE.md`](CLAUDE.md) | Guía de arquitectura para trabajar en el código |
 
 ## Compatibilidad

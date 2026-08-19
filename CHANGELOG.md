@@ -4,6 +4,83 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.7.1] — 2026-08-19
+
+### Cambiado
+
+- Documentación al día de las tres fases de UX: el README estrena la sección
+  **«Navegación, feedback y táctil»** y los atajos nuevos en su tabla,
+  `BUGS.md` registra lo que se rompió por el camino (el long-press que el
+  marco combinado se comía, la cota en vivo contaminando los specs de
+  sólidos, y dos trampas del arnés e2e), y este changelog recupera las
+  versiones 3.4–3.7 que se habían quedado sin anotar.
+
+## [3.7.0] — 2026-08-19
+
+### Añadido
+
+- **La pizarra entiende los dedos.** **Dos dedos** mueven la vista y hacen
+  zoom de pinza — un trazo a medias se aborta en vez de dejar un punto, y la
+  cámara dura hasta soltar todos los dedos. El **doble toque** equivale al
+  doble clic (editar un texto, bajar a una pieza de un grupo), y **mantener
+  el dedo quieto** medio segundo sobre una pieza la aísla de su grupo, con un
+  anillo que avisa del progreso — el Alt+clic que el táctil no tiene.
+- Los **tiradores perdonan el triple** con el dedo (su dibujo no cambia), los
+  objetivos pequeños crecen a mínimos táctiles con puntero grueso, y en un
+  móvil el zoom inicial **baja del 100 %** para que el lienzo entero quepa —
+  la excepción explícita a la regla del auto-ajuste.
+
+## [3.6.0] — 2026-08-19
+
+### Añadido
+
+- **La app enseña lo que va a hacer.** Con Mover o «Select», el elemento —o
+  el grupo entero— bajo el puntero se **resalta antes del clic**; al crear o
+  redimensionar, una pastilla junto al puntero da el **ancho × alto en
+  vivo**, y al arrastrar, la **posición X, Y**.
+- **Las acciones sin rastro avisan**: copiar, pegar, duplicar, exportar y
+  abrir proyecto confirman con un **toast** discreto y autodescartable, que
+  el lector de pantalla también anuncia. Los dos avisos de imagen que eran
+  `alert()` bloqueantes ahora son toasts.
+- **Deshacer y Rehacer se atenúan** cuando su pila está vacía, y el **lienzo
+  vacío da la bienvenida** con qué hacer y dónde está la ayuda — el cartel se
+  aparta al primer gesto.
+
+## [3.5.0] — 2026-08-18
+
+### Añadido
+
+- **El lienzo se navega como en un editor de verdad.** `Ctrl/Cmd`+rueda hace
+  zoom **sobre el punto que señala el cursor** (el pinch del trackpad entra
+  por el mismo camino); la **barra espaciadora** o el **botón central**
+  mueven la vista arrastrando, con cualquier herramienta.
+- **Encuadres**: `Mayús+1` ajusta el zoom a todo el dibujo (también el botón
+  «Encuadrar el dibujo» del panel), `Mayús+2` a la selección y `Ctrl+0` — o
+  un clic en el **porcentaje** del zoom — vuelve al 100 %.
+- El botón flotante **«Volver al dibujo»** aparece cuando el scroll o el zoom
+  dejan todos los elementos fuera de la vista, y un clic lo encuadra.
+- `PLAN.md` estrena la **hoja de ruta UX** completa (navegación, feedback y
+  táctil), nacida de comparar la app con Excalidraw, tldraw y draw.io.
+
+## [3.4.6] — 2026-08-18
+
+### Añadido
+
+- **El jardín estrena la parra malvasía**, y no como trepadora de muro sino
+  como lo que es en un jardín real: un **emparrado exento** — pérgola de
+  postes y vigas con la copa encima, racimos colgando en el alzado y la
+  retícula de sombra en la planta. Vive en el catálogo de **Árboles** (3 m de
+  alto, huella rectangular), porque su porte es el de una estructura de
+  sombra, no el de un tapiz.
+
+### Corregido
+
+- La copa se dibujó primero con piezas que no podían funcionar, y las dos
+  lecciones quedan guardadas para todo el jardín: **un `curveArrow` jamás se
+  rellena** (el renderer lo traza sin mirar `fill` — fallo mudo de punta a
+  punta), y **una superficie translúcida es UNA pieza**, porque varias del
+  mismo color acumulan alfa en los solapes y dibujan sus costuras.
+
 ## [3.3.1] — 2026-08-17
 
 ### Cambiado
