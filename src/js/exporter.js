@@ -842,6 +842,12 @@ body { font-family: ${FONT_CSS()};${options.transparent ? '' : ' background: #ff
           if (!(Number.isInteger(m.turns) && m.turns >= 1 && m.turns <= 3)) return false;
           allowed.push('turns');
         }
+        // `mirror` (v3.10.0) es el mismo trato para el volteo: sólo `true`, y
+        // su ausencia es «sin espejo». Se aplica ANTES que `turns`.
+        if (m.mirror !== undefined) {
+          if (m.mirror !== true) return false;
+          allowed.push('mirror');
+        }
         if (m.fillColor !== undefined) {
           if (!(typeof m.fillColor === 'string' && HEX_COLOR.test(m.fillColor))) return false;
           allowed.push('fillColor');

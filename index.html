@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=3.9.0" />
+  <link rel="stylesheet" href="css/styles.css?v=3.10.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.9.0" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.10.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v3.9.0</span>
+        <span class="topbar__badge">v3.10.0</span>
         <!-- Aviso de autoguardado: visible SOLO mientras localStorage rechaza
              el guardado (cuota llena). Sin él, el fallo era un catch mudo y el
              trabajo posterior se perdía en silencio al recargar. -->
@@ -104,7 +104,7 @@
              exportar, abrir…). role=status + aria-live para que el lector los
              anuncie; los rellena showToast (app.js) y nunca interceptan. -->
         <div class="toasts" id="toast-region" role="status" aria-live="polite"></div>
-        <!-- Menú contextual (v3.9.0): lo rellena showContextMenu (app.js) por
+        <!-- Menú contextual (v3.10.0): lo rellena showContextMenu (app.js) por
              invocación, con las acciones de la selección o del lienzo y su
              atajo a la derecha. [hidden] obligatoria: la clase declara display. -->
         <div class="ctxmenu" id="context-menu" hidden></div>
@@ -420,6 +420,38 @@
             <button class="btn btn--ghost" id="btn-z-back" title="Enviar al fondo (Ctrl+Mayús+↓)">⏬ Al fondo</button>
             <button class="btn btn--ghost" id="btn-z-down" title="Retrasar un paso (Ctrl+↓)">🔽 Retrasar</button>
           </div>
+          <!-- Alinear y distribuir (v3.10.0): las guías al arrastrar ya
+               imantaban, pero no había forma de decir «éstos cuatro, a la
+               izquierda». La rejilla declara display:grid, así que lleva su
+               regla [hidden] en _panel.scss. Botones de icono: en tres
+               columnas no cabe un rótulo, y el `title` es lo que queda. -->
+          <div class="panel__align" id="align-row" hidden>
+            <button class="btn btn--ghost" data-align="left" title="Alinear a la izquierda" aria-label="Alinear a la izquierda">⇤</button>
+            <button class="btn btn--ghost" data-align="hcenter" title="Centrar en horizontal" aria-label="Centrar en horizontal">↔</button>
+            <button class="btn btn--ghost" data-align="right" title="Alinear a la derecha" aria-label="Alinear a la derecha">⇥</button>
+            <button class="btn btn--ghost" data-align="top" title="Alinear arriba" aria-label="Alinear arriba">⤒</button>
+            <button class="btn btn--ghost" data-align="vmiddle" title="Centrar en vertical" aria-label="Centrar en vertical">↕</button>
+            <button class="btn btn--ghost" data-align="bottom" title="Alinear abajo" aria-label="Alinear abajo">⤓</button>
+          </div>
+          <!-- Repartir y voltear van con rótulo y no en la rejilla de iconos:
+               «distribuir» y «voltear» no tienen un símbolo que se entienda
+               solo, al contrario que las seis alineaciones. -->
+          <div class="panel__zorder" id="dist-row" hidden>
+            <button class="btn btn--ghost" data-align="hdist" title="Repartir huecos iguales en horizontal (3 objetos o más)">⇹ En fila</button>
+            <button class="btn btn--ghost" data-align="vdist" title="Repartir huecos iguales en vertical (3 objetos o más)">⇳ En columna</button>
+          </div>
+          <div class="panel__zorder" id="mirror-row" hidden>
+            <button class="btn btn--ghost" data-mirror="h" title="Voltear en horizontal (Mayús+H)">Voltear ↔</button>
+            <button class="btn btn--ghost" data-mirror="v" title="Voltear en vertical (Mayús+V)">Voltear ↕</button>
+          </div>
+          <!-- Agrupar/desagrupar (v3.10.0): la maquinaria (buildingGroupId)
+               existía desde Edificios, pero solo la estampaba la app. A ancho
+               completo y no en pareja: «Desagrupar» no cabe en media columna
+               del panel y salía recortado. -->
+          <button class="btn btn--ghost btn--block" id="btn-group" hidden
+                  title="Agrupar la selección (Ctrl+G)">⛓ Agrupar</button>
+          <button class="btn btn--ghost btn--block" id="btn-ungroup" hidden
+                  title="Deshacer el grupo (Ctrl+Mayús+G)">⛓ Desagrupar</button>
           <button class="btn btn--ghost btn--block" id="btn-rotate-sel" hidden>
             ↻ Rotar selección
           </button>
@@ -446,7 +478,7 @@
   <dialog class="modal" id="modal-export" aria-labelledby="modal-export-title">
       <h3 class="modal__heading" id="modal-export-title">Exportar Wireframe</h3>
       <p class="modal__sub">Elige el formato de exportación</p>
-      <!-- Ajustes de salida (v3.9.0, la idea de Excalidraw). Van ANTES de los
+      <!-- Ajustes de salida (v3.10.0, la idea de Excalidraw). Van ANTES de los
            formatos porque describen QUÉ se exporta, no cómo se descarga: se
            eligen y luego se pulsa el formato. Cada formato honra lo que puede
            representar (el JPG no tiene alfa; el HTML no tiene resolución) y
@@ -495,7 +527,7 @@
           <small>Proyecto reutilizable (importar después)</small>
         </button>
       </div>
-      <!-- Copiar al portapapeles (v3.9.0): ahorra el viaje descarga → buscar
+      <!-- Copiar al portapapeles (v3.10.0): ahorra el viaje descarga → buscar
            en Descargas → arrastrar. No lleva atajo a propósito (Ctrl+Mayús+C
            es las herramientas de desarrollo del navegador): sus vías son este
            botón y el menú contextual de la selección. -->
@@ -575,6 +607,9 @@
           <li><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> copia el <strong>estilo</strong> de lo seleccionado —color, grosor, discontinuo, relleno, letra— y <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>V</kbd> se lo pone a otra selección, cada campo solo donde significa algo</li>
           <li><kbd>Ctrl</kbd>+<kbd>Mayús</kbd>+<kbd>L</kbd> <strong>bloquea</strong> la selección: ni el clic, ni la marquesina, ni el borrador la tocan. La llave es el <strong>clic derecho</strong> sobre lo bloqueado («Desbloquear»), o «Desbloquear todo» en el menú del lienzo</li>
           <li><kbd>Shift</kbd>+<kbd>R</kbd> o <strong>Rotar selección</strong>: cuadrado 45° · trapecio/triángulo/rectángulo 90° · pentágono y estrella de 5 puntas 36° · hexágono y estrella de 6 puntas 30°</li>
+          <li><strong>Alinear y distribuir</strong>: la rejilla de «Elementos» pone lo seleccionado en línea por la izquierda, el centro, la derecha, arriba, en medio o abajo, y reparte huecos iguales entre tres o más. Un <strong>grupo cuenta como un solo objeto</strong>, así que alinear una fachada la mueve entera en vez de apilar sus piezas</li>
+          <li><strong>Voltear</strong> con <kbd>Mayús</kbd>+<kbd>H</kbd> (horizontal) y <kbd>Mayús</kbd>+<kbd>V</kbd> (vertical), o con los dos últimos botones de esa rejilla: un árbol o una fachada mirando al otro lado. El texto se mueve pero no se refleja —en espejo no se leería—, y una imagen sí se refleja de verdad</li>
+          <li><strong>Agrupar</strong> con <kbd>Ctrl</kbd>+<kbd>G</kbd> y deshacer el grupo con <kbd>Ctrl</kbd>+<kbd>Mayús</kbd>+<kbd>G</kbd>: a partir de ahí un clic coge el conjunto entero, como con los edificios y las plantas (y el doble clic o <kbd>Alt</kbd>+clic siguen bajando a una pieza suelta)</li>
           <li>Si la selección es una <strong>figura compuesta</strong> (un sólido 3D, un edificio, una planta), gira entera un <strong>cuarto de vuelta</strong> alrededor de su centro, en vez de girar cada pieza por su lado</li>
         </ul>
       </section>
@@ -2261,23 +2296,23 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=3.9.0"></script>
-  <script src="src/js/sketchy.js?v=3.9.0"></script>
-  <script src="src/js/freehand.js?v=3.9.0"></script>
-  <script src="src/js/arc.js?v=3.9.0"></script>
-  <script src="src/js/curve-path.js?v=3.9.0"></script>
-  <script src="src/js/shape-rotation.js?v=3.9.0"></script>
-  <script src="src/js/regular-polygon.js?v=3.9.0"></script>
-  <script src="src/js/trapezoid.js?v=3.9.0"></script>
-  <script src="src/js/airbrush.js?v=3.9.0"></script>
-  <script src="src/js/flood.js?v=3.9.0"></script>
-  <script src="src/js/eraser.js?v=3.9.0"></script>
-  <script src="src/js/building.js?v=3.9.0"></script>
-  <script src="src/js/garden.js?v=3.9.0"></script>
-  <script src="src/js/solid.js?v=3.9.0"></script>
-  <script src="src/js/renderer.js?v=3.9.0"></script>
-  <script src="src/js/exporter.js?v=3.9.0"></script>
-  <script src="src/js/templates.js?v=3.9.0"></script>
-  <script src="src/js/app.js?v=3.9.0"></script>
+  <script src="src/js/config.js?v=3.10.0"></script>
+  <script src="src/js/sketchy.js?v=3.10.0"></script>
+  <script src="src/js/freehand.js?v=3.10.0"></script>
+  <script src="src/js/arc.js?v=3.10.0"></script>
+  <script src="src/js/curve-path.js?v=3.10.0"></script>
+  <script src="src/js/shape-rotation.js?v=3.10.0"></script>
+  <script src="src/js/regular-polygon.js?v=3.10.0"></script>
+  <script src="src/js/trapezoid.js?v=3.10.0"></script>
+  <script src="src/js/airbrush.js?v=3.10.0"></script>
+  <script src="src/js/flood.js?v=3.10.0"></script>
+  <script src="src/js/eraser.js?v=3.10.0"></script>
+  <script src="src/js/building.js?v=3.10.0"></script>
+  <script src="src/js/garden.js?v=3.10.0"></script>
+  <script src="src/js/solid.js?v=3.10.0"></script>
+  <script src="src/js/renderer.js?v=3.10.0"></script>
+  <script src="src/js/exporter.js?v=3.10.0"></script>
+  <script src="src/js/templates.js?v=3.10.0"></script>
+  <script src="src/js/app.js?v=3.10.0"></script>
 </body>
 </html>

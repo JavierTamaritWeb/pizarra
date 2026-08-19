@@ -8,7 +8,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { load, createContext, loadScript } = require('./helpers/load.js');
+const { load, loadAll, createContext, loadScript } = require('./helpers/load.js');
 
 /** Contexto fresco con Exporter y sus dependencias (Renderer/Sketchy). */
 function freshCtx() {
@@ -1510,7 +1510,7 @@ test('round-trip JSON: una mancha sobrevive al viaje y sale idéntica', async ()
 /* ─────────── Tinta: la mancha del bote de pintura (v2.32.0) ─────────── */
 
 test('la Tinta NO es un tipo de elemento, pero su mancha sí sobrevive al viaje', () => {
-  const { Exporter } = freshCtx();
+  const { Exporter } = loadAll();
   // `ink` es herramienta de creación, como arc o emoji: lo que crea es un
   // `polygon`. Si se le olvidara a CREATION_ONLY_TOOLS, `type:'ink'` entraría
   // como elemento fantasma en cada importación.
@@ -1676,4 +1676,27 @@ test('copyImage no existe sin ClipboardItem, y ahí devuelve false sin lanzar', 
   const ctx = freshCtx();
   assert.equal(ctx.Exporter.canCopyImage(), false, 'el arnés no tiene portapapeles');
   assert.equal(await ctx.Exporter.copyImage([elRectFill]), false);
+});
+
+test('solidMeta.mirror solo admite true, y solo en una figura de pie', () => {
+  const { Exporter } = loadAll();
+  const dePie = extra => ({
+    type: 'line', x1: 10, y1: 10, x2: 90, y2: 90, color: '#333344', lineWidth: 2,
+    solidMeta: {
+      version: 2, tool: 'piramide', depth: 40, angle: 30, foreshorten: 60,
+      taper: 50, apex: 'upright', section: 'rect', rotation: 0,
+      gesture: { x1: 10, y1: 10, x2: 90, y2: 90 }, ...extra,
+    },
+  });
+  assert.equal(Exporter.isValidElement(dePie({ mirror: true })), true);
+  assert.equal(Exporter.isValidElement(dePie({})), true);
+  // `false` no se serializa nunca: la ausencia ES «sin espejo».
+  assert.equal(Exporter.isValidElement(dePie({ mirror: false })), false);
+  assert.equal(Exporter.isValidElement(dePie({ mirror: 1 })), false);
+  // Y en una figura clásica no existe: ahí el espejo va en el ángulo de fuga.
+  const clasica = {
+    type: 'line', x1: 10, y1: 10, x2: 90, y2: 90, color: '#333344', lineWidth: 2,
+    solidMeta: { version: 2, tool: 'prisma', depth: 40, angle: 30, foreshorten: 60, taper: 50, mirror: true },
+  };
+  assert.equal(Exporter.isValidElement(clasica), false);
 });

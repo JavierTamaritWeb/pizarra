@@ -2067,6 +2067,16 @@
     $('btn-delete-sel').hidden = !hasSel;
     $('btn-duplicate-sel').hidden = !hasSel;
     $('zorder-row').hidden = !hasSel;
+    // Colocación: voltear vale con un solo objeto; alinear y repartir piden
+    // dos y tres UNIDADES (un grupo cuenta como una), así que sus filas se
+    // enseñan solo cuando hay con qué — un botón que no va a hacer nada es un
+    // mando que miente, la misma regla que undo/redo atenuados.
+    const unidades = hasSel ? selectionUnits().length : 0;
+    $('align-row').hidden = unidades < 2;
+    $('dist-row').hidden = unidades < 3;
+    $('mirror-row').hidden = !hasSel;
+    $('btn-group').hidden = state.selection.length < 2;
+    $('btn-ungroup').hidden = !state.selection.some(i => state.elements[i].buildingGroupId);
     $('btn-edit-garden').hidden = !selectedGardenGroup();
     const rotatable = state.selection.filter(i => ShapeRotation.isType(state.elements[i].type));
     const rotateBtn = $('btn-rotate-sel');
@@ -5018,6 +5028,295 @@
     redraw();
   }
 
+  /* ── Colocación: alinear, distribuir, voltear y agrupar (v3.10.0) ── */
+
+  /**
+   * Las UNIDADES de una operación de colocación. Un grupo entero cuenta como
+   * un solo objeto: alinear pieza a pieza apilaría las ciento y pico de una
+   * fachada una encima de otra. Es la misma lección que `clampDelta` —la caja
+   * combinada, nunca pieza a pieza—, y por eso también vale para el volteo.
+   */
+  function selectionUnits() {
+    const porGrupo = new Map();
+    const units = [];
+    state.selection.forEach(i => {
+      const gid = state.elements[i].buildingGroupId;
+      if (gid) {
+        let u = porGrupo.get(gid);
+        if (!u) { u = { idx: [] }; porGrupo.set(gid, u); units.push(u); }
+        u.idx.push(i);
+      } else {
+        units.push({ idx: [i] });
+      }
+    });
+    units.forEach(u => {
+      let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+      u.idx.forEach(i => {
+        const b = getElementBounds(state.elements[i]);
+        x1 = Math.min(x1, b.x); y1 = Math.min(y1, b.y);
+        x2 = Math.max(x2, b.x + b.w); y2 = Math.max(y2, b.y + b.h);
+      });
+      u.box = { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+    });
+    return units;
+  }
+
+  const ALIGN_MODES = ['left', 'hcenter', 'right', 'top', 'vmiddle', 'bottom',
+                       'hdist', 'vdist'];
+
+  /**
+   * Alinea o distribuye la selección dentro de su propia caja combinada (la
+   * idea de Excalidraw/tldraw/draw.io). Las guías al arrastrar ya imantaban,
+   * pero no había forma de decir «éstos cuatro, a la izquierda».
+   *
+   * Distribuir reparte el hueco SOBRANTE entre los extremos, que no se mueven:
+   * es lo que hace que repetir la acción no desplace el conjunto. Y si nada se
+   * mueve no se apila undo fantasma — la regla del no-op de `applyGeometry`.
+   */
+  function alignSelection(mode) {
+    if (!ALIGN_MODES.includes(mode)) return;
+    const units = selectionUnits();
+    const reparto = mode === 'hdist' || mode === 'vdist';
+    if (units.length < (reparto ? 3 : 2)) return;
+    const box = selectionBounds();
+    if (!box) return;
+
+    const deltas = new Map();
+    if (reparto) {
+      const horiz = mode === 'hdist';
+      const orden = [...units].sort((a, b) =>
+        horiz ? a.box.x - b.box.x : a.box.y - b.box.y);
+      const lado = u => (horiz ? u.box.w : u.box.h);
+      const suma = orden.reduce((s, u) => s + lado(u), 0);
+      const hueco = ((horiz ? box.w : box.h) - suma) / (orden.length - 1);
+      let cursor = horiz ? box.x : box.y;
+      orden.forEach(u => {
+        const d = cursor - (horiz ? u.box.x : u.box.y);
+        deltas.set(u, horiz ? [d, 0] : [0, d]);
+        cursor += lado(u) + hueco;
+      });
+    } else {
+      units.forEach(u => {
+        let dx = 0, dy = 0;
+        switch (mode) {
+          case 'left':    dx = box.x - u.box.x; break;
+          case 'right':   dx = (box.x + box.w) - (u.box.x + u.box.w); break;
+          case 'hcenter': dx = (box.x + box.w / 2) - (u.box.x + u.box.w / 2); break;
+          case 'top':     dy = box.y - u.box.y; break;
+          case 'bottom':  dy = (box.y + box.h) - (u.box.y + u.box.h); break;
+          case 'vmiddle': dy = (box.y + box.h / 2) - (u.box.y + u.box.h / 2); break;
+        }
+        deltas.set(u, [dx, dy]);
+      });
+    }
+
+    let mueve = false;
+    deltas.forEach(([dx, dy]) => {
+      if (Math.abs(dx) > 1e-6 || Math.abs(dy) > 1e-6) mueve = true;
+    });
+    if (!mueve) return;
+    saveUndo();
+    deltas.forEach(([dx, dy], u) => {
+      if (!dx && !dy) return;
+      u.idx.forEach(i => { state.elements[i] = moveElement(state.elements[i], dx, dy); });
+    });
+    redraw();
+  }
+
+  /**
+   * Voltea la selección (la idea de Excalidraw, `Mayús+H`/`Mayús+V`). Aquí no
+   * es cosmética: una fachada o un árbol mirando al otro lado es una necesidad
+   * real de las secciones de Edificios y Jardín.
+   *
+   * Un solo régimen, al contrario que el giro: SIEMPRE alrededor del centro de
+   * la caja combinada. Con un elemento suelto esa caja es la suya, así que el
+   * caso individual sale gratis y no hace falta la doble rama de
+   * `rotateSelection`.
+   */
+  function mirrorSelection(axis) {
+    if (!state.selection.length) return;
+    const box = selectionBounds();
+    if (!box) return;
+    saveUndo();
+    const c = { x: box.x + box.w / 2, y: box.y + box.h / 2 };
+    state.selection.forEach(i => {
+      state.elements[i] = mirrorAround(state.elements[i], c, axis);
+    });
+    redraw();
+  }
+
+  /**
+   * Un elemento reflejado respecto al eje vertical (`'h'`) u horizontal
+   * (`'v'`) que pasa por `c`. Copia, como manda la inmutabilidad, y respeta el
+   * esquema de cada tipo — el mismo reparto que `rotateAround`.
+   *
+   * El giro de los polígonos NO se puede copiar de allí: reflejar no es girar.
+   * Con los vértices en `start + k·360/n` y `start = -90 + rotation`, voltear
+   * en horizontal (espejo sobre el eje VERTICAL) manda cada ángulo φ a 180−φ,
+   * de donde `rotation' = -rotation`; voltear en vertical lo manda a −φ, de
+   * donde `rotation' = 180 - rotation`. Las dos fórmulas son exactas para
+   * cualquier ángulo, conservan la paridad del índice —o sea, el radio
+   * exterior de las estrellas— y caen siempre en un múltiplo del paso, así que
+   * la forma volteada sigue pasando `isValidElement`.
+   *
+   * El texto se traslada pero no se refleja: un texto en espejo no se lee. Una
+   * imagen SÍ, y ahí no hay geometría que reflejar sino trama (`mirrorImage`).
+   */
+  function mirrorAround(el, c, axis) {
+    const h = axis !== 'v';
+    const mir = p => ({
+      x: h ? 2 * c.x - p.x : p.x,
+      y: h ? p.y : 2 * c.y - p.y,
+    });
+    const m = { ...el };
+    if (Array.isArray(m.points)) {
+      m.points = m.points.map(mir);
+    }
+    if (Array.isArray(m.segments)) {
+      m.segments = m.segments.map(seg => {
+        const a = mir({ x: seg.x1, y: seg.y1 });
+        const b = mir({ x: seg.x2, y: seg.y2 });
+        const c1 = mir({ x: seg.cx, y: seg.cy });
+        const out = { x1: a.x, y1: a.y, cx: c1.x, cy: c1.y, x2: b.x, y2: b.y };
+        if (seg.cx2 !== undefined) {
+          const c2 = mir({ x: seg.cx2, y: seg.cy2 });
+          out.cx2 = c2.x; out.cy2 = c2.y;
+        }
+        return out;
+      });
+      // Los extremos de nivel superior se COPIAN de la cadena, nunca se
+      // recalculan: CurvePath.isValidSegments los vería discrepar por un ULP.
+      const first = m.segments[0], last = m.segments[m.segments.length - 1];
+      m.x1 = first.x1; m.y1 = first.y1; m.x2 = last.x2; m.y2 = last.y2;
+    } else if (m.x1 !== undefined) {
+      const a = mir({ x: m.x1, y: m.y1 }), b = mir({ x: m.x2, y: m.y2 });
+      m.x1 = a.x; m.y1 = a.y; m.x2 = b.x; m.y2 = b.y;
+      if (m.cx !== undefined) { const q = mir({ x: m.cx, y: m.cy }); m.cx = q.x; m.cy = q.y; }
+      if (m.cx2 !== undefined) { const q = mir({ x: m.cx2, y: m.cy2 }); m.cx2 = q.x; m.cy2 = q.y; }
+    } else if (m.x !== undefined && m.w !== undefined) {
+      // La caja no cambia de proporciones: reflejar no intercambia lados.
+      const mid = mir({ x: m.x + m.w / 2, y: m.y + m.h / 2 });
+      m.x = mid.x - m.w / 2; m.y = mid.y - m.h / 2;
+      if (RegularPolygon.isType(m.type) || m.type === TOOLS.TRAPEZOID) {
+        const r = m.rotation || 0;
+        const next = ShapeRotation.normalize(h ? -r : 180 - r);
+        if (next) m.rotation = next; else delete m.rotation;
+      }
+      if (m.type === 'image') {
+        const src = mirrorImage(m, axis);
+        if (src) m.src = src;
+      }
+    } else if (m.x !== undefined) {
+      const q = mir({ x: m.x, y: m.y });        // texto: se mueve, no se refleja
+      m.x = q.x; m.y = q.y;
+    }
+    if (m.solidMeta) {
+      if (m.solidMeta.apex === 'upright') {
+        // Misma economía que `turns` (ver rotateAround): la figura de pie se
+        // reconstruye desde su gesto, así que el espejo se ACUMULA en el meta
+        // en vez de intentar reflejar un gesto que `_upright` no sabría leer.
+        // El orden es fijo —primero espejo, luego giros—, y por eso al añadir
+        // un espejo hay que invertir los giros pendientes: M·Rᵗ = R⁻ᵗ·M. El
+        // espejo vertical es el horizontal más media vuelta.
+        const t0 = m.solidMeta.turns || 0;
+        let t = (4 - t0) % 4;
+        if (!h) t = (t + 2) % 4;
+        const espejo = !m.solidMeta.mirror;
+        m.solidMeta = { ...m.solidMeta, gesture: { ...m.solidMeta.gesture } };
+        if (t) m.solidMeta.turns = t; else delete m.solidMeta.turns;
+        if (espejo) m.solidMeta.mirror = true; else delete m.solidMeta.mirror;
+      } else {
+        // El ángulo de fuga se refleja con la figura: sin esto, regenerarla
+        // después la devolvería a su orientación original.
+        const a = m.solidMeta.angle;
+        m.solidMeta = {
+          ...m.solidMeta,
+          angle: ((h ? 180 - a : -a) % 360 + 360) % 360,
+        };
+      }
+    }
+    if (m.gardenMeta) {
+      // Los puntos de inserción viajan con la planta, igual que en
+      // `moveElement` y `scaleElement`: si no, regenerarla la recolocaría.
+      m.gardenMeta = {
+        ...m.gardenMeta,
+        p1: mir(m.gardenMeta.p1),
+        p2: mir(m.gardenMeta.p2),
+      };
+    }
+    if (m.clip) {
+      const mid = mir({ x: m.clip.x + m.clip.w / 2, y: m.clip.y + m.clip.h / 2 });
+      m.clip = { x: mid.x - m.clip.w / 2, y: mid.y - m.clip.h / 2, w: m.clip.w, h: m.clip.h };
+    }
+    return m;
+  }
+
+  /**
+   * Una imagen reflejada: su dibujo es trama, no geometría, así que se
+   * repinta espejada y se vuelve a serializar. Devuelve el nuevo `src`, o
+   * null si no se puede (imagen a medio decodificar, sin canvas) — y entonces
+   * el elemento solo se recoloca, como el texto.
+   *
+   * Se re-serializa con la regla de la v2.35.0: una FOTO en WebP con pérdida
+   * (PNG multiplicaría su peso ×5-7 y reventaría la cuota de localStorage), y
+   * el dibujo de línea en PNG, donde es más pequeño y no pierde nitidez.
+   */
+  function mirrorImage(el, axis) {
+    if (!Renderer.imageReady || !Renderer.imageReady(el.src)) return null;
+    const w = Math.max(1, Math.round(Math.abs(el.w)));
+    const h = Math.max(1, Math.round(Math.abs(el.h)));
+    const cv = _rasterCanvas(w, h);
+    if (!cv) return null;
+    const c = cv.getContext('2d');
+    if (!c || typeof c.setTransform !== 'function') return null;
+    const horiz = axis !== 'v';
+    c.setTransform(horiz ? -1 : 1, 0, 0, horiz ? 1 : -1,
+                   horiz ? w : 0, horiz ? 0 : h);
+    Renderer.renderElement(c, { ...el, x: 0, y: 0, w, h });
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    const lossy = /^data:image\/(jpeg|webp)/.test(String(el.src));
+    if (lossy) {
+      const webp = cv.toDataURL('image/webp', 0.8);
+      if (webp.startsWith('data:image/webp')) return webp;
+    }
+    return cv.toDataURL('image/png');
+  }
+
+  /**
+   * Agrupar y desagrupar (`Ctrl+G` / `Ctrl+Mayús+G`). Toda la maquinaria ya
+   * existía —`buildingGroupId`, `groupIndicesOf`, el remapeo de `insertClones`,
+   * la validación del id— pero solo la estampaban Edificios, Jardín y 3D: el
+   * usuario no podía crear un grupo propio. Esto abre una puerta ya construida.
+   *
+   * Un grupo mezclado pierde el `gid` común que exigen `selectedGardenGroup` y
+   * `selectedSolid`, así que «Editar planta» desaparece hasta desagrupar. Es
+   * reversible con undo, y no se guarda ningún `prevGroupId`: sería un campo
+   * muerto viajando dentro de cada elemento del JSON.
+   */
+  function groupSelection() {
+    if (state.selection.length < 2) return;
+    const gid = newId();
+    saveUndo();
+    state.selection.forEach(i => {
+      state.elements[i] = { ...state.elements[i], buildingGroupId: gid };
+    });
+    redraw();
+    showToast(`⛓ Agrupados (${state.selection.length})`);
+  }
+
+  function ungroupSelection() {
+    const conGrupo = state.selection.filter(i => state.elements[i].buildingGroupId);
+    if (!conGrupo.length) return;
+    saveUndo();
+    conGrupo.forEach(i => {
+      const copy = { ...state.elements[i] };
+      delete copy.buildingGroupId;
+      state.elements[i] = copy;
+    });
+    redraw();
+    showToast('⛓ Desagrupado');
+  }
+
   /**
    * Gira la selección. Dos regímenes, y la diferencia importa:
    *
@@ -5292,7 +5591,7 @@
     // su centro; después se recoloca sobre el centro de la figura en pantalla,
     // que absorbe el caso de haber girado junto a otros elementos (ahí el pivote
     // no fue el suyo).
-    if (meta.turns) {
+    if (meta.turns || meta.mirror) {
       const centroDe = els => {
         const bs = els.map(getElementBounds);
         const x1 = Math.min(...bs.map(b => b.x)), y1 = Math.min(...bs.map(b => b.y));
@@ -5301,7 +5600,12 @@
       };
       const actual = centroDe(info.indices.map(i => state.elements[i]));
       const c = centroDe(nuevos);
-      for (let t = 0; t < meta.turns; t++) nuevos = nuevos.map(el => rotateAround(el, c, 1));
+      // Orden FIJO —primero el espejo, luego los giros—, el mismo que supone
+      // `mirrorAround` al invertir los giros pendientes cuando se añade un
+      // espejo. Reflejar y girar no conmutan: cambiar el orden aquí haría que
+      // regenerar devolviera OTRA figura.
+      if (meta.mirror) nuevos = nuevos.map(el => mirrorAround(el, c, 'h'));
+      for (let t = 0; t < (meta.turns || 0); t++) nuevos = nuevos.map(el => rotateAround(el, c, 1));
       const ahora = centroDe(nuevos);
       const dx = actual.x - ahora.x, dy = actual.y - ahora.y;
       if (dx || dy) nuevos = nuevos.map(el => moveElement(el, dx, dy));
@@ -5323,7 +5627,9 @@
       nuevaMeta.gesture = { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y };
       // Los cuartos de vuelta pendientes siguen pendientes: la figura recién
       // girada aquí tendrá que volver a girarse en la próxima regeneración.
+      // Y lo mismo con el espejo, por el mismo motivo.
       if (meta.turns) nuevaMeta.turns = meta.turns;
+      if (meta.mirror) nuevaMeta.mirror = true;
       // Y el color de relleno viaja en el meta aunque el relleno esté apagado:
       // de pie no queda ninguna cara que lo guarde (ver relleroDe).
       if (o.fillColor) nuevaMeta.fillColor = o.fillColor;
@@ -8056,6 +8362,16 @@
     $('btn-z-back').addEventListener('click', () => reorderSelection('back'));
     $('btn-edit-garden').addEventListener('click', editSelectedGarden);
     $('btn-rotate-sel').addEventListener('click', rotateSelection);
+    // Alinear, distribuir y voltear: un único cableado por atributo, para que
+    // añadir un modo sea añadir un botón.
+    document.querySelectorAll('[data-align]').forEach(b => {
+      b.addEventListener('click', () => alignSelection(b.dataset.align));
+    });
+    document.querySelectorAll('[data-mirror]').forEach(b => {
+      b.addEventListener('click', () => mirrorSelection(b.dataset.mirror));
+    });
+    $('btn-group').addEventListener('click', groupSelection);
+    $('btn-ungroup').addEventListener('click', ungroupSelection);
 
     // Import
     // «Abrir proyecto»: lee un .json de los que produce Exportar → JSON y
@@ -8266,6 +8582,16 @@
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyL') {
       e.preventDefault();
       lockSelection();
+      return;
+    }
+
+    // Agrupar / desagrupar (v3.10.0). Por `e.code` como los demás: la tecla
+    // física es lo único estable entre distribuciones. Vía de ratón: los dos
+    // botones de «Elementos» y el menú contextual.
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.code === 'KeyG') {
+      e.preventDefault();
+      if (e.repeat) return;
+      if (e.shiftKey) ungroupSelection(); else groupSelection();
       return;
     }
 
@@ -8517,6 +8843,20 @@
         }
         return;
       }
+    }
+
+    // Voltear la selección (v3.10.0): Mayús+H y Mayús+V. Va OBLIGATORIAMENTE
+    // antes del bloque de herramientas, que no filtra `shiftKey` y se llevaría
+    // la tecla («h» es una herramienta del Jardín). Sin selección no se corta
+    // nada: Mayús+H sigue eligiendo esa herramienta, como siempre.
+    if (e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey &&
+        state.selection.length && (k === 'h' || k === 'v')) {
+      e.preventDefault();
+      // Mismo freno que el giro y el nudge: mantener la tecla apilaría ~30
+      // pasos de undo por segundo y expulsaría el historial (límite 50).
+      if (e.repeat) return;
+      mirrorSelection(k === 'h' ? 'h' : 'v');
+      return;
     }
 
     // Selección de herramienta por tecla. El preventDefault NO es cosmético:
@@ -10120,6 +10460,13 @@
         run: () => copyImageToClipboard({ selectionOnly: true }) },
       { label: '🎨 Copiar estilo', kbd: 'Ctrl+Alt+C', run: copySelectionStyle },
       { label: '🎨 Pegar estilo', kbd: 'Ctrl+Alt+V', disabled: !styleClipboard, run: pasteSelectionStyle },
+      { label: '◧ Voltear en horizontal', kbd: 'Mayús+H', run: () => mirrorSelection('h') },
+      { label: '⬒ Voltear en vertical', kbd: 'Mayús+V', run: () => mirrorSelection('v') },
+      { label: '⛓ Agrupar', kbd: 'Ctrl+G', disabled: state.selection.length < 2,
+        run: groupSelection },
+      { label: '⛓⃠ Desagrupar', kbd: 'Ctrl+Mayús+G',
+        disabled: !state.selection.some(i => state.elements[i].buildingGroupId),
+        run: ungroupSelection },
       { label: '⏫ Traer al frente', kbd: 'Ctrl+Mayús+↑', run: () => reorderSelection('front') },
       { label: '⏬ Enviar al fondo', kbd: 'Ctrl+Mayús+↓', run: () => reorderSelection('back') },
       { label: '🔒 Bloquear', kbd: 'Ctrl+Mayús+L', run: lockSelection },

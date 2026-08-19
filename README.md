@@ -4,11 +4,11 @@
 
 **Wireframes, diagramas y bocetos con estética dibujada a mano — en el navegador y sin instalar nada.**
 
-[![Versión](https://img.shields.io/badge/versión-3.9.0-blueviolet?style=flat-square)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-3.10.0-blueviolet?style=flat-square)](CHANGELOG.md)
 [![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?style=flat-square&logo=javascript&logoColor=000)](src/js/)
 [![Estilos](https://img.shields.io/badge/estilos-SCSS%20·%20BEM%20·%20Gulp%205-cf649a?style=flat-square&logo=sass&logoColor=fff)](src/scss/)
 [![Dependencias](https://img.shields.io/badge/dependencias%20en%20runtime-0-brightgreen?style=flat-square)](#arquitectura)
-[![Tests](https://img.shields.io/badge/tests-844%20unitarios%20%2B%20152%20e2e-brightgreen?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-858%20unitarios%20%2B%20157%20e2e-brightgreen?style=flat-square)](#tests)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue?style=flat-square)](LICENSE)
 
 <img src="src/img/screenshot-pizarra.png" alt="La interfaz de Pizarra: barra de herramientas a la izquierda con el grupo 3D visible y la herramienta Prisma activa, en el centro un lienzo de papel azulado con cuadrícula blanca y un wireframe de landing page dibujado a mano junto a un cubo, una esfera y una pirámide hexagonal en volumen, rellenos de turquesa translúcido y con las aristas de detrás discontinuas, y a la derecha el panel de ajustes con la paleta de 36 colores ordenada por el arco iris" width="900">
@@ -157,6 +157,7 @@ Cada pieza de jardín nace con una **etiqueta** dentro del mismo grupo (se mueve
 - **La app enseña lo que va a hacer**: con Mover o «Select», el elemento (o el grupo entero) bajo el puntero se **resalta antes del clic**; al crear o redimensionar, una pastilla junto al puntero da el **ancho × alto en vivo**, y al arrastrar, la **posición X, Y** — los mismos números que el panel, sin soltar el ratón.
 - **Las acciones sin rastro avisan**: copiar, pegar, duplicar, exportar y abrir proyecto confirman con un **toast** discreto que se descarta solo (y que el lector de pantalla anuncia — la región es `role="status"`). **Deshacer y Rehacer se atenúan** cuando su pila está vacía, en vez de prometer lo que no harán, y el **lienzo vacío da la bienvenida** con qué hacer y dónde está la ayuda.
 - **Menú contextual**: el **clic derecho** abre las acciones de la selección —duplicar, copiar/pegar estilo, orden Z, bloquear, eliminar— con su atajo al lado, o las del lienzo en el vacío. **`Alt`+arrastrar** algo ya seleccionado se lleva una **copia** (sobre una pieza sin seleccionar, `Alt` sigue aislándola de su grupo); **`Ctrl+Alt+C`/`V`** copian y pegan el **estilo** —color, grosor, discontinuo, relleno, letra— campo a campo y solo donde significa algo; y **`Ctrl+Mayús+L` bloquea** la selección: invisible al clic, a la marquesina y al borrador, con el clic derecho como única llave.
+- **Colocar sin ojímetro**: la rejilla de «Elementos» **alinea** la selección (izquierda, centro, derecha, arriba, medio, abajo) y **reparte huecos iguales** entre tres objetos o más. Un **grupo cuenta como un solo objeto**: alinear una fachada la mueve entera en vez de apilar sus piezas. **`Mayús+H`/`Mayús+V` voltean** —un árbol o una fachada mirando al otro lado—, siempre respecto al centro de lo seleccionado; el texto se mueve pero no se refleja (en espejo no se leería) y una imagen sí se refleja de verdad. Y **`Ctrl+G` agrupa** lo seleccionado: a partir de ahí un clic coge el conjunto entero, como con los edificios y las plantas, y `Ctrl+Mayús+G` lo deshace.
 - **Táctil de verdad**: **dos dedos** mueven la vista y hacen zoom de pinza —un trazo a medias se aborta, no deja un punto—; el **doble toque** equivale al doble clic (editar un texto, bajar a una pieza); **mantener el dedo quieto** medio segundo sobre una pieza la aísla de su grupo, con un anillo que avisa del progreso — el Alt+clic que el dedo no tiene. Los tiradores perdonan el triple con el dedo, y en un móvil el zoom inicial **baja del 100 %** para que el lienzo entero quepa en pantalla.
 
 ### Exportación
@@ -206,6 +207,8 @@ Tres ajustes gobiernan **qué** sale y **cómo**: la **resolución** (1×, 2× o
 | `+` · `−` (+`Shift`) | Ajustar curvatura — en semicírculos, el radio (fino) |
 | `Ctrl/Cmd+Alt+C` · `Ctrl/Cmd+Alt+V` | Copiar el estilo de la selección · pegárselo a otra |
 | `Ctrl/Cmd+Mayús+L` | Bloquear la selección (la llave es el clic derecho) |
+| `Mayús+H` · `Mayús+V` | Voltear la selección en horizontal · en vertical |
+| `Ctrl/Cmd+G` · `Ctrl/Cmd+Mayús+G` | Agrupar la selección · deshacer el grupo |
 | `Alt`+arrastrar | Duplicar la selección arrastrando la copia |
 | `Ctrl/Cmd`+rueda | Zoom centrado en el cursor (la rueda a secas desplaza) |
 | `Espacio` (mantenida) · botón central | Mover la vista arrastrando, con cualquier herramienta |
@@ -283,7 +286,7 @@ Cuatro convenciones que conviene conocer:
 
 ## Tests
 
-**844 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
+**858 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
 de runtime:
 
 ```bash
@@ -293,7 +296,7 @@ node --test tests/exporter.test.js    # un archivo
 
 Los módulos se cargan en un contexto `node:vm` con stubs de canvas y DOM, incluido `src/js/app.js` completo: los tests lanzan gestos reales —puntero, teclado, modales— y leen el resultado del autoguardado, sin ningún hook de test en el código de producción.
 
-**152 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco, acciones por defecto del navegador, la navegación del lienzo (zoom al cursor, pan, encuadres), el feedback en vivo, los gestos multitáctiles (despachados por CDP), los flujos completos de Verjas y Cancela y el Jardín botánico en escritorio, móvil y anchos intermedios.
+**157 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco, acciones por defecto del navegador, la navegación del lienzo (zoom al cursor, pan, encuadres), el feedback en vivo, los gestos multitáctiles (despachados por CDP), los flujos completos de Verjas y Cancela y el Jardín botánico en escritorio, móvil y anchos intermedios.
 
 ```bash
 npm install && npm run e2e:install    # una vez (descarga Chromium)

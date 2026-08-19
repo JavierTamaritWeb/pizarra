@@ -16,7 +16,7 @@ const { loadAll } = require('./helpers/load.js');
 
 // isValidElement es pura: se toma del cargador normal en vez de hurgar en el
 // contexto vm de la app (sus `const` top-level no cuelgan de globalThis).
-const { Exporter, TOOLS, Airbrush } = loadAll();
+const { Exporter, TOOLS, Airbrush, RegularPolygon } = loadAll();
 
 /** Desplazamiento en x de un elemento entre dos escenas (rect/line). */
 const dx = (before, after) =>
@@ -5340,4 +5340,297 @@ test('sin portapapeles de imágenes, el botón de copiar se deshabilita solo', (
   // Y pulsarlo igualmente no lanza: avisa y ya.
   app.$('btn-copy-image').__fire('click', {});
   app.flush();
+});
+
+/* ────────────────────────────────────────────────────────────
+   Colocación (v3.10.0): alinear, distribuir, voltear, agrupar
+   ──────────────────────────────────────────────────────────── */
+
+/** Pulsa un botón de colocación por su data-* (alinear, repartir o voltear
+    viven en tres filas distintas del panel). */
+function colocar(app, attr, valor) {
+  const btn = app.dom.document.querySelectorAll(`[data-${attr}="${valor}"]`)[0];
+  assert.ok(btn, `no existe el botón data-${attr}="${valor}"`);
+  btn.__fire('click', {});
+  app.flush();
+}
+
+/** Tres rectángulos sueltos, en X distintas y sin tocarse. */
+function tresRects(app) {
+  const cajas = [[100, 100, 180, 200], [300, 260, 360, 340], [500, 400, 600, 520]];
+  cajas.forEach(([x1, y1, x2, y2]) => {
+    app.selectTool('rect');
+    app.drag(x1, y1, x2, y2);
+  });
+  app.selectTool('select');
+  app.key('a', { ctrlKey: true });
+  return app.elements();
+}
+
+test('alinear a la izquierda deja todas las cajas en la misma X', () => {
+  const app = loadApp();
+  tresRects(app);
+  colocar(app, 'align', 'left');
+  const els = app.elements();
+  assert.equal(els.length, 3);
+  assert.ok(els.every(e => e.x === 100), els.map(e => e.x).join(','));
+  // Y no las mueve en vertical.
+  assert.deepEqual(els.map(e => e.y), [100, 260, 400]);
+});
+
+test('alinear no apila las piezas de un edificio: la unidad es el GRUPO', () => {
+  // Alinear pieza a pieza dejaría las ~100 piezas de la fachada una encima de
+  // otra. La fachada tiene que moverse entera y conservar su forma.
+  const { app } = withFacade();
+  app.selectTool('rect');
+  app.drag(700, 100, 900, 300);
+  app.selectTool('select');
+  app.key('a', { ctrlKey: true });
+
+  const antes = app.elements();
+  const piezas = antes.filter(e => e.buildingGroupId);
+  const anchoAntes = Math.max(...piezas.map(e => (e.x ?? e.x1) || 0)) -
+                     Math.min(...piezas.map(e => (e.x ?? e.x1) || 0));
+
+  colocar(app, 'align', 'left');
+  const despues = app.elements();
+  const ahora = despues.filter(e => e.buildingGroupId);
+  const anchoDespues = Math.max(...ahora.map(e => (e.x ?? e.x1) || 0)) -
+                       Math.min(...ahora.map(e => (e.x ?? e.x1) || 0));
+  assert.ok(anchoAntes > 10, 'la fachada debe ocupar ancho');
+  assert.equal(Math.round(anchoDespues), Math.round(anchoAntes),
+    'la fachada se ha desarmado: sus piezas se han alineado entre sí');
+  // Todas se han desplazado lo mismo (el grupo se mueve en bloque).
+  const deltas = new Set(ahora.map((e, i) =>
+    Math.round(((e.x ?? e.x1) - (piezas[i].x ?? piezas[i].x1)) * 100)));
+  assert.equal(deltas.size, 1, 'las piezas se han movido cantidades distintas');
+});
+
+test('distribuir en horizontal deja huecos iguales y no mueve los extremos', () => {
+  const app = loadApp();
+  const antes = tresRects(app);
+  const izq = antes[0].x, der = antes[2].x;
+  colocar(app, 'align', 'hdist');
+  const els = app.elements();
+  assert.equal(els[0].x, izq, 'el primero no se mueve');
+  assert.equal(els[2].x, der, 'el último no se mueve');
+  const hueco1 = els[1].x - (els[0].x + els[0].w);
+  const hueco2 = els[2].x - (els[1].x + els[1].w);
+  assert.ok(Math.abs(hueco1 - hueco2) < 0.001, `${hueco1} vs ${hueco2}`);
+});
+
+test('alinear con una sola unidad no hace nada, ni siquiera un paso de undo', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 200, 200);
+  app.selectTool('select');
+  app.click(150, 150);
+  const antes = app.elements();
+  colocar(app, 'align', 'left');
+  assert.deepEqual(app.elements(), antes);
+  // Si hubiera apilado undo, Ctrl+Z devolvería el lienzo vacío.
+  // Un solo Ctrl+Z tiene que deshacer la CREACIÓN del rectángulo. Si el
+  // no-op hubiera apilado un paso, el undo lo gastaría en él y el rectángulo
+  // seguiría ahí.
+  app.key('z', { ctrlKey: true });
+  assert.equal(app.elements().length, 0, 'el no-op ha apilado un paso fantasma');
+});
+
+test('voltear dos veces devuelve exactamente el mismo objeto', () => {
+  // La misma exigencia que los dos sentidos del giro: sin ella, ir y volver
+  // deja un `rotation: 0` guardado donde antes no había campo, y el proyecto
+  // se serializa distinto de como se dibujó.
+  for (const eje of ['h', 'v']) {
+    const app = loadApp();
+    app.selectTool('pentagon');
+    app.drag(300, 300, 400, 400);
+    app.selectTool('curveArrow');
+    app.drag(500, 200, 700, 400);
+    app.selectTool('select');
+    app.key('a', { ctrlKey: true });
+
+    const antes = app.elements();
+    colocar(app, 'mirror', eje);
+    const medio = app.elements();
+    assert.notDeepEqual(medio, antes, `voltear en ${eje} no ha hecho nada`);
+    colocar(app, 'mirror', eje);
+    assert.deepEqual(app.elements(), antes, `ida y vuelta en ${eje}`);
+  }
+});
+
+test('un polígono volteado sigue siendo válido: caja cuadrada y giro del paso', () => {
+  const app = loadApp();
+  app.selectTool('pentagon');
+  app.drag(300, 300, 400, 400);
+  app.selectTool('select');
+  app.click(350, 350);
+  app.key('ArrowRight');            // lo gira un paso (36°)
+  const girado = app.elements()[0];
+  assert.equal(girado.rotation, 36);
+
+  for (const eje of ['h', 'v']) {
+    colocar(app, 'mirror', eje);
+    const el = app.elements()[0];
+    assert.equal(Math.round(el.w), Math.round(el.h), 'la caja deja de ser cuadrada');
+    assert.ok(Exporter.isValidElement(el),
+      `el pentágono volteado en ${eje} no reimportaría: ${JSON.stringify(el)}`);
+    assert.equal(el.rotation % ShapeRotationStep, 0,
+      `giro fuera del paso: ${el.rotation}`);
+  }
+});
+const ShapeRotationStep = 36;   // el paso del pentágono
+
+test('voltear en horizontal refleja de verdad: la caja cambia de sitio', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 200, 200);   // caja [100,200]
+  app.selectTool('rect');
+  app.drag(400, 100, 600, 200);   // caja [400,600]
+  app.selectTool('select');
+  app.key('a', { ctrlKey: true });
+  colocar(app, 'mirror', 'h');
+  const els = app.elements();
+  // La caja combinada va de 100 a 600; el espejo manda [100,200] a [500,600].
+  assert.equal(els[0].x, 500);
+  assert.equal(els[1].x, 100);
+  assert.deepEqual(els.map(e => e.y), [100, 100], 'en vertical no se mueve nada');
+});
+
+test('Ctrl+G agrupa: después un solo clic se lleva a los dos', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 200, 200);
+  app.selectTool('rect');
+  app.drag(400, 100, 500, 200);
+  app.selectTool('select');
+  app.key('a', { ctrlKey: true });
+  app.key('g', { ctrlKey: true, code: 'KeyG' });
+
+  const gid = app.elements()[0].buildingGroupId;
+  assert.ok(gid, 'no se ha estampado el grupo');
+  assert.equal(app.elements()[1].buildingGroupId, gid, 'ids de grupo distintos');
+
+  // Deseleccionar y arrastrar SOLO el primero: el segundo va detrás.
+  app.click(800, 600);
+  const antes = app.elements();
+  app.drag(150, 150, 190, 150);
+  const despues = app.elements();
+  assert.equal(dx(antes[0], despues[0]), 40);
+  assert.equal(dx(antes[1], despues[1]), 40, 'el grupo no se mueve entero');
+});
+
+test('Ctrl+Mayús+G desagrupa, y el undo devuelve el grupo', () => {
+  const { app, gid } = withFacade();
+  app.selectTool('select');
+  app.key('a', { ctrlKey: true });
+  app.key('g', { ctrlKey: true, shiftKey: true, code: 'KeyG' });
+  assert.ok(app.elements().every(e => e.buildingGroupId === undefined),
+    'sigue habiendo piezas agrupadas');
+
+  app.key('z', { ctrlKey: true });
+  assert.ok(app.elements().every(e => e.buildingGroupId === gid),
+    'el undo no ha devuelto el grupo');
+});
+
+test('agrupar exige dos, y desagrupar algo agrupado: si no, ni undo', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 200, 200);
+  app.selectTool('select');
+  app.click(150, 150);
+  app.key('g', { ctrlKey: true, code: 'KeyG' });
+  assert.equal(app.elements()[0].buildingGroupId, undefined, 'ha agrupado uno solo');
+  app.key('g', { ctrlKey: true, shiftKey: true, code: 'KeyG' });
+  app.key('z', { ctrlKey: true });
+  assert.equal(app.elements().length, 0, 'un no-op ha apilado undo');
+});
+
+test('Mayús+H sin selección sigue eligiendo la herramienta de esa tecla', () => {
+  // El bloque del volteo corre ANTES que el de herramientas, que no filtra
+  // shiftKey: si no cediera sin selección, se comería la tecla para siempre.
+  const app = loadApp();
+  const ev = app.key('H', { shiftKey: true });
+  assert.equal(ev.defaultPrevented, true, 'la tecla debe seguir eligiendo herramienta');
+  const activo = app.dom.document.querySelectorAll('.sidebar__tool')
+    .find(b => b.classList.contains('sidebar__tool--active'));
+  assert.equal(activo.dataset.tool, TOOL_KEY_H,
+    'Mayús+H sin selección debe elegir su herramienta');
+});
+const TOOL_KEY_H = 'arbusto';
+
+test('voltear un polígono GIRADO refleja su silueta, no solo su caja', () => {
+  // El giro no se puede copiar del `rotateAround`: reflejar no es girar. Sin
+  // la fórmula (rotation' = -rotation en horizontal, 180-rotation en
+  // vertical) el pentágono se queda mirando al mismo lado y solo cambia de
+  // sitio — un volteo que no voltea.
+  const clave = pts => pts.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).sort().join(' ');
+  for (const [eje, refleja] of [['h', (p, c) => ({ x: 2 * c.x - p.x, y: p.y })],
+                                ['v', (p, c) => ({ x: p.x, y: 2 * c.y - p.y })]]) {
+    const app = loadApp();
+    app.selectTool('pentagon');
+    app.drag(300, 300, 400, 400);
+    app.selectTool('select');
+    app.click(350, 350);
+    app.key('ArrowRight');                     // 36°: sin girar, el espejo es él mismo
+    const antes = app.elements()[0];
+    const c = { x: antes.x + antes.w / 2, y: antes.y + antes.h / 2 };
+    const esperado = RegularPolygon.vertices(antes).map(p => refleja(p, c));
+
+    colocar(app, 'mirror', eje);
+    const real = RegularPolygon.vertices(app.elements()[0]);
+    assert.equal(clave(real), clave(esperado), `la silueta no se ha reflejado en ${eje}`);
+  }
+});
+
+test('una pirámide DE PIE volteada sigue volteada tras regenerarla', () => {
+  // Mismo problema que el giro: de pie no hay cara frontal, así que el espejo
+  // se acumula en el meta (`mirror`) y la regeneración lo re-aplica. Y como
+  // reflejar y girar NO conmutan, añadir un espejo invierte los giros
+  // pendientes: el orden es siempre espejo → giros.
+  const app = loadApp();
+  app.selectTool('piramide');
+  const eje = app.$('pyramid-apex');
+  eje.value = 'upright';
+  eje.__fire('change', { target: eje });
+  app.pickVariant('pyramid-catalog', 'modal__pyramid', 'rect', 'pyramid');
+  app.drag(260, 200, 420, 330);
+  app.flush();
+
+  const bbox = els => {
+    let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+    for (const e of els) {
+      const pts = e.points ? e.points
+        : e.x1 !== undefined ? [{ x: e.x1, y: e.y1 }, { x: e.x2, y: e.y2 }]
+          : [{ x: e.x, y: e.y }, { x: e.x + (e.w || 0), y: e.y + (e.h || 0) }];
+      for (const p of pts) {
+        x1 = Math.min(x1, p.x); y1 = Math.min(y1, p.y);
+        x2 = Math.max(x2, p.x); y2 = Math.max(y2, p.y);
+      }
+    }
+    return [x1, y1, x2, y2];
+  };
+
+  app.key('a', { ctrlKey: true });
+  app.key('ArrowRight');                       // un cuarto pendiente
+  app.flush();
+  colocar(app, 'mirror', 'h');
+  const volteada = app.elements();
+  assert.ok(volteada.every(e => e.solidMeta.mirror === true), 'el espejo se acumula');
+  assert.ok(volteada.every(e => e.solidMeta.turns === 3),
+    'el espejo tiene que invertir los giros pendientes (1 → 3)');
+  assert.ok(volteada.every(e => Exporter.isValidElement(e)),
+    'la figura volteada no reimportaría');
+  const caja = bbox(volteada);
+
+  app.selectTool('piramide');                  // editar → regenerar
+  app.flush();
+  const casilla = app.$('pyramid-fill');
+  casilla.checked = true;
+  casilla.__fire('change', { target: casilla });
+  app.flush();
+  const tras = bbox(app.elements().filter(e => e.type !== 'polygon'));
+  for (let i = 0; i < 4; i++) {
+    assert.ok(Math.abs(tras[i] - caja[i]) < 1e-6,
+      `la figura vuelve a su sitio (lado ${i}: ${caja[i]} → ${tras[i]})`);
+  }
 });

@@ -401,12 +401,21 @@ puntero láser (sin colaboración no tiene público).
   sin selección; lo que viaja en las opciones) y `e2e/export.spec.js` (el PNG
   descargado de verdad, medido en su cabecera IHDR, y el portapapeles real).
 
-## Fase 6 — Colocación (v3.10.0)
+## Fase 6 — Colocación ✅ (v3.10.0)
 
-- Alinear y distribuir la selección (la unidad es el GRUPO, no la pieza).
-- Voltear horizontal/vertical (`Mayús+H`/`V`), calcado de `rotateAround`.
-- Agrupar/desagrupar (`Ctrl+G` / `Ctrl+Mayús+G`) sobre el `buildingGroupId`
-  que ya existe.
+- ✅ **Alinear y distribuir** (8 modos) con la **unidad = grupo**: alinear una
+  fachada la mueve entera en vez de apilar sus piezas. Distribuir no mueve los
+  extremos; por debajo del mínimo de unidades es no-op sin undo fantasma.
+- ✅ **Voltear** (`Mayús+H`/`V`): un solo régimen (centro de la caja
+  combinada), fórmula propia para el giro de polígonos y estrellas —reflejar
+  no es girar—, espejo acumulado en el meta de los sólidos de pie, imagen
+  repintada de verdad y texto que se mueve pero no se refleja.
+- ✅ **Agrupar/desagrupar** (`Ctrl+G` / `Ctrl+Mayús+G`) sobre el
+  `buildingGroupId` que ya existía.
+- Guardas: 13 en `tests/` (incluida la que compara la SILUETA de un polígono
+  girado, la única que detecta copiar la fórmula del giro) y 4 en
+  `e2e/align.spec.js` (visibilidad real de la rejilla y el atajo con el
+  navegador de por medio).
 
 ## Fase 7 — Estética de boceto (v3.11.0)
 

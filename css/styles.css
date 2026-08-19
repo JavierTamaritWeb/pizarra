@@ -697,7 +697,7 @@ input[type=range]::-moz-range-thumb {
   flex-direction: column;
   gap: 0.6rem;
 }
-.panel__section[hidden], .panel__check[hidden], .panel__field[hidden], .panel__zorder[hidden], .panel__canvas-colors[hidden] {
+.panel__section[hidden], .panel__check[hidden], .panel__field[hidden], .panel__zorder[hidden], .panel__align[hidden], .panel__canvas-colors[hidden] {
   display: none;
 }
 .panel__section--border {
@@ -787,6 +787,16 @@ input[type=range]::-moz-range-thumb {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.6rem;
+}
+.panel__align {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+}
+.panel__align .btn {
+  padding: 0.8rem 0;
+  font-size: 1.8rem;
+  line-height: 1;
 }
 .panel__num {
   display: grid;

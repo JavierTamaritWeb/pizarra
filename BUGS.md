@@ -35,6 +35,27 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### v3.10.0 — `elements()` de e2e devuelve la escena VIEJA cuando el cambio no altera el recuento
+
+- **Síntoma:** las guardas nuevas de voltear, alinear y agrupar fallaban con la
+  app correcta: la escena leída tras el gesto era siempre la anterior
+  (verificado a mano en el navegador — el volteo se veía perfectamente — y en
+  el arnés `node:vm`, donde las mismas comprobaciones pasaban). Y al revés, la
+  comprobación «ida y vuelta devuelve lo mismo» habría pasado *sin que el
+  volteo existiera*: leer dos veces el estado viejo la satisface.
+- **Causa:** `elements()` (e2e/helpers.js) espera a que el contador «Elementos»
+  y el autosave **coincidan**, y ese acuerdo ya se cumple con el par rancio
+  (2 === 2) en cuanto la operación no crea ni borra nada. Es la misma trampa
+  que CLAUDE.md ya documentaba para `settle()`, con otra cara: allí el riesgo
+  era no esperar, aquí es que *esperar no sirve*, porque el autosave va con
+  500 ms de rebote y la condición de parada no depende de lo que cambió.
+- **Arreglo:** en `e2e/align.spec.js`, un `sceneField(page, get)` que sondea
+  con `expect.poll` **el valor concreto** que tiene que cambiar, leyendo el
+  autosave crudo (`readAutosave`). Regla general: si el gesto no cambia el
+  número de elementos, `elements()` no vale como punto de sincronía.
+- **Guardia:** las cuatro pruebas de `e2e/align.spec.js` (con el sondeo pasan;
+  sin él, tres fallaban con la app correcta y la cuarta era vacua).
+
 ### v3.7.0 — El long-press no aislaba nada: el marco combinado se comía el Alt
 
 - **Síntoma:** mantener el dedo quieto sobre la pieza de una fachada —el

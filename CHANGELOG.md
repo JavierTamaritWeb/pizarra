@@ -4,6 +4,28 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.10.0] — 2026-08-19
+
+### Añadido
+
+- **Alinear y distribuir**: seis alineaciones (izquierda, centro, derecha,
+  arriba, medio, abajo) y dos repartos de hueco igual, en una rejilla nueva
+  dentro de «Elementos». La **unidad es el grupo**, no la pieza: alinear una
+  fachada la mueve entera en lugar de apilar sus ciento y pico piezas una
+  encima de otra. Distribuir deja quietos los extremos, así que repetirlo no
+  desplaza el conjunto.
+- **Voltear en horizontal y en vertical** (`Mayús+H` / `Mayús+V`, o los dos
+  últimos botones de esa rejilla): un árbol o una fachada mirando al otro
+  lado. Siempre alrededor del centro de la caja combinada. El texto se mueve
+  pero no se refleja (en espejo no se leería) y una imagen sí se refleja de
+  verdad, repintando su trama. Volteando dos veces se recupera exactamente el
+  elemento de partida, campos ausentes incluidos.
+- **Agrupar y desagrupar** (`Ctrl+G` / `Ctrl+Mayús+G`): la maquinaria de
+  grupos existía desde Edificios, pero solo la estampaba la aplicación. Ahora
+  un grupo propio se selecciona, mueve, escala, alinea y voltea como una
+  unidad, y el doble clic o `Alt`+clic siguen bajando a una pieza suelta.
+- Las tres acciones están también en el menú del clic derecho, con su atajo.
+
 ## [3.9.0] — 2026-08-19
 
 ### Añadido
