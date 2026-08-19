@@ -142,6 +142,35 @@ const Renderer = (() => {
   }
 
   /** Etiqueta 13px centrada sobre el trazo, con halo blanco de legibilidad */
+  /**
+   * Dibuja la punta de una flecha con la FORMA que pida el elemento
+   * (v3.11.0). Un solo sitio para los cuatro extremos posibles —flecha y
+   * curva, punta y cola—, que es lo que impide que una salga distinta.
+   *
+   * El triángulo y el punto se RELLENAN con el color del trazo: son macizos
+   * por definición, y trazar su contorno con Sketchy los dejaría huecos.
+   */
+  function _paintHead(ctx, el, x, y, angle, len) {
+    const g = Sketchy.headGeometry(x, y, angle, len, el.headShape);
+    if (g.polygon) {
+      ctx.beginPath();
+      ctx.moveTo(g.polygon[0].x, g.polygon[0].y);
+      for (let i = 1; i < g.polygon.length; i++) ctx.lineTo(g.polygon[i].x, g.polygon[i].y);
+      ctx.closePath();
+      ctx.fillStyle = el.color;
+      ctx.fill();
+      return;
+    }
+    if (g.circle) {
+      ctx.beginPath();
+      ctx.arc(g.circle.x, g.circle.y, g.circle.r, 0, Math.PI * 2);
+      ctx.fillStyle = el.color;
+      ctx.fill();
+      return;
+    }
+    g.lines.forEach(sg => Sketchy.line(ctx, sg.x1, sg.y1, sg.x2, sg.y2));
+  }
+
   function _arrowLabel(ctx, el) {
     if (!el.label) return;
     const mid = _arrowMid(el);
@@ -178,6 +207,61 @@ const Renderer = (() => {
     }
     // Sólido / clásico: color propio opaco, o el tinte 0x20 del trazo si no hay
     return el.fillColor || el.color.slice(0, 7) + '20';
+  }
+
+  /**
+   * Color de la TRAMA (v3.11.0). No es el mismo que el del relleno plano, y
+   * la diferencia es lo que la hace visible: el relleno clásico sin color
+   * propio cae al tinte 0x20 del trazo —12 % de opacidad—, que como superficie
+   * se lee bien pero en unas rayas de un píxel es invisible. La trama usa el
+   * color entero, y respeta la opacidad solo en modo translúcido.
+   */
+  function hatchStyle(el) {
+    const base = el.fillColor || el.color;
+    if (el.fillTransparent === true) {
+      return withOpacity(base, el.fillOpacity !== undefined ? el.fillOpacity : DEFAULT_FILL_OPACITY);
+    }
+    return String(base).slice(0, 7);
+  }
+
+  /**
+   * Pinta el relleno de una forma: plano (el de siempre) o tramado. `path`
+   * construye el trazado del relleno plano; la trama no lo necesita, porque
+   * `Hatch` calcula su propio contorno — el mismo que dibuja el renderer.
+   *
+   * Punto ÚNICO para los seis tipos de forma: así no puede quedarse ninguno
+   * sin trama, que es como fallaría (en silencio, y distinto en cada tipo).
+   */
+  function _paintFill(ctx, el, path) {
+    if (typeof Hatch !== 'undefined' && Hatch.isPattern(el.fillPattern)) {
+      const g = Hatch.geometry(el);
+      ctx.save();
+      ctx.strokeStyle = hatchStyle(el);
+      // Más fina que el contorno: la trama es sombreado, no dibujo (el mismo
+      // criterio que el detalle de los edificios).
+      ctx.lineWidth = Math.max(0.8, (el.lineWidth || 2) * 0.6);
+      ctx.lineCap = 'round';
+      if (g.lines.length) {
+        ctx.beginPath();
+        for (const l of g.lines) { ctx.moveTo(l.x1, l.y1); ctx.lineTo(l.x2, l.y2); }
+        ctx.stroke();
+      }
+      if (g.dots.length) {
+        // Una sola ruta con N arcos y un único fill, como la nube del
+        // aerógrafo: un fill por punto multiplica el coste por nada.
+        ctx.fillStyle = hatchStyle(el);
+        ctx.beginPath();
+        for (const d of g.dots) {
+          ctx.moveTo(d.x + d.r, d.y);
+          ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+        }
+        ctx.fill();
+      }
+      ctx.restore();
+      return;
+    }
+    ctx.fillStyle = fillStyle(el);
+    path();
   }
 
   /* ── Bordes ocultos de formas solapadas ── */
@@ -548,9 +632,7 @@ const Renderer = (() => {
     const vertices = RegularPolygon.vertices(el);
     if (!vertices.length) return;
     if (el.fill && options.shapeFill !== false) {
-      ctx.fillStyle = fillStyle(el);
-      _polygonPath(ctx, vertices);
-      ctx.fill();
+      _paintFill(ctx, el, () => { _polygonPath(ctx, vertices); ctx.fill(); });
     }
     if (options.shapeStroke !== false) {
       vertices.forEach((point, index) => {
@@ -564,9 +646,7 @@ const Renderer = (() => {
     const vertices = Trapezoid.vertices(el);
     if (!vertices.length) return;
     if (el.fill && options.shapeFill !== false) {
-      ctx.fillStyle = fillStyle(el);
-      _polygonPath(ctx, vertices);
-      ctx.fill();
+      _paintFill(ctx, el, () => { _polygonPath(ctx, vertices); ctx.fill(); });
     }
     if (options.shapeStroke !== false) {
       vertices.forEach((point, index) => {
@@ -587,9 +667,7 @@ const Renderer = (() => {
     const vertices = Array.isArray(el.points) ? el.points : [];
     if (vertices.length < 3) return;
     if (el.fill && options.shapeFill !== false) {
-      ctx.fillStyle = fillStyle(el);
-      _polygonPath(ctx, vertices);
-      ctx.fill();
+      _paintFill(ctx, el, () => { _polygonPath(ctx, vertices); ctx.fill(); });
     }
     if (el.stroke === false || options.shapeStroke === false) return;
     vertices.forEach((point, index) => {
@@ -605,6 +683,9 @@ const Renderer = (() => {
     // Jitter determinista: el mismo seed reproduce exactamente el mismo
     // trazo en cada redraw (sin seed, cae en Math.random y "tiembla")
     Sketchy.setSeed(el.seed);
+    // Nivel de temblor por elemento (v3.11.0). La ausencia del campo es el
+    // temblor de siempre, así que un proyecto anterior se dibuja igual.
+    Sketchy.setRoughness(el.rough);
     ctx.strokeStyle = el.color;
     ctx.lineWidth   = el.lineWidth;
     ctx.lineCap     = 'round';
@@ -682,15 +763,11 @@ const Renderer = (() => {
         if (el.dash) ctx.setLineDash([]);
         const headLen = 10 + 2 * el.lineWidth;
         const angle = Math.atan2(el.y2 - el.y1, el.x2 - el.x1);
-        Sketchy.arrowHead(el.x2, el.y2, angle, headLen).forEach(sg => {
-          Sketchy.line(ctx, sg.x1, sg.y1, sg.x2, sg.y2);
-        });
+        _paintHead(ctx, el, el.x2, el.y2, angle, headLen);
         // Doble punta opcional (heads === 'both'): punta también en el inicio
         if (el.heads === 'both') {
           const backAngle = Math.atan2(el.y1 - el.y2, el.x1 - el.x2);
-          Sketchy.arrowHead(el.x1, el.y1, backAngle, headLen).forEach(sg => {
-            Sketchy.line(ctx, sg.x1, sg.y1, sg.x2, sg.y2);
-          });
+          _paintHead(ctx, el, el.x1, el.y1, backAngle, headLen);
         }
         _arrowLabel(ctx, el);
         break;
@@ -715,16 +792,12 @@ const Renderer = (() => {
         if (el.heads !== 'none') {
           // Punta orientada según la tangente del último tramo
           const tangent = CurvePath.endTangent(el);
-          Sketchy.arrowHead(curveEnd.x, curveEnd.y, Math.atan2(tangent.dy, tangent.dx), headLen).forEach(sg => {
-            Sketchy.line(ctx, sg.x1, sg.y1, sg.x2, sg.y2);
-          });
+          _paintHead(ctx, el, curveEnd.x, curveEnd.y, Math.atan2(tangent.dy, tangent.dx), headLen);
         }
         // Doble punta opcional: tangente del primer tramo hacia el inicio
         if (el.heads === 'both') {
           const tangent = CurvePath.startTangent(el);
-          Sketchy.arrowHead(curveStart.x, curveStart.y, Math.atan2(tangent.dy, tangent.dx), headLen).forEach(sg => {
-            Sketchy.line(ctx, sg.x1, sg.y1, sg.x2, sg.y2);
-          });
+          _paintHead(ctx, el, curveStart.x, curveStart.y, Math.atan2(tangent.dy, tangent.dx), headLen);
         }
         _arrowLabel(ctx, el);
         break;
@@ -732,18 +805,18 @@ const Renderer = (() => {
 
       case 'rect':
         if (el.fill && options.shapeFill !== false) {
-          ctx.fillStyle = fillStyle(el);
-          ctx.fillRect(el.x, el.y, el.w, el.h);
+          _paintFill(ctx, el, () => ctx.fillRect(el.x, el.y, el.w, el.h));
         }
         if (options.shapeStroke !== false) Sketchy.rect(ctx, el.x, el.y, el.w, el.h);
         break;
 
       case 'roundedRect':
         if (el.fill && options.shapeFill !== false) {
-          ctx.fillStyle = fillStyle(el);
-          ctx.beginPath();
-          ctx.roundRect(el.x, el.y, el.w, el.h, 12);
-          ctx.fill();
+          _paintFill(ctx, el, () => {
+            ctx.beginPath();
+            ctx.roundRect(el.x, el.y, el.w, el.h, 12);
+            ctx.fill();
+          });
         }
         if (options.shapeStroke !== false) Sketchy.roundedRect(ctx, el.x, el.y, el.w, el.h, 12);
         break;
@@ -754,10 +827,11 @@ const Renderer = (() => {
         const cx = el.x + el.w / 2;
         const cy = el.y + el.h / 2;
         if (el.fill && options.shapeFill !== false) {
-          ctx.fillStyle = fillStyle(el);
-          ctx.beginPath();
-          ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-          ctx.fill();
+          _paintFill(ctx, el, () => {
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+            ctx.fill();
+          });
         }
         if (options.shapeStroke !== false) Sketchy.ellipse(ctx, cx, cy, rx, ry);
         break;
@@ -816,6 +890,7 @@ const Renderer = (() => {
     }
 
     Sketchy.setSeed(null);
+    Sketchy.setRoughness(1);
     ctx.restore();
   }
 
@@ -960,5 +1035,6 @@ const Renderer = (() => {
     setImageLoadCallback,
     pruneImageCache,
     imageReady,
+    hatchStyle,
   };
 })();

@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=3.10.0" />
+  <link rel="stylesheet" href="css/styles.css?v=3.11.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.10.0" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.11.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v3.10.0</span>
+        <span class="topbar__badge">v3.11.0</span>
         <!-- Aviso de autoguardado: visible SOLO mientras localStorage rechaza
              el guardado (cuota llena). Sin él, el fallo era un catch mudo y el
              trabajo posterior se perdía en silencio al recargar. -->
@@ -104,7 +104,7 @@
              exportar, abrir…). role=status + aria-live para que el lector los
              anuncie; los rellena showToast (app.js) y nunca interceptan. -->
         <div class="toasts" id="toast-region" role="status" aria-live="polite"></div>
-        <!-- Menú contextual (v3.10.0): lo rellena showContextMenu (app.js) por
+        <!-- Menú contextual (v3.11.0): lo rellena showContextMenu (app.js) por
              invocación, con las acciones de la selección o del lienzo y su
              atajo a la derecha. [hidden] obligatoria: la clase declara display. -->
         <div class="ctxmenu" id="context-menu" hidden></div>
@@ -217,6 +217,20 @@
           </label>
           <label class="panel__check">
             <input type="checkbox" id="check-fill-transparent" /> Relleno translúcido
+          </label>
+          <!-- Trama del relleno (v3.11.0, la idea de rough.js): el trazo es de
+               mano temblorosa y el relleno era una mancha plana. Los valores
+               son los ids de Hatch.PATTERNS más «solid», que es la ausencia
+               del campo; tests/smoke.test.js pinea que coincidan. -->
+          <label class="panel__field" for="fill-pattern">
+            <span class="panel__title">Trama</span>
+            <select class="panel__select" id="fill-pattern">
+              <option value="solid">Plano</option>
+              <option value="hachure">Rayado</option>
+              <option value="cross-hatch">Cruzado</option>
+              <option value="dots">Puntos</option>
+              <option value="zigzag">Zigzag</option>
+            </select>
           </label>
           <h3 class="panel__title">Opacidad: <span id="fill-opacity-val">40</span>%</h3>
           <input class="panel__slider" type="range" id="fill-opacity-slider"
@@ -420,7 +434,7 @@
             <button class="btn btn--ghost" id="btn-z-back" title="Enviar al fondo (Ctrl+Mayús+↓)">⏬ Al fondo</button>
             <button class="btn btn--ghost" id="btn-z-down" title="Retrasar un paso (Ctrl+↓)">🔽 Retrasar</button>
           </div>
-          <!-- Alinear y distribuir (v3.10.0): las guías al arrastrar ya
+          <!-- Alinear y distribuir (v3.11.0): las guías al arrastrar ya
                imantaban, pero no había forma de decir «éstos cuatro, a la
                izquierda». La rejilla declara display:grid, así que lleva su
                regla [hidden] en _panel.scss. Botones de icono: en tres
@@ -444,7 +458,7 @@
             <button class="btn btn--ghost" data-mirror="h" title="Voltear en horizontal (Mayús+H)">Voltear ↔</button>
             <button class="btn btn--ghost" data-mirror="v" title="Voltear en vertical (Mayús+V)">Voltear ↕</button>
           </div>
-          <!-- Agrupar/desagrupar (v3.10.0): la maquinaria (buildingGroupId)
+          <!-- Agrupar/desagrupar (v3.11.0): la maquinaria (buildingGroupId)
                existía desde Edificios, pero solo la estampaba la app. A ancho
                completo y no en pareja: «Desagrupar» no cabe en media columna
                del panel y salía recortado. -->
@@ -478,7 +492,7 @@
   <dialog class="modal" id="modal-export" aria-labelledby="modal-export-title">
       <h3 class="modal__heading" id="modal-export-title">Exportar Wireframe</h3>
       <p class="modal__sub">Elige el formato de exportación</p>
-      <!-- Ajustes de salida (v3.10.0, la idea de Excalidraw). Van ANTES de los
+      <!-- Ajustes de salida (v3.11.0, la idea de Excalidraw). Van ANTES de los
            formatos porque describen QUÉ se exporta, no cómo se descarga: se
            eligen y luego se pulsa el formato. Cada formato honra lo que puede
            representar (el JPG no tiene alfa; el HTML no tiene resolución) y
@@ -527,7 +541,7 @@
           <small>Proyecto reutilizable (importar después)</small>
         </button>
       </div>
-      <!-- Copiar al portapapeles (v3.10.0): ahorra el viaje descarga → buscar
+      <!-- Copiar al portapapeles (v3.11.0): ahorra el viaje descarga → buscar
            en Descargas → arrastrar. No lleva atajo a propósito (Ctrl+Mayús+C
            es las herramientas de desarrollo del navegador): sus vías son este
            botón y el menú contextual de la selección. -->
@@ -622,6 +636,7 @@
           <li>El checkbox <strong>"Rellenar formas"</strong> la vacía sin perder el color: al volver a marcarlo lo recupera</li>
           <li><strong>"Relleno translúcido"</strong> alterna entre relleno sólido y relleno con transparencia</li>
           <li><strong>"Opacidad"</strong> va del 0% (invisible) al 100% (opaco); el valor inicial es 40%</li>
+          <li><strong>Trama</strong>: además del relleno plano, la superficie puede ir <strong>rayada</strong>, <strong>cruzada</strong>, de <strong>puntos</strong> o en <strong>zigzag</strong>, como un croquis a lápiz. Respeta la silueta de verdad —el rayado de una estrella no cruza los huecos entre puntas— y sale igual en el PNG y en el SVG</li>
           <li>Con selección, estos controles modifican las formas seleccionadas; sin selección, configuran las próximas</li>
         </ul>
       </section>
@@ -629,6 +644,7 @@
       <section class="modal__help-group">
         <h4 class="modal__help-title">✏️ Lápiz y trazo</h4>
         <ul class="modal__help-list">
+          <li><strong>Temblor</strong>: cuánto tiembla el trazo dibujado a mano — <strong>de arquitecto</strong> (casi a regla), <strong>de artista</strong> (el de siempre) o <strong>de caricatura</strong>. Está en los ajustes del trazo y en los de la forma, y es el mismo mando en los dos. Cambia el lienzo y las imágenes PNG/JPG; el SVG y el HTML se exportan con la geometría limpia, como siempre</li>
           <li>Al elegir <strong>Lápiz</strong> (<kbd>P</kbd>), <strong>Línea</strong> (<kbd>L</kbd>), <strong>Flecha</strong> (<kbd>A</kbd>), <strong>Flecha curva</strong> (<kbd>U</kbd>) o <strong>Semicírculo</strong> (<kbd>G</kbd>) se abren sus <strong>ajustes</strong>, con muestra en vivo: grosor, color, discontinuo y doble punta. Volver a pulsar la herramienta los reabre</li>
           <li><strong>«Trazo con presión»</strong> (solo el lápiz) hace que el grosor siga la <strong>velocidad del gesto</strong>: rápido sale fino, despacio grueso, y las puntas quedan afiladas, como un lápiz de verdad. Desmarcado, el lápiz dibuja con el grosor uniforme de siempre</li>
           <li><strong>«Curvatura»</strong> (solo la flecha curva) decide con cuánta comba nacen: del <strong>0 %</strong> —una recta con punta— al 100 %, en porcentaje de la distancia entre los dos extremos. Antes era siempre la misma y todas las curvas salían iguales. La muestra del modal se curva con el mando</li>
@@ -785,6 +801,7 @@
       <section class="modal__help-group">
         <h4 class="modal__help-title">Flechas y curvas</h4>
         <ul class="modal__help-list">
+          <li><strong>Forma de la punta</strong>, en los ajustes del trazo: <strong>clásica</strong> (las dos rayas), <strong>maciza</strong>, <strong>barra</strong> —el remate de cota de un plano— o <strong>punto</strong>. Vale para las dos puntas cuando la flecha es de doble punta</li>
           <li>En <strong>Flecha curva</strong>, un click sin arrastrar inicia una curva encadenada</li>
           <li>Cada click añade un tramo; <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+click añade el último y termina con una punta de flecha</li>
           <li><kbd>Retroceso</kbd> elimina el último tramo en construcción · <kbd>Esc</kbd> cancela la cadena · <kbd>Enter</kbd> la termina</li>
@@ -991,6 +1008,31 @@
                      min="0" max="100" step="5" value="25"
                      aria-label="Curvatura de las flechas curvas" />
             </label>
+            <!-- Nivel de temblor (v3.11.0, la «sloppiness» de rough.js). Va
+                 en los DOS modales de dibujo, y sincronizado: afecta a todo lo
+                 que dibuja Sketchy, así que tenerlo solo en uno lo dejaría
+                 mintiendo sobre su alcance. Solo cambia el lienzo y el PNG: el
+                 SVG y el HTML exportan geometría limpia desde siempre. -->
+            <label class="panel__field" for="stroke-modal-rough">
+              <span class="modal__field-label">Temblor</span>
+              <select class="panel__select" id="stroke-modal-rough">
+                <option value="0.5">De arquitecto</option>
+                <option value="1">De artista</option>
+                <option value="2">De caricatura</option>
+              </select>
+            </label>
+            <!-- Forma de la punta (v3.11.0). Se ATENÚA, no se oculta, cuando
+                 ni la herramienta ni la selección tienen punta: el mismo
+                 criterio que el discontinuo, la presión y la curvatura. -->
+            <label class="panel__field" id="stroke-modal-head-row" for="stroke-modal-head">
+              <span class="modal__field-label">Punta</span>
+              <select class="panel__select" id="stroke-modal-head">
+                <option value="line">Clásica</option>
+                <option value="triangle">Maciza</option>
+                <option value="bar">Barra</option>
+                <option value="dot">Punto</option>
+              </select>
+            </label>
           </fieldset>
 
           <!-- La paleta va con su selector, dentro de .modal__palette: es el
@@ -1060,6 +1102,19 @@
                      min="1" max="8" step="1" value="2"
                      aria-label="Grosor del trazo" />
             </label>
+            <!-- Nivel de temblor (v3.11.0, la «sloppiness» de rough.js). Va
+                 en los DOS modales de dibujo, y sincronizado: afecta a todo lo
+                 que dibuja Sketchy, así que tenerlo solo en uno lo dejaría
+                 mintiendo sobre su alcance. Solo cambia el lienzo y el PNG: el
+                 SVG y el HTML exportan geometría limpia desde siempre. -->
+            <label class="panel__field" for="shape-modal-rough">
+              <span class="modal__field-label">Temblor</span>
+              <select class="panel__select" id="shape-modal-rough">
+                <option value="0.5">De arquitecto</option>
+                <option value="1">De artista</option>
+                <option value="2">De caricatura</option>
+              </select>
+            </label>
             <!-- Ver la nota de #modal-stroke: selector + paleta en un .modal__palette. -->
             <div class="modal__palette">
               <label class="panel__field" for="shape-modal-color">
@@ -1084,6 +1139,16 @@
               <input class="panel__slider" type="range" id="shape-modal-opacity"
                      min="0" max="100" step="1" value="40"
                      aria-label="Opacidad del relleno translúcido" disabled />
+            </label>
+            <label class="panel__field" for="shape-modal-pattern">
+              <span class="modal__field-label">Trama</span>
+              <select class="panel__select" id="shape-modal-pattern">
+                <option value="solid">Plano</option>
+                <option value="hachure">Rayado</option>
+                <option value="cross-hatch">Cruzado</option>
+                <option value="dots">Puntos</option>
+                <option value="zigzag">Zigzag</option>
+              </select>
             </label>
             <!-- Paleta del RELLENO. Muestras de otra clase (`.panel__fill-swatch`)
                  a propósito: comparten el aspecto pero no el resaltado, porque el
@@ -2296,23 +2361,24 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=3.10.0"></script>
-  <script src="src/js/sketchy.js?v=3.10.0"></script>
-  <script src="src/js/freehand.js?v=3.10.0"></script>
-  <script src="src/js/arc.js?v=3.10.0"></script>
-  <script src="src/js/curve-path.js?v=3.10.0"></script>
-  <script src="src/js/shape-rotation.js?v=3.10.0"></script>
-  <script src="src/js/regular-polygon.js?v=3.10.0"></script>
-  <script src="src/js/trapezoid.js?v=3.10.0"></script>
-  <script src="src/js/airbrush.js?v=3.10.0"></script>
-  <script src="src/js/flood.js?v=3.10.0"></script>
-  <script src="src/js/eraser.js?v=3.10.0"></script>
-  <script src="src/js/building.js?v=3.10.0"></script>
-  <script src="src/js/garden.js?v=3.10.0"></script>
-  <script src="src/js/solid.js?v=3.10.0"></script>
-  <script src="src/js/renderer.js?v=3.10.0"></script>
-  <script src="src/js/exporter.js?v=3.10.0"></script>
-  <script src="src/js/templates.js?v=3.10.0"></script>
-  <script src="src/js/app.js?v=3.10.0"></script>
+  <script src="src/js/config.js?v=3.11.0"></script>
+  <script src="src/js/sketchy.js?v=3.11.0"></script>
+  <script src="src/js/freehand.js?v=3.11.0"></script>
+  <script src="src/js/arc.js?v=3.11.0"></script>
+  <script src="src/js/curve-path.js?v=3.11.0"></script>
+  <script src="src/js/shape-rotation.js?v=3.11.0"></script>
+  <script src="src/js/regular-polygon.js?v=3.11.0"></script>
+  <script src="src/js/trapezoid.js?v=3.11.0"></script>
+  <script src="src/js/hatch.js?v=3.11.0"></script>
+  <script src="src/js/airbrush.js?v=3.11.0"></script>
+  <script src="src/js/flood.js?v=3.11.0"></script>
+  <script src="src/js/eraser.js?v=3.11.0"></script>
+  <script src="src/js/building.js?v=3.11.0"></script>
+  <script src="src/js/garden.js?v=3.11.0"></script>
+  <script src="src/js/solid.js?v=3.11.0"></script>
+  <script src="src/js/renderer.js?v=3.11.0"></script>
+  <script src="src/js/exporter.js?v=3.11.0"></script>
+  <script src="src/js/templates.js?v=3.11.0"></script>
+  <script src="src/js/app.js?v=3.11.0"></script>
 </body>
 </html>

@@ -4,11 +4,11 @@
 
 **Wireframes, diagramas y bocetos con estética dibujada a mano — en el navegador y sin instalar nada.**
 
-[![Versión](https://img.shields.io/badge/versión-3.10.0-blueviolet?style=flat-square)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-3.11.0-blueviolet?style=flat-square)](CHANGELOG.md)
 [![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?style=flat-square&logo=javascript&logoColor=000)](src/js/)
 [![Estilos](https://img.shields.io/badge/estilos-SCSS%20·%20BEM%20·%20Gulp%205-cf649a?style=flat-square&logo=sass&logoColor=fff)](src/scss/)
 [![Dependencias](https://img.shields.io/badge/dependencias%20en%20runtime-0-brightgreen?style=flat-square)](#arquitectura)
-[![Tests](https://img.shields.io/badge/tests-858%20unitarios%20%2B%20157%20e2e-brightgreen?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-885%20unitarios%20%2B%20162%20e2e-brightgreen?style=flat-square)](#tests)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue?style=flat-square)](LICENSE)
 
 <img src="src/img/screenshot-pizarra.png" alt="La interfaz de Pizarra: barra de herramientas a la izquierda con el grupo 3D visible y la herramienta Prisma activa, en el centro un lienzo de papel azulado con cuadrícula blanca y un wireframe de landing page dibujado a mano junto a un cubo, una esfera y una pirámide hexagonal en volumen, rellenos de turquesa translúcido y con las aristas de detrás discontinuas, y a la derecha el panel de ajustes con la paleta de 36 colores ordenada por el arco iris" width="900">
@@ -72,6 +72,9 @@ Para *usar* la app no hay nada que instalar ni compilar: el CSS ya viene compila
 | **Aerógrafo** | Pulveriza **tono** en vez de trazo: una nube de gotas densa en el eje y difuminada hacia los bordes, con las puntas redondas, y un soplo redondo si se pulsa sin arrastrar. El puntero es el **círculo de la boquilla**, que rodea exactamente lo que se va a pintar. Anchura, grano, densidad y opacidad ajustables, con la paleta entera dentro de sus ajustes; al 100 % la pintura es sólida y por debajo **las pasadas se acumulan**, así que dos trazos cruzados oscurecen el cruce. Puede acotarse a **un rectángulo del lienzo**: fuera de él no cae ni una gota. El elemento guarda solo el eje del trazo —la nube se regenera desde su semilla—, así que el archivo no engorda y las cinco exportaciones dibujan lo mismo. |
 | **Tinta (bote de pintura)** | Un clic pinta. Dentro de una forma, la rellena a ella; **fuera, encuentra la zona que cierran los trazos de alrededor** —el rombo que dibujan varias líneas cruzadas, que no es ninguna forma y hasta ahora no se podía colorear— y crea una mancha independiente, por debajo de los trazos: se mueve, se borra y se deshace como cualquier elemento. En el lienzo vacío pinta el fondo entero. **«Cerrar huecos»** (0-12 px) evita que la pintura se escape por las junturas mal cerradas, y el modal trae **cuentagotas**, **pintar toda la selección de golpe** y **sustituir un color por otro en todo el lienzo**. Usa el color de relleno de la app, sólido o translúcido; repintar una zona sustituye su mancha en vez de apilar otra. |
 | **Formas** | Rectángulo, redondeado, elipse, cuadrado, trapecio, triángulo, pentágono, hexágono y las **estrellas de 5 y 6 puntas**. Los polígonos regulares se arrastran desde el centro y conservan sus lados iguales; el trapecio admite proporciones libres. |
+| **Relleno tramado** | Además del plano, la superficie puede ir **rayada**, **cruzada**, de **puntos** o en **zigzag**, como un croquis a lápiz. Respeta la silueta de verdad —el rayado de una estrella no cruza los huecos entre puntas—, no engorda el archivo (se regenera desde la semilla, como la nube del aerógrafo) y sale igual en el lienzo, en el PNG y en el SVG. |
+| **Temblor del trazo** | El pulso del dibujo a mano, en tres niveles: **de arquitecto** (casi a regla), **de artista** (el de siempre) y **de caricatura**. Un mando en los ajustes del trazo y de la forma, que son el mismo. |
+| **Puntas de flecha** | Clásica, **maciza**, **barra** —el remate de cota de un plano— o **punto**, en los dos extremos cuando la flecha es de doble punta. |
 | **Estrellas** | Las regulares clásicas —pentagrama y Estrella de David—, con el radio interior en el que prolongar el lado de una punta lleva justo a otra punta: rectas completas, no pétalos. Se comportan como un polígono más —relleno, bordes ocultos, giro (36° y 30°) y las cinco exportaciones—, y el borrador y la selección respetan su **silueta**: el hueco entre dos puntas no es dibujo. |
 | **Figuras 3D** | Las mismas diez siluetas, en volumen: **prisma**, **pirámide**, **tronco** y **esfera** dan 31 figuras —caja, cubo, cilindro, cono, tetraedro, prisma hexagonal, tronco de cono, prismas estrellados…—. Lo que arrastras es la **cara frontal** y sale sin deformar, porque la proyección es caballera; las aristas de detrás salen **discontinuas**, como en un croquis técnico. Ángulo de fuga (vuelta completa), escorzo y profundidad —en **porcentaje de la cara**, así que una figura pequeña y otra grande salen con las mismas proporciones— se ajustan en el modal de cada herramienta, con miniatura en vivo. Cada sólido nace como un grupo: se mueve, escala y borra de una pieza. |
 | **Volumen a tu gusto** | Las figuras 3D se **giran**: la sección, antes de dibujar, en los pasos válidos de su tipo; y la figura entera ya puesta, con `Shift+R` o `←`/`→`. El **grosor y el color de las aristas** y el **relleno de las caras** —opaco o translúcido, con su color y su opacidad— se ajustan en el modal de la propia herramienta. En opaco el sólido se lee macizo; en translúcido se ve a través y las aristas de detrás se siguen leyendo. Y la **pirámide** y el **tronco** ofrecen el modo **«De pie»** (mando **Eje**, en «Proyección»): la sección se tumba sobre el suelo y la figura se levanta sobre el papel, como la pirámide del dibujo de toda la vida. |
@@ -286,7 +289,7 @@ Cuatro convenciones que conviene conocer:
 
 ## Tests
 
-**858 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
+**885 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
 de runtime:
 
 ```bash
@@ -296,7 +299,7 @@ node --test tests/exporter.test.js    # un archivo
 
 Los módulos se cargan en un contexto `node:vm` con stubs de canvas y DOM, incluido `src/js/app.js` completo: los tests lanzan gestos reales —puntero, teclado, modales— y leen el resultado del autoguardado, sin ningún hook de test en el código de producción.
 
-**157 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco, acciones por defecto del navegador, la navegación del lienzo (zoom al cursor, pan, encuadres), el feedback en vivo, los gestos multitáctiles (despachados por CDP), los flujos completos de Verjas y Cancela y el Jardín botánico en escritorio, móvil y anchos intermedios.
+**162 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco, acciones por defecto del navegador, la navegación del lienzo (zoom al cursor, pan, encuadres), el feedback en vivo, los gestos multitáctiles (despachados por CDP), los flujos completos de Verjas y Cancela y el Jardín botánico en escritorio, móvil y anchos intermedios.
 
 ```bash
 npm install && npm run e2e:install    # una vez (descarga Chromium)

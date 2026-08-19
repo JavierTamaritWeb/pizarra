@@ -4,6 +4,31 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.11.0] — 2026-08-19
+
+### Añadido
+
+- **Rellenos tramados** (la idea de rough.js): además del plano, la superficie
+  de una forma puede ir **rayada**, **cruzada**, de **puntos** o en **zigzag**.
+  Módulo nuevo `src/js/hatch.js`, puro y determinista: la geometría se
+  regenera donde hace falta —lienzo, SVG, HTML y las miniaturas— igual que la
+  nube del aerógrafo, así que el JSON no engorda y los cinco formatos no
+  pueden divergir. Respeta la silueta real: el rayado de una estrella no cruza
+  los huecos entre puntas.
+- **Nivel de temblor** «de arquitecto / de artista / de caricatura», el
+  *sloppiness* de rough.js y Excalidraw. Un solo punto de entrada
+  (`Sketchy.setRoughness`, junto a `setSeed`), así que afecta por igual a
+  todo lo que dibuja Sketchy. Cambia el lienzo y el PNG/JPG; el SVG y el HTML
+  siguen exportando geometría limpia, como han hecho siempre.
+- **Formas de punta de flecha**: clásica (las dos rayas), maciza, barra —el
+  remate de cota de un plano— y punto. Se aplican a los dos extremos cuando la
+  flecha es de doble punta, y viajan a los dos exportadores vectoriales.
+
+Los tres campos (`fillPattern`, `rough`, `headShape`) tienen la misma regla de
+siempre: **su ausencia es el aspecto clásico**, así que un proyecto anterior se
+dibuja y se serializa exactamente igual. Los tres se validan al importar y los
+tres viajan en «copiar estilo».
+
 ## [3.10.0] — 2026-08-19
 
 ### Añadido

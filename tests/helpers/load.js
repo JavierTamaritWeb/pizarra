@@ -50,7 +50,7 @@ const KNOWN_GLOBALS = [
   'UI_DEFAULTS', 'EMOJI_GROUPS', 'EMOJI_MIN_SIZE', 'EMOJI_MAX_SIZE',
   'CURVE_BULGE_MIN', 'CURVE_BULGE_MAX', 'CURVE_BULGE_STEP',
   'Sketchy', 'Freehand', 'ArcMath', 'CurvePath', 'ShapeRotation', 'RegularPolygon',
-  'Trapezoid', 'Airbrush', 'Flood', 'Eraser', 'Building', 'Garden', 'Solid',
+  'Trapezoid', 'Hatch', 'Airbrush', 'Flood', 'Eraser', 'Building', 'Garden', 'Solid',
   'Renderer', 'Exporter', 'Templates',
 ];
 
@@ -64,6 +64,7 @@ const ALL_FILES = [
   'src/js/shape-rotation.js',
   'src/js/regular-polygon.js',
   'src/js/trapezoid.js',
+  'src/js/hatch.js',
   'src/js/airbrush.js',
   'src/js/flood.js',
   'src/js/eraser.js',
@@ -232,6 +233,14 @@ function load(...files) {
     const idx = list.findIndex(f => f.endsWith(dependiente));
     if (idx >= 0 && !list.some(f => f.endsWith('airbrush.js'))) {
       list.splice(idx, 0, 'src/js/airbrush.js');
+    }
+  }
+  // Y lo mismo con la trama (v3.11.0): renderer.js y exporter.js la piden
+  // para pintar el relleno tramado.
+  for (const dependiente of ['renderer.js', 'exporter.js']) {
+    const idx = list.findIndex(f => f.endsWith(dependiente));
+    if (idx >= 0 && !list.some(f => f.endsWith('hatch.js'))) {
+      list.splice(idx, 0, 'src/js/hatch.js');
     }
   }
   const context = createContext();

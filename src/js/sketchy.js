@@ -28,10 +28,32 @@ const Sketchy = (() => {
     rand = (typeof seed === 'number' && isFinite(seed)) ? mulberry32(seed) : Math.random;
   }
 
+  /* ── Nivel de temblor (v3.11.0) ──
+     Multiplica la amplitud del jitter de TODAS las primitivas: 0.5 «de
+     arquitecto» (casi a regla), 1 el de siempre, 2 «de caricatura».
+
+     Va aquí y no en cada llamada del renderer por la misma razón que el
+     seed: son más de treinta llamadas repartidas por el switch, y bastaría
+     olvidar una para que un elemento temblara distinto que el resto sin que
+     nada fallara. Un solo punto de entrada, junto a `setSeed`, y ninguna
+     firma cambia. */
+  let roughFactor = 1;
+
+  function setRoughness(factor) {
+    roughFactor = (typeof factor === 'number' && isFinite(factor) && factor > 0)
+      ? factor : 1;
+  }
+
+  /** Amplitud efectiva del temblor de una primitiva. */
+  function _r(roughness) {
+    return roughness * roughFactor;
+  }
+
   /**
    * Draw a wobbly hand-drawn line between two points.
    */
   function line(ctx, x1, y1, x2, y2, roughness = 1.5) {
+    roughness = _r(roughness);
     const len = Math.hypot(x2 - x1, y2 - y1);
     const segments = Math.max(2, Math.floor(len / 20));
     ctx.beginPath();
@@ -59,6 +81,7 @@ const Sketchy = (() => {
    * Draw a sketchy rounded rectangle.
    */
   function roundedRect(ctx, x, y, w, h, r = 12, roughness = 1) {
+    roughness = _r(roughness);
     // Sin acotar, un radio mayor que el lado hace retroceder el borde
     // ((w-2r)·t negativo) y la forma sale autointersecada; canvas.roundRect
     // y el rx del SVG exportado sí autoacotan, así que además divergían.
@@ -114,6 +137,7 @@ const Sketchy = (() => {
    * Draw a sketchy ellipse.
    */
   function ellipse(ctx, cx, cy, rx, ry, roughness = 1.5) {
+    roughness = _r(roughness);
     const pts = 36;
     ctx.beginPath();
     for (let i = 0; i <= pts; i++) {
@@ -132,6 +156,7 @@ const Sketchy = (() => {
    * point (cx,cy).
    */
   function curve(ctx, x1, y1, cx, cy, x2, y2, roughness = 1.5) {
+    roughness = _r(roughness);
     const len = Math.hypot(cx - x1, cy - y1) + Math.hypot(x2 - cx, y2 - cy);
     const segments = Math.max(8, Math.floor(len / 20));
     ctx.beginPath();
@@ -152,6 +177,7 @@ const Sketchy = (() => {
    * points (cx1,cy1) and (cx2,cy2).
    */
   function cubicCurve(ctx, x1, y1, cx1, cy1, cx2, cy2, x2, y2, roughness = 1.5) {
+    roughness = _r(roughness);
     const len = Math.hypot(cx1 - x1, cy1 - y1) + Math.hypot(cx2 - cx1, cy2 - cy1) + Math.hypot(x2 - cx2, y2 - cy2);
     const segments = Math.max(8, Math.floor(len / 20));
     ctx.beginPath();
@@ -181,6 +207,48 @@ const Sketchy = (() => {
   }
 
   /**
+   * Geometría de una punta de flecha según su FORMA (v3.11.0). Pura y sin
+   * jitter, como `arrowHead` —de la que es una generalización—, y compartida
+   * por el renderer y los dos exportadores vectoriales para que las cinco
+   * salidas no puedan dibujar puntas distintas.
+   *
+   * `{ lines, polygon, circle }`: cada forma usa lo suyo y deja el resto
+   * vacío. La ausencia de `shape` (o una desconocida) devuelve las dos rayas
+   * de toda la vida, que es lo que hace que un proyecto anterior salga igual.
+   */
+  const HEAD_SHAPES = Object.freeze(['bar', 'dot', 'triangle']);
+
+  function headGeometry(x, y, angle, len, shape) {
+    const out = { lines: [], polygon: null, circle: null };
+    if (shape === 'bar') {
+      // Una barra perpendicular al trazo: el remate de cota de un plano.
+      const p = angle + Math.PI / 2;
+      const h = len * 0.5;
+      out.lines.push({
+        x1: x - Math.cos(p) * h, y1: y - Math.sin(p) * h,
+        x2: x + Math.cos(p) * h, y2: y + Math.sin(p) * h,
+      });
+      return out;
+    }
+    if (shape === 'dot') {
+      out.circle = { x, y, r: Math.max(1.5, len * 0.3) };
+      return out;
+    }
+    const alas = arrowHead(x, y, angle, len);
+    if (shape === 'triangle') {
+      // El mismo triángulo que dibujan las dos rayas, pero macizo.
+      out.polygon = [
+        { x, y },
+        { x: alas[0].x2, y: alas[0].y2 },
+        { x: alas[1].x2, y: alas[1].y2 },
+      ];
+      return out;
+    }
+    out.lines = alas;
+    return out;
+  }
+
+  /**
    * Draw a sketchy arrow (line + arrowhead).
    * La punta escala con el grosor del trazo: 10 + 2·lineWidth
    * (con el default lineWidth=2 son los 14px históricos).
@@ -194,5 +262,6 @@ const Sketchy = (() => {
     });
   }
 
-  return { line, rect, roundedRect, ellipse, arrow, arrowHead, curve, cubicCurve, setSeed };
+  return { line, rect, roundedRect, ellipse, arrow, arrowHead, headGeometry,
+           HEAD_SHAPES, curve, cubicCurve, setSeed, setRoughness };
 })();

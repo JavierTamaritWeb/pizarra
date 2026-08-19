@@ -1004,3 +1004,101 @@ test('en modo «solapamiento oculto» el aerógrafo se dibuja igual: no es una f
   assert.deepEqual(solo.callsTo('arc').map(c => c.args),
     oculto.callsTo('arc').map(c => c.args));
 });
+
+/* ────────────────────────────────────────────────────────────
+   Aspecto de boceto (v3.11.0): trama, temblor y punta
+   ──────────────────────────────────────────────────────────── */
+
+test('el temblor multiplica la amplitud del jitter, y su ausencia es el de siempre', () => {
+  // Se mide la desviación máxima respecto a la recta ideal con el MISMO seed:
+  // lo único que cambia entre las tres pasadas es el factor.
+  const desviacion = rough => {
+    const ctx = createCtxStub();
+    Renderer.renderElement(ctx, {
+      type: 'line', x1: 0, y1: 0, x2: 100, y2: 0,
+      color: '#000000', lineWidth: 2, seed: 5, ...(rough ? { rough } : {}),
+    });
+    return Math.max(...ctx.callsTo('lineTo').map(c => Math.abs(c.args[1])));
+  };
+  const arquitecto = desviacion(0.5);
+  const normal = desviacion(undefined);
+  const caricatura = desviacion(2);
+  assert.ok(arquitecto < normal, `${arquitecto} debería temblar menos que ${normal}`);
+  assert.ok(caricatura > normal, `${caricatura} debería temblar más que ${normal}`);
+  // Y exactamente proporcional: es un factor, no una escala inventada.
+  assert.ok(Math.abs(caricatura / normal - 2) < 1e-6, `factor real ${caricatura / normal}`);
+  assert.ok(Math.abs(arquitecto / normal - 0.5) < 1e-6);
+});
+
+test('el temblor de un elemento no se le queda pegado al siguiente', () => {
+  // renderElement lo fija por elemento y lo devuelve a 1 al terminar la
+  // escena; si no, una forma «de caricatura» contagiaría a todo lo demás.
+  const linea = { type: 'line', x1: 0, y1: 0, x2: 100, y2: 0, color: '#000000', lineWidth: 2, seed: 5 };
+  const suelta = createCtxStub();
+  Renderer.renderElement(suelta, linea);
+  const solo = Math.max(...suelta.callsTo('lineTo').map(c => Math.abs(c.args[1])));
+
+  const escena = createCtxStub();
+  Renderer.renderElements(escena, [{ ...linea, rough: 2 }, linea]);
+  const todas = escena.callsTo('lineTo').map(c => Math.abs(c.args[1]));
+  const segunda = Math.max(...todas.slice(todas.length / 2));
+  assert.ok(Math.abs(segunda - solo) < 1e-9,
+    'la segunda línea tiene que temblar como si estuviera sola');
+});
+
+test('una forma tramada NO se rellena: se traza la trama', () => {
+  const base = {
+    type: 'rect', x: 10, y: 10, w: 120, h: 80,
+    color: '#333344', lineWidth: 2, fill: true, seed: 4,
+  };
+  const plano = createCtxStub();
+  Renderer.renderElement(plano, base);
+  assert.equal(plano.callsTo('fillRect').length, 1, 'el relleno plano es un fillRect');
+
+  const tramado = createCtxStub();
+  Renderer.renderElement(tramado, { ...base, fillPattern: 'hachure' });
+  assert.equal(tramado.callsTo('fillRect').length, 0, 'la trama no rellena la caja');
+  // Y traza más de una vez: el contorno más las rayas.
+  assert.ok(tramado.callsTo('stroke').length > 4, 'faltan las rayas');
+});
+
+test('la trama de puntos es UNA ruta con N arcos y un solo fill', () => {
+  // La misma economía que la nube del aerógrafo: un fill por punto multiplica
+  // el coste del repintado sin cambiar nada de lo que se ve.
+  const ctx = createCtxStub();
+  Renderer.renderElement(ctx, {
+    type: 'circle', x: 0, y: 0, w: 120, h: 120,
+    color: '#333344', lineWidth: 2, fill: true, seed: 4, fillPattern: 'dots',
+  });
+  const arcos = ctx.callsTo('arc').length;
+  assert.ok(arcos > 10, `solo ${arcos} puntos`);
+  assert.equal(ctx.callsTo('fill').length, 1, 'un único fill para toda la nube');
+});
+
+test('cada forma de punta emite su primitiva, y la ausencia las dos rayas', () => {
+  const flecha = extra => {
+    const ctx = createCtxStub();
+    Renderer.renderElement(ctx, {
+      type: 'arrow', x1: 0, y1: 0, x2: 100, y2: 0,
+      color: '#333344', lineWidth: 2, seed: 3, ...extra,
+    });
+    return ctx;
+  };
+  // Clásica: cuerpo + dos rayas = tres strokes, ningún fill.
+  const clasica = flecha({});
+  assert.equal(clasica.callsTo('stroke').length, 3);
+  assert.equal(clasica.callsTo('fill').length, 0);
+  // Maciza: el cuerpo y un fill del triángulo.
+  const maciza = flecha({ headShape: 'triangle' });
+  assert.equal(maciza.callsTo('stroke').length, 1);
+  assert.equal(maciza.callsTo('fill').length, 1);
+  assert.equal(maciza.callsTo('closePath').length, 1);
+  // Punto: un arc relleno.
+  const punto = flecha({ headShape: 'dot' });
+  assert.equal(punto.callsTo('arc').length, 1);
+  assert.equal(punto.callsTo('fill').length, 1);
+  // Barra: cuerpo + una sola raya perpendicular.
+  const barra = flecha({ headShape: 'bar' });
+  assert.equal(barra.callsTo('stroke').length, 2);
+  assert.equal(barra.callsTo('fill').length, 0);
+});

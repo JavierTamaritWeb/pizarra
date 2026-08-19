@@ -5634,3 +5634,139 @@ test('una pirámide DE PIE volteada sigue volteada tras regenerarla', () => {
       `la figura vuelve a su sitio (lado ${i}: ${caja[i]} → ${tras[i]})`);
   }
 });
+
+/* ────────────────────────────────────────────────────────────
+   Aspecto de boceto (v3.11.0): trama, temblor y punta
+   ──────────────────────────────────────────────────────────── */
+
+/** Elige un valor en un <select> y dispara su change, como haría el usuario. */
+function elegir(app, id, valor) {
+  const sel = app.$(id);
+  sel.value = valor;
+  sel.__fire('change', { target: sel });
+  app.flush();
+}
+
+test('la trama es un default de creación y se estampa solo si no es plana', () => {
+  const app = loadApp();
+  app.$('check-fill').checked = true;
+  app.$('check-fill').__fire('change', { target: app.$('check-fill') });
+  app.flush();
+
+  app.selectTool('rect');
+  app.drag(100, 100, 200, 200);
+  assert.equal(app.elements()[0].fillPattern, undefined,
+    'el relleno plano NO se guarda: su ausencia es el aspecto');
+
+  elegir(app, 'fill-pattern', 'cross-hatch');
+  app.selectTool('rect');
+  app.drag(300, 100, 400, 200);
+  assert.equal(app.elements()[1].fillPattern, 'cross-hatch');
+});
+
+test('con formas seleccionadas, la trama las edita (semántica dual)', () => {
+  const app = loadApp();
+  app.$('check-fill').checked = true;
+  app.$('check-fill').__fire('change', { target: app.$('check-fill') });
+  app.flush();
+  app.selectTool('rect');
+  app.drag(100, 100, 200, 200);
+  app.selectTool('select');
+  app.click(150, 150);
+
+  elegir(app, 'fill-pattern', 'dots');
+  assert.equal(app.elements()[0].fillPattern, 'dots');
+  // Y el default de creación NO se ha tocado: con selección se edita, no se fija.
+  app.click(700, 600);              // deselecciona
+  app.selectTool('rect');
+  app.drag(300, 300, 400, 400);
+  assert.equal(app.elements()[1].fillPattern, undefined);
+
+  // Volver a «Plano» BORRA el campo en vez de guardarlo.
+  app.selectTool('select');
+  app.click(150, 150);
+  elegir(app, 'fill-pattern', 'solid');
+  assert.equal('fillPattern' in app.elements()[0], false);
+});
+
+test('el temblor viaja en el elemento, y el de siempre no se guarda', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 200, 200);
+  assert.equal(app.elements()[0].rough, undefined);
+
+  elegir(app, 'stroke-modal-rough', '2');
+  app.selectTool('rect');
+  app.drag(300, 100, 400, 200);
+  assert.equal(app.elements()[1].rough, 2);
+  // El gemelo del otro modal enseña lo mismo: es un solo ajuste.
+  assert.equal(app.$('shape-modal-rough').value, '2');
+
+  // Con selección, edita; y volver al de siempre borra el campo.
+  app.selectTool('select');
+  app.click(350, 150);
+  elegir(app, 'shape-modal-rough', '1');
+  assert.equal('rough' in app.elements()[1], false);
+});
+
+test('la forma de la punta solo se estampa en flechas, y nunca en un semicírculo', () => {
+  const app = loadApp();
+  elegir(app, 'stroke-modal-head', 'triangle');
+  app.selectTool('arrow');
+  app.drag(100, 100, 300, 100);
+  assert.equal(app.elements()[0].headShape, 'triangle');
+
+  // Una línea no tiene punta: no lo hereda.
+  app.selectTool('line');
+  app.drag(100, 300, 300, 300);
+  assert.equal(app.elements()[1].headShape, undefined);
+
+  // El semicírculo tampoco (heads: 'none').
+  app.selectTool('arc');
+  app.drag(100, 400, 300, 400);
+  const arco = app.elements()[2];
+  assert.equal(arco.heads, 'none');
+  assert.equal(arco.headShape, undefined);
+});
+
+test('los tres ajustes sobreviven a la recarga y vuelven a fábrica al limpiar', () => {
+  const app = loadApp();
+  elegir(app, 'fill-pattern', 'zigzag');
+  elegir(app, 'stroke-modal-rough', '0.5');
+  elegir(app, 'stroke-modal-head', 'bar');
+
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.fillPattern, 'zigzag');
+  assert.equal(prefs.roughness, 0.5);
+  assert.equal(prefs.headShape, 'bar');
+
+  const otra = loadApp({ prefs });
+  assert.equal(otra.$('fill-pattern').value, 'zigzag');
+  assert.equal(otra.$('stroke-modal-rough').value, '0.5');
+  assert.equal(otra.$('stroke-modal-head').value, 'bar');
+});
+
+test('el estilo copiado se lleva la trama, el temblor y la punta', () => {
+  const app = loadApp();
+  app.$('check-fill').checked = true;
+  app.$('check-fill').__fire('change', { target: app.$('check-fill') });
+  app.flush();
+  elegir(app, 'fill-pattern', 'hachure');
+  elegir(app, 'stroke-modal-rough', '2');
+  app.selectTool('rect');
+  app.drag(100, 100, 200, 200);
+  elegir(app, 'fill-pattern', 'solid');
+  elegir(app, 'stroke-modal-rough', '1');
+  app.selectTool('rect');
+  app.drag(300, 100, 400, 200);
+
+  app.selectTool('select');
+  app.click(150, 150);
+  app.key('ç', { ctrlKey: true, altKey: true, code: 'KeyC' });
+  app.click(350, 150);
+  app.key('√', { ctrlKey: true, altKey: true, code: 'KeyV' });
+
+  const b = app.elements()[1];
+  assert.equal(b.fillPattern, 'hachure');
+  assert.equal(b.rough, 2);
+});

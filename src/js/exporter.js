@@ -278,8 +278,20 @@ const Exporter = (() => {
    * Las 2 <line> de una punta de flecha (solo valores numéricos calculados;
    * `s` ya viene con color/grosor escapados). Geometría de Sketchy.arrowHead.
    */
-  function _svgArrowHead(x, y, angle, len, s) {
-    return Sketchy.arrowHead(x, y, angle, len)
+  function _svgArrowHead(x, y, angle, len, s, el) {
+    // La forma sale de la MISMA función que usa el renderer (v3.11.0): el
+    // triángulo y el punto son macizos, así que se rellenan con el color del
+    // trazo en vez de trazarse.
+    const g = Sketchy.headGeometry(x, y, angle, len, el && el.headShape);
+    const color = _escapeXml(String((el && el.color) || '#000000'));
+    if (g.polygon) {
+      const pts = g.polygon.map(p => `${_round(p.x)},${_round(p.y)}`).join(' ');
+      return `<polygon points="${pts}" fill="${color}" stroke="none"/>\n`;
+    }
+    if (g.circle) {
+      return `<circle cx="${_round(g.circle.x)}" cy="${_round(g.circle.y)}" r="${_round(g.circle.r)}" fill="${color}" stroke="none"/>\n`;
+    }
+    return g.lines
       .map(sg => `<line x1="${sg.x1}" y1="${sg.y1}" x2="${sg.x2}" y2="${sg.y2}" ${s}/>\n`)
       .join('');
   }
@@ -297,7 +309,10 @@ const Exporter = (() => {
     const lw = _escapeXml(String(el.lineWidth));
     const fillCol = _escapeXml(_fillColor(el));
     const s = `stroke="${color}" stroke-width="${lw}" fill="none" stroke-linecap="round"`;
-    const sf = `stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="${el.fill ? fillCol : 'none'}"`;
+    // Una forma TRAMADA no lleva relleno plano en su propia etiqueta: la
+    // trama se emite aparte, como un grupo de líneas.
+    const tramada = Hatch.isPattern(el.fillPattern);
+    const sf = `stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="${el.fill && !tramada ? fillCol : 'none'}"`;
     // Cuerpo con trazo discontinuo opcional (las puntas siempre usan `s`, sólidas)
     const sBody = el.dash ? `${s} stroke-dasharray="${4 * el.lineWidth} ${4 * el.lineWidth}"` : s;
     let out = '';
@@ -357,9 +372,9 @@ const Exporter = (() => {
           // Punta escalada con el grosor (10 + 2·lineWidth; 14 con el default)
           const hl = 10 + 2 * el.lineWidth;
           const a = Math.atan2(el.y2 - el.y1, el.x2 - el.x1);
-          out += _svgArrowHead(el.x2, el.y2, a, hl, s);
+          out += _svgArrowHead(el.x2, el.y2, a, hl, s, el);
           if (el.heads === 'both') {
-            out += _svgArrowHead(el.x1, el.y1, Math.atan2(el.y1 - el.y2, el.x1 - el.x2), hl, s);
+            out += _svgArrowHead(el.x1, el.y1, Math.atan2(el.y1 - el.y2, el.x1 - el.x2), hl, s, el);
           }
           out += _svgArrowLabel(el, color);
           break;
@@ -381,12 +396,12 @@ const Exporter = (() => {
           // heads:'none' (semicírculos): sin punta en ningún extremo
           if (el.heads !== 'none') {
             const tangent = CurvePath.endTangent(el);
-            out += _svgArrowHead(curveEnd.x, curveEnd.y, Math.atan2(tangent.dy, tangent.dx), chl, s);
+            out += _svgArrowHead(curveEnd.x, curveEnd.y, Math.atan2(tangent.dy, tangent.dx), chl, s, el);
           }
           // Doble punta opcional: tangente en el inicio (control → inicio)
           if (el.heads === 'both') {
             const tangent = CurvePath.startTangent(el);
-            out += _svgArrowHead(curveStart.x, curveStart.y, Math.atan2(tangent.dy, tangent.dx), chl, s);
+            out += _svgArrowHead(curveStart.x, curveStart.y, Math.atan2(tangent.dy, tangent.dx), chl, s, el);
           }
           out += _svgArrowLabel(el, color);
           break;
@@ -493,11 +508,44 @@ const Exporter = (() => {
           break;
     }
 
+    // La trama va DELANTE del markup de la forma, no detrás: en el lienzo el
+    // relleno se pinta antes que el contorno, y al revés el rayado taparía el
+    // trazo. Un solo punto para los seis tipos rellenables.
+    if (el.fill && tramada) out = _svgHatch(el) + out;
+    return out;
+  }
+
+  /**
+   * La trama en SVG: un <g> de líneas (y círculos, en el patrón de puntos)
+   * generado por el MISMO `Hatch.geometry` que pinta el lienzo, así que el
+   * fichero exportado no puede enseñar otra cosa.
+   */
+  function _svgHatch(el) {
+    const g = Hatch.geometry(el);
+    if (!g.lines.length && !g.dots.length) return '';
+    const color = _escapeXml(Renderer.hatchStyle(el));
+    const lw = _round(Math.max(0.8, (el.lineWidth || 2) * 0.6));
+    let out = '';
+    if (g.lines.length) {
+      out += `<g stroke="${color}" stroke-width="${lw}" fill="none" stroke-linecap="round">`;
+      for (const l of g.lines) {
+        out += `<line x1="${_round(l.x1)}" y1="${_round(l.y1)}" x2="${_round(l.x2)}" y2="${_round(l.y2)}"/>`;
+      }
+      out += '</g>\n';
+    }
+    if (g.dots.length) {
+      out += `<g fill="${color}" stroke="none">`;
+      for (const d of g.dots) {
+        out += `<circle cx="${_round(d.x)}" cy="${_round(d.y)}" r="${_round(d.r)}"/>`;
+      }
+      out += '</g>\n';
+    }
     return out;
   }
 
   function _svgShapeFill(el) {
     if (!el.fill) return '';
+    if (Hatch.isPattern(el.fillPattern)) return _svgHatch(el);
     const fill = _escapeXml(_fillColor(el));
     if (el.type === 'circle') {
       return `<ellipse cx="${el.x + el.w / 2}" cy="${el.y + el.h / 2}" rx="${Math.abs(el.w) / 2}" ry="${Math.abs(el.h) / 2}" fill="${fill}" stroke="none"/>\n`;
@@ -592,7 +640,11 @@ body { font-family: ${FONT_CSS()};${options.transparent ? '' : ' background: #ff
 `;
 
     const hasEraser = elements.some(el => el.type === 'eraser');
-    if (options.overlapMode === 'hidden-dashed' || hasEraser) {
+    // Una forma tramada no tiene representación en HTML plano (un <div> con
+    // borde no sabe de rayas), así que la escena entera se conserva en el
+    // lienzo vectorial — el mismo desvío que ya hacían los borradores.
+    const hayTrama = elements.some(el => Hatch.isPattern(el.fillPattern));
+    if (options.overlapMode === 'hidden-dashed' || hasEraser || hayTrama) {
       // El recorte parcial de contornos requiere SVG; en este modo la escena
       // completa se conserva en un único lienzo vectorial con su z-order.
       out += `  <svg width="${CANVAS_W}" height="${CANVAS_H}" viewBox="0 0 ${CANVAS_W} ${CANVAS_H}" style="left:0;top:0;pointer-events:none;">\n`;
@@ -712,6 +764,10 @@ body { font-family: ${FONT_CSS()};${options.transparent ? '' : ' background: #ff
   // frontal más line/curveArrow, nunca un `type:'prisma'`.
   // INK sí entra: el bote de pintura no es un tipo, lo que crea es un
   // `polygon` con `ink: true`. Es la diferencia exacta con el aerógrafo.
+  /** Tipos con superficie que puede tramarse (los mismos que admiten fill). */
+  const HATCHABLE = ['rect', 'roundedRect', 'circle', 'square', 'trapezoid',
+    'triangle', 'pentagon', 'hexagon', 'star5', 'star6', 'polygon'];
+
   const CREATION_ONLY_TOOLS = [TOOLS.SELECT, TOOLS.ARC, TOOLS.EMOJI, TOOLS.INK,
     ...BUILDING_TOOLS, ...GARDEN_TOOLS, ...SOLID_TOOLS];
   const ELEMENT_TYPES = Object.values(TOOLS).filter(t => !CREATION_ONLY_TOOLS.includes(t));
@@ -754,6 +810,19 @@ body { font-family: ${FONT_CSS()};${options.transparent ? '' : ' background: #ff
     // SVG/HTML, así que se valida como hex igual que `color`
     if (el.fillColor !== undefined &&
         !(typeof el.fillColor === 'string' && HEX_COLOR.test(el.fillColor))) return false;
+    // fillPattern (relleno tramado, v3.11.0): lista cerrada y atado a los
+    // tipos que tienen superficie. La ausencia es el relleno plano de
+    // siempre, así que `'solid'` NO es un valor válido: sería el mismo
+    // aspecto guardado dos veces (la lección de `bold: false`).
+    if (el.fillPattern !== undefined &&
+        !(Hatch.isPattern(el.fillPattern) && HATCHABLE.includes(el.type))) return false;
+    // rough (nivel de temblor, v3.11.0): solo los dos que NO son el de
+    // siempre; el normal es la ausencia del campo.
+    if (el.rough !== undefined && !(el.rough === 0.5 || el.rough === 2)) return false;
+    // headShape (forma de la punta): lista cerrada y solo donde hay punta.
+    if (el.headShape !== undefined &&
+        !(Sketchy.HEAD_SHAPES.includes(el.headShape) &&
+          (el.type === 'arrow' || el.type === 'curveArrow'))) return false;
     // ink: marca la mancha del bote de pintura. Atada a su tipo y con la
     // ausencia como valor normal, igual que `dash`. No es decorativa: es lo
     // que hace que una mancha NO sea barrera al repintar (si lo fuera, no se

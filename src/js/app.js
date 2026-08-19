@@ -127,6 +127,11 @@
    * devolviera lo último escrito en vez del valor de fábrica. Cualquier campo
    * anidado que se añada hereda esa protección sin pensarlo.
    */
+  /* Niveles de temblor (v3.11.0), la «sloppiness» de rough.js y Excalidraw.
+     El 1 es el de siempre y es la AUSENCIA del campo en el elemento; los
+     valores están pinneados en tests/smoke.test.js contra los del <select>. */
+  const ROUGH_VALUES = [0.5, 1, 2];
+
   function appDefaults() {
     return {
       color:       '#1a1a2e',
@@ -152,6 +157,15 @@
       doubleHead:  false, // nuevas flechas con punta en ambos extremos
       dashed:      false, // nuevas líneas/flechas con trazo discontinuo
       strokeTaper: false, // nuevos trazos de lápiz con presión simulada (v2.37.0)
+      // Trama del relleno (v3.11.0): 'solid' es el relleno plano de siempre y
+      // NO se estampa en el elemento — su ausencia es ese mismo aspecto.
+      fillPattern: 'solid',
+      // Nivel de temblor con el que nacen los trazos (v3.11.0): 1 es el de
+      // siempre, y tampoco se estampa.
+      roughness:   1,
+      // Forma de la punta de las flechas nuevas: 'line' son las dos rayas
+      // clásicas, que es la ausencia del campo.
+      headShape:   'line',
       // Comba con la que nacen las flechas curvas, como fracción de la cuerda
       // (v3.2.0). Es un ajuste de HERRAMIENTA: la curvatura ya viaja dentro de
       // cx/cy, así que el elemento no estrena ningún campo.
@@ -262,11 +276,18 @@
   // Seed de jitter por elemento: serializable, sobrevive al export/import
   const newSeed = () => (Math.random() * 2 ** 31) | 0;
 
+  /** El temblor de un elemento recién creado: se estampa SOLO cuando no es el
+      de siempre, porque la ausencia del campo ES el de siempre (misma regla
+      que `taper`, `ink` o `dash`). */
+  function roughStamp() {
+    return state.roughness !== 1 ? { rough: state.roughness } : {};
+  }
+
   function withSeeds(els) {
     // No solo `undefined`: un seed corrupto de un JSON manipulado (string,
     // null, NaN) haría a Sketchy caer a Math.random y el elemento temblaría
     // en cada redraw — justo el defecto que el seed existe para eliminar.
-    return els.map(el => Number.isFinite(el.seed) ? el : { ...el, seed: newSeed() });
+    return els.map(el => Number.isFinite(el.seed) ? el : { ...el, seed: newSeed(), ...roughStamp() });
   }
 
   // Los elementos se tratan como inmutables (p. ej. moveElement devuelve una
@@ -1243,6 +1264,9 @@
         overlapMode: state.overlapMode,
         eraserSize: state.eraserSize,
         strokeTaper: state.strokeTaper,
+        fillPattern: state.fillPattern,
+        roughness: state.roughness,
+        headShape: state.headShape,
         curveBulge: state.curveBulge,
         alignGuides: state.alignGuides,
         buildFloors: state.buildFloors,
@@ -1339,6 +1363,15 @@
       }
       if (typeof prefs.textBold === 'boolean') state.textBold = prefs.textBold;
       if (typeof prefs.strokeTaper === 'boolean') state.strokeTaper = prefs.strokeTaper;
+      // Los tres del aspecto de boceto (v3.11.0), contra su catálogo: un valor
+      // de otra versión dejaría el default apuntando a una trama inexistente.
+      if (prefs.fillPattern === 'solid' || Hatch.isPattern(prefs.fillPattern)) {
+        state.fillPattern = prefs.fillPattern;
+      }
+      if (ROUGH_VALUES.includes(prefs.roughness)) state.roughness = prefs.roughness;
+      if (prefs.headShape === 'line' || Sketchy.HEAD_SHAPES.includes(prefs.headShape)) {
+        state.headShape = prefs.headShape;
+      }
       // La comba se acota al rango del mando: fuera de él no hay forma de
       // devolverla a un valor razonable desde la interfaz.
       if (Number.isFinite(prefs.curveBulge)) {
@@ -3876,6 +3909,7 @@
           x2: p2.x, y2: p2.y,
           color: state.color, lineWidth: state.lineWidth,
           seed: newSeed(),
+          ...roughStamp(),
         };
         if (state.tool === TOOLS.CURVE_ARROW) {
           // Curvatura por defecto: control perpendicular al 25% de la longitud
@@ -3898,6 +3932,13 @@
         if ((state.tool === TOOLS.ARROW || state.tool === TOOLS.CURVE_ARROW) && state.doubleHead) {
           el.heads = 'both';
         }
+        // Forma de la punta (v3.11.0): solo donde hay punta, y solo si no es
+        // la clásica — su ausencia son las dos rayas de siempre. El
+        // semicírculo no lleva punta (`heads:'none'`), así que tampoco forma.
+        if (state.headShape !== 'line' && state.tool !== TOOLS.ARC &&
+            (state.tool === TOOLS.ARROW || state.tool === TOOLS.CURVE_ARROW)) {
+          el.headShape = state.headShape;
+        }
         if (state.dashed) el.dash = true;
         state.elements.push(el);
         // Extremos sobre un elemento anclable: la flecha nace conectada
@@ -3915,7 +3956,9 @@
           color: state.color,
           lineWidth: state.lineWidth,
           seed: newSeed(),
+          ...roughStamp(),
           heads: state.doubleHead ? 'both' : undefined,
+          headShape: state.headShape !== 'line' ? state.headShape : undefined,
           dash: state.dashed,
         };
         lastPos = { ...p1 };
@@ -3942,10 +3985,15 @@
           color: state.color, lineWidth: state.lineWidth,
           fill: state.fillShapes,
           seed: newSeed(),
+          ...roughStamp(),
         };
         // Sin fillColor, el relleno cae en el tinte del trazo (aspecto clásico)
         if (state.fillShapes && state.fillColor) shape.fillColor = state.fillColor;
         if (state.fillShapes && state.fillTransparent) shape.fillTransparent = true;
+        // Trama: solo si está rellena y el patrón no es el plano.
+        if (state.fillShapes && Hatch.isPattern(state.fillPattern)) {
+          shape.fillPattern = state.fillPattern;
+        }
         shape.fillOpacity = state.fillOpacity;
         // El giro solo se escribe si lo hay: su ausencia es el formato
         // histórico, y en rect/redondeado isValidElement lo rechaza.
@@ -3965,6 +4013,7 @@
         h: h > 20 ? h : defs.h,
         color: state.color, lineWidth: state.lineWidth,
         seed: newSeed(),
+        ...roughStamp(),
       };
       // Rótulo de creación elegido en #modal-ui; vacío = default del renderer
       // (Imagen no está en uiLabels: su renderer no recibe rótulo).
@@ -4815,6 +4864,8 @@
       fillTransparent: el.fillTransparent, fillOpacity: el.fillOpacity,
       bold: el.bold, shadow: el.shadow, shadowColor: el.shadowColor,
       taper: el.taper,
+      // El aspecto de boceto (v3.11.0) es «traje» como cualquier otro campo.
+      fillPattern: el.fillPattern, rough: el.rough, headShape: el.headShape,
     };
     showToast('🎨 Estilo copiado');
   }
@@ -4836,7 +4887,11 @@
     };
     put('dash', DASHABLE_TYPES.includes(el.type)); // el mismo corte que applyDash
     const fillable = FILLABLE_TYPES.includes(el.type);
-    ['fill', 'fillColor', 'fillTransparent', 'fillOpacity'].forEach(k => put(k, fillable));
+    ['fill', 'fillColor', 'fillTransparent', 'fillOpacity', 'fillPattern']
+      .forEach(k => put(k, fillable));
+    // El temblor lo tiene todo lo que dibuja Sketchy, así que no se filtra.
+    put('rough', true);
+    put('headShape', el.type === 'arrow' || el.type === 'curveArrow');
     const isText = el.type === 'text';
     if (isText && Number.isFinite(styleClipboard.fontSize)) copy.fontSize = styleClipboard.fontSize;
     ['bold', 'shadow', 'shadowColor'].forEach(k => put(k, isText));
@@ -6615,6 +6670,89 @@
     syncStrokeControls();
   }
 
+  /**
+   * Trama del relleno (v3.11.0). Mismo contrato que applyDash: con formas
+   * rellenables seleccionadas las edita (copias inmutables + un paso de undo);
+   * sin selección, fija el default de creación y lo persiste.
+   *
+   * `'solid'` BORRA el campo en vez de guardarlo: la ausencia es el relleno
+   * plano de siempre, y guardarlo sería el mismo aspecto escrito dos veces
+   * (la lección de `bold: false`).
+   */
+  function applyFillPattern(pattern) {
+    const valido = pattern === 'solid' || Hatch.isPattern(pattern);
+    if (!valido) return;
+    if (state.selection.length) {
+      const fillables = state.selection.filter(
+        i => FILLABLE_TYPES.includes(state.elements[i].type));
+      if (fillables.length) {
+        saveUndo();
+        fillables.forEach(i => {
+          const copy = { ...state.elements[i] };
+          if (pattern === 'solid') delete copy.fillPattern;
+          else copy.fillPattern = pattern;
+          state.elements[i] = copy;
+        });
+        redraw();
+      }
+    } else {
+      state.fillPattern = pattern;
+      savePrefs();
+    }
+    syncShapeControls();
+  }
+
+  /**
+   * Nivel de temblor (v3.11.0). Afecta a TODO lo que dibuja Sketchy, así que
+   * edita la selección entera sin filtrar por tipo — un temblor no significa
+   * nada distinto en una flecha que en un hexágono.
+   */
+  function applyRough(valor) {
+    const v = Number(valor);
+    if (!ROUGH_VALUES.includes(v)) return;
+    if (state.selection.length) {
+      saveUndo();
+      state.selection.forEach(i => {
+        const copy = { ...state.elements[i] };
+        if (v === 1) delete copy.rough;      // el de siempre es la ausencia
+        else copy.rough = v;
+        state.elements[i] = copy;
+      });
+      redraw();
+    } else {
+      state.roughness = v;
+      savePrefs();
+    }
+    syncStrokeControls();
+    syncShapeControls();
+  }
+
+  /** Forma de la punta de las flechas seleccionadas (v3.11.0), o de las que
+      van a nacer. Solo donde hay punta: un semicírculo no la lleva. */
+  function applyHeadShape(shape) {
+    if (shape !== 'line' && !Sketchy.HEAD_SHAPES.includes(shape)) return;
+    if (state.selection.length) {
+      const arrows = state.selection.filter(i => {
+        const el = state.elements[i];
+        return (el.type === 'arrow' || el.type === 'curveArrow') && el.heads !== 'none';
+      });
+      if (arrows.length) {
+        saveUndo();
+        arrows.forEach(i => {
+          const copy = { ...state.elements[i] };
+          if (shape === 'line') delete copy.headShape;
+          else copy.headShape = shape;
+          state.elements[i] = copy;
+        });
+        redraw();
+      }
+    } else {
+      state.headShape = shape;
+      savePrefs();
+    }
+    syncStrokeControls();
+  }
+
   /** Punto ÚNICO de sincronía de los ajustes de trazo: reparte grosor, color,
       discontinuo y doble punta a los dos juegos de controles (panel y modal) y
       repinta la muestra. Asignar `.value`/`.checked` no dispara eventos, así
@@ -6707,6 +6845,21 @@
     const curvable = state.tool === TOOLS.CURVE_ARROW || curves.length > 0;
     $('stroke-modal-curve-row').classList.toggle('modal__field--off', !curvable);
     $('stroke-modal-curve').disabled = !curvable;
+    // Temblor: a los DOS modales, que es donde vive el gemelo.
+    const rough = sel.length
+      ? commonOf(sel, el => (el.rough === undefined ? 1 : el.rough)) : state.roughness;
+    if (rough !== undefined) {
+      $('stroke-modal-rough').value = String(rough);
+      $('shape-modal-rough').value = String(rough);
+    }
+    // Forma de la punta: solo donde hay punta, con el mismo atenuado que la
+    // doble punta (y por el mismo motivo: un semicírculo no lleva ninguna).
+    const conPunta = arrows.filter(el => el.heads !== 'none');
+    const head = sel.length
+      ? commonOf(conPunta, el => el.headShape || 'line') : state.headShape;
+    if (head !== undefined) $('stroke-modal-head').value = head;
+    $('stroke-modal-head-row').classList.toggle('modal__field--off', !heads);
+    $('stroke-modal-head').disabled = !heads;
     renderStrokePreview();
   }
 
@@ -6825,6 +6978,15 @@
     // salir, no lo que dice un control deshabilitado.
     if ($('stroke-modal-dash').checked && !$('stroke-modal-dash').disabled) el.dash = true;
     if ($('stroke-modal-double').checked && el.type === 'arrow') el.heads = 'both';
+    // Temblor y forma de la punta: la muestra dibuja lo que va a salir, y los
+    // dos mandos están justo al lado.
+    const roughSel = Number($('stroke-modal-rough').value);
+    if (ROUGH_VALUES.includes(roughSel) && roughSel !== 1) el.rough = roughSel;
+    const headSel = $('stroke-modal-head').value;
+    if (el.type === 'arrow' && !$('stroke-modal-head').disabled &&
+        Sketchy.HEAD_SHAPES.includes(headSel)) {
+      el.headShape = headSel;
+    }
     // Con la presión simulada activa (y aplicable), la muestra es un trazo de
     // lápiz de verdad: una S con separación creciente entre puntos, para que
     // se vea el rasgo que define al modo — fino donde corre, grueso donde no.
@@ -6906,6 +7068,18 @@
     $('fill-color-picker').value = fillColor;
     // Las paletas del relleno enseñan lo mismo que su selector de al lado.
     updateFillColorActive(fillColor);
+    // Trama, a los dos lados. Sin trama guardada, «Plano»: la ausencia del
+    // campo ES el relleno plano.
+    const patron = fillable ? (fillable.fillPattern || 'solid') : state.fillPattern;
+    $('shape-modal-pattern').value = patron;
+    $('fill-pattern').value = patron;
+    // Y solo pinta con el relleno puesto, igual que la opacidad.
+    $('shape-modal-pattern').disabled = !on;
+    $('fill-pattern').disabled = !on;
+    // Temblor: el gemelo del modal de trazo (que puede no haberse abierto).
+    const rough = single ? (single.rough === undefined ? 1 : single.rough) : state.roughness;
+    $('shape-modal-rough').value = String(rough);
+    $('stroke-modal-rough').value = String(rough);
 
     // Giro. El paso lo manda el tipo, así que el deslizador se reconfigura al
     // cambiar de herramienta y el valor se ajusta al múltiplo más cercano: 36°
@@ -6989,7 +7163,13 @@
         el.fillTransparent = true;
         el.fillOpacity = +$('shape-modal-opacity').value / 100;
       }
+      // La trama que promete el selector: si la muestra saliera plana, el
+      // mando estaría mintiendo justo donde se le mira.
+      const patron = $('shape-modal-pattern').value;
+      if (Hatch.isPattern(patron)) el.fillPattern = patron;
     }
+    const rough = Number($('shape-modal-rough').value);
+    if (ROUGH_VALUES.includes(rough) && rough !== 1) el.rough = rough;
     Renderer.renderElement(pctx, el);
   }
 
@@ -8228,6 +8408,16 @@
     // elegir la herramienta, la vía primaria de la casa) — no hay gemela en
     // el panel porque el lápiz clásico no tenía allí ningún mando propio.
     $('stroke-modal-taper').addEventListener('change', e => applyTaper(e.target.checked));
+    // Los tres del aspecto de boceto (v3.11.0). La trama y el temblor tienen
+    // gemelo, así que van por lista como el discontinuo: un solo cuerpo para
+    // los dos mandos, que es lo que impide que se desincronicen.
+    ['fill-pattern', 'shape-modal-pattern'].forEach(id => {
+      $(id).addEventListener('change', e => applyFillPattern(e.target.value));
+    });
+    ['stroke-modal-rough', 'shape-modal-rough'].forEach(id => {
+      $(id).addEventListener('change', e => applyRough(e.target.value));
+    });
+    $('stroke-modal-head').addEventListener('change', e => applyHeadShape(e.target.value));
     // Posición y tamaño exactos, en el panel y en los cuatro modales de
     // ajustes: cinco juegos de campos, un solo cuerpo (applyGeometry). En
     // 'change' y no en 'input': con 'input' cada tecla sería un paso de

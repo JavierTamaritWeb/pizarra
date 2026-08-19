@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v3.10.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v3.11.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v3\.10\.0</);
-  assert.match(html, /css\/styles\.css\?v=3\.10\.0/);
-  assert.match(html, /src\/js\/app\.js\?v=3\.10\.0/);
-  assert.match(html, /src\/js\/building\.js\?v=3\.10\.0/);
-  assert.match(html, /src\/js\/garden\.js\?v=3\.10\.0/);
-  assert.match(html, /src\/js\/config\.js\?v=3\.10\.0/);
+  assert.match(html, /class="topbar__badge">v3\.11\.0</);
+  assert.match(html, /css\/styles\.css\?v=3\.11\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=3\.11\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=3\.11\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=3\.11\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=3\.11\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -64,8 +64,9 @@ test('index publica v3.10.0 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="modal-pyramid"/);
   assert.match(html, /id="modal-frustum"/);
   assert.match(html, /id="modal-sphere"/);
-  assert.match(html, /src\/js\/solid\.js\?v=3\.10\.0/);
-  assert.match(html, /src\/js\/airbrush\.js\?v=3\.10\.0/);
+  assert.match(html, /src\/js\/solid\.js\?v=3\.11\.0/);
+  assert.match(html, /src\/js\/airbrush\.js\?v=3\.11\.0/);
+  assert.match(html, /src\/js\/hatch\.js\?v=3\.11\.0/);
   // «Los clics acumulan selección» dejó el panel en la v2.17.0 y es el ajuste
   // de «Select». Si volviera a existir la casilla vieja habría dos controles
   // para un mismo estado, y solo uno cableado: el arnés `node:vm` fabrica un
@@ -1145,4 +1146,37 @@ test('la fila de aspectos existe, no duplica el catálogo y sabe pintar la rejil
   }
   assert.ok([...porColores.values()].some(n => n > 1),
     'ningún par de aspectos comparte colores: revisa el punto 2 antes de tocarlo');
+});
+
+/* ────────────────────────────────────────────────────────────
+   Aspecto de boceto (v3.11.0): los mandos y sus catálogos
+   ──────────────────────────────────────────────────────────── */
+
+/** Valores de las <option> de un <select> del HTML, por id. */
+function opcionesDe(html, id) {
+  const bloque = new RegExp(`<select[^>]*id="${id}"[^>]*>([\\s\\S]*?)</select>`).exec(html);
+  assert.ok(bloque, `no existe el <select id="${id}">`);
+  return [...bloque[1].matchAll(/value="([^"]*)"/g)].map(m => m[1]);
+}
+
+test('los selectores de trama ofrecen exactamente los patrones que sabe dibujar', () => {
+  // Dos listas que pueden separarse: la del HTML y la de Hatch.PATTERNS. Una
+  // opción de más elige un patrón que no existe (relleno plano en silencio) y
+  // una de menos deja un patrón inalcanzable.
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const { Hatch, Sketchy } = loadAll();
+  const esperado = ['solid', ...Hatch.PATTERNS];
+  assert.deepEqual(opcionesDe(html, 'fill-pattern'), esperado);
+  // Y los gemelos (panel y modal) ofrecen lo MISMO, o cambiar de uno a otro
+  // haría desaparecer opciones.
+  assert.deepEqual(opcionesDe(html, 'shape-modal-pattern'), esperado);
+
+  // Puntas: 'line' es la ausencia del campo, el resto son las de Sketchy.
+  assert.deepEqual(opcionesDe(html, 'stroke-modal-head'),
+    ['line', 'triangle', 'bar', 'dot']);
+  assert.deepEqual([...Sketchy.HEAD_SHAPES].sort(), ['bar', 'dot', 'triangle']);
+
+  // Temblor: los tres niveles, iguales en los dos modales.
+  assert.deepEqual(opcionesDe(html, 'stroke-modal-rough'), ['0.5', '1', '2']);
+  assert.deepEqual(opcionesDe(html, 'shape-modal-rough'), ['0.5', '1', '2']);
 });

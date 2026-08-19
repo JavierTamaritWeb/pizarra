@@ -293,7 +293,7 @@ test('Exporter.html: una --font-sketch envenenada no puede cerrar el <style>', (
     getPropertyValue: () => '"Evil</style><script>alert(1)</script>", cursive',
   });
   for (const f of ['src/js/config.js', 'src/js/sketchy.js', 'src/js/curve-path.js',
-                   'src/js/regular-polygon.js', 'src/js/trapezoid.js',
+                   'src/js/regular-polygon.js', 'src/js/trapezoid.js', 'src/js/hatch.js',
                    'src/js/renderer.js', 'src/js/exporter.js']) {
     loadScript(ctx, f);
   }
@@ -1699,4 +1699,85 @@ test('solidMeta.mirror solo admite true, y solo en una figura de pie', () => {
     solidMeta: { version: 2, tool: 'prisma', depth: 40, angle: 30, foreshorten: 60, taper: 50, mirror: true },
   };
   assert.equal(Exporter.isValidElement(clasica), false);
+});
+
+/* ============================================================
+   Aspecto de boceto (v3.11.0): trama, temblor y punta
+   ============================================================ */
+
+test('el SVG lleva la trama como un <g> de líneas, y la forma sin relleno plano', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.svg([{ ...elRectFill, fillPattern: 'hachure', seed: 5 }]);
+  const out = lastBlob(ctx).content;
+  const g = out.match(/<g stroke="[^"]+" stroke-width="[^"]+" fill="none"[^>]*>(.*?)<\/g>/);
+  assert.ok(g, 'falta el grupo de la trama');
+  const rayas = (g[1].match(/<line /g) || []).length;
+  assert.ok(rayas > 3, `solo ${rayas} rayas`);
+  // La forma en sí NO lleva relleno plano: se vería la mancha bajo el rayado.
+  const rect = out.split('\n').find(l => l.startsWith('<rect x='));
+  assert.ok(rect.includes('fill="none"'), rect);
+  // Y la trama va DELANTE del rectángulo en el markup: en el lienzo el
+  // relleno se pinta antes que el contorno.
+  assert.ok(out.indexOf('<g stroke=') < out.indexOf('<rect x='));
+});
+
+test('la trama de puntos sale como círculos rellenos', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.svg([{ ...elRectFill, fillPattern: 'dots', seed: 5 }]);
+  const out = lastBlob(ctx).content;
+  assert.match(out, /<g fill="[^"]+" stroke="none"><circle /);
+});
+
+test('una escena con trama se exporta a HTML por el SVG incrustado', () => {
+  // Un <div> con borde no sabe de rayas: la escena entera se conserva en el
+  // lienzo vectorial, el mismo desvío que ya hacían los borradores.
+  const plano = freshCtx();
+  plano.Exporter.html([elRectFill]);
+  assert.match(lastBlob(plano).content, /<div style="left:5px/, 'sin trama, el rect es un div');
+
+  const tramado = freshCtx();
+  tramado.Exporter.html([{ ...elRectFill, fillPattern: 'cross-hatch', seed: 5 }]);
+  const out = lastBlob(tramado).content;
+  assert.ok(!out.includes('<div style="left:'), 'no debe quedar ningún div de forma');
+  assert.match(out, /<svg width="1200"/);
+  assert.match(out, /<g stroke=/);
+});
+
+test('cada forma de punta tiene su markup en el SVG', () => {
+  const svg = extra => {
+    const ctx = freshCtx();
+    ctx.Exporter.svg([{ ...elArrow, ...extra }]);
+    return lastBlob(ctx).content;
+  };
+  assert.equal((svg({}).match(/<line /g) || []).length, 3, 'clásica: cuerpo + dos rayas');
+  assert.match(svg({ headShape: 'triangle' }), /<polygon points="[^"]+" fill="#333344" stroke="none"\/>/);
+  assert.match(svg({ headShape: 'dot' }), /<circle cx="100" cy="0" r="4\.2" fill="#333344"/);
+  assert.equal((svg({ headShape: 'bar' }).match(/<line /g) || []).length, 2);
+});
+
+test('el temblor no llega al SVG: esos formatos exportan geometría limpia', () => {
+  // Decisión explícita, no olvido: el SVG y el HTML nunca han llevado el
+  // jitter, así que el ajuste solo cambia el lienzo y el PNG/JPG.
+  const liso = freshCtx();
+  liso.Exporter.svg([elRectFill]);
+  const a = lastBlob(liso).content;
+  const tembloroso = freshCtx();
+  tembloroso.Exporter.svg([{ ...elRectFill, rough: 2 }]);
+  assert.equal(lastBlob(tembloroso).content, a);
+});
+
+test('los tres campos nuevos sobreviven a un export→import de JSON', () => {
+  const ctx = freshCtx();
+  const els = [
+    { ...elRectFill, fillPattern: 'zigzag', rough: 2 },
+    { ...elArrow, headShape: 'triangle', rough: 0.5 },
+  ];
+  ctx.Exporter.json(els);
+  const data = JSON.parse(lastBlob(ctx).content);
+  assert.equal(data.elements.length, 2);
+  for (const el of data.elements) {
+    assert.equal(ctx.Exporter.isValidElement(el), true, JSON.stringify(el));
+  }
+  assert.equal(data.elements[0].fillPattern, 'zigzag');
+  assert.equal(data.elements[1].headShape, 'triangle');
 });

@@ -417,13 +417,21 @@ puntero láser (sin colaboración no tiene público).
   `e2e/align.spec.js` (visibilidad real de la rejilla y el atajo con el
   navegador de por medio).
 
-## Fase 7 — Estética de boceto (v3.11.0)
+## Fase 7 — Estética de boceto ✅ (v3.11.0)
 
-- Rellenos tramados (hachure, cross-hatch, puntos, zigzag) en un módulo puro
-  `hatch.js`, con hash sin estado por línea (nunca una secuencia: *boiling*).
-- Nivel de temblor (arquitecto/artista/caricatura): solo lienzo y PNG/JPG —
-  el SVG y el HTML ya exportan geometría limpia y se quedan igual.
-- Tipos de punta de flecha (barra, punto, triángulo).
+- ✅ **Rellenos tramados** (rayado, cruzado, puntos, zigzag) en el módulo puro
+  `src/js/hatch.js`: hash sin estado por línea y rejilla anclada al CENTRO —
+  las dos cosas que impiden que la trama hierva al mover o al agrandar—, con
+  el mismo contorno que dibuja el renderer y emisión propia en SVG (el HTML
+  con trama se desvía entero al SVG incrustado, como con los borradores).
+- ✅ **Nivel de temblor** por un único punto de entrada
+  (`Sketchy.setRoughness`, junto a `setSeed`), no por las treinta llamadas del
+  renderer. Solo lienzo y PNG/JPG, como se decidió.
+- ✅ **Formas de punta** (maciza, barra, punto) por `Sketchy.headGeometry`,
+  compartida por renderer y exporter.
+- Guardas: `tests/hatch.test.js` (9, incluida la anti-*boiling* verificada
+  contra dos mutaciones distintas), 5 en `sketchy-renderer`, 6 en `exporter`,
+  6 en `app-interaction` y `e2e/fill-pattern.spec.js` (5, con tinta real).
 
 ## Fase 8 — Composición (v3.12.0)
 
