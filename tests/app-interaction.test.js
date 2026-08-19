@@ -5233,3 +5233,111 @@ test('cerrar la Ayuda limpia la búsqueda', () => {
   assert.equal(app.$('modal-help').querySelectorAll('.modal__help-group')
     .filter(g => g.hidden).length, 0, 'vuelve la ayuda entera');
 });
+
+/* ────────────────────────────────────────────────────────────
+   Opciones de exportación (v3.9.0)
+   ──────────────────────────────────────────────────────────── */
+
+/** Sustituye Exporter.svg por un espía y devuelve lo que recibió. */
+function spyExport(app) {
+  const calls = [];
+  app.context.Exporter.svg = (elements, options) => calls.push({ elements, options });
+  return calls;
+}
+
+function clickExport(app, format = 'svg') {
+  app.$('btn-export').__fire('click', {});
+  app.flush();
+  const btn = app.$('modal-export').querySelectorAll('[data-export]')
+    .find(b => b.dataset.export === format);
+  btn.__fire('click', { target: btn });
+  app.flush();
+}
+
+test('sin selección, «solo la selección» se deshabilita y no se queda armada', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 200, 200);
+
+  // Armada con algo seleccionado…
+  app.selectTool('select');
+  app.click(150, 150);
+  app.$('btn-export').__fire('click', {});
+  app.flush();
+  assert.equal(app.$('export-selection').disabled, false);
+  app.$('export-selection').checked = true;
+
+  // …y al abrirla sin nada seleccionado se desarma sola: si no, el siguiente
+  // export significaría «exporta nada» y saldría un fichero vacío.
+  app.key('Escape');
+  app.click(600, 600);          // clic en el vacío: deselecciona
+  app.$('btn-export').__fire('click', {});
+  app.flush();
+  assert.equal(app.$('export-selection').disabled, true);
+  assert.equal(app.$('export-selection').checked, false);
+});
+
+test('«solo la selección» manda solo lo seleccionado y su caja recortada', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 200, 200);
+  app.selectTool('rect');
+  app.drag(600, 600, 700, 700);
+  app.selectTool('select');
+  app.click(150, 150);
+
+  const calls = spyExport(app);
+  app.$('btn-export').__fire('click', {});
+  app.flush();
+  app.$('export-selection').checked = true;
+  clickExport(app);
+
+  assert.equal(calls.length, 1);
+  const { elements, options } = calls[0];
+  assert.equal(elements.length, 1, 'solo viaja el rectángulo seleccionado');
+  assert.equal(elements[0].x, 100);
+  // La caja lleva el margen del trazo a mano: recortar a ras corta el temblor.
+  assert.equal(options.box.x, 92);
+  assert.equal(options.box.w, 116);
+});
+
+test('sin marcar nada, la exportación manda la escena entera y sin recorte', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 200, 200);
+  app.selectTool('select');
+  app.click(150, 150);
+
+  const calls = spyExport(app);
+  clickExport(app);
+  assert.equal(calls[0].elements.length, 1);
+  assert.equal(calls[0].options.box, undefined, 'sin recorte');
+  assert.equal(calls[0].options.scale, 1);
+  assert.equal(calls[0].options.transparent, false);
+});
+
+test('la resolución y el fondo transparente viajan en las opciones', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 200, 200);
+  const calls = spyExport(app);
+  app.$('btn-export').__fire('click', {});
+  app.flush();
+  app.$('export-scale').value = '2';
+  app.$('export-transparent').checked = true;
+  clickExport(app);
+  assert.equal(calls[0].options.scale, 2);
+  assert.equal(calls[0].options.transparent, true);
+});
+
+test('sin portapapeles de imágenes, el botón de copiar se deshabilita solo', () => {
+  // El arnés no tiene ClipboardItem, igual que un navegador antiguo: el botón
+  // tiene que quedarse apagado en vez de prometer algo que no puede hacer.
+  const app = loadApp();
+  app.$('btn-export').__fire('click', {});
+  app.flush();
+  assert.equal(app.$('btn-copy-image').disabled, true);
+  // Y pulsarlo igualmente no lanza: avisa y ya.
+  app.$('btn-copy-image').__fire('click', {});
+  app.flush();
+});

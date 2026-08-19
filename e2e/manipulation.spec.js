@@ -20,7 +20,7 @@ test('el clic derecho sobre un elemento abre el menú y Duplicar duplica', async
 
   const menu = page.locator('#context-menu');
   await expect(menu).toBeVisible();
-  await expect(menu.locator('.ctxmenu__item')).toHaveCount(7);
+  await expect(menu.locator('.ctxmenu__item')).toHaveCount(8);
   await menu.locator('.ctxmenu__item', { hasText: 'Duplicar' }).click();
   await settle(page);
   await expect(menu).toBeHidden();

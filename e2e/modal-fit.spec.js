@@ -69,3 +69,29 @@ for (const { tool, modal } of MODALES) {
     await settle(page);
   });
 }
+
+/* El de exportación no se abre con una herramienta sino desde la barra de
+   arriba, así que no cabe en el bucle — pero creció con los ajustes de la
+   v3.9.0 (resolución, transparencia, selección y el botón de copiar), que es
+   exactamente la forma en que este fallo aparece: añadiendo mandos a un modal
+   que ya iba justo. */
+test('#modal-export se puede cerrar con el ratón en una ventana baja', async ({ page }) => {
+  await openApp(page);
+  await page.locator('#btn-export').click();
+  const dialog = page.locator('#modal-export');
+  await expect(dialog).toBeVisible();
+
+  const cerrar = dialog.locator('.modal__cancel');
+  const caja = await cerrar.boundingBox();
+  const alto = page.viewportSize().height;
+  expect(caja, 'el botón de cierre debe existir y tener caja').not.toBeNull();
+  expect(caja.y + caja.height,
+    `«Cancelar» de #modal-export se sale de la ventana (${alto}px de alto)`).toBeLessThanOrEqual(alto);
+  expect(caja.y).toBeGreaterThanOrEqual(0);
+
+  await cerrar.click({ timeout: 3000 });
+  await settle(page);
+  await expect(dialog).toBeHidden();
+  await page.locator('#main-canvas').click({ position: { x: 200, y: 150 } });
+  await settle(page);
+});

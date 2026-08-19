@@ -4,11 +4,11 @@
 
 **Wireframes, diagramas y bocetos con estética dibujada a mano — en el navegador y sin instalar nada.**
 
-[![Versión](https://img.shields.io/badge/versión-2.30.0-blueviolet?style=flat-square)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-3.9.0-blueviolet?style=flat-square)](CHANGELOG.md)
 [![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?style=flat-square&logo=javascript&logoColor=000)](src/js/)
 [![Estilos](https://img.shields.io/badge/estilos-SCSS%20·%20BEM%20·%20Gulp%205-cf649a?style=flat-square&logo=sass&logoColor=fff)](src/scss/)
 [![Dependencias](https://img.shields.io/badge/dependencias%20en%20runtime-0-brightgreen?style=flat-square)](#arquitectura)
-[![Tests](https://img.shields.io/badge/tests-707%20unitarios%20%2B%2097%20e2e-brightgreen?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-844%20unitarios%20%2B%20152%20e2e-brightgreen?style=flat-square)](#tests)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue?style=flat-square)](LICENSE)
 
 <img src="src/img/screenshot-pizarra.png" alt="La interfaz de Pizarra: barra de herramientas a la izquierda con el grupo 3D visible y la herramienta Prisma activa, en el centro un lienzo de papel azulado con cuadrícula blanca y un wireframe de landing page dibujado a mano junto a un cubo, una esfera y una pirámide hexagonal en volumen, rellenos de turquesa translúcido y con las aristas de detrás discontinuas, y a la derecha el panel de ajustes con la paleta de 36 colores ordenada por el arco iris" width="900">
@@ -168,6 +168,8 @@ Cada pieza de jardín nace con una **etiqueta** dentro del mismo grupo (se mueve
 | **HTML** | Página editable con componentes reales + SVG incrustado para los trazos |
 | **JSON** | Proyecto reutilizable — expórtalo e impórtalo después, con validación por tipo de elemento; guarda también el **aspecto del lienzo** y lo restaura al abrirlo |
 
+Tres ajustes gobiernan **qué** sale y **cómo**: la **resolución** (1×, 2× o 3× — el dibujo no cambia, cambian los píxeles), el **fondo transparente** y **solo la selección**, que recorta la exportación a lo que tengas seleccionado, con un margen para que el trazo a mano no salga cortado. Cada formato honra lo que puede representar: el JPG compone siempre el papel (no tiene transparencia) y el HTML ignora la resolución (es un documento, no una imagen). Y **«Copiar imagen al portapapeles»** deja el dibujo listo para pegar en un documento o un chat sin pasar por la carpeta de descargas — también desde el menú del clic derecho, donde copia solo la selección.
+
 **Ningún dibujo exportado lleva el color del papel ni la cuadrícula** —PNG, JPG, SVG y HTML son ajustes de pantalla—, así que el archivo, y lo que se imprima de él, sale sobre blanco limpio tenga el lienzo el fondo que tenga. La excepción es el **JSON**, que no es un dibujo sino el proyecto: ahí el aspecto sí se guarda, para que al reabrirlo el lienzo vuelva a ser el que era.
 
 ## Cómo usar Pizarra
@@ -281,7 +283,7 @@ Cuatro convenciones que conviene conocer:
 
 ## Tests
 
-**825 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
+**844 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
 de runtime:
 
 ```bash
@@ -291,7 +293,7 @@ node --test tests/exporter.test.js    # un archivo
 
 Los módulos se cargan en un contexto `node:vm` con stubs de canvas y DOM, incluido `src/js/app.js` completo: los tests lanzan gestos reales —puntero, teclado, modales— y leen el resultado del autoguardado, sin ningún hook de test en el código de producción.
 
-**143 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco, acciones por defecto del navegador, la navegación del lienzo (zoom al cursor, pan, encuadres), el feedback en vivo, los gestos multitáctiles (despachados por CDP), los flujos completos de Verjas y Cancela y el Jardín botánico en escritorio, móvil y anchos intermedios.
+**152 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco, acciones por defecto del navegador, la navegación del lienzo (zoom al cursor, pan, encuadres), el feedback en vivo, los gestos multitáctiles (despachados por CDP), los flujos completos de Verjas y Cancela y el Jardín botánico en escritorio, móvil y anchos intermedios.
 
 ```bash
 npm install && npm run e2e:install    # una vez (descarga Chromium)

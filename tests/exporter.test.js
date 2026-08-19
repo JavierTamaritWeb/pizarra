@@ -1560,3 +1560,120 @@ test('una mancha de tinta se exporta a SVG como polígono relleno y sin contorno
   assert.match(svg, /stroke="none"/, 'la mancha no lleva contorno');
   assert.match(svg, /fill="#4ecdc4"/);
 });
+
+/* ============================================================
+   Opciones de exportación (v3.9.0): resolución, fondo
+   transparente y recorte. El vocabulario es común a los cinco
+   formatos y cada uno honra lo que puede representar.
+   ============================================================ */
+
+test('la resolución multiplica el lienzo del raster, no el tamaño del dibujo', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.png([elRectFill], { scale: 3 });
+  const canvas = ctx.document.created.find(e => e.tagName === 'CANVAS');
+  assert.equal(canvas.width, 3600);
+  assert.equal(canvas.height, 2400);
+  // El dibujo no cambia de coordenadas: escala la TRANSFORMADA, no el elemento.
+  const tr = canvas._ctx.callsTo('setTransform');
+  assert.deepEqual(tr[0].args, [3, 0, 0, 3, -0, -0]);
+});
+
+test('una escala inventada cae al 1× en vez de producir un fichero roto', () => {
+  for (const bad of ['x2', 0, -3, 99, undefined, NaN]) {
+    const ctx = freshCtx();
+    ctx.Exporter.png([elRectFill], { scale: bad });
+    const canvas = ctx.document.created.find(e => e.tagName === 'CANVAS');
+    assert.equal(canvas.width, 1200, `escala ${String(bad)}`);
+  }
+});
+
+test('el fondo transparente quita el papel del PNG, pero el JPG lo compone SIEMPRE', () => {
+  // Con una línea, cualquier fillRect que aparezca solo puede ser el papel
+  // (el relleno de una forma también es un fillRect y enturbiaría la medida).
+  const png = freshCtx();
+  png.Exporter.png([elLine], { transparent: true });
+  const cPng = png.document.created.find(e => e.tagName === 'CANVAS');
+  assert.equal(cPng._ctx.callsTo('fillRect').length, 0, 'sin papel en el PNG');
+
+  // JPEG no tiene canal alfa: sin papel saldría sobre negro, así que el
+  // ajuste se ignora a propósito.
+  const jpg = freshCtx();
+  jpg.Exporter.jpg([elRectFill], { transparent: true });
+  const cJpg = jpg.document.created.find(e => e.tagName === 'CANVAS');
+  const fills = cJpg._ctx.callsTo('fillRect');
+  assert.deepEqual(fills[fills.length - 1].args, [0, 0, 1200, 800]);
+});
+
+test('el SVG transparente no lleva papel, y el opaco lo lleva nombrado', () => {
+  const claro = freshCtx();
+  claro.Exporter.svg([elRectFill], { transparent: true });
+  assert.ok(!lastBlob(claro).content.includes('class="paper"'), 'sin papel');
+
+  const opaco = freshCtx();
+  opaco.Exporter.svg([elRectFill]);
+  assert.match(lastBlob(opaco).content, /<rect class="paper" x="0" y="0" width="1200" height="800" fill="white"\/>/);
+});
+
+test('«solo la selección» recorta el viewBox del SVG y el lienzo del PNG', () => {
+  const box = { x: 100, y: 50, w: 300, h: 200 };
+  const svg = freshCtx();
+  svg.Exporter.svg([elRectFill], { box, scale: 2 });
+  const out = lastBlob(svg).content;
+  // El viewBox va en coordenadas de LIENZO (el dibujo no se mueve) y el
+  // width/height declarado sí lleva la escala.
+  assert.ok(out.startsWith('<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="100 50 300 200"'), out.slice(0, 120));
+  // El papel cubre el recorte, no el origen: con viewBox desplazado, un
+  // width="100%" dejaría media exportación sin fondo.
+  assert.match(out, /<rect class="paper" x="100" y="50" width="300" height="200"/);
+
+  const png = freshCtx();
+  png.Exporter.png([elRectFill], { box });
+  const canvas = png.document.created.find(e => e.tagName === 'CANVAS');
+  assert.equal(canvas.width, 300);
+  assert.equal(canvas.height, 200);
+  assert.deepEqual(canvas._ctx.callsTo('setTransform')[0].args, [1, 0, 0, 1, -100, -50]);
+});
+
+test('una caja de recorte inválida exporta el lienzo entero en vez de nada', () => {
+  for (const bad of [{ x: 0, y: 0, w: 0, h: 100 }, { x: NaN, y: 0, w: 10, h: 10 }, null]) {
+    const ctx = freshCtx();
+    ctx.Exporter.svg([elRectFill], { box: bad });
+    assert.match(lastBlob(ctx).content, /viewBox="0 0 1200 800"/);
+  }
+});
+
+test('el HTML recortado reubica los componentes y el <svg> incrustado', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.html([elButton, elLine], { box: { x: 10, y: 10, w: 400, h: 300 } });
+  const out = lastBlob(ctx).content;
+  assert.match(out, /\.wireframe \{ position: relative; width: 400px; height: 300px/);
+  // El botón estaba en (10,10): tras el recorte cae en el origen.
+  assert.match(out, /<button style="left:0px;top:0px;/);
+  // Los vectores no se mueven: los reubica el viewBox.
+  assert.match(out, /viewBox="10 10 400 300"/);
+  assert.match(out, /<line x1="10" y1="20"/);
+});
+
+test('el HTML transparente se queda sin papel y sin marco', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.html([elButton], { transparent: true });
+  const out = lastBlob(ctx).content;
+  assert.ok(!out.includes('background: #fff'), 'sin papel');
+  assert.ok(!out.includes('border: 1px solid #ccc'), 'sin marco');
+});
+
+test('sin ajustes, los cinco formatos salen byte a byte como siempre', () => {
+  // La ausencia de opciones es el comportamiento clásico: un proyecto
+  // exportado antes de la v3.9.0 y ahora tiene que dar el mismo fichero.
+  const conOpciones = freshCtx();
+  conOpciones.Exporter.svg([elRectFill, elText], { scale: 1, transparent: false, box: null });
+  const sinOpciones = freshCtx();
+  sinOpciones.Exporter.svg([elRectFill, elText]);
+  assert.equal(lastBlob(conOpciones).content, lastBlob(sinOpciones).content);
+});
+
+test('copyImage no existe sin ClipboardItem, y ahí devuelve false sin lanzar', async () => {
+  const ctx = freshCtx();
+  assert.equal(ctx.Exporter.canCopyImage(), false, 'el arnés no tiene portapapeles');
+  assert.equal(await ctx.Exporter.copyImage([elRectFill]), false);
+});

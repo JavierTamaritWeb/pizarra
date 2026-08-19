@@ -21,6 +21,15 @@ function matches(el, selector) {
   return selector.split(',').map(s => s.trim()).filter(Boolean).some(sel => {
     if (sel.startsWith('.')) return el.classList.contains(sel.slice(1));
     if (sel.startsWith('#')) return el.id === sel.slice(1);
+    // Selector de atributo, `[data-export]` o `[data-export="png"]`: sin él,
+    // el arnés devolvía cero elementos y el cableado que los usa (los botones
+    // de formato del modal de exportación, las variantes de los catálogos)
+    // quedaba sin listeners, o sea sin poder probarse.
+    const attr = /^\[([\w-]+)(?:="([^"]*)")?\]$/.exec(sel);
+    if (attr) {
+      const v = el.getAttribute(attr[1]);
+      return v !== null && v !== undefined && (attr[2] === undefined || v === attr[2]);
+    }
     return el.tagName === sel.toUpperCase();
   });
 }

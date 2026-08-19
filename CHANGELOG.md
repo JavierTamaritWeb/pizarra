@@ -4,6 +4,30 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.9.0] — 2026-08-19
+
+### Añadido
+
+- **Ajustes de exportación** (la idea de Excalidraw): **resolución** 1×, 2× o
+  3× —el dibujo no cambia, cambian los píxeles—, **fondo transparente** y
+  **solo la selección**, que recorta la salida a lo seleccionado con un
+  margen de 8 px para que el trazo a mano no salga cortado. Cada formato
+  honra lo que puede representar: el JPG compone siempre el papel (no tiene
+  canal alfa) y el HTML ignora la resolución (es un documento, no un raster).
+  El JSON sí respeta «solo la selección»: exportar un trozo como proyecto
+  reutilizable es justo el caso de uso.
+- **Copiar imagen al portapapeles**: un PNG listo para pegar en un documento
+  o un chat, sin pasar por la carpeta de descargas. Está en el modal de
+  exportación y en el menú del clic derecho, donde copia solo la selección.
+  Sin soporte del navegador el botón se deshabilita solo, en vez de prometer
+  algo que no puede hacer.
+
+### Cambiado
+
+- El papel del SVG exportado se emite como `<rect class="paper">`: se puede
+  quitar o repintar en Inkscape/Illustrator sin cazarlo a ojo entre los
+  rectángulos dibujados.
+
 ## [3.8.0] — 2026-08-19
 
 ### Añadido

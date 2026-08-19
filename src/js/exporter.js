@@ -21,19 +21,66 @@ const Exporter = (() => {
     _download(filename, URL.createObjectURL(blob));
   }
 
+  /* ── Ámbito y aspecto de una exportación de DIBUJO (v3.9.0) ──
+     Los cinco formatos comparten el mismo vocabulario de opciones, y cada uno
+     honra lo que puede representar:
+
+       box         {x,y,w,h}  recorte en coordenadas de lienzo (ausente = todo)
+       scale       1|2|3      resolución; solo raster y el tamaño DECLARADO del
+                              SVG (el HTML es un documento DOM: no aplica)
+       transparent boolean    sin papel blanco (el JPG no tiene canal alfa, así
+                              que lo compone SIEMPRE — sin él saldría negro)
+
+     Se normalizan aquí y no en el llamador para que un ajuste con basura
+     dentro (un `box` de anchura 0, una escala de texto) no produzca un fichero
+     roto sino el de siempre. */
+
+  function _cropBox(options) {
+    const b = options.box;
+    if (!b || !_isNum(b.x) || !_isNum(b.y) || !(b.w > 0) || !(b.h > 0)) {
+      return { x: 0, y: 0, w: CANVAS_W, h: CANVAS_H };
+    }
+    return { x: b.x, y: b.y, w: b.w, h: b.h };
+  }
+
+  function _exportScale(options) {
+    const s = Number(options.scale);
+    return (isFinite(s) && s >= 1 && s <= 4) ? s : 1;
+  }
+
   /**
-   * Render elements to a temp canvas (no grid) and return its data URL.
+   * Render elements to a temp canvas (no grid) and return the canvas.
+   * El recorte se aplica con la transformada del contexto, así que ni el
+   * renderer ni los elementos se enteran de que hay recorte.
    */
-  function _renderClean(elements, format, quality, options = {}) {
+  function _renderCanvas(elements, format, options = {}) {
+    const box = _cropBox(options);
+    const scale = _exportScale(options);
     const c = document.createElement('canvas');
-    c.width = CANVAS_W;
-    c.height = CANVAS_H;
+    c.width = Math.max(1, Math.round(box.w * scale));
+    c.height = Math.max(1, Math.round(box.h * scale));
     const ctx = c.getContext('2d');
+    ctx.setTransform(scale, 0, 0, scale, -box.x * scale, -box.y * scale);
     Renderer.renderScene(ctx, elements, {
-      background: '#ffffff',
+      background: null,
       overlapMode: options.overlapMode,
     });
-    return c.toDataURL(format, quality);
+    // El papel va al final y en espacio de DISPOSITIVO: así cubre exactamente
+    // el recorte, sin depender de la transformada con la que se dibujó.
+    if (!options.transparent || format === 'image/jpeg') {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-over';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.restore();
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    return c;
+  }
+
+  function _renderClean(elements, format, quality, options = {}) {
+    return _renderCanvas(elements, format, options).toDataURL(format, quality);
   }
 
   /* ── Public exports ── */
@@ -54,9 +101,49 @@ const Exporter = (() => {
     a.click();
   }
 
+  /**
+   * Copiar el dibujo al portapapeles como PNG (v3.9.0, la idea de
+   * Excalidraw/tldraw): ahorra el viaje descarga → buscar en Descargas →
+   * arrastrar. Devuelve una promesa que resuelve a true/false para que el
+   * llamador avise con un toast, y nunca lanza.
+   *
+   * `canCopyImage()` es lo que decide si el botón existe: sin ClipboardItem
+   * (Firefox hasta hace poco, cualquier navegador antiguo, y el arnés de
+   * pruebas) no hay forma de poner una imagen en el portapapeles.
+   */
+  function canCopyImage() {
+    return typeof ClipboardItem !== 'undefined' &&
+           typeof navigator !== 'undefined' &&
+           !!(navigator.clipboard && navigator.clipboard.write);
+  }
+
+  function copyImage(elements, options = {}) {
+    if (!canCopyImage()) return Promise.resolve(false);
+    const c = _renderCanvas(elements, 'image/png', options);
+    if (typeof c.toBlob !== 'function') return Promise.resolve(false);
+    // El blob se pasa como PROMESA dentro del ClipboardItem: Safari exige que
+    // el item se construya en el mismo turno del gesto del usuario, y un
+    // toBlob con callback ya ha perdido ese turno cuando resuelve.
+    const blob = new Promise(resolve => c.toBlob(resolve, 'image/png'));
+    return Promise.resolve()
+      .then(() => navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]))
+      .then(() => true, () => false);
+  }
+
   function svg(elements, options = {}) {
-    let out = `<svg xmlns="http://www.w3.org/2000/svg" width="${CANVAS_W}" height="${CANVAS_H}" viewBox="0 0 ${CANVAS_W} ${CANVAS_H}">\n`;
-    out += `<rect width="100%" height="100%" fill="white"/>\n`;
+    const box = _cropBox(options);
+    const scale = _exportScale(options);
+    let out = `<svg xmlns="http://www.w3.org/2000/svg" width="${_round(box.w * scale)}" height="${_round(box.h * scale)}" viewBox="${_round(box.x)} ${_round(box.y)} ${_round(box.w)} ${_round(box.h)}">\n`;
+    // El papel es un <rect> del tamaño del recorte, no un 100% del viewport:
+    // con viewBox desplazado, "100%" se pinta en el origen del sistema y deja
+    // media exportación sin fondo.
+    // `class="paper"` no es decoración: el papel ya no se distingue por sus
+    // atributos de un rectángulo DIBUJADO (antes era el único `width="100%"`),
+    // y con el nombre puesto se puede quitar o repintar en Inkscape/Illustrator
+    // sin cazarlo a ojo — y las guardas pueden separar uno de otro.
+    if (!options.transparent) {
+      out += `<rect class="paper" x="${_round(box.x)}" y="${_round(box.y)}" width="${_round(box.w)}" height="${_round(box.h)}" fill="white"/>\n`;
+    }
     const fontUrl = FONT_URL();
     if (fontUrl) out += `<style>@import url('${fontUrl.replace(/&/g, '&amp;')}');</style>\n`;
 
@@ -482,6 +569,10 @@ const Exporter = (() => {
   }
 
   function html(elements, options = {}) {
+    // El HTML honra el recorte y la transparencia, pero NO la escala: es un
+    // documento DOM, no un raster, y quien lo abra hace zoom con el navegador.
+    const box = _cropBox(options);
+    const ox = box.x, oy = box.y;
     let out = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -491,8 +582,8 @@ const Exporter = (() => {
 ${FONT_URL() ? `<link href="${FONT_URL()}" rel="stylesheet">` : '<!-- letra propia de la app: sin fuente web que pedir -->'}
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: ${FONT_CSS()}; background: #fff; }
-.wireframe { position: relative; width: ${CANVAS_W}px; height: ${CANVAS_H}px; margin: 20px auto; border: 1px solid #ccc; }
+body { font-family: ${FONT_CSS()};${options.transparent ? '' : ' background: #fff;'} }
+.wireframe { position: relative; width: ${_round(box.w)}px; height: ${_round(box.h)}px; margin: 20px auto;${options.transparent ? '' : ' border: 1px solid #ccc;'} }
 .wireframe > * { position: absolute; }
 </style>
 </head>
@@ -516,7 +607,7 @@ body { font-family: ${FONT_CSS()}; background: #fff; }
       let svgRun = '';
       const flushVectors = () => {
         if (!svgRun) return;
-        out += `  <svg width="${CANVAS_W}" height="${CANVAS_H}" viewBox="0 0 ${CANVAS_W} ${CANVAS_H}" style="left:0;top:0;pointer-events:none;">\n`;
+        out += `  <svg width="${_round(box.w)}" height="${_round(box.h)}" viewBox="${_round(box.x)} ${_round(box.y)} ${_round(box.w)} ${_round(box.h)}" style="left:0;top:0;pointer-events:none;">\n`;
         out += svgRun;
         out += `  </svg>\n`;
         svgRun = '';
@@ -537,29 +628,29 @@ body { font-family: ${FONT_CSS()}; background: #fff; }
         case 'rect':
         case 'roundedRect': {
           const bg = _escapeHtml(_fillColor(el));
-          out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};${el.type === 'roundedRect' ? 'border-radius:12px;' : ''}${el.fill ? `background:${bg};` : ''}"></div>\n`;
+          out += `  <div style="left:${_round(el.x - ox)}px;top:${_round(el.y - oy)}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};${el.type === 'roundedRect' ? 'border-radius:12px;' : ''}${el.fill ? `background:${bg};` : ''}"></div>\n`;
           break;
         }
         case 'text':
-          out += `  <p style="left:${el.x}px;top:${el.y}px;color:${color};font-size:${el.fontSize}px;white-space:pre-wrap;line-height:${el.fontSize + 4}px;${el.bold ? 'font-weight:bold;' : ''}${_htmlTextShadow(el)}">${_escapeHtml(el.value)}</p>\n`;
+          out += `  <p style="left:${_round(el.x - ox)}px;top:${_round(el.y - oy)}px;color:${color};font-size:${el.fontSize}px;white-space:pre-wrap;line-height:${el.fontSize + 4}px;${el.bold ? 'font-weight:bold;' : ''}${_htmlTextShadow(el)}">${_escapeHtml(el.value)}</p>\n`;
           break;
         case 'button':
-          out += `  <button style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};border-radius:8px;background:${tint('15')};color:${color};font-family:inherit;cursor:pointer;">${_escapeHtml(el.label || 'Botón')}</button>\n`;
+          out += `  <button style="left:${_round(el.x - ox)}px;top:${_round(el.y - oy)}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};border-radius:8px;background:${tint('15')};color:${color};font-family:inherit;cursor:pointer;">${_escapeHtml(el.label || 'Botón')}</button>\n`;
           break;
         case 'input':
-          out += `  <input placeholder="${_escapeHtml(el.label || 'Escribe aquí...')}" style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${tint('80')};border-radius:4px;padding:0 10px;font-family:inherit;"/>\n`;
+          out += `  <input placeholder="${_escapeHtml(el.label || 'Escribe aquí...')}" style="left:${_round(el.x - ox)}px;top:${_round(el.y - oy)}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${tint('80')};border-radius:4px;padding:0 10px;font-family:inherit;"/>\n`;
           break;
         case 'imagePlaceholder':
-          out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};display:flex;align-items:center;justify-content:center;color:${tint('80')};font-size:14px;">Imagen</div>\n`;
+          out += `  <div style="left:${_round(el.x - ox)}px;top:${_round(el.y - oy)}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};display:flex;align-items:center;justify-content:center;color:${tint('80')};font-size:14px;">Imagen</div>\n`;
           break;
         case 'image':
-          out += `  <img src="${_escapeHtml(el.src)}" alt="" style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;object-fit:fill;"/>\n`;
+          out += `  <img src="${_escapeHtml(el.src)}" alt="" style="left:${_round(el.x - ox)}px;top:${_round(el.y - oy)}px;width:${el.w}px;height:${el.h}px;object-fit:fill;"/>\n`;
           break;
         case 'nav':
-          out += `  <nav style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};display:flex;align-items:center;justify-content:space-between;padding:0 20px;"><span>${_escapeHtml(el.label || 'Logo')}</span><div style="display:flex;gap:20px;"><a href="#">Inicio</a><a href="#">Nosotros</a><a href="#">Contacto</a></div></nav>\n`;
+          out += `  <nav style="left:${_round(el.x - ox)}px;top:${_round(el.y - oy)}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};display:flex;align-items:center;justify-content:space-between;padding:0 20px;"><span>${_escapeHtml(el.label || 'Logo')}</span><div style="display:flex;gap:20px;"><a href="#">Inicio</a><a href="#">Nosotros</a><a href="#">Contacto</a></div></nav>\n`;
           break;
         case 'card':
-          out += `  <div style="left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};border-radius:10px;overflow:hidden;"><div style="height:45%;background:${tint('10')};border-bottom:1px solid ${tint('30')};"></div><div style="padding:12px;"><h3 style="color:${color};">${_escapeHtml(el.label || 'Título')}</h3><p style="color:${tint('60')};margin-top:6px;">Texto de ejemplo</p></div></div>\n`;
+          out += `  <div style="left:${_round(el.x - ox)}px;top:${_round(el.y - oy)}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};border-radius:10px;overflow:hidden;"><div style="height:45%;background:${tint('10')};border-bottom:1px solid ${tint('30')};"></div><div style="padding:12px;"><h3 style="color:${color};">${_escapeHtml(el.label || 'Título')}</h3><p style="color:${tint('60')};margin-top:6px;">Texto de ejemplo</p></div></div>\n`;
           break;
       }
       });
@@ -955,5 +1046,6 @@ body { font-family: ${FONT_CSS()}; background: #fff; }
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
-  return { png, jpg, svg, html, json, importJSON, isValidElement };
+  return { png, jpg, svg, html, json, importJSON, isValidElement,
+           copyImage, canCopyImage };
 })();

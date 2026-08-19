@@ -4903,6 +4903,73 @@
     redraw();
   }
 
+  /* ── Exportar: ámbito y aspecto (v3.9.0) ── */
+
+  // Margen del recorte: el trazo a mano se sale de la caja del elemento (el
+  // temblor de Sketchy, el remate redondo, la sombra del texto), así que un
+  // recorte a ras corta justo lo que se acaba de dibujar.
+  const EXPORT_PAD = 8;
+
+  function syncExportControls() {
+    const sel = $('export-selection');
+    const hay = state.selection.length > 0;
+    // Sin selección la casilla no puede quedarse armada: al siguiente export
+    // «solo la selección» significaría «nada» y saldría un fichero vacío.
+    sel.disabled = !hay;
+    if (!hay) sel.checked = false;
+    const copiar = $('btn-copy-image');
+    copiar.disabled = !Exporter.canCopyImage();
+    if (copiar.disabled) copiar.title = 'Este navegador no permite copiar imágenes al portapapeles';
+  }
+
+  /**
+   * QUÉ se exporta (elementos y recorte) y CÓMO (resolución, papel), en un
+   * solo sitio: lo comparten los cinco formatos y el portapapeles, así que un
+   * ajuste no puede valer para unos y no para otros.
+   *
+   * El aspecto del lienzo se manda SIEMPRE y es el exportador quien decide:
+   * solo el JSON —el formato que se vuelve a abrir— lo escribe; los cuatro
+   * dibujos lo ignoran y salen sobre blanco limpio (guardado por «ninguna
+   * exportación lleva el color del lienzo ni la cuadrícula»).
+   */
+  function exportScope(opts = {}) {
+    const soloSel = (opts.selectionOnly !== undefined
+      ? opts.selectionOnly
+      : $('export-selection').checked) && state.selection.length > 0;
+    const elements = soloSel
+      ? state.selection.map(i => state.elements[i])
+      : state.elements;
+    const options = {
+      overlapMode: state.overlapMode,
+      canvasBg:    state.canvasBg,
+      gridColor:   state.gridColor,
+      showGrid:    state.showGrid,
+      scale:       Number($('export-scale').value) || 1,
+      transparent: !!$('export-transparent').checked,
+    };
+    if (soloSel) {
+      const b = selectionBounds();
+      if (b) {
+        options.box = {
+          x: b.x - EXPORT_PAD, y: b.y - EXPORT_PAD,
+          w: b.w + 2 * EXPORT_PAD, h: b.h + 2 * EXPORT_PAD,
+        };
+      }
+    }
+    return { elements, options };
+  }
+
+  function copyImageToClipboard(opts = {}) {
+    if (!Exporter.canCopyImage()) {
+      showToast('⚠ Este navegador no permite copiar imágenes');
+      return;
+    }
+    const { elements, options } = exportScope(opts);
+    Exporter.copyImage(elements, options).then(ok => {
+      showToast(ok ? '📋 Imagen copiada' : '⚠ No se pudo copiar la imagen');
+    });
+  }
+
   /**
    * Orden Z (v2.39.0, la idea de Excalidraw): recoloca la selección dentro
    * de state.elements — el orden del array ES el apilado, así que renderer,
@@ -8522,26 +8589,25 @@
 
     // <dialog> nativo: showModal() da foco, trampa de Tab y Escape gratis
     const exportModal = $('modal-export');
-    $('btn-export').addEventListener('click', () => exportModal.showModal());
+    $('btn-export').addEventListener('click', () => {
+      syncExportControls();
+      exportModal.showModal();
+    });
     exportModal.querySelector('.modal__cancel').addEventListener('click', () => exportModal.close());
     closeOnBackdrop(exportModal);
     exportModal.querySelectorAll('[data-export]').forEach(btn => {
       btn.addEventListener('click', () => {
-        // El aspecto se manda SIEMPRE y es el exportador quien decide: solo el
-        // JSON —el formato que se vuelve a abrir— lo escribe; los cuatro
-        // dibujos lo ignoran y salen sobre blanco limpio (guardado por
-        // «ninguna exportación lleva el color del lienzo ni la cuadrícula»).
-        Exporter[btn.dataset.export](state.elements, {
-          overlapMode: state.overlapMode,
-          canvasBg:    state.canvasBg,
-          gridColor:   state.gridColor,
-          showGrid:    state.showGrid,
-        });
+        const { elements, options } = exportScope();
+        Exporter[btn.dataset.export](elements, options);
         exportModal.close();
         // La descarga la enseña el navegador donde quiere (o no la enseña):
         // el aviso confirma que el clic hizo algo y en qué formato.
         showToast(`⬇ Exportado ${btn.dataset.export.toUpperCase()}`);
       });
+    });
+    $('btn-copy-image').addEventListener('click', () => {
+      exportModal.close();
+      copyImageToClipboard();
     });
 
     const tplModal = $('modal-templates');
@@ -10050,6 +10116,8 @@
   function selectionMenuItems() {
     return [
       { label: '⧉ Duplicar', kbd: 'Ctrl+D', run: duplicateSelection },
+      { label: '📋 Copiar como imagen', disabled: !Exporter.canCopyImage(),
+        run: () => copyImageToClipboard({ selectionOnly: true }) },
       { label: '🎨 Copiar estilo', kbd: 'Ctrl+Alt+C', run: copySelectionStyle },
       { label: '🎨 Pegar estilo', kbd: 'Ctrl+Alt+V', disabled: !styleClipboard, run: pasteSelectionStyle },
       { label: '⏫ Traer al frente', kbd: 'Ctrl+Mayús+↑', run: () => reorderSelection('front') },

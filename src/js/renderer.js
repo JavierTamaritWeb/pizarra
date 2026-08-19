@@ -893,7 +893,10 @@ const Renderer = (() => {
   function renderScene(ctx, elements, options = {}) {
     const width = options.width ?? CANVAS_W;
     const height = options.height ?? CANVAS_H;
-    const background = options.background || '#ffffff';
+    // `null` explícito = sin papel: lo pide la exportación con fondo
+    // transparente. Cualquier otro valor falsy sigue cayendo al blanco de
+    // siempre, así que ningún llamador anterior cambia de aspecto.
+    const background = options.background === null ? null : (options.background || '#ffffff');
     ctx.clearRect(0, 0, width, height);
     try {
       renderElements(ctx, elements, options.overlapMode);
@@ -903,8 +906,10 @@ const Renderer = (() => {
       if (options.showGrid) {
         drawGrid(ctx, width, height, options.gridColor);
       }
-      ctx.fillStyle = background;
-      ctx.fillRect(0, 0, width, height);
+      if (background) {
+        ctx.fillStyle = background;
+        ctx.fillRect(0, 0, width, height);
+      }
       ctx.restore();
       // Explícito además del restore: facilita stubs y protege a llamadores
       // que reutilizan contextos con implementaciones parciales de save().

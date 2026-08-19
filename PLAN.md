@@ -369,3 +369,58 @@ candado resuelve no existe aquí).
 - Guardas: `tests/app-interaction.test.js` (duplicado con Alt, no-duplicado
   sin arrastre, estilo con un undo, candado contra clic/Ctrl+A/borrador) y
   `e2e/manipulation.spec.js` (menú real, candado con su llave, Alt+arrastre).
+
+---
+
+# Plan «10 de los grandes» (fases 5-8)
+
+De la comparativa con los diez editores open-source equivalentes (Excalidraw,
+tldraw, draw.io, rough.js, Pencil, drawnix, svgedit, jspaint, WBO, Penpot)
+salieron diez funcionalidades que caben en este stack sin romper nada de lo
+que Pizarra ES: vanilla, cero dependencias, local-first, lienzo fijo.
+
+Descartado a conciencia: lienzo infinito (lo sostienen `clampDelta`, los
+exportadores, el borrado por trama y el encuadre), colaboración en tiempo real
+(exige servidor), capas y multipágina (mucha interfaz para un lienzo de una
+pantalla; el orden Z ya cubre el 90 %), Mermaid/Markdown (un parser entero) y
+puntero láser (sin colaboración no tiene público).
+
+## Fase 5 — Salida ✅ (v3.9.0)
+
+- ✅ **Ajustes de exportación**: resolución 1×/2×/3×, fondo transparente y
+  «solo la selección» (recorte con 8 px de margen, que es lo que ocupa el
+  temblor del trazo). Vocabulario común a los cinco formatos, normalizado en
+  el exporter; cada formato honra lo que puede representar (el JPG compone
+  siempre el papel, el HTML ignora la resolución).
+- ✅ **Copiar imagen al portapapeles** (`ClipboardItem`): en el modal y en el
+  menú del clic derecho, donde copia solo la selección. Sin soporte del
+  navegador el botón se deshabilita solo.
+- Guardas: `tests/exporter.test.js` (escala, transparencia, recorte, caídas a
+  los valores de siempre con ajustes inválidos, identidad byte a byte sin
+  opciones), `tests/app-interaction.test.js` (la casilla no se queda armada
+  sin selección; lo que viaja en las opciones) y `e2e/export.spec.js` (el PNG
+  descargado de verdad, medido en su cabecera IHDR, y el portapapeles real).
+
+## Fase 6 — Colocación (v3.10.0)
+
+- Alinear y distribuir la selección (la unidad es el GRUPO, no la pieza).
+- Voltear horizontal/vertical (`Mayús+H`/`V`), calcado de `rotateAround`.
+- Agrupar/desagrupar (`Ctrl+G` / `Ctrl+Mayús+G`) sobre el `buildingGroupId`
+  que ya existe.
+
+## Fase 7 — Estética de boceto (v3.11.0)
+
+- Rellenos tramados (hachure, cross-hatch, puntos, zigzag) en un módulo puro
+  `hatch.js`, con hash sin estado por línea (nunca una secuencia: *boiling*).
+- Nivel de temblor (arquitecto/artista/caricatura): solo lienzo y PNG/JPG —
+  el SVG y el HTML ya exportan geometría limpia y se quedan igual.
+- Tipos de punta de flecha (barra, punto, triángulo).
+
+## Fase 8 — Composición (v3.12.0)
+
+- Marcos: tipo de elemento nuevo, con los 8 puntos de la checklist. Mover el
+  marco arrastra su contenido; redimensionarlo no lo escala. Se enchufa al
+  ámbito de exportación de la fase 5.
+- Biblioteca del usuario: guardar la selección como pieza reutilizable
+  (normalizada al origen), insertarla desde Plantillas, e importar/exportar
+  la biblioteca como JSON validado elemento a elemento.
