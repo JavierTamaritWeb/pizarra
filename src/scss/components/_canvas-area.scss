@@ -149,6 +149,36 @@
   display: none;
 }
 
+/* Estado vacío (v3.6.0): bienvenida centrada sobre el papel, dentro del
+   wrapper (escala con el zoom, como el resto del lienzo). pointer-events:
+   none — el primer trazo pasa a través. El color va a media tinta con un halo
+   claro: el papel es configurable (de «Blanco» a «Pizarra») y ningún color
+   plano contrasta sobre los cinco. Declara display: regla [hidden] propia. */
+.canvas-area__empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  pointer-events: none;
+  text-align: center;
+  font-family: var(--font-sketch);
+  font-size: 1.6rem;
+  color: rgba(26, 26, 46, 0.55);
+  text-shadow: 0 0 0.6rem rgba(255, 255, 255, 0.55);
+}
+
+.canvas-area__empty-title {
+  font-size: 2.4rem;
+  font-weight: 700;
+}
+
+.canvas-area__empty[hidden] {
+  display: none;
+}
+
 .canvas-area__overlay {
   position: absolute;
   top: 0;

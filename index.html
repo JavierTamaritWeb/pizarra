@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=3.5.0" />
+  <link rel="stylesheet" href="css/styles.css?v=3.6.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.5.0" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.6.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v3.5.0</span>
+        <span class="topbar__badge">v3.6.0</span>
         <!-- Aviso de autoguardado: visible SOLO mientras localStorage rechaza
              el guardado (cuota llena). Sin él, el fallo era un catch mudo y el
              trabajo posterior se perdía en silencio al recargar. -->
@@ -84,6 +84,14 @@
             <canvas class="canvas-area__canvas" id="main-canvas" width="1200" height="800" role="img" aria-label="Lienzo de dibujo"></canvas>
             <canvas class="canvas-area__overlay" id="overlay-canvas" width="1200" height="800" aria-hidden="true"></canvas>
             <textarea class="canvas-area__text-input" id="text-input" placeholder="Escribe aquí..." hidden></textarea>
+            <!-- Estado vacío (v3.6.0): bienvenida sobre el lienzo sin nada.
+                 La muestra/oculta redrawNow (elementos > 0, o gesto en curso).
+                 pointer-events: none — jamás debe interceptar un trazo. -->
+            <div class="canvas-area__empty" id="canvas-empty">
+              <p class="canvas-area__empty-title">El lienzo está vacío</p>
+              <p>Elige una herramienta del lateral y arrastra para dibujar</p>
+              <p><kbd>?</kbd> abre la ayuda, con todos los atajos y trucos</p>
+            </div>
           </div>
         </div>
         <!-- «Volver al dibujo» (v3.5.0): aparece solo cuando el scroll/zoom
@@ -92,6 +100,10 @@
              regla [hidden] es obligatoria porque la clase declara display. -->
         <button type="button" class="canvas-area__back" id="btn-back-content"
                 title="Encuadrar el dibujo (Mayús+1)" hidden>↩ Volver al dibujo</button>
+        <!-- Toasts (v3.6.0): avisos breves y autodescartables (copiar,
+             exportar, abrir…). role=status + aria-live para que el lector los
+             anuncie; los rellena showToast (app.js) y nunca interceptan. -->
+        <div class="toasts" id="toast-region" role="status" aria-live="polite"></div>
       </main>
 
       <!-- Right Panel
@@ -2206,23 +2218,23 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=3.5.0"></script>
-  <script src="src/js/sketchy.js?v=3.5.0"></script>
-  <script src="src/js/freehand.js?v=3.5.0"></script>
-  <script src="src/js/arc.js?v=3.5.0"></script>
-  <script src="src/js/curve-path.js?v=3.5.0"></script>
-  <script src="src/js/shape-rotation.js?v=3.5.0"></script>
-  <script src="src/js/regular-polygon.js?v=3.5.0"></script>
-  <script src="src/js/trapezoid.js?v=3.5.0"></script>
-  <script src="src/js/airbrush.js?v=3.5.0"></script>
-  <script src="src/js/flood.js?v=3.5.0"></script>
-  <script src="src/js/eraser.js?v=3.5.0"></script>
-  <script src="src/js/building.js?v=3.5.0"></script>
-  <script src="src/js/garden.js?v=3.5.0"></script>
-  <script src="src/js/solid.js?v=3.5.0"></script>
-  <script src="src/js/renderer.js?v=3.5.0"></script>
-  <script src="src/js/exporter.js?v=3.5.0"></script>
-  <script src="src/js/templates.js?v=3.5.0"></script>
-  <script src="src/js/app.js?v=3.5.0"></script>
+  <script src="src/js/config.js?v=3.6.0"></script>
+  <script src="src/js/sketchy.js?v=3.6.0"></script>
+  <script src="src/js/freehand.js?v=3.6.0"></script>
+  <script src="src/js/arc.js?v=3.6.0"></script>
+  <script src="src/js/curve-path.js?v=3.6.0"></script>
+  <script src="src/js/shape-rotation.js?v=3.6.0"></script>
+  <script src="src/js/regular-polygon.js?v=3.6.0"></script>
+  <script src="src/js/trapezoid.js?v=3.6.0"></script>
+  <script src="src/js/airbrush.js?v=3.6.0"></script>
+  <script src="src/js/flood.js?v=3.6.0"></script>
+  <script src="src/js/eraser.js?v=3.6.0"></script>
+  <script src="src/js/building.js?v=3.6.0"></script>
+  <script src="src/js/garden.js?v=3.6.0"></script>
+  <script src="src/js/solid.js?v=3.6.0"></script>
+  <script src="src/js/renderer.js?v=3.6.0"></script>
+  <script src="src/js/exporter.js?v=3.6.0"></script>
+  <script src="src/js/templates.js?v=3.6.0"></script>
+  <script src="src/js/app.js?v=3.6.0"></script>
 </body>
 </html>

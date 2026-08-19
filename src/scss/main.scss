@@ -20,6 +20,7 @@
 @use 'components/panel';
 @use 'components/modal';
 @use 'components/panel-drawer';
+@use 'components/toast';
 
 // Las mayúsculas de la interfaz van después de todos los bloques: aplican a
 // los contenedores y se heredan, así que cualquier excepción declarada dentro

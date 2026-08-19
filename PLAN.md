@@ -301,22 +301,25 @@ sobre el `buildingGroupId` que ya existía.
   herramienta; espacio+arrastre no dibuja) y `e2e/navigation.spec.js` (los
   seis comportamientos con gestos reales).
 
-## Fase 2 — Feedback y descubribilidad (pendiente)
+## Fase 2 — Feedback y descubribilidad ✅ (v3.6.0)
 
-1. **Hover-highlight**: con Mover/«Select», contorno tenue del elemento (o
-   grupo) bajo el cursor — `hitTest` en el move en reposo, cacheado,
-   repintando el overlay solo si cambia el candidato.
-2. **Dimensiones en vivo**: badge junto al cursor con `ancho × alto` al
-   crear/redimensionar y `X, Y` al mover — generalización del badge de ángulo
-   de Caminos (`drawPathAngle`).
-3. **Toasts discretos** (`role="status"`, `aria-live`, cola corta,
-   autodescarte): copiar, pegar, duplicar, exportar, importar; sustituyen los
-   dos `alert()` de imagen y cubren el hueco de accesibilidad «las acciones no
-   anuncian nada».
-4. **Undo/redo honestos**: `#btn-undo`/`#btn-redo` con `disabled` sincronizado
-   con sus pilas (hoy nunca se desactivan).
-5. **Estado vacío**: mensaje de bienvenida sobre el lienzo vacío, desaparece
-   al primer elemento o herramienta.
+- ✅ **Hover-highlight**: con Mover/«Select», marco tenue del elemento (o
+  grupo entero) bajo el cursor — `hitTest` en el move en reposo (`hoverIdx`),
+  repintando el overlay solo si cambia el candidato; nunca sobre un grupo ya
+  seleccionado completo.
+- ✅ **Cotas en vivo** (`drawBadge`, la pastilla de `drawPathAngle`
+  generalizada): `ancho × alto` al crear y redimensionar, `X, Y` al arrastrar.
+  El Camino conserva su cota de ángulo en el mismo hueco (por eso queda fuera
+  de la de creación).
+- ✅ **Toasts** (`showToast`, región `role=status aria-live`): copiar, pegar,
+  duplicar, exportar, abrir proyecto, y los dos `alert()` de imagen
+  sustituidos. Cola de 2, autodescarte a los 2.2s.
+- ✅ **Undo/redo honestos**: `disabled` sincronizado con las pilas en
+  `redrawNow`.
+- ✅ **Estado vacío** (`#canvas-empty`): bienvenida sobre el lienzo vacío,
+  se aparta al primer gesto y vuelve al vaciarlo.
+- Guardas: `tests/app-interaction.test.js` (estado vacío, undo/redo) y
+  `e2e/feedback.spec.js` (hover, cotas, toasts, visibilidad real).
 
 ## Fase 3 — Táctil y móvil (pendiente)
 

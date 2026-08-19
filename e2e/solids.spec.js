@@ -33,7 +33,16 @@ const overlayInk = page => page.evaluate(() => {
   const c = document.getElementById('overlay-canvas');
   const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
   let n = 0;
-  for (let i = 3; i < d.length; i += 4) if (d[i] > 128) n++;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] <= 128) continue;
+    // La cota en vivo (v3.6.0) también vive en el overlay junto al puntero:
+    // su relleno (#4ecdc4) y su texto (#12121c) no son tinta del sólido y
+    // inflarían la comparación preview↔resultado. Se excluyen por color
+    // exacto; el trazo del sólido es #1a1a2e y no colisiona.
+    if (d[i] === 78 && d[i + 1] === 205 && d[i + 2] === 196) continue;
+    if (d[i] === 18 && d[i + 1] === 18 && d[i + 2] === 28) continue;
+    n++;
+  }
   return n;
 });
 

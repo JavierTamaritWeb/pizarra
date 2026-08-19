@@ -338,6 +338,18 @@ input[type=range]::-moz-range-thumb {
   filter: brightness(1.15);
 }
 
+/* Undo/redo honestos (v3.6.0): con la pila vacía el botón se atenúa en vez de
+   prometer una acción que no hará. Mismo tratamiento que .panel__slider y
+   .panel__select llevan desde antes; el :hover de arriba se neutraliza. */
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.btn:disabled:hover {
+  filter: none;
+}
+
 .btn__icon {
   font-size: 1.3rem;
 }
@@ -610,6 +622,36 @@ input[type=range]::-moz-range-thumb {
 }
 
 .canvas-area__back[hidden] {
+  display: none;
+}
+
+/* Estado vacío (v3.6.0): bienvenida centrada sobre el papel, dentro del
+   wrapper (escala con el zoom, como el resto del lienzo). pointer-events:
+   none — el primer trazo pasa a través. El color va a media tinta con un halo
+   claro: el papel es configurable (de «Blanco» a «Pizarra») y ningún color
+   plano contrasta sobre los cinco. Declara display: regla [hidden] propia. */
+.canvas-area__empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  pointer-events: none;
+  text-align: center;
+  font-family: var(--font-sketch);
+  font-size: 1.6rem;
+  color: rgba(26, 26, 46, 0.55);
+  text-shadow: 0 0 0.6rem rgba(255, 255, 255, 0.55);
+}
+
+.canvas-area__empty-title {
+  font-size: 2.4rem;
+  font-weight: 700;
+}
+
+.canvas-area__empty[hidden] {
   display: none;
 }
 
@@ -1606,6 +1648,47 @@ kbd {
   }
   .panel-toggle {
     display: inline-flex;
+  }
+}
+/* ============================================================
+   BLOCK: toasts (v3.6.0)
+   ============================================================ */
+.toasts {
+  position: fixed;
+  bottom: 7.2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  pointer-events: none;
+}
+
+.toast {
+  padding: 0.8rem 1.6rem;
+  border: 0.1rem solid var(--border-main);
+  border-radius: 1rem;
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: 0.15rem;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: 0 0.4rem 1.2rem rgba(0, 0, 0, 0.2);
+  animation: toast-in 0.15s ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.6rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 /* ============================================================

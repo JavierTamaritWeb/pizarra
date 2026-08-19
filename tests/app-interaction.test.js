@@ -571,6 +571,35 @@ test('con el espacio pulsado el arrastre es pan: no dibuja ni crea nada', () => 
     'con la mano puesta el arrastre desplaza la vista, no crea elementos');
 });
 
+/* ── Feedback (v3.6.0): estado vacío y undo/redo honestos ── */
+
+test('la bienvenida del lienzo vacío aparece sin elementos y desaparece con ellos', () => {
+  const app = loadApp();
+  assert.equal(app.$('canvas-empty').hidden, false,
+    'con el lienzo vacío la bienvenida se ve');
+  app.selectTool('rect');
+  app.drag(100, 100, 220, 180);
+  assert.equal(app.$('canvas-empty').hidden, true,
+    'con un elemento dibujado la bienvenida sobra');
+  app.key('a', { ctrlKey: true });
+  app.key('Delete');
+  assert.equal(app.$('canvas-empty').hidden, false,
+    'al vaciar el lienzo, la bienvenida vuelve');
+});
+
+test('undo y redo se atenúan cuando sus pilas están vacías', () => {
+  const app = loadApp();
+  assert.equal(app.$('btn-undo').disabled, true, 'recién abierta, nada que deshacer');
+  assert.equal(app.$('btn-redo').disabled, true, 'recién abierta, nada que rehacer');
+  app.selectTool('rect');
+  app.drag(100, 100, 220, 180);
+  assert.equal(app.$('btn-undo').disabled, false, 'con historial, deshacer está vivo');
+  assert.equal(app.$('btn-redo').disabled, true, 'sin nada deshecho, rehacer se atenúa');
+  app.key('z', { ctrlKey: true });
+  assert.equal(app.$('btn-undo').disabled, true, 'pila agotada: deshacer se atenúa');
+  assert.equal(app.$('btn-redo').disabled, false, 'lo deshecho se puede rehacer');
+});
+
 /* ── Regresión: el borrador elimina de verdad, no enmascara ── */
 
 test('el borrador elimina los elementos y no deja ninguna máscara en la escena', () => {

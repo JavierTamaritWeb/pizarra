@@ -2039,6 +2039,15 @@
     }
     $('el-count').textContent = state.elements.length;
     updateBackContent();
+    // Undo/redo honestos (v3.6.0): un botón que promete deshacer con la pila
+    // vacía es un mando que miente. redrawNow corre tras cada cambio de
+    // escena, así que las pilas están siempre al día aquí.
+    $('btn-undo').disabled = !state.undoStack.length;
+    $('btn-redo').disabled = !state.redoStack.length;
+    // Estado vacío (v3.6.0): la bienvenida solo sobre el lienzo VACÍO y en
+    // reposo — en cuanto hay un elemento, o un gesto en marcha, desaparece.
+    $('canvas-empty').hidden =
+      state.elements.length > 0 || state.isDrawing || !!state.curveChain;
     // Único punto que sincroniza la UI dependiente de la selección
     const hasSel = state.selection.length > 0;
     $('btn-delete-sel').hidden = !hasSel;
@@ -2719,6 +2728,11 @@
   function onMouseDown(e) {
     const pos = getPos(e);
 
+    // La bienvenida del lienzo vacío se aparta al primer gesto, sin esperar al
+    // redraw del mouseup: dibujar el primer trazo con el cartel debajo se ve
+    // sucio. redrawNow la re-evalúa después con la regla completa.
+    $('canvas-empty').hidden = true;
+
     // Una cadena ya iniciada consume cada nuevo clic como otro tramo.
     if (state.tool === TOOLS.CURVE_ARROW && state.curveChain) {
       state.isDrawing = true;
@@ -2923,6 +2937,11 @@
   let overlayPending = false;
   let lastPos = null;
 
+  // Hover (v3.6.0): índice del elemento bajo el puntero en reposo con las dos
+  // herramientas de selección, o -1. Solo se repinta el overlay cuando CAMBIA
+  // el candidato — un hitTest por move es barato, un repintado por move no.
+  let hoverIdx = -1;
+
   /**
    * Elemento de aerógrafo con los ajustes actuales. Fuente ÚNICA para los tres
    * sitios que lo construyen —previsualización del arrastre, commit al soltar
@@ -3121,6 +3140,41 @@
         octx.stroke();
       });
       octx.restore();
+    }
+
+    // Resaltado de hover (v3.6.0): marco tenue alrededor del elemento —o del
+    // grupo entero, que es lo que el clic seleccionaría— bajo el puntero.
+    // Nunca cuando el grupo YA está seleccionado completo: ahí el marco de
+    // selección ya lo dice, y doblarlo sería ruido.
+    if (hoverIdx >= 0 && hoverIdx < state.elements.length &&
+        SELECTION_TOOLS.includes(state.tool) && !state.isDrawing &&
+        !state.dragLast && !state.resizing && !state.marquee) {
+      const g = groupIndicesOf(hoverIdx);
+      if (!g.every(i => state.selection.includes(i))) {
+        let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+        g.forEach(i => {
+          const b = getElementBounds(state.elements[i]);
+          x1 = Math.min(x1, b.x); y1 = Math.min(y1, b.y);
+          x2 = Math.max(x2, b.x + b.w); y2 = Math.max(y2, b.y + b.h);
+        });
+        octx.save();
+        octx.strokeStyle = 'rgba(78, 205, 196, 0.55)';
+        octx.lineWidth = 1.5;
+        octx.strokeRect(x1 - 3, y1 - 3, x2 - x1 + 6, y2 - y1 + 6);
+        octx.restore();
+      }
+    }
+
+    // Cotas en vivo (v3.6.0): ancho × alto mientras se redimensiona y X, Y
+    // mientras se arrastra, junto al puntero — antes los números solo se veían
+    // a posteriori en «Posición y tamaño». Misma pastilla que la cota de
+    // ángulo de los caminos; overlay puro, como todo lo de este fotograma.
+    if (state.resizing && state.resizing.did && lastPos) {
+      const b = selectionBounds();
+      if (b) drawBadge(octx, lastPos, `${Math.round(b.w)} × ${Math.round(b.h)}`);
+    } else if (state.didDrag && state.dragLast && state.selection.length) {
+      const b = selectionBounds();
+      if (b) drawBadge(octx, state.dragLast, `${Math.round(b.x)}, ${Math.round(b.y)}`);
     }
 
     // Marquee de selección
@@ -3346,6 +3400,12 @@
           octx.strokeRect(x, y, w, h);
         }
     }
+    // Cota de creación (v3.6.0): el ancho × alto del arrastre, en vivo. El
+    // Camino queda fuera: su pastilla es el ÁNGULO (drawPathAngle, mismo
+    // hueco junto al puntero) y su caja no es lo que el gesto significa.
+    if (state.tool !== TOOLS.GARDEN_PATH && (w >= 4 || h >= 4)) {
+      drawBadge(octx, pos, `${Math.round(w)} × ${Math.round(h)}`);
+    }
     octx.setLineDash([]);
   }
 
@@ -3360,15 +3420,11 @@
      no entra en el undo, no se guarda ni se exporta. */
   const ANGLE_BADGE = { pad: 5, dy: -18, font: 13 };
 
-  function drawPathAngle(octx, from, to) {
-    if (state.tool !== TOOLS.GARDEN_PATH) return;
-    if (!(state.pathAnyAngle || state.pathFreeAngle)) return;
-    const dx = to.x - from.x, dy = to.y - from.y;
-    if (Math.hypot(dx, dy) < Garden.MIN_SPAN) return;   // sin recorrido no hay ángulo
-    // Convención de transportador: 0° a la derecha y positivo hacia arriba. El
-    // eje y del lienzo crece hacia abajo, de ahí el signo cambiado.
-    const label = `${Math.round(-Math.atan2(dy, dx) * 180 / Math.PI)}°`;
-
+  // Pastilla compartida por la cota de ángulo de los caminos y las cotas en
+  // vivo (v3.6.0): mismo aspecto exacto que tenía drawPathAngle. `dy` permite
+  // que dos pastillas convivan junto al puntero (el ángulo arriba, la medida
+  // abajo) sin taparse.
+  function drawBadge(octx, at, label, dy = ANGLE_BADGE.dy) {
     octx.save();
     octx.setLineDash([]);
     octx.font = `bold ${ANGLE_BADGE.font}px ${sketchFont()}`;
@@ -3376,9 +3432,9 @@
     octx.textBaseline = 'middle';
     const tw = octx.measureText(label).width;
     const bw = tw + ANGLE_BADGE.pad * 2, bh = ANGLE_BADGE.font + ANGLE_BADGE.pad * 2;
-    // Junto al puntero, arriba a la derecha: ahí no lo tapa ni la mano ni el
+    // Junto al puntero, a la derecha: ahí no lo tapa ni la mano ni el
     // propio trazo, que queda por detrás.
-    let bx = to.x + 12, by = to.y + ANGLE_BADGE.dy - bh / 2;
+    let bx = at.x + 12, by = at.y + dy - bh / 2;
     bx = Math.max(2, Math.min(CANVAS_W - bw - 2, bx));   // sin salirse del lienzo
     by = Math.max(2, Math.min(CANVAS_H - bh - 2, by));
     octx.fillStyle = '#4ecdc4';
@@ -3386,6 +3442,16 @@
     octx.fillStyle = '#12121c';
     octx.fillText(label, bx + ANGLE_BADGE.pad, by + bh / 2);
     octx.restore();
+  }
+
+  function drawPathAngle(octx, from, to) {
+    if (state.tool !== TOOLS.GARDEN_PATH) return;
+    if (!(state.pathAnyAngle || state.pathFreeAngle)) return;
+    const dx = to.x - from.x, dy = to.y - from.y;
+    if (Math.hypot(dx, dy) < Garden.MIN_SPAN) return;   // sin recorrido no hay ángulo
+    // Convención de transportador: 0° a la derecha y positivo hacia arriba. El
+    // eje y del lienzo crece hacia abajo, de ahí el signo cambiado.
+    drawBadge(octx, to, `${Math.round(-Math.atan2(dy, dx) * 180 / Math.PI)}°`);
   }
 
   function scheduleOverlay() {
@@ -3419,10 +3485,32 @@
       if (!state.isDrawing) return;
     }
 
+    // Hover (v3.6.0): en reposo con Mover/«Select», el elemento (o grupo) bajo
+    // el puntero se resalta ANTES del clic — con formas superpuestas o trazos
+    // finos no se sabía qué iba a coger el clic hasta darlo. Solo cambia el
+    // overlay, y solo cuando cambia el candidato.
+    if (!e.buttons && SELECTION_TOOLS.includes(state.tool) &&
+        !state.isDrawing && !state.resizing && !state.dragLast && !state.marquee) {
+      const idx = hitTest(pos);
+      if (idx !== hoverIdx) {
+        hoverIdx = idx;
+        scheduleOverlay();
+      }
+    } else if (hoverIdx !== -1) {
+      // En cuanto empieza cualquier gesto, el resaltado sobra (y su índice
+      // podría quedarse obsoleto si el gesto borra o reordena elementos).
+      hoverIdx = -1;
+      scheduleOverlay();
+    }
+
     // Resize en curso
     if (state.resizing && e.buttons === 1) {
       resizeTo(pos, e);
+      // La cota en vivo (ancho × alto) se pinta en el overlay junto al
+      // puntero: sin actualizar lastPos se quedaría clavada donde empezó.
+      lastPos = pos;
       redraw();
+      scheduleOverlay();
       return;
     }
 
@@ -4097,7 +4185,7 @@
       setSelection([state.elements.length - 1]);
       redraw();
     };
-    img.onerror = () => alert('No se pudo cargar la imagen');
+    img.onerror = () => showToast('⚠️ No se pudo cargar la imagen');
     img.src = src;
   }
 
@@ -4107,8 +4195,29 @@
     reader.onload = () => addImage(reader.result, at);
     // Sin esto, un fichero ilegible no daba ningún feedback (el onerror de
     // addImage sí avisa cuando lo que falla es decodificar la imagen).
-    reader.onerror = () => alert('No se pudo leer el archivo de imagen');
+    // Sustituye al alert() original: mismo aviso, sin bloquear la app entera.
+    reader.onerror = () => showToast('⚠️ No se pudo leer el archivo de imagen');
     reader.readAsDataURL(file);
+  }
+
+  /* ── Toasts (v3.6.0) ── */
+
+  // Aviso breve y autodescartable para las acciones que no dejan rastro
+  // visible (copiar, exportar, abrir…): hasta ahora no anunciaban NADA — ni en
+  // pantalla ni al lector (la región lleva role=status + aria-live en el
+  // HTML). Cola corta a propósito: dos avisos como mucho, el tercero expulsa
+  // al más viejo — una ráfaga de acciones no debe apilar una columna.
+  const TOAST_MS = 2200;
+  function showToast(msg) {
+    const region = $('toast-region');
+    if (!region) return;
+    const previous = region.querySelectorAll('.toast');
+    for (let i = 0; i <= previous.length - 2; i++) previous[i].remove();
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = msg;
+    region.appendChild(t);
+    setTimeout(() => t.remove(), TOAST_MS);
   }
 
   /* ── Copiar / pegar la selección (Ctrl/Cmd+C · Ctrl/Cmd+V) ── */
@@ -4129,6 +4238,8 @@
       app: ELEMENTS_CLIPBOARD,
       elements: state.selection.map(i => state.elements[i]),
     }));
+    const n = state.selection.length;
+    showToast(`📋 Copiado (${n} elemento${n === 1 ? '' : 's'})`);
   });
 
   document.addEventListener('paste', e => {
@@ -4155,6 +4266,7 @@
         saveUndo();
         insertClones(els, 20, 20);
         redraw();
+        showToast(`📋 Pegado (${els.length} elemento${els.length === 1 ? '' : 's'})`);
         return;
       }
     }
@@ -4606,9 +4718,11 @@
 
   function duplicateSelection() {
     if (!state.selection.length) return;
+    const n = state.selection.length;
     saveUndo();
     insertClones(state.selection.map(i => state.elements[i]), 15, 15);
     redraw();
+    showToast(`⧉ Duplicado (${n} elemento${n === 1 ? '' : 's'})`);
   }
 
   /**
@@ -7732,6 +7846,8 @@
         // arbitrarios; se limpia como al cargar una plantilla.
         setSelection([]);
         redraw();
+        const total = state.elements.length;
+        showToast(`📂 Proyecto abierto (${total} elemento${total === 1 ? '' : 's'})`);
       }
     });
   }
@@ -8209,6 +8325,9 @@
           showGrid:    state.showGrid,
         });
         exportModal.close();
+        // La descarga la enseña el navegador donde quiere (o no la enseña):
+        // el aviso confirma que el clic hizo algo y en qué formato.
+        showToast(`⬇ Exportado ${btn.dataset.export.toUpperCase()}`);
       });
     });
 
@@ -9758,7 +9877,13 @@
     }
   });
   mainCanvas.addEventListener('pointerleave', () => {
-    if (activePointerId !== null || state.tool !== TOOLS.ERASER) return;
+    if (activePointerId !== null) return;
+    // El resaltado de hover no debe quedarse encendido con el puntero fuera.
+    if (hoverIdx !== -1) {
+      hoverIdx = -1;
+      scheduleOverlay();
+    }
+    if (state.tool !== TOOLS.ERASER) return;
     lastPos = null;
     scheduleOverlay();
   });

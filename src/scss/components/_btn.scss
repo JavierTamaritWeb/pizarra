@@ -31,6 +31,18 @@
   filter: brightness(1.15);
 }
 
+/* Undo/redo honestos (v3.6.0): con la pila vacía el botón se atenúa en vez de
+   prometer una acción que no hará. Mismo tratamiento que .panel__slider y
+   .panel__select llevan desde antes; el :hover de arriba se neutraliza. */
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.btn:disabled:hover {
+  filter: none;
+}
+
 .btn__icon {
   font-size: 1.3rem;
 }
