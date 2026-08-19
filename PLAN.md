@@ -269,3 +269,65 @@ sobre el `buildingGroupId` que ya existía.
 - **Escala real.** Hoy el tamaño por defecto es una convención (≈20 px por metro)
   que no está escrita en ninguna parte de la interfaz. Una regla o una cota
   haría los planos comparables entre sí.
+
+---
+
+# Plan UX 2026-08 — navegación, feedback y táctil (v3.5.x)
+
+> Hoja de ruta viva (a diferencia del documento histórico de arriba). Nace de
+> comparar la app con los editores de referencia (Excalidraw, tldraw, draw.io)
+> manteniendo el stack: vanilla JS sin dependencias en runtime, canvas doble,
+> SCSS compilado. Alcance acordado: navegación del lienzo, feedback y
+> descubribilidad, y táctil/móvil — **solo interacción**, sin rediseño visual.
+> Fuera de alcance a propósito: menú contextual, Alt+drag duplica, copiar
+> estilo, tool-lock, minimapa, gap-snapping, paleta de comandos y tema claro.
+
+## Fase 1 — Navegación del lienzo ✅ (v3.5.0)
+
+- ✅ **Zoom con `Ctrl/Cmd+rueda` centrado en el cursor** (`zoomAtClient`):
+  mantiene fijo el punto del lienzo bajo el puntero; el pinch de trackpad cae
+  aquí gratis (llega como wheel con ctrlKey). La rueda a secas sigue siendo
+  scroll, la convención de Figma/Excalidraw/tldraw.
+- ✅ **Pan con espacio mantenido y con botón central**, con cualquier
+  herramienta (cursores `grab`/`grabbing`). Es cámara pura: nunca toca
+  elementos, undo ni autosave.
+- ✅ **Encuadres**: `Mayús+1` todo el dibujo, `Mayús+2` la selección,
+  `Ctrl/Cmd+0` al 100 % — por `e.code` (en el teclado español `Mayús+1`
+  escribe «!»). Vías de ratón: botón «Encuadrar el dibujo» del panel y el
+  **% del zoom clicable**.
+- ✅ **«Volver al dibujo»**: botón flotante que aparece solo cuando el
+  viewport no toca ningún elemento (`updateBackContent`).
+- Guardas: `tests/app-interaction.test.js` (encuadres no cambian de
+  herramienta; espacio+arrastre no dibuja) y `e2e/navigation.spec.js` (los
+  seis comportamientos con gestos reales).
+
+## Fase 2 — Feedback y descubribilidad (pendiente)
+
+1. **Hover-highlight**: con Mover/«Select», contorno tenue del elemento (o
+   grupo) bajo el cursor — `hitTest` en el move en reposo, cacheado,
+   repintando el overlay solo si cambia el candidato.
+2. **Dimensiones en vivo**: badge junto al cursor con `ancho × alto` al
+   crear/redimensionar y `X, Y` al mover — generalización del badge de ángulo
+   de Caminos (`drawPathAngle`).
+3. **Toasts discretos** (`role="status"`, `aria-live`, cola corta,
+   autodescarte): copiar, pegar, duplicar, exportar, importar; sustituyen los
+   dos `alert()` de imagen y cubren el hueco de accesibilidad «las acciones no
+   anuncian nada».
+4. **Undo/redo honestos**: `#btn-undo`/`#btn-redo` con `disabled` sincronizado
+   con sus pilas (hoy nunca se desactivan).
+5. **Estado vacío**: mensaje de bienvenida sobre el lienzo vacío, desaparece
+   al primer elemento o herramienta.
+
+## Fase 3 — Táctil y móvil (pendiente)
+
+1. **Dos dedos = pan + pinch-zoom**: sustituir el descarte del segundo puntero
+   (`activePointerId`) por un mapa de punteros; el segundo dedo cancela el
+   gesto de dibujo (mismo camino que `pointercancel`) y pasa a modo cámara.
+2. **Doble-tap** = doble clic táctil (editar texto, aislar pieza de grupo).
+3. **Long-press** (~500 ms sin moverse >10 px) = Alt+clic (aislar pieza), con
+   feedback del progreso.
+4. **Targets táctiles**: con `pointerType === 'touch'`, área de handles
+   ampliada (~24 px vs los 8 de ratón) sin cambiar su dibujo; `@media
+   (pointer: coarse)` para swatches y botones pequeños.
+5. **Auto-fit por debajo del 100 % solo en viewports pequeños/coarse**
+   (excepción explícita a la invariante actual del auto-fit).

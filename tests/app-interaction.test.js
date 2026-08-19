@@ -541,6 +541,36 @@ test('el modal de Fachada enfoca la vista activa, no el primer <select>', () => 
     'select quede a tiro de una pulsación suelta');
 });
 
+/* ── Encuadres y pan (v3.5.0) ── */
+
+// Los encuadres van por e.code (en el teclado español Mayús+1 escribe «!») y
+// corren antes del selector de herramientas: sin sus guards, «1» activaría
+// Fachada y «0» Puerta, cada una con su catálogo delante.
+test('Mayús+1 y Ctrl+0 son encuadres: ni cambian de herramienta ni abren modal', () => {
+  const app = loadApp();
+  app.selectTool('pencil');
+  const ev1 = app.key('!', { code: 'Digit1', shiftKey: true });
+  assert.equal(ev1.defaultPrevented, true, 'Mayús+1 debe consumirse');
+  const ev0 = app.key('0', { code: 'Digit0', ctrlKey: true });
+  assert.equal(ev0.defaultPrevented, true,
+    'Ctrl+0 debe consumirse o el navegador resetea SU zoom');
+  app.drag(100, 100, 180, 160);
+  const els = app.elements();
+  assert.equal(els.length, 1, 'el arrastre posterior sigue dibujando');
+  assert.equal(els[0].type, 'pencil', 'la herramienta sigue siendo el lápiz');
+});
+
+test('con el espacio pulsado el arrastre es pan: no dibuja ni crea nada', () => {
+  const app = loadApp();
+  app.selectTool('pencil');
+  const ev = app.key(' ', { code: 'Space' });
+  assert.equal(ev.defaultPrevented, true,
+    'el espacio debe consumirse o hace scroll de página');
+  app.drag(100, 100, 200, 200);
+  assert.deepEqual([...app.elements()], [],
+    'con la mano puesta el arrastre desplaza la vista, no crea elementos');
+});
+
 /* ── Regresión: el borrador elimina de verdad, no enmascara ── */
 
 test('el borrador elimina los elementos y no deja ninguna máscara en la escena', () => {

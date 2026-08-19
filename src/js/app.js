@@ -1553,10 +1553,143 @@
 
   let resizeTimer = null;
   window.addEventListener('resize', () => {
+    updateBackContent();
     if (zoomManual) return;
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(fitZoomToViewport, 150);
   });
+
+  /* ── Cámara: zoom al cursor, encuadres y pan (v3.5.0) ── */
+
+  // Pan del lienzo: espacio mantenido (spacePan) o botón central. panDrag es
+  // la sesión del gesto (scroll y puntero iniciales); vive fuera de `state`
+  // porque es cámara, no dibujo — jamás toca elementos, undo ni autosave.
+  let spacePan = false;
+  let panDrag = null;
+
+  // El sizer y el wrapper transicionan 0.2s ($ease-slow) para que el zoom del
+  // SLIDER se anime. Con la rueda o un encuadre esa animación es veneno: el
+  // ajuste de scroll que mantiene el punto bajo el cursor se calcula con
+  // getBoundingClientRect, y a mitad de transición mide una caja intermedia.
+  // La clase --instant las apaga durante el gesto y un debounce la retira.
+  // e2e/helpers.js (setZoom) usa el slider y sigue viendo la transición.
+  let instantTimer = null;
+  function sizerInstant() {
+    if (!canvasArea) return;
+    canvasArea.classList.add('canvas-area--instant');
+    clearTimeout(instantTimer);
+    instantTimer = setTimeout(() => canvasArea.classList.remove('canvas-area--instant'), 250);
+  }
+
+  // Zoom manteniendo fijo el punto de PANTALLA (clientX/Y): se mide qué punto
+  // del lienzo cae ahí, se aplica el zoom y se repone el scroll para que ese
+  // punto vuelva a caer bajo el mismo píxel. Es el patrón de Excalidraw/tldraw
+  // y la única forma de que la rueda no "huya" del sitio que se está mirando.
+  function zoomAtClient(z, clientX, clientY) {
+    if (!canvasArea) return;
+    const rect = mainCanvas.getBoundingClientRect();
+    const p = {
+      x: (clientX - rect.left) / state.zoom,
+      y: (clientY - rect.top) / state.zoom,
+    };
+    sizerInstant();
+    applyZoom(z);
+    zoomManual = true; // misma semántica que tocar el slider: el auto-fit calla
+    const r2 = mainCanvas.getBoundingClientRect();
+    const dx = (r2.left + p.x * state.zoom) - clientX;
+    const dy = (r2.top + p.y * state.zoom) - clientY;
+    canvasArea.scrollLeft += dx;
+    canvasArea.scrollTop += dy;
+    updateBackContent();
+  }
+
+  // Caja combinada de todo el dibujo (los `eraser` heredados se saltan, como
+  // en Ctrl+A: son máscaras, no contenido). null con el lienzo vacío.
+  function contentBounds() {
+    let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+    state.elements.forEach(el => {
+      if (el.type === 'eraser') return;
+      const b = getElementBounds(el);
+      if (!Number.isFinite(b.x) || !Number.isFinite(b.w)) return;
+      x1 = Math.min(x1, b.x); y1 = Math.min(y1, b.y);
+      x2 = Math.max(x2, b.x + b.w); y2 = Math.max(y2, b.y + b.h);
+    });
+    if (x1 === Infinity) return null;
+    return { x: x1, y: y1, w: Math.max(1, x2 - x1), h: Math.max(1, y2 - y1) };
+  }
+
+  // Encuadra una caja del lienzo: el mayor zoom (paso del 10%, entre los
+  // límites del slider) con el que cabe entera, centrada. A diferencia del
+  // auto-fit del arranque SÍ puede bajar del 100%: aquí lo pide el usuario
+  // (Mayús+1/2 o el botón), no un reajuste automático.
+  function zoomToBounds(b) {
+    if (!b || !canvasArea) return;
+    const rect = canvasArea.getBoundingClientRect();
+    const PAD = 24;
+    const availW = rect.width - PAD * 2;
+    const availH = rect.height - PAD * 2;
+    if (availW <= 0 || availH <= 0) return;
+    let z = Math.min(availW / b.w, availH / b.h);
+    z = Math.floor(z * 10) / 10;
+    z = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
+    sizerInstant();
+    applyZoom(z);
+    zoomManual = true;
+    const r2 = mainCanvas.getBoundingClientRect();
+    const cx = r2.left + (b.x + b.w / 2) * state.zoom;
+    const cy = r2.top + (b.y + b.h / 2) * state.zoom;
+    canvasArea.scrollLeft += cx - (rect.left + rect.width / 2);
+    canvasArea.scrollTop += cy - (rect.top + rect.height / 2);
+    updateBackContent();
+  }
+
+  function zoomToFitContent() { zoomToBounds(contentBounds()); }
+  function zoomToSelection() { zoomToBounds(selectionBounds()); }
+
+  // «Volver al dibujo»: el botón flotante aparece solo cuando el viewport del
+  // área no toca la caja de ningún elemento — el "me he perdido en el
+  // infinito" que Excalidraw y tldraw resuelven exactamente así. Se recalcula
+  // en cada repintado y en el scroll del área (coalescido vía rAF).
+  function updateBackContent() {
+    const btn = $('btn-back-content');
+    if (!btn || !canvasArea) return;
+    const b = contentBounds();
+    let lost = false;
+    if (b) {
+      const rect = canvasArea.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        const r2 = mainCanvas.getBoundingClientRect();
+        const x1 = r2.left + b.x * state.zoom;
+        const y1 = r2.top + b.y * state.zoom;
+        lost = x1 + b.w * state.zoom < rect.left || x1 > rect.right ||
+               y1 + b.h * state.zoom < rect.top || y1 > rect.bottom;
+      }
+    }
+    btn.hidden = !lost;
+  }
+
+  if (canvasArea) {
+    // Ctrl/Cmd+rueda = zoom al cursor; la rueda a secas sigue siendo scroll
+    // (la convención de Figma/Excalidraw/tldraw). El pinch de trackpad llega
+    // como wheel con ctrlKey sintético, así que cae aquí gratis. passive:false
+    // porque hay preventDefault: sin él el navegador hace SU zoom de página.
+    canvasArea.addEventListener('wheel', e => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const factor = Math.exp(-e.deltaY * 0.002);
+      zoomAtClient(state.zoom * factor, e.clientX, e.clientY);
+    }, { passive: false });
+
+    let backContentPending = false;
+    canvasArea.addEventListener('scroll', () => {
+      if (backContentPending) return;
+      backContentPending = true;
+      requestAnimationFrame(() => {
+        backContentPending = false;
+        updateBackContent();
+      });
+    });
+  }
 
   /* ── Full redraw (coalescido vía requestAnimationFrame) ── */
 
@@ -1905,6 +2038,7 @@
       }
     }
     $('el-count').textContent = state.elements.length;
+    updateBackContent();
     // Único punto que sincroniza la UI dependiente de la selección
     const hasSel = state.selection.length > 0;
     $('btn-delete-sel').hidden = !hasSel;
@@ -4089,6 +4223,11 @@
     mainCanvas.classList.toggle('canvas-area__canvas--ink',
       state.tool === TOOLS.INK && !state.inkPicking);
     mainCanvas.classList.toggle('canvas-area__canvas--ink-pick', !!state.inkPicking);
+    // Pan (v3.5.0): la mano abierta con el espacio pulsado, cerrada durante el
+    // arrastre. Van las últimas del parcial para ganar a cualquier cursor de
+    // herramienta con la misma especificidad.
+    mainCanvas.classList.toggle('canvas-area__canvas--grab', spacePan && !panDrag);
+    mainCanvas.classList.toggle('canvas-area__canvas--grabbing', !!panDrag);
   }
 
   /* ── Acciones sobre la selección ── */
@@ -6928,7 +7067,19 @@
     $('zoom-slider').addEventListener('input', e => {
       zoomManual = true;
       applyZoom(+e.target.value / 100);
+      updateBackContent();
     });
+
+    // Encuadres (v3.5.0): el botón del panel es la vía de ratón de Mayús+1, y
+    // el % clicable la de Ctrl+0 — micro-detalle de Excalidraw: el porcentaje
+    // no es un rótulo, es el botón de volver al 100%.
+    $('btn-zoom-fit').addEventListener('click', zoomToFitContent);
+    $('zoom-val').addEventListener('click', () => {
+      if (!canvasArea) return;
+      const r = canvasArea.getBoundingClientRect();
+      zoomAtClient(1, r.left + r.width / 2, r.top + r.height / 2);
+    });
+    $('btn-back-content').addEventListener('click', zoomToFitContent);
 
     // Fondo del lienzo
     $('canvas-bg-picker').value = state.canvasBg;
@@ -7680,6 +7831,45 @@
     // document aunque el foco esté atrapado en el diálogo. Escape lo cierra de
     // forma nativa. (El '?' de arriba sí sigue funcionando para cerrar la ayuda.)
     if (document.querySelector('dialog[open]')) return;
+
+    // Espacio mantenido = pan (v3.5.0): mientras dure, el arrastre desplaza el
+    // scroll en vez de dibujar. Acelerador, no única vía (regla de una mano):
+    // el scroll nativo y el botón central hacen lo mismo sin teclado. El
+    // preventDefault evita que el propio espacio haga scroll de página, y se
+    // aplica también en las repeticiones (mantenerlo pulsado sigue generando
+    // keydown con e.repeat).
+    if (e.code === 'Space' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      if (!spacePan) {
+        spacePan = true;
+        updateCursor();
+      }
+      return;
+    }
+
+    // Encuadres (v3.5.0): Mayús+1 ajusta el zoom a todo el dibujo, Mayús+2 a
+    // la selección, Ctrl/Cmd+0 vuelve al 100%. Por e.code y no e.key: en el
+    // teclado español Mayús+1 escribe «!», y el atajo es la tecla física,
+    // como en Excalidraw. Sin conflicto con las herramientas 1/2/0, que van
+    // sin modificador. Todos tienen vía de ratón: el botón «Encuadrar» del
+    // panel, el slider y el % clicable.
+    if (e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey &&
+        (e.code === 'Digit1' || e.code === 'Digit2')) {
+      e.preventDefault();
+      if (e.code === 'Digit1') zoomToFitContent();
+      else if (state.selection.length) zoomToSelection();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.code === 'Digit0') {
+      // preventDefault obligatorio: Ctrl/Cmd+0 es el reset de zoom del propio
+      // navegador, y aquí debe resetear el del lienzo, no el de la página.
+      e.preventDefault();
+      if (canvasArea) {
+        const r = canvasArea.getBoundingClientRect();
+        zoomAtClient(1, r.left + r.width / 2, r.top + r.height / 2);
+      }
+      return;
+    }
 
     // Undo / Redo (Cmd+Shift+Z es el redo estándar en macOS)
     if ((e.ctrlKey || e.metaKey) && k === 'z') {
@@ -9491,6 +9681,24 @@
     state.resizing || state.dragLast || state.marquee;
 
   mainCanvas.addEventListener('pointerdown', e => {
+    // Pan (v3.5.0): espacio mantenido o botón central, con CUALQUIER
+    // herramienta. Se resuelve aquí, antes de onMouseDown, porque es cámara y
+    // no gesto de dibujo: no debe pisar isDrawing/marquee ni entrar en undo.
+    // El preventDefault del botón central suprime además el autoscroll del
+    // navegador (los pointer events cancelados no generan mousedown).
+    if (activePointerId === null &&
+        (spacePan || (e.pointerType === 'mouse' && e.button === 1))) {
+      e.preventDefault();
+      activePointerId = e.pointerId;
+      panDrag = {
+        sx: e.clientX, sy: e.clientY,
+        sl: canvasArea ? canvasArea.scrollLeft : 0,
+        st: canvasArea ? canvasArea.scrollTop : 0,
+      };
+      mainCanvas.setPointerCapture(e.pointerId);
+      updateCursor();
+      return;
+    }
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     if (activePointerId !== null) return; // ya hay un gesto en curso: ignora el 2º puntero
     activePointerId = e.pointerId;
@@ -9501,20 +9709,53 @@
     // En reposo (activePointerId null) se dejan pasar los moves (hover); en un
     // gesto, solo los del puntero que lo inició
     if (activePointerId !== null && e.pointerId !== activePointerId) return;
+    if (panDrag) {
+      if (canvasArea) {
+        canvasArea.scrollLeft = panDrag.sl - (e.clientX - panDrag.sx);
+        canvasArea.scrollTop = panDrag.st - (e.clientY - panDrag.sy);
+      }
+      return;
+    }
     onMouseMove(e);
   });
   mainCanvas.addEventListener('pointerup', e => {
     if (activePointerId !== null && e.pointerId !== activePointerId) return;
     if (mainCanvas.hasPointerCapture(e.pointerId)) mainCanvas.releasePointerCapture(e.pointerId);
+    if (panDrag) {
+      panDrag = null;
+      activePointerId = null;
+      updateCursor();
+      return;
+    }
     onMouseUp(e);
     activePointerId = null;
   });
   mainCanvas.addEventListener('pointercancel', e => {
     if (activePointerId !== null && e.pointerId !== activePointerId) return;
+    if (panDrag) {
+      panDrag = null;
+      activePointerId = null;
+      updateCursor();
+      return;
+    }
     // Cerrar CUALQUIER gesto a medias (dibujo, arrastre, resize o marquee): si
     // no, state.resizing/marquee quedaban colgados y secuestraban el siguiente.
     if (gestureActive()) onMouseUp(e);
     activePointerId = null;
+  });
+  // El espacio se suelta en keyup — y en blur, porque un Cmd+Tab con la tecla
+  // pulsada se lleva el keyup a otra aplicación y la mano se quedaba puesta.
+  document.addEventListener('keyup', e => {
+    if (e.code === 'Space' && spacePan) {
+      spacePan = false;
+      updateCursor();
+    }
+  });
+  window.addEventListener('blur', () => {
+    if (spacePan) {
+      spacePan = false;
+      updateCursor();
+    }
   });
   mainCanvas.addEventListener('pointerleave', () => {
     if (activePointerId !== null || state.tool !== TOOLS.ERASER) return;

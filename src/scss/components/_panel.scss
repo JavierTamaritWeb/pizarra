@@ -70,6 +70,21 @@
     display: block;
   }
 
+  // El % del zoom es un botón (clic = volver al 100%, v3.5.0): hereda el
+  // aspecto del título en el que vive y solo el subrayado punteado y el
+  // cursor delatan que se puede pulsar. Nunca se oculta: sin regla [hidden].
+  &__zoom-val {
+    border: none;
+    background: transparent;
+    padding: 0;
+    font: inherit;
+    letter-spacing: inherit;
+    color: var(--color-primary);
+    text-decoration: underline dotted;
+    text-underline-offset: 0.2rem;
+    cursor: pointer;
+  }
+
   &__gear {
     border: none;
     background: transparent;

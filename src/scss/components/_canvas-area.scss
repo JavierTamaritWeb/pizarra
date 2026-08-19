@@ -91,6 +91,64 @@
   cursor: default;
 }
 
+/* Pan (v3.5.0): la mano abierta mientras el espacio está pulsado y la cerrada
+   durante el arrastre. Van DESPUÉS de todos los cursores de herramienta: a
+   igual especificidad gana la última regla, y el pan debe pisar a cualquiera
+   de ellas mientras dura. */
+.canvas-area__canvas--grab {
+  cursor: grab;
+}
+
+.canvas-area__canvas--grabbing {
+  cursor: grabbing;
+}
+
+/* Zoom con la rueda o encuadre (v3.5.0): el ajuste de scroll que mantiene el
+   punto bajo el cursor se calcula midiendo la caja YA escalada, así que las
+   transiciones del sizer y del wrapper deben apagarse durante el gesto — a
+   mitad de animación medirían una caja intermedia y el lienzo "huiría". La
+   pone y la quita JS (sizerInstant); el zoom por slider no la usa y conserva
+   su animación (e2e/helpers.js setZoom espera esa transición). */
+.canvas-area--instant .canvas-area__sizer,
+.canvas-area--instant .canvas-area__wrapper {
+  transition: none;
+}
+
+/* «Volver al dibujo» (v3.5.0): flotante sobre el área, solo visible cuando el
+   viewport no toca ningún elemento (updateBackContent). position:fixed —
+   fuera del contenedor de scroll, o se iría con él. Declara display, así que
+   necesita su propia regla [hidden] (la trampa de _panel.scss). No está bajo
+   los cuatro contenedores de _uppercase.scss: la caja alta se fija aquí. */
+.canvas-area__back {
+  position: fixed;
+  bottom: 2.4rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: v.$z-canvas-overlay;
+  display: inline-block;
+  padding: 0.8rem 1.6rem;
+  border: 0.1rem solid var(--color-primary);
+  border-radius: v.$radius-xl;
+  background: var(--bg-panel);
+  color: var(--color-primary);
+  font-family: inherit;
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: v.$tracking-wide;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: v.$shadow-overlay;
+}
+
+.canvas-area__back:hover {
+  background: var(--color-primary);
+  color: v.$color-ink;
+}
+
+.canvas-area__back[hidden] {
+  display: none;
+}
+
 .canvas-area__overlay {
   position: absolute;
   top: 0;

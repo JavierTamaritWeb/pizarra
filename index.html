@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=3.4.6" />
+  <link rel="stylesheet" href="css/styles.css?v=3.5.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.4.6" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.5.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v3.4.6</span>
+        <span class="topbar__badge">v3.5.0</span>
         <!-- Aviso de autoguardado: visible SOLO mientras localStorage rechaza
              el guardado (cuota llena). Sin él, el fallo era un catch mudo y el
              trabajo posterior se perdía en silencio al recargar. -->
@@ -86,6 +86,12 @@
             <textarea class="canvas-area__text-input" id="text-input" placeholder="Escribe aquí..." hidden></textarea>
           </div>
         </div>
+        <!-- «Volver al dibujo» (v3.5.0): aparece solo cuando el scroll/zoom
+             dejan el viewport sin tocar ningún elemento (updateBackContent).
+             position:fixed, así que no participa en el layout del sizer; su
+             regla [hidden] es obligatoria porque la clase declara display. -->
+        <button type="button" class="canvas-area__back" id="btn-back-content"
+                title="Encuadrar el dibujo (Mayús+1)" hidden>↩ Volver al dibujo</button>
       </main>
 
       <!-- Right Panel
@@ -361,8 +367,13 @@
               <option value="hidden-dashed">Bordes ocultos</option>
             </select>
           </label>
-          <label class="panel__title panel__title--block" for="zoom-slider">Zoom: <span id="zoom-val">100</span>%</label>
+          <!-- El % es un BOTÓN: clicarlo vuelve al 100% (micro-detalle de
+               Excalidraw). Sigue dentro del <label for> del slider — un botón
+               es contenido interactivo, así que su clic no se reenvía al
+               slider — y smoke guarda ese <label for>. -->
+          <label class="panel__title panel__title--block" for="zoom-slider">Zoom: <button type="button" class="panel__zoom-val" id="zoom-val" title="Volver al 100 % (Ctrl+0)">100</button>%</label>
           <input class="panel__slider" type="range" id="zoom-slider" min="30" max="300" step="10" value="100" />
+          <button class="btn btn--ghost btn--block" id="btn-zoom-fit" title="Encuadrar el dibujo (Mayús+1)">🔍 Encuadrar el dibujo</button>
         </section>
 
         <!-- Selección: cuánto hay seleccionado y qué se puede hacer con ello.
@@ -616,6 +627,10 @@
           <li>El lienzo mide siempre <strong>1200×800</strong>; el zoom (30–300 %) solo cambia cómo lo ves, nunca lo que dibujas</li>
           <li>Al abrir la app —y al cambiar el tamaño de la ventana— el zoom se <strong>ajusta solo</strong> para aprovechar el espacio. En cuanto tocas el deslizador, manda tu elección y deja de reajustarse</li>
           <li>Con el lienzo más grande que la ventana, el área se desplaza con la rueda y las barras de scroll</li>
+          <li><kbd>Ctrl</kbd>+<strong>rueda</strong> acerca o aleja <strong>sobre el punto que señala el cursor</strong>, como en Excalidraw o Figma; la rueda a secas sigue desplazando</li>
+          <li>Mantén la <kbd>barra espaciadora</kbd> —o usa el <strong>botón central</strong> del ratón— y arrastra para <strong>mover la vista</strong> sin cambiar de herramienta</li>
+          <li><kbd>Mayús</kbd>+<kbd>1</kbd> encuadra <strong>todo el dibujo</strong> (también el botón «Encuadrar el dibujo» del panel), <kbd>Mayús</kbd>+<kbd>2</kbd> encuadra la <strong>selección</strong>, y <kbd>Ctrl</kbd>+<kbd>0</kbd> —o un clic en el <strong>porcentaje</strong> del zoom— vuelve al 100&nbsp;%</li>
+          <li>Si te alejas tanto que el dibujo se pierde de vista, aparece el botón flotante <strong>«Volver al dibujo»</strong>: un clic y lo encuadra</li>
         </ul>
       </section>
 
@@ -2191,23 +2206,23 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=3.4.6"></script>
-  <script src="src/js/sketchy.js?v=3.4.6"></script>
-  <script src="src/js/freehand.js?v=3.4.6"></script>
-  <script src="src/js/arc.js?v=3.4.6"></script>
-  <script src="src/js/curve-path.js?v=3.4.6"></script>
-  <script src="src/js/shape-rotation.js?v=3.4.6"></script>
-  <script src="src/js/regular-polygon.js?v=3.4.6"></script>
-  <script src="src/js/trapezoid.js?v=3.4.6"></script>
-  <script src="src/js/airbrush.js?v=3.4.6"></script>
-  <script src="src/js/flood.js?v=3.4.6"></script>
-  <script src="src/js/eraser.js?v=3.4.6"></script>
-  <script src="src/js/building.js?v=3.4.6"></script>
-  <script src="src/js/garden.js?v=3.4.6"></script>
-  <script src="src/js/solid.js?v=3.4.6"></script>
-  <script src="src/js/renderer.js?v=3.4.6"></script>
-  <script src="src/js/exporter.js?v=3.4.6"></script>
-  <script src="src/js/templates.js?v=3.4.6"></script>
-  <script src="src/js/app.js?v=3.4.6"></script>
+  <script src="src/js/config.js?v=3.5.0"></script>
+  <script src="src/js/sketchy.js?v=3.5.0"></script>
+  <script src="src/js/freehand.js?v=3.5.0"></script>
+  <script src="src/js/arc.js?v=3.5.0"></script>
+  <script src="src/js/curve-path.js?v=3.5.0"></script>
+  <script src="src/js/shape-rotation.js?v=3.5.0"></script>
+  <script src="src/js/regular-polygon.js?v=3.5.0"></script>
+  <script src="src/js/trapezoid.js?v=3.5.0"></script>
+  <script src="src/js/airbrush.js?v=3.5.0"></script>
+  <script src="src/js/flood.js?v=3.5.0"></script>
+  <script src="src/js/eraser.js?v=3.5.0"></script>
+  <script src="src/js/building.js?v=3.5.0"></script>
+  <script src="src/js/garden.js?v=3.5.0"></script>
+  <script src="src/js/solid.js?v=3.5.0"></script>
+  <script src="src/js/renderer.js?v=3.5.0"></script>
+  <script src="src/js/exporter.js?v=3.5.0"></script>
+  <script src="src/js/templates.js?v=3.5.0"></script>
+  <script src="src/js/app.js?v=3.5.0"></script>
 </body>
 </html>
