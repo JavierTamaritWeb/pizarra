@@ -321,16 +321,21 @@ sobre el `buildingGroupId` que ya existía.
 - Guardas: `tests/app-interaction.test.js` (estado vacío, undo/redo) y
   `e2e/feedback.spec.js` (hover, cotas, toasts, visibilidad real).
 
-## Fase 3 — Táctil y móvil (pendiente)
+## Fase 3 — Táctil y móvil ✅ (v3.7.0)
 
-1. **Dos dedos = pan + pinch-zoom**: sustituir el descarte del segundo puntero
-   (`activePointerId`) por un mapa de punteros; el segundo dedo cancela el
-   gesto de dibujo (mismo camino que `pointercancel`) y pasa a modo cámara.
-2. **Doble-tap** = doble clic táctil (editar texto, aislar pieza de grupo).
-3. **Long-press** (~500 ms sin moverse >10 px) = Alt+clic (aislar pieza), con
-   feedback del progreso.
-4. **Targets táctiles**: con `pointerType === 'touch'`, área de handles
-   ampliada (~24 px vs los 8 de ratón) sin cambiar su dibujo; `@media
-   (pointer: coarse)` para swatches y botones pequeños.
-5. **Auto-fit por debajo del 100 % solo en viewports pequeños/coarse**
-   (excepción explícita a la invariante actual del auto-fit).
+- ✅ **Dos dedos = pan + pinch-zoom** (`touchPts`/`touchCamMove`): el segundo
+  dedo ABORTA un trazo a medias (no lo comete: el usuario quería mover la
+  vista, no dejar un punto), remata arrastre/resize/marquee como
+  `pointercancel`, y la cámara dura hasta soltar todos los dedos.
+- ✅ **Doble-tap** = doble clic (sintetizado; `isTrusted` dedupe el nativo si
+  el navegador también lo fabrica; solo cuenta un TAP sin arrastre).
+- ✅ **Long-press** (500 ms quieto, anillo de aviso a los 200 ms) = Alt+tap:
+  aísla la pieza y deja el dedo arrastrándola; vacía la selección antes de
+  re-decidir el mousedown, o el marco combinado se lo comería.
+- ✅ **Targets táctiles**: handles ×3 con `pointerType === 'touch'` (el dibujo
+  no cambia) y `@media (pointer: coarse)` en `base/_touch.scss` (solo añade
+  mínimos: con ratón no cambia un píxel).
+- ✅ **Auto-fit por debajo del 100 %** solo con `(pointer: coarse)` — la
+  excepción explícita a la invariante del auto-fit.
+- Guardas: `e2e/touch.spec.js` (pinch por CDP, doble-tap, long-press, auto-fit
+  móvil).

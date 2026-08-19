@@ -1753,3 +1753,24 @@ textarea {
   background: var(--bg-hover);
   border-radius: 0.3rem;
 }
+
+/* ============================================================
+   Objetivos táctiles (v3.7.0)
+   ============================================================ */
+@media (pointer: coarse) {
+  .panel__color-swatch,
+  .panel__fill-swatch {
+    min-width: 3.2rem;
+    min-height: 3.2rem;
+  }
+  .panel__gear {
+    min-width: 3.6rem;
+    min-height: 3.6rem;
+  }
+  .btn {
+    min-height: 3.6rem;
+  }
+  .sidebar__tool {
+    min-height: 4.4rem;
+  }
+}

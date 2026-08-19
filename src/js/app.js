@@ -1545,8 +1545,13 @@
     if (availW <= 0 || availH <= 0) return;
     let z = Math.min(availW / CANVAS_W, availH / CANVAS_H);
     // Nunca reduce por debajo del 100% (pantallas estrechas siguen como
-    // antes, con scroll); solo agranda cuando sobra espacio.
-    z = Math.min(ZOOM_MAX, Math.max(1, z));
+    // antes, con scroll); solo agranda cuando sobra espacio. La excepción
+    // (v3.7.0) es un dispositivo TÁCTIL (pointer: coarse): en un móvil el
+    // lienzo de 1200×800 al 100% deja fuera tres cuartas partes y el pinch es
+    // el único remedio — ahí el auto-ajuste sí baja hasta donde haga falta.
+    const coarse = typeof matchMedia === 'function' &&
+      matchMedia('(pointer: coarse)').matches;
+    z = Math.min(ZOOM_MAX, Math.max(coarse ? ZOOM_MIN : 1, z));
     z = Math.floor(z * 10) / 10; // pasos del 10%, igual que el slider (a la baja: no desbordar)
     applyZoom(z);
   }
@@ -2434,10 +2439,10 @@
     };
   }
 
-  function hitHandle(pos, b) {
+  function hitHandle(pos, b, r = HANDLE_HIT) {
     const cs = handleCorners(b);
     for (const key of Object.keys(cs)) {
-      if (Math.abs(pos.x - cs[key].x) <= HANDLE_HIT && Math.abs(pos.y - cs[key].y) <= HANDLE_HIT) return key;
+      if (Math.abs(pos.x - cs[key].x) <= r && Math.abs(pos.y - cs[key].y) <= r) return key;
     }
     return null;
   }
@@ -2743,12 +2748,16 @@
 
     // SELECT tool
     if (state.tool === TOOLS.SELECT) {
+      // Objetivo táctil (v3.7.0): un dedo es mucho menos preciso que un ratón,
+      // así que el área de agarre de los handles se triplica con pointerType
+      // touch — el DIBUJO de los handles no cambia, solo cuánto perdonan.
+      const handleR = e.pointerType === 'touch' ? HANDLE_HIT * 3 : HANDLE_HIT;
       // 1. Handles de resize (antes que el hit-test de elementos)
       if (state.selection.length === 1) {
         const selEl = state.elements[state.selection[0]];
         // Handles de flecha (curvatura; el commit de conectores añade extremos)
         for (const h of arrowHandles(selEl)) {
-          if (Math.hypot(pos.x - h.x, pos.y - h.y) <= HANDLE_HIT) {
+          if (Math.hypot(pos.x - h.x, pos.y - h.y) <= handleR) {
             state.resizing = { corner: h.name, from: null, original: selEl, snapshot: snapshot(), did: false };
             return;
           }
@@ -2759,7 +2768,7 @@
         // a la vista — arrancaba un resize invisible en vez de deseleccionar.
         const cornersActive = selEl.type !== 'arrow' && selEl.type !== 'curveArrow';
         const b = getElementBounds(selEl);
-        const corner = cornersActive ? hitHandle(pos, b) : null;
+        const corner = cornersActive ? hitHandle(pos, b, handleR) : null;
         if (corner) {
           state.resizing = {
             corner,
@@ -2781,7 +2790,7 @@
       // selección en vez de escalarla, y no habría forma de redimensionarla.
       const groupResizeBox = state.selection.length > 1 ? selectionBounds() : null;
       if (groupResizeBox) {
-        const groupCorner = hitHandle(pos, groupResizeBox);
+        const groupCorner = hitHandle(pos, groupResizeBox, handleR);
         if (groupCorner) {
           state.resizing = {
             corner: groupCorner,
@@ -3139,6 +3148,20 @@
         }
         octx.stroke();
       });
+      octx.restore();
+    }
+
+    // Anillo del long-press (v3.7.0): aparece a los 200ms de mantener el dedo
+    // quieto, avisando de que aguantar hasta ~500ms aislará la pieza. Overlay
+    // puro, como todo lo de este fotograma.
+    if (longPressHint) {
+      octx.save();
+      octx.beginPath();
+      octx.arc(longPressHint.x, longPressHint.y, 22, 0, Math.PI * 2);
+      octx.strokeStyle = 'rgba(78, 205, 196, 0.85)';
+      octx.setLineDash([5, 4]);
+      octx.lineWidth = 2.5;
+      octx.stroke();
       octx.restore();
     }
 
@@ -4059,6 +4082,12 @@
   const LABELED_TYPES = [TOOLS.BUTTON, TOOLS.INPUT, TOOLS.NAV, TOOLS.CARD];
 
   mainCanvas.addEventListener('dblclick', e => {
+    // Dedupe táctil (v3.7.0): el doble-tap fabrica un dblclick sintético
+    // (isTrusted false), y algunos navegadores sintetizan ADEMÁS el suyo — dos
+    // seguidos descenderían dos niveles de golpe o abrirían el editor dos
+    // veces. Solo se filtra el NATIVO pegado al sintético: los dblclick del
+    // arnés vm (sin isTrusted) y los del ratón pasan siempre.
+    if (e.isTrusted && Date.now() - lastDblTime < 300) return;
     // «Select» comparte el descenso a pieza (más abajo), pero no los editores
     // ni el reset de curvatura: es una herramienta de solo selección y un
     // doble clic no debe modificar nada.
@@ -9790,8 +9819,11 @@
 
   // Pointer events con captura: funciona con ratón, táctil y stylus, y el
   // trazo/drag sigue recibiendo eventos aunque el puntero salga del canvas.
-  // Solo se atiende UN puntero a la vez: un segundo dedo en pantalla táctil
-  // reiniciaría onMouseDown a media interacción y corrompería el trazo/arrastre.
+  // Los gestos de DIBUJO atienden UN puntero a la vez: un segundo dedo que
+  // reiniciara onMouseDown a media interacción corrompería el trazo/arrastre.
+  // Desde la v3.7.0 el segundo dedo NO se descarta: convierte la mano en
+  // cámara (pan + pinch), que es lo que dos dedos significan en cualquier
+  // editor táctil.
   let activePointerId = null;
 
   // ¿Hay un gesto de puntero a medio hacer? (para limpiarlo en pointercancel)
@@ -9799,7 +9831,137 @@
     state.isDrawing || state.curveChain || state.didDrag ||
     state.resizing || state.dragLast || state.marquee;
 
+  /* ── Táctil (v3.7.0): dos dedos = cámara, doble-tap y long-press ── */
+
+  const touchPts = new Map();   // pointerId → {x, y} en cliente, por dedo
+  let touchCam = null;          // sesión de cámara: {cx, cy, dist} del frame anterior
+  let touchCamOn = false;       // en cámara, y hasta soltar TODOS los dedos
+  let longPress = null;         // temporizadores del long-press en curso
+  let longPressHint = null;     // punto del anillo de aviso (overlay)
+  let lastTap = null;           // {x, y, t} del último tap, para el doble-tap
+  let lastDblTime = 0;          // dedupe: el doble-tap sintético + el nativo
+  let touchStart = null;        // {x, y} del dedo al posarse: distingue tap de arrastre
+
+  // Aborta un TRAZO a medias sin cometerlo: es lo que pasa cuando el segundo
+  // dedo llega mientras el primero dibujaba — el usuario quería mover la
+  // vista, no dejar un punto. Nada se ha comprometido aún (el commit vive en
+  // onMouseUp), así que basta con soltar los flags.
+  function abortStroke() {
+    state.isDrawing = false;
+    state.startPos = null;
+    state.currentPath = [];
+    state.airbrushDrag = null;
+    scheduleOverlay();
+  }
+
+  // Pan + pinch con el centroide y la distancia entre los dos dedos. El zoom
+  // reutiliza zoomAtClient (ancla el punto entre los dedos, como la rueda) y
+  // el pan es el arrastre del centroide sobre el scroll del área.
+  function touchCamMove() {
+    const pts = [...touchPts.values()];
+    if (pts.length < 2) return;
+    const cx = (pts[0].x + pts[1].x) / 2;
+    const cy = (pts[0].y + pts[1].y) / 2;
+    const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    if (touchCam) {
+      if (canvasArea) {
+        canvasArea.scrollLeft -= cx - touchCam.cx;
+        canvasArea.scrollTop -= cy - touchCam.cy;
+      }
+      if (touchCam.dist > 0 && Math.abs(dist - touchCam.dist) > 1) {
+        zoomAtClient(state.zoom * (dist / touchCam.dist), cx, cy);
+      }
+    }
+    touchCam = { cx, cy, dist };
+  }
+
+  // Long-press (~500ms quieto) = Alt+tap: aislar la pieza de un grupo — el
+  // acelerador que en táctil no existe porque no hay Alt. Solo con las dos
+  // herramientas de selección, que es donde Alt+clic significa algo. A los
+  // 200ms aparece un anillo de aviso en el overlay (el progreso prometido:
+  // quien lo ve sabe que aguantar hará algo); moverse >10px lo cancela.
+  function cancelLongPress() {
+    if (!longPress) return;
+    clearTimeout(longPress.hint);
+    clearTimeout(longPress.fire);
+    longPress = null;
+    if (longPressHint) {
+      longPressHint = null;
+      scheduleOverlay();
+    }
+  }
+
+  function scheduleLongPress(e) {
+    cancelLongPress();
+    if (!SELECTION_TOOLS.includes(state.tool)) return;
+    const info = { x: e.clientX, y: e.clientY, pos: getPos(e) };
+    info.hint = setTimeout(() => {
+      longPressHint = info.pos;
+      scheduleOverlay();
+    }, 200);
+    info.fire = setTimeout(() => {
+      longPress = null;
+      longPressHint = null;
+      // El pointerdown del dedo ya abrió el gesto de arrastre del grupo: se
+      // descarta y se re-decide el mismo mousedown con Alt puesto — a partir
+      // de aquí el dedo, sin levantarse, arrastra la pieza aislada. La
+      // selección se vacía antes: con el grupo YA seleccionado, el punto cae
+      // dentro del marco combinado y esa rama (arrastrar la selección) corre
+      // antes de que el Alt pueda aislar nada.
+      state.dragLast = null;
+      state.resizing = null;
+      state.marquee = null;
+      state.didDrag = false;
+      setSelection([]);
+      onMouseDown({
+        clientX: info.x, clientY: info.y, altKey: true, shiftKey: false,
+        ctrlKey: false, metaKey: false, button: 0, buttons: 1,
+        pointerType: 'touch',
+      });
+      redraw();
+      scheduleOverlay();
+    }, 500);
+    longPress = info;
+  }
+
+  // Doble-tap = doble clic: el navegador no siempre lo sintetiza sobre un
+  // lienzo con touch-action: none, así que se fabrica; lastDblTime dedupe el
+  // caso en que SÍ lo sintetiza (dos dblclick seguidos descenderían dos veces).
+  function maybeDoubleTap(e) {
+    const now = Date.now();
+    if (lastTap && now - lastTap.t < 350 &&
+        Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 25) {
+      lastTap = null;
+      lastDblTime = now;
+      mainCanvas.dispatchEvent(new MouseEvent('dblclick', {
+        clientX: e.clientX, clientY: e.clientY, bubbles: true,
+      }));
+    } else {
+      lastTap = { x: e.clientX, y: e.clientY, t: now };
+    }
+  }
+
   mainCanvas.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'touch') {
+      touchPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      mainCanvas.setPointerCapture(e.pointerId);
+      if (touchPts.size === 2) {
+        // Segundo dedo: cámara. Un trazo a medias se ABORTA (el usuario quería
+        // mover la vista, no dejar un punto); un arrastre/resize/marquee se
+        // remata por el mismo camino que pointercancel.
+        cancelLongPress();
+        if (state.curveChain) state.isDrawing = false; // la cadena sigue; el tramo en curso se suelta
+        else if (state.isDrawing) abortStroke();
+        else if (gestureActive()) onMouseUp(e);
+        activePointerId = null;
+        touchCam = null;
+        touchCamOn = true;
+        return;
+      }
+      if (touchPts.size > 2 || touchCamOn) return;
+      touchStart = { x: e.clientX, y: e.clientY };
+      scheduleLongPress(e);
+    }
     // Pan (v3.5.0): espacio mantenido o botón central, con CUALQUIER
     // herramienta. Se resuelve aquí, antes de onMouseDown, porque es cámara y
     // no gesto de dibujo: no debe pisar isDrawing/marquee ni entrar en undo.
@@ -9825,6 +9987,18 @@
     onMouseDown(e);
   });
   mainCanvas.addEventListener('pointermove', e => {
+    if (e.pointerType === 'touch' && touchPts.has(e.pointerId)) {
+      touchPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (touchCamOn) {
+        touchCamMove();
+        return;
+      }
+      // Un long-press que se mueve ya no es un long-press: es un arrastre.
+      if (longPress &&
+          Math.hypot(e.clientX - longPress.x, e.clientY - longPress.y) > 10) {
+        cancelLongPress();
+      }
+    }
     // En reposo (activePointerId null) se dejan pasar los moves (hover); en un
     // gesto, solo los del puntero que lo inició
     if (activePointerId !== null && e.pointerId !== activePointerId) return;
@@ -9838,6 +10012,18 @@
     onMouseMove(e);
   });
   mainCanvas.addEventListener('pointerup', e => {
+    if (e.pointerType === 'touch' && touchPts.has(e.pointerId)) {
+      touchPts.delete(e.pointerId);
+      cancelLongPress();
+      if (touchCamOn) {
+        // La cámara dura hasta soltar TODOS los dedos: el superviviente de un
+        // pinch no debe ponerse a dibujar de repente.
+        if (mainCanvas.hasPointerCapture(e.pointerId)) mainCanvas.releasePointerCapture(e.pointerId);
+        touchCam = null;
+        if (!touchPts.size) touchCamOn = false;
+        return;
+      }
+    }
     if (activePointerId !== null && e.pointerId !== activePointerId) return;
     if (mainCanvas.hasPointerCapture(e.pointerId)) mainCanvas.releasePointerCapture(e.pointerId);
     if (panDrag) {
@@ -9848,8 +10034,23 @@
     }
     onMouseUp(e);
     activePointerId = null;
+    // Solo un TAP (sin arrastre) cuenta para el doble-tap: dos arrastres que
+    // terminan cerca no son un doble clic.
+    if (e.pointerType === 'touch' && touchStart &&
+        Math.hypot(e.clientX - touchStart.x, e.clientY - touchStart.y) <= 10) {
+      maybeDoubleTap(e);
+    }
   });
   mainCanvas.addEventListener('pointercancel', e => {
+    if (e.pointerType === 'touch') {
+      touchPts.delete(e.pointerId);
+      cancelLongPress();
+      if (touchCamOn) {
+        touchCam = null;
+        if (!touchPts.size) touchCamOn = false;
+        return;
+      }
+    }
     if (activePointerId !== null && e.pointerId !== activePointerId) return;
     if (panDrag) {
       panDrag = null;
