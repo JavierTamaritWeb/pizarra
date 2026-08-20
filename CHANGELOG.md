@@ -4,6 +4,16 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.13.2] — 2026-08-20
+
+### Cambiado
+
+- **La posición de fábrica de las barras flotantes es ahora la del sidebar**:
+  al pulsar «Barras» (o recargar) aparecen **apiladas en columna a la
+  izquierda**, una debajo de otra —el sitio donde viven las herramientas al
+  abrir la app—, saltando de columna cuando no caben en el alto de la
+  ventana. Desde ahí cada una se arrastra a donde se quiera, como antes.
+
 ## [3.13.1] — 2026-08-20
 
 ### Cambiado

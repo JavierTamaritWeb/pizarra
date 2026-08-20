@@ -6018,11 +6018,18 @@ test('buildFloatbars crea 5 barras en su posición de fábrica y con todos los b
   const app = loadApp();
   const barras = app.$('floatbars').querySelectorAll('.floatbar');
   assert.equal(barras.length, 5, 'cinco barras flotantes');
-  // La cascada de fábrica: una junto a otra bajo el topbar. Está en el DOM y
-  // no en prefs, así que recargar restaura estas mismas coordenadas.
-  assert.deepEqual(barras.map(b => b.style.left),
-    ['12px', '158px', '304px', '450px', '596px']);
-  assert.deepEqual([...new Set(barras.map(b => b.style.top))], ['64px']);
+  // La disposición de fábrica: APILADAS en columna a la izquierda —donde
+  // vive el sidebar al abrir la app—, saltando de columna cuando la
+  // siguiente no cabe. El apilado usa la altura CALCULADA (no medida, ver
+  // floatbarEstHeight), así que con la ventana 1440×900 del stub el
+  // resultado es exacto y determinista: Edición+Dibujo, Formas+UI y
+  // Edificios en su propia columna. Vive en el DOM y no en prefs: recargar
+  // restaura estas mismas coordenadas.
+  assert.deepEqual(barras.map(b => [b.style.left, b.style.top]), [
+    ['12px', '64px'], ['12px', '238px'],
+    ['158px', '64px'], ['158px', '533px'],
+    ['304px', '64px'],
+  ]);
   // Mismos botones que el sidebar (que conserva los suyos: el modo solo lo
   // oculta por CSS), cada juego con su propia clase BEM.
   const flotantes = app.$('floatbars').querySelectorAll('.floatbar__tool');

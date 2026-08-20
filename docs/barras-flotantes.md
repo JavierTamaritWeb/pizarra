@@ -52,14 +52,23 @@ del cajón (40).
 ## Posiciones efímeras a propósito
 
 Las posiciones y el plegado viven **solo en el DOM** (`style.left/top`, clase
-`floatbar--collapsed`): ni en `state` ni en prefs. Recargar restaura la
-cascada de fábrica (`floatbarHome(i)`: bajo el topbar, pegadas a la
-izquierda, una junto a otra) — es el comportamiento pedido, no un ahorro. Y
-desde la v3.13.1 **activar el modo también resetea** (`resetFloatbars()`,
-llamado desde `applyFloatToolbars` solo cuando enciende): pulsar «Barras»
-enseña siempre la disposición limpia, no la de la última sesión del modo. La
-única situación donde las posiciones sobreviven es el viaje
-ancho→estrecho→ancho del viewport, que es CSS puro y no pasa por ahí. Lo
+`floatbar--collapsed`): ni en `state` ni en prefs. La disposición de fábrica
+(v3.13.2, petición explícita del usuario) **apila las barras en columna a la
+izquierda — el sitio donde vive el sidebar al abrir la app —**, una debajo
+de otra, saltando a la columna siguiente cuando la próxima no cabe en el
+alto de la ventana; desde ahí cada una sigue siendo arrastrable. El apilado
+usa una **altura CALCULADA, nunca medida** (`floatbarEstHeight`: 46 + 59 por
+fila de botones): al colocar, la barra puede estar `display:none` y el
+`getBoundingClientRect` del arnés vm devuelve una caja fija que mentiría —
+así el resultado es idéntico y determinista en navegador y tests, y va unos
+px holgado (la fuente real no llena el `min-height`). `e2e/floatbars.spec.js`
+guarda contra cajas reales que no produce solapes. Recargar restaura esa
+columna, y desde la v3.13.1 **activar el modo también** (`resetFloatbars()`,
+llamado desde `applyFloatToolbars` solo cuando enciende y desde
+`buildFloatbars`): pulsar «Barras» enseña siempre la disposición limpia, no
+la de la última sesión del modo. La única situación donde las posiciones
+sobreviven es el viaje ancho→estrecho→ancho del viewport, que es CSS puro y
+no pasa por ahí. Lo
 único que persiste es el **modo** (`state.floatToolbars`, en prefs como
 `alignGuides`: es un modo de trabajo), y «Limpiar todo» lo devuelve a fábrica
 vía `appDefaults()` + `syncAllControls()` → `applyFloatToolbars(state.…)`.

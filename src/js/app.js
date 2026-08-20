@@ -6035,16 +6035,27 @@
 
   // Geometría de fábrica. FLOATBAR_W está acoplado al `width` de `.floatbar`
   // en _floatbar.scss (13.6rem = 136px, dos columnas de botones) — moverlos
-  // juntos. La cascada nace bajo el topbar (5.2rem = 52px), pegada a la
-  // izquierda, una barra junto a otra.
+  // juntos. La disposición de fábrica APILA las barras en columna pegadas a
+  // la izquierda, una debajo de otra — el sitio donde vive el sidebar al
+  // abrir la app —, y salta a la columna siguiente cuando la próxima barra
+  // no cabría en el alto de la ventana.
   const FLOATBAR_W = 136;
   const FLOATBAR_GAP = 10;
   const FLOATBAR_TOP = 64;
   const FLOATBAR_MIN_TOP = 56;   // nunca debajo del topbar: taparía sus botones
   const FLOATBAR_HANDLE_H = 32;  // el asa siempre alcanzable para recuperarla
 
-  function floatbarHome(i) {
-    return { left: 12 + i * (FLOATBAR_W + FLOATBAR_GAP), top: FLOATBAR_TOP };
+  /** Altura de una barra para la disposición de fábrica: asa + relleno +
+      borde (46) y una fila de botones cada 59px (56 de `min-height` + 3 de
+      calle). Es un CÁLCULO y no una medida a propósito: al colocar, la barra
+      puede estar display:none (modo apagado) y en el arnés vm el
+      getBoundingClientRect del stub devuelve una caja fija que mentiría —
+      así el apilado es idéntico y determinista en navegador y tests, y va
+      unos px holgado (la fuente real no llena el min-height), nunca corto.
+      e2e/floatbars.spec.js guarda que en el navegador no produce solapes. */
+  function floatbarEstHeight(bar) {
+    const filas = Math.ceil(bar.querySelectorAll('.floatbar__tool').length / 2);
+    return 46 + filas * 59;
   }
 
   /** Mantiene una barra alcanzable: el asa dentro del viewport (patrón del
@@ -6066,24 +6077,34 @@
     [...host.querySelectorAll('.floatbar')].forEach(clampFloatbar);
   }
 
-  /** Devuelve las cinco barras a su estado de fábrica: cascada original y
-      desplegadas. Corre cada vez que el modo SE ACTIVA — encender «Barras»
-      siempre enseña la disposición limpia, no la de la última sesión del
-      modo — además de en la recarga (donde sale gratis: fábrica es como
-      nacen en buildFloatbars). */
+  /** Devuelve las cinco barras a su estado de fábrica: apiladas en columna a
+      la izquierda —donde vive el sidebar al abrir la app—, desplegadas, con
+      salto de columna si la siguiente no cabe en el alto de la ventana.
+      Corre cada vez que el modo SE ACTIVA — encender «Barras» siempre enseña
+      la disposición limpia, no la de la última sesión del modo — y desde
+      buildFloatbars, así que la recarga la restaura por el mismo camino.
+      Desde ahí cada barra sigue siendo arrastrable por su asa. */
   function resetFloatbars() {
     const host = $('floatbars');
     if (!host) return;
-    [...host.querySelectorAll('.floatbar')].forEach((bar, i) => {
-      const home = floatbarHome(i);
-      bar.style.left = `${home.left}px`;
-      bar.style.top = `${home.top}px`;
+    const maxY = (window.innerHeight || Infinity) - 12;
+    let x = 12;
+    let y = FLOATBAR_TOP;
+    [...host.querySelectorAll('.floatbar')].forEach(bar => {
       bar.classList.remove('floatbar--collapsed');
       const collapse = bar.querySelectorAll('.floatbar__collapse')[0];
       if (collapse) {
         collapse.setAttribute('aria-expanded', 'true');
         collapse.textContent = '▾';
       }
+      const h = floatbarEstHeight(bar);
+      if (y > FLOATBAR_TOP && y + h > maxY) {
+        x += FLOATBAR_W + FLOATBAR_GAP;
+        y = FLOATBAR_TOP;
+      }
+      bar.style.left = `${x}px`;
+      bar.style.top = `${y}px`;
+      y += h + FLOATBAR_GAP;
     });
   }
 
@@ -6091,15 +6112,12 @@
     const host = $('floatbars');
     if (!host) return;
     host.innerHTML = '';
-    FLOATBAR_GROUPS.forEach((fb, i) => {
+    FLOATBAR_GROUPS.forEach(fb => {
       const bar = document.createElement('div');
       bar.className = 'floatbar';
       bar.setAttribute('role', 'toolbar');
       bar.setAttribute('aria-orientation', 'vertical');
       bar.setAttribute('aria-label', fb.label);
-      const home = floatbarHome(i);
-      bar.style.left = `${home.left}px`;
-      bar.style.top = `${home.top}px`;
 
       const handle = document.createElement('div');
       handle.className = 'floatbar__handle';
@@ -6156,6 +6174,7 @@
       wireRovingToolbar(bar, [...tools.querySelectorAll('.floatbar__tool')]);
       host.appendChild(bar);
     });
+    resetFloatbars();
     updateToolbarActive();
   }
 

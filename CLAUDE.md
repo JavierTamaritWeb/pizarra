@@ -279,7 +279,10 @@ botones — el modo solo lo oculta por **CSS puro** (`app--floatbars` +
 `min-width: 1101px`, el complemento exacto del cajón; el JS no mide la
 ventana). El MODO persiste en prefs (`floatToolbars`); **posiciones y plegado
 viven solo en el DOM y mueren con la sesión a propósito** — recargar Y activar
-el modo (`resetFloatbars`, v3.13.1) es volver a fábrica. Los botones van en dos
+el modo (`resetFloatbars`, v3.13.1) es volver a fábrica: **apiladas en columna
+a la izquierda, donde vive el sidebar** (v3.13.2), con salto de columna si no
+caben y altura **calculada, nunca medida** (`floatbarEstHeight` — el rect del
+arnés vm miente y una barra oculta no mide). Los botones van en dos
 columnas (la rejilla del sidebar ancho) y `FLOATBAR_W` (app.js, 136) está
 acoplado al `width: 13.6rem` de `.floatbar`. El arrastre por el asa es
 mobiliario: jamás toca `state`, undo ni

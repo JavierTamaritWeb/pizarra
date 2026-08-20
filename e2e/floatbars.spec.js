@@ -93,6 +93,34 @@ test('arrastrar una barra por el asa la mueve, y no puede salirse del viewport',
   expect(clampada.y + 32).toBeLessThanOrEqual(WIDE.height + 1);
 });
 
+test('la disposición de fábrica apila las barras a la izquierda, sin solapes', async ({ page }) => {
+  await openApp(page, { viewport: WIDE });
+  await activarBarras(page);
+  const cajas = [];
+  for (let i = 0; i < 5; i++) {
+    cajas.push(await page.locator('.floatbar').nth(i).boundingBox());
+  }
+  // Como el sidebar al abrir la app: la primera columna nace arriba a la
+  // izquierda y la segunda barra va DEBAJO de la primera, no al lado.
+  expect(Math.round(cajas[0].x)).toBe(12);
+  expect(Math.round(cajas[0].y)).toBe(64);
+  expect(Math.round(cajas[1].x)).toBe(12);
+  expect(cajas[1].y).toBeGreaterThan(cajas[0].y + cajas[0].height - 1);
+  // El apilado se calcula con la altura estimada (floatbarEstHeight): esta
+  // guarda comprueba contra las cajas REALES que la estimación nunca se
+  // queda corta — ningún par de barras se pisa.
+  for (let a = 0; a < 5; a++) {
+    for (let b = a + 1; b < 5; b++) {
+      const separadas =
+        cajas[a].x + cajas[a].width <= cajas[b].x ||
+        cajas[b].x + cajas[b].width <= cajas[a].x ||
+        cajas[a].y + cajas[a].height <= cajas[b].y ||
+        cajas[b].y + cajas[b].height <= cajas[a].y;
+      expect(separadas, `las barras ${a} y ${b} se solapan`).toBe(true);
+    }
+  }
+});
+
 test('los botones van en DOS columnas, como el sidebar ancho', async ({ page }) => {
   await openApp(page, { viewport: WIDE });
   await activarBarras(page);
