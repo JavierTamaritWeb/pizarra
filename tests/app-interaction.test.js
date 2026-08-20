@@ -6018,18 +6018,15 @@ test('buildFloatbars crea 5 barras en su posición de fábrica y con todos los b
   const app = loadApp();
   const barras = app.$('floatbars').querySelectorAll('.floatbar');
   assert.equal(barras.length, 5, 'cinco barras flotantes');
-  // La disposición de fábrica: APILADAS en columna a la izquierda —donde
-  // vive el sidebar al abrir la app—, saltando de columna cuando la
-  // siguiente no cabe. El apilado usa la altura CALCULADA (no medida, ver
-  // floatbarEstHeight), así que con la ventana 1440×900 del stub el
-  // resultado es exacto y determinista: Edición+Dibujo, Formas+UI y
-  // Edificios en su propia columna. Vive en el DOM y no en prefs: recargar
-  // restaura estas mismas coordenadas.
-  assert.deepEqual(barras.map(b => [b.style.left, b.style.top]), [
-    ['12px', '64px'], ['12px', '238px'],
-    ['158px', '64px'], ['158px', '533px'],
-    ['304px', '64px'],
-  ]);
+  // La disposición de fábrica es FLUJO CSS: las barras apiladas sin huecos
+  // dentro de la columna #floatbars, pegada al borde izquierdo donde vive el
+  // sidebar. Fábrica = SIN estilos inline — el arrastre es lo único que pone
+  // position/left/top, y resetear es borrarlos. Por eso el apilado es exacto
+  // sin medir ni estimar alturas, y recargar lo restaura gratis.
+  for (const [i, b] of barras.entries()) {
+    assert.ok(!b.style.position && !b.style.left && !b.style.top,
+      `la barra ${i} nace en flujo, sin estilos inline de posición`);
+  }
   // Mismos botones que el sidebar (que conserva los suyos: el modo solo lo
   // oculta por CSS), cada juego con su propia clase BEM.
   const flotantes = app.$('floatbars').querySelectorAll('.floatbar__tool');
@@ -6103,19 +6100,21 @@ test('activar «Barras» devuelve SIEMPRE la disposición de fábrica', () => {
   const btn = app.$('btn-float-tools');
   btn.__fire('click', { target: btn });
   app.flush();
-  // Se desordena el mobiliario: una barra movida y otra plegada.
+  // Se desordena el mobiliario: una barra arrastrada (fixed inline, como
+  // hace el arrastre real) y otra plegada.
   const barras = app.$('floatbars').querySelectorAll('.floatbar');
+  barras[0].style.position = 'fixed';
   barras[0].style.left = '900px';
   barras[0].style.top = '400px';
   const pliegue = barras[1].querySelectorAll('.floatbar__collapse')[0];
   pliegue.__fire('click', { target: pliegue });
-  // Apagar y volver a encender el modo tiene que enseñar la cascada limpia,
-  // no la de la última sesión del modo.
+  // Apagar y volver a encender el modo tiene que enseñar la columna limpia
+  // (todo de vuelta al flujo), no la de la última sesión del modo.
   btn.__fire('click', { target: btn });
   btn.__fire('click', { target: btn });
   app.flush();
-  assert.equal(barras[0].style.left, '12px', 'la barra movida vuelve a su sitio');
-  assert.equal(barras[0].style.top, '64px');
+  assert.ok(!barras[0].style.position && !barras[0].style.left && !barras[0].style.top,
+    'la barra arrastrada vuelve al flujo de la columna');
   assert.ok(!barras[1].classList.contains('floatbar--collapsed'),
     'la barra plegada vuelve desplegada');
   assert.equal(pliegue.getAttribute('aria-expanded'), 'true');

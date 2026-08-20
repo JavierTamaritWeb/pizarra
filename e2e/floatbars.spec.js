@@ -93,32 +93,29 @@ test('arrastrar una barra por el asa la mueve, y no puede salirse del viewport',
   expect(clampada.y + 32).toBeLessThanOrEqual(WIDE.height + 1);
 });
 
-test('la disposición de fábrica apila las barras a la izquierda, sin solapes', async ({ page }) => {
+test('la disposición de fábrica es UNA columna pegada al borde, sin huecos, que escrolea', async ({ page }) => {
   await openApp(page, { viewport: WIDE });
   await activarBarras(page);
   const cajas = [];
   for (let i = 0; i < 5; i++) {
     cajas.push(await page.locator('.floatbar').nth(i).boundingBox());
   }
-  // Como el sidebar al abrir la app: la primera columna nace arriba a la
-  // izquierda y la segunda barra va DEBAJO de la primera, no al lado.
-  expect(Math.round(cajas[0].x)).toBe(12);
-  expect(Math.round(cajas[0].y)).toBe(64);
-  expect(Math.round(cajas[1].x)).toBe(12);
-  expect(cajas[1].y).toBeGreaterThan(cajas[0].y + cajas[0].height - 1);
-  // El apilado se calcula con la altura estimada (floatbarEstHeight): esta
-  // guarda comprueba contra las cajas REALES que la estimación nunca se
-  // queda corta — ningún par de barras se pisa.
-  for (let a = 0; a < 5; a++) {
-    for (let b = a + 1; b < 5; b++) {
-      const separadas =
-        cajas[a].x + cajas[a].width <= cajas[b].x ||
-        cajas[b].x + cajas[b].width <= cajas[a].x ||
-        cajas[a].y + cajas[a].height <= cajas[b].y ||
-        cajas[b].y + cajas[b].height <= cajas[a].y;
-      expect(separadas, `las barras ${a} y ${b} se solapan`).toBe(true);
-    }
+  // Donde vive el sidebar al abrir la app: pegadas al borde izquierdo, desde
+  // el topbar, y cada barra empieza exactamente donde acaba la anterior —
+  // el apilado es flujo CSS, así que aquí se mide que de verdad no hay ni
+  // huecos ni solapes.
+  expect(Math.round(cajas[0].x)).toBe(0);
+  expect(Math.round(cajas[0].y)).toBe(52);
+  for (let i = 1; i < 5; i++) {
+    expect(Math.round(cajas[i].x)).toBe(0);
+    expect(Math.abs(cajas[i].y - (cajas[i - 1].y + cajas[i - 1].height)))
+      .toBeLessThanOrEqual(1);
   }
+  // Y la columna escrolea como el sidebar cuando no caben todas.
+  const antes = await page.locator('.floatbar').nth(4).boundingBox();
+  await page.locator('#floatbars').evaluate(el => { el.scrollTop = 400; });
+  const despues = await page.locator('.floatbar').nth(4).boundingBox();
+  expect(Math.round(antes.y - despues.y)).toBe(400);
 });
 
 test('los botones van en DOS columnas, como el sidebar ancho', async ({ page }) => {

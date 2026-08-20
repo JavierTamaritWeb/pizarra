@@ -6033,34 +6033,22 @@
      flotantes son duplicados con su propia clase (ver toolButton). Posiciones
      y plegado viven en el DOM y NO se persisten: recargar restaura fábrica. */
 
-  // Geometría de fábrica. FLOATBAR_W está acoplado al `width` de `.floatbar`
-  // en _floatbar.scss (13.6rem = 136px, dos columnas de botones) — moverlos
-  // juntos. La disposición de fábrica APILA las barras en columna pegadas a
-  // la izquierda, una debajo de otra — el sitio donde vive el sidebar al
-  // abrir la app —, y salta a la columna siguiente cuando la próxima barra
-  // no cabría en el alto de la ventana.
+  // Geometría del arrastre. FLOATBAR_W está acoplado al `width` de
+  // `.floatbar` en _floatbar.scss (13.6rem = 136px, dos columnas de
+  // botones) — moverlos juntos. La disposición de fábrica NO se calcula
+  // aquí: es flujo CSS puro — las barras apiladas sin huecos dentro de la
+  // columna `#floatbars`, pegada al borde izquierdo donde vive el sidebar,
+  // que escrolea como él. Una barra solo recibe `position: fixed` (inline)
+  // cuando se arrastra por su asa; volver a fábrica es borrar esos estilos.
   const FLOATBAR_W = 136;
-  const FLOATBAR_GAP = 10;
-  const FLOATBAR_TOP = 64;
   const FLOATBAR_MIN_TOP = 56;   // nunca debajo del topbar: taparía sus botones
   const FLOATBAR_HANDLE_H = 32;  // el asa siempre alcanzable para recuperarla
 
-  /** Altura de una barra para la disposición de fábrica: asa + relleno +
-      borde (46) y una fila de botones cada 59px (56 de `min-height` + 3 de
-      calle). Es un CÁLCULO y no una medida a propósito: al colocar, la barra
-      puede estar display:none (modo apagado) y en el arnés vm el
-      getBoundingClientRect del stub devuelve una caja fija que mentiría —
-      así el apilado es idéntico y determinista en navegador y tests, y va
-      unos px holgado (la fuente real no llena el min-height), nunca corto.
-      e2e/floatbars.spec.js guarda que en el navegador no produce solapes. */
-  function floatbarEstHeight(bar) {
-    const filas = Math.ceil(bar.querySelectorAll('.floatbar__tool').length / 2);
-    return 46 + filas * 59;
-  }
-
-  /** Mantiene una barra alcanzable: el asa dentro del viewport (patrón del
-      menú contextual, que también es un fixed posicionado desde JS). */
+  /** Mantiene una barra ARRASTRADA alcanzable: el asa dentro del viewport
+      (patrón del menú contextual, el otro fixed posicionado desde JS). Las
+      barras en flujo no se tocan — viven en la columna, que escrolea. */
   function clampFloatbar(bar) {
+    if (bar.style.position !== 'fixed') return;
     const vw = window.innerWidth || 0;
     const vh = window.innerHeight || 0;
     if (!vw || !vh) return;
@@ -6077,34 +6065,28 @@
     [...host.querySelectorAll('.floatbar')].forEach(clampFloatbar);
   }
 
-  /** Devuelve las cinco barras a su estado de fábrica: apiladas en columna a
-      la izquierda —donde vive el sidebar al abrir la app—, desplegadas, con
-      salto de columna si la siguiente no cabe en el alto de la ventana.
-      Corre cada vez que el modo SE ACTIVA — encender «Barras» siempre enseña
-      la disposición limpia, no la de la última sesión del modo — y desde
-      buildFloatbars, así que la recarga la restaura por el mismo camino.
-      Desde ahí cada barra sigue siendo arrastrable por su asa. */
+  /** Devuelve las cinco barras a su estado de fábrica: de vuelta al FLUJO de
+      la columna izquierda —donde vive el sidebar al abrir la app—, juntas y
+      desplegadas. No coloca nada: borra los estilos inline que puso el
+      arrastre y el CSS de la columna hace el resto — por eso el apilado es
+      exacto sin medir ni estimar alturas. Corre cada vez que el modo SE
+      ACTIVA — encender «Barras» siempre enseña la columna limpia, no la de
+      la última sesión del modo — y desde buildFloatbars, así que la recarga
+      la restaura por el mismo camino. */
   function resetFloatbars() {
     const host = $('floatbars');
     if (!host) return;
-    const maxY = (window.innerHeight || Infinity) - 12;
-    let x = 12;
-    let y = FLOATBAR_TOP;
+    host.scrollTop = 0;
     [...host.querySelectorAll('.floatbar')].forEach(bar => {
+      bar.style.position = '';
+      bar.style.left = '';
+      bar.style.top = '';
       bar.classList.remove('floatbar--collapsed');
       const collapse = bar.querySelectorAll('.floatbar__collapse')[0];
       if (collapse) {
         collapse.setAttribute('aria-expanded', 'true');
         collapse.textContent = '▾';
       }
-      const h = floatbarEstHeight(bar);
-      if (y > FLOATBAR_TOP && y + h > maxY) {
-        x += FLOATBAR_W + FLOATBAR_GAP;
-        y = FLOATBAR_TOP;
-      }
-      bar.style.left = `${x}px`;
-      bar.style.top = `${y}px`;
-      y += h + FLOATBAR_GAP;
     });
   }
 
@@ -6149,10 +6131,20 @@
       });
 
       // Arrastre por el asa: mobiliario, no dibujo — jamás toca `state`, el
-      // undo ni el autosave, y por eso la posición muere con la sesión.
+      // undo ni el autosave, y por eso la posición muere con la sesión. El
+      // primer arrastre saca la barra del flujo de la columna: pasa a
+      // `position: fixed` exactamente donde estaba (getBoundingClientRect da
+      // coordenadas de viewport, que es el sistema de fixed) y desde ahí
+      // sigue al puntero.
       handle.addEventListener('pointerdown', e => {
         if (collapse === e.target || collapse.contains?.(e.target)) return;
         e.preventDefault();
+        if (bar.style.position !== 'fixed') {
+          const r = bar.getBoundingClientRect();
+          bar.style.position = 'fixed';
+          bar.style.left = `${r.left}px`;
+          bar.style.top = `${r.top}px`;
+        }
         const dx = e.clientX - (parseFloat(bar.style.left) || 0);
         const dy = e.clientY - (parseFloat(bar.style.top) || 0);
         handle.setPointerCapture?.(e.pointerId);

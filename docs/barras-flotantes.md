@@ -51,24 +51,29 @@ del cajón (40).
 
 ## Posiciones efímeras a propósito
 
-Las posiciones y el plegado viven **solo en el DOM** (`style.left/top`, clase
-`floatbar--collapsed`): ni en `state` ni en prefs. La disposición de fábrica
-(v3.13.2, petición explícita del usuario) **apila las barras en columna a la
-izquierda — el sitio donde vive el sidebar al abrir la app —**, una debajo
-de otra, saltando a la columna siguiente cuando la próxima no cabe en el
-alto de la ventana; desde ahí cada una sigue siendo arrastrable. El apilado
-usa una **altura CALCULADA, nunca medida** (`floatbarEstHeight`: 46 + 59 por
-fila de botones): al colocar, la barra puede estar `display:none` y el
-`getBoundingClientRect` del arnés vm devuelve una caja fija que mentiría —
-así el resultado es idéntico y determinista en navegador y tests, y va unos
-px holgado (la fuente real no llena el `min-height`). `e2e/floatbars.spec.js`
-guarda contra cajas reales que no produce solapes. Recargar restaura esa
-columna, y desde la v3.13.1 **activar el modo también** (`resetFloatbars()`,
-llamado desde `applyFloatToolbars` solo cuando enciende y desde
-`buildFloatbars`): pulsar «Barras» enseña siempre la disposición limpia, no
-la de la última sesión del modo. La única situación donde las posiciones
-sobreviven es el viaje ancho→estrecho→ancho del viewport, que es CSS puro y
-no pasa por ahí. Lo
+Las posiciones y el plegado viven **solo en el DOM**: ni en `state` ni en
+prefs. La disposición de fábrica (v3.13.3, tercera iteración con el usuario:
+ni la fila bajo el topbar ni el multi-columna eran lo pedido) es **UNA
+columna pegada al borde izquierdo, las barras juntas sin huecos — el sitio
+exacto del sidebar al abrir la app —**, y es **flujo CSS, no coordenadas**:
+`#floatbars` es una franja `fixed` (borde izquierdo, del topbar abajo, con
+`overflow-y: auto` — escrolea como el sidebar cuando no caben) y las barras
+se apilan dentro en flujo, así que el encaje es exacto **sin medir ni
+estimar alturas**. El arrastre es lo único que saca una barra del flujo: al
+primer gesto app.js le pone `position: fixed` inline donde estaba
+(`getBoundingClientRect` da coordenadas de viewport, el sistema de fixed) y
+desde ahí sigue al puntero, escapando también del recorte del scroll —
+comportamiento nativo de fixed dentro de un overflow. La franja lleva
+`pointer-events: none` y cada barra `auto`: el hueco bajo la última barra no
+roba clics al lienzo. **Volver a fábrica = borrar los estilos inline**
+(`resetFloatbars()`: position/left/top fuera, desplegar, `scrollTop = 0`),
+que corre al recargar (desde `buildFloatbars`) y **cada vez que el modo se
+activa** (v3.13.1, desde `applyFloatToolbars` solo al encender): pulsar
+«Barras» enseña siempre la columna limpia, no la de la última sesión del
+modo. La única situación donde las posiciones sobreviven es el viaje
+ancho→estrecho→ancho del viewport, que es CSS puro y no pasa por ahí.
+`clampFloatbar` solo toca barras con `position: fixed` inline — las del
+flujo no pueden perderse. Lo
 único que persiste es el **modo** (`state.floatToolbars`, en prefs como
 `alignGuides`: es un modo de trabajo), y «Limpiar todo» lo devuelve a fábrica
 vía `appDefaults()` + `syncAllControls()` → `applyFloatToolbars(state.…)`.

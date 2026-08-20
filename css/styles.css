@@ -485,6 +485,14 @@ input[type=range]::-moz-range-thumb {
    ============================================================ */
 .floatbars {
   display: none;
+  position: fixed;
+  top: var(--topbar-h);
+  bottom: 0;
+  left: 0;
+  z-index: 30;
+  width: 15rem;
+  overflow-y: auto;
+  pointer-events: none;
 }
 
 .floatbars[hidden],
@@ -493,8 +501,8 @@ input[type=range]::-moz-range-thumb {
 }
 
 .floatbar {
-  position: fixed;
-  z-index: 30;
+  pointer-events: auto;
+  flex-shrink: 0;
   width: 13.6rem;
   display: flex;
   flex-direction: column;
@@ -596,7 +604,8 @@ input[type=range]::-moz-range-thumb {
     display: inline-flex;
   }
   .app--floatbars .floatbars {
-    display: block;
+    display: flex;
+    flex-direction: column;
   }
   .app--floatbars .sidebar {
     display: none;

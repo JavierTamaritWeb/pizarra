@@ -4,6 +4,18 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.13.3] — 2026-08-20
+
+### Corregido
+
+- **Al pulsar «Barras», las cinco barras aparecen como pidió el usuario: en
+  UNA columna pegada al borde izquierdo, juntas y sin huecos** — el sitio
+  exacto de la barra lateral al abrir la app —, y la columna escrolea como
+  ella cuando no caben todas. La v3.13.2 las repartía en varias columnas
+  cuando no cabían, y eso seguía leyéndose como «separadas». El apilado es
+  ahora flujo CSS (nada de coordenadas calculadas): solo arrastrar una barra
+  la saca de la columna, y reactivar el modo o recargar la devuelve.
+
 ## [3.13.2] — 2026-08-20
 
 ### Cambiado

@@ -19,8 +19,24 @@
 //   smoke), así que trae su propia caja alta — y la repite en `button`,
 //   porque los controles de formulario no la heredan del user-agent.
 
+// La columna de fábrica: ocupa el sitio del sidebar (borde izquierdo, del
+// topbar abajo) y las barras se apilan DENTRO, en flujo y sin huecos — por
+// eso el apilado es exacto sin medir ni estimar nada. Escrolea como el
+// sidebar cuando no caben. `pointer-events: none` en la columna y `auto` en
+// cada barra: la franja vacía bajo la última barra no roba clics al lienzo
+// (la rueda sí escrolea, porque llega a través de las barras). Una barra
+// arrastrada recibe `position: fixed` inline (app.js) y escapa del flujo y
+// del recorte del scroll, que es exactamente lo que hace fixed.
 .floatbars {
   display: none;
+  position: fixed;
+  top: var(--topbar-h);
+  bottom: 0;
+  left: 0;
+  z-index: v.$z-floatbar;
+  width: 15rem; // 13.6rem de barra + aire para su sombra
+  overflow-y: auto;
+  pointer-events: none;
 }
 
 // La trampa [hidden] de siempre: ambos declaran display, así que sin esta
@@ -32,13 +48,15 @@
 }
 
 .floatbar {
-  position: fixed;
-  z-index: v.$z-floatbar;
+  // En flujo dentro de la columna #floatbars (la disposición de fábrica);
+  // app.js le pone `position: fixed` inline al arrastrarla.
+  pointer-events: auto;
+  flex-shrink: 0;
 
-  // Acoplado a FLOATBAR_W (app.js, 136px): la cascada de fábrica y el clamp
-  // del arrastre calculan con ese número — mover los dos juntos. El ancho
-  // sale de las DOS columnas de botones (ver &__tools), calcadas del sidebar
-  // ancho (132px), más el borde.
+  // Acoplado a FLOATBAR_W (app.js, 136px): el clamp del arrastre calcula
+  // con ese número — mover los dos juntos. El ancho sale de las DOS
+  // columnas de botones (ver &__tools), calcadas del sidebar ancho (132px),
+  // más el borde.
   width: 13.6rem;
   display: flex;
   flex-direction: column;
@@ -168,7 +186,8 @@
   }
 
   .app--floatbars .floatbars {
-    display: block;
+    display: flex;
+    flex-direction: column;
   }
 
   .app--floatbars .sidebar {
