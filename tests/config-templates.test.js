@@ -469,6 +469,29 @@ test('config.js — las secciones de 3D son exactamente los diez tipos de Formas
   assert.deepEqual([...ctx.SOLID_SECTIONS], [...formas.tools.map(t => t.id)]);
 });
 
+test('config.js — FLOATBAR_GROUPS reparte los 7 grupos en 5 barras sin repetir ni dejar ninguno', () => {
+  const ctx = load('src/js/config.js');
+  const fb = ctx.FLOATBAR_GROUPS;
+  assert.equal(fb.length, 5, 'son cinco barras flotantes');
+  // Partición exacta: cada grupo del sidebar aparece en UNA barra, en el
+  // mismo orden en que se pintan — si un grupo nuevo entra en TOOL_GROUPS
+  // sin barra asignada, sus herramientas no existirían en el modo flotante
+  // y nada lo avisaría.
+  // Spreads por la trampa del realm vm: los arrays nacidos dentro del
+  // contexto no comparten prototipo con los del host y deepEqual los rechaza.
+  const repartidos = [...fb.flatMap(b => [...b.groups])];
+  assert.deepEqual(repartidos, [...ctx.TOOL_GROUPS.map(g => g.label)]);
+  // El reparto acordado, con sus rótulos de asa exactos: Formas con 3D y
+  // Edificios con Jardín comparten barra; el resto va sola.
+  assert.deepEqual([...fb.map(b => [b.label, [...b.groups]])], [
+    ['Edición', ['Edición']],
+    ['Dibujo', ['Dibujo']],
+    ['Formas y 3D', ['Formas', '3D']],
+    ['UI', ['UI']],
+    ['Edificios y Jardín', ['Edificios', 'Jardín']],
+  ]);
+});
+
 test('config.js — los catálogos de variante están congelados y bien formados', () => {
   const ctx = load('src/js/config.js');
   const catalogs = {

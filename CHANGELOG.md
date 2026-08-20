@@ -4,6 +4,20 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.13.0] — 2026-08-20
+
+### Añadido
+
+- **Barras de herramientas flotantes**: el botón **Barras** del topbar
+  desglosa el sidebar en cinco paletas arrastrables —Edición, Dibujo, Formas
+  y 3D, UI, Edificios y Jardín— con asa para moverlas y botón para plegarlas.
+  El modo se recuerda entre sesiones; las **posiciones y el plegado no**: al
+  recargar, las cinco vuelven a su sitio y orden de fábrica, desplegadas. Solo
+  existe en pantalla ancha (por debajo de 1100 px manda el sidebar/cajón de
+  siempre), la visibilidad es CSS puro y el sidebar conserva sus botones — el
+  modo solo lo oculta. Cada barra es su propia parada de Tab con las flechas
+  por dentro, como el sidebar. Detalle en `docs/barras-flotantes.md`.
+
 ## [3.12.2] — 2026-08-20
 
 ### Corregido

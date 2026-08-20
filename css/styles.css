@@ -481,6 +481,127 @@ input[type=range]::-moz-range-thumb {
   }
 }
 /* ============================================================
+   BLOCK: floatbar / floatbars (v3.13.0)
+   ============================================================ */
+.floatbars {
+  display: none;
+}
+
+.floatbars[hidden],
+.floatbar[hidden] {
+  display: none;
+}
+
+.floatbar {
+  position: fixed;
+  z-index: 30;
+  width: 8.4rem;
+  display: flex;
+  flex-direction: column;
+  border: 0.1rem solid var(--border-main);
+  border-radius: 0.8rem;
+  background: var(--bg-panel);
+  box-shadow: 0 0.4rem 1.2rem rgba(0, 0, 0, 0.2);
+  text-transform: uppercase;
+}
+.floatbar button {
+  text-transform: uppercase;
+}
+.floatbar__handle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.5rem 0.4rem 0.5rem 0.6rem;
+  border-bottom: 0.1rem solid var(--border-main);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.floatbar__title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--text-muted);
+}
+.floatbar__collapse {
+  border: none;
+  border-radius: 0.4rem;
+  padding: 0.1rem 0.4rem;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.floatbar__collapse:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.floatbar__tools {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.6rem 0.4rem;
+  max-height: calc(100vh - 12rem);
+  overflow-y: auto;
+}
+.floatbar--collapsed .floatbar__tools {
+  display: none;
+}
+.floatbar__tool {
+  width: 6.8rem;
+  min-height: 4.4rem;
+  padding: 0.3rem 0.2rem;
+  border: none;
+  border-radius: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  font-size: 1.8rem;
+  background: transparent;
+  color: var(--text-secondary);
+  transition: all var(--ease);
+  cursor: pointer;
+}
+.floatbar__tool:hover {
+  background: rgba(78, 205, 196, 0.08);
+  color: var(--text-primary);
+}
+.floatbar__tool--active {
+  background: rgba(78, 205, 196, 0.12);
+  color: var(--color-primary);
+  outline: 0.2rem solid rgba(78, 205, 196, 0.25);
+}
+.floatbar__tool-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1.15;
+  text-align: center;
+}
+
+/* El interruptor del topbar solo existe donde el modo existe (espejo exacto
+   de .panel-toggle, que hace lo contrario: solo en pantallas estrechas). */
+.float-toggle {
+  display: none;
+}
+
+@media (min-width: 1101px) {
+  .float-toggle {
+    display: inline-flex;
+  }
+  .app--floatbars .floatbars {
+    display: block;
+  }
+  .app--floatbars .sidebar {
+    display: none;
+  }
+}
+/* ============================================================
    BLOCK: canvas-area
    ============================================================ */
 .canvas-area {

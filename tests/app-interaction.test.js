@@ -3790,6 +3790,9 @@ function fotoDeAjustes(app) {
     solapamiento: v('overlap-mode'), fondo: v('canvas-bg-picker'), rejilla: v('grid-color-picker'),
     plantas: v('build-floors'), tejado: v('build-roof-type'), camino: v('garden-path-width'),
     muro: v('wall-material'), verja: v('fence-type'), cancela: v('gate-type'),
+    // El interruptor de las barras flotantes no es un value ni un checked:
+    // su estado observable es el aria-pressed del botón (v3.13.0).
+    barras: app.$('btn-float-tools').getAttribute('aria-pressed'),
   };
 }
 
@@ -3861,6 +3864,8 @@ test('«Limpiar todo» devuelve TODOS los ajustes a los de fábrica, no solo uno
   set('build-roof-type', 'hip');
   set('garden-path-width', 60);
   set('wall-material', 'brick');
+  app.$('btn-float-tools').__fire('click', { target: app.$('btn-float-tools') });
+  app.flush();
   app.drag(100, 100, 300, 300);
   assert.ok(app.elements().length > 0, 'la escena tiene que tener algo que limpiar');
   // Nada de lo tocado puede coincidir ya con fábrica, o el test no probaría nada.
@@ -6000,4 +6005,101 @@ test('un marco se coge por el borde o por su rótulo, nunca por dentro', () => {
   app.drag(300, 100, 320, 100);
   els = app.elements();
   assert.equal(dx(previo[0], els[0]), 20, 'el borde superior mueve el marco');
+});
+
+/* ── Barras de herramientas flotantes (v3.13.0) ──
+   Aquí va la LÓGICA del modo: construcción, activo duplicado, interruptor,
+   persistencia y plegado. La visibilidad real (CSS puro: `app--floatbars`
+   solo actúa por encima de 1100px), el arrastre por el asa y el clamp al
+   viewport son cosa de e2e/floatbars.spec.js — dom-stub no aplica estilos ni
+   tiene layout. */
+
+test('buildFloatbars crea 5 barras en su posición de fábrica y con todos los botones', () => {
+  const app = loadApp();
+  const barras = app.$('floatbars').querySelectorAll('.floatbar');
+  assert.equal(barras.length, 5, 'cinco barras flotantes');
+  // La cascada de fábrica: una junto a otra bajo el topbar. Está en el DOM y
+  // no en prefs, así que recargar restaura estas mismas coordenadas.
+  assert.deepEqual(barras.map(b => b.style.left),
+    ['12px', '106px', '200px', '294px', '388px']);
+  assert.deepEqual([...new Set(barras.map(b => b.style.top))], ['64px']);
+  // Mismos botones que el sidebar (que conserva los suyos: el modo solo lo
+  // oculta por CSS), cada juego con su propia clase BEM.
+  const flotantes = app.$('floatbars').querySelectorAll('.floatbar__tool');
+  const fijos = app.$('sidebar').querySelectorAll('.sidebar__tool');
+  assert.equal(flotantes.length, fijos.length, 'los 49 botones también flotan');
+  assert.deepEqual(flotantes.map(b => b.dataset.tool), fijos.map(b => b.dataset.tool));
+});
+
+test('la herramienta activa se pinta en ambos juegos de botones', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.$('modal-shape').close();
+  app.flush();
+  const activos = app.$('floatbars').querySelectorAll('.floatbar__tool')
+    .filter(b => b.classList.contains('floatbar__tool--active'));
+  assert.equal(activos.length, 1, 'exactamente un botón flotante activo');
+  assert.equal(activos[0].dataset.tool, 'rect');
+  assert.equal(activos[0].getAttribute('aria-pressed'), 'true');
+  assert.equal(app.$('sidebar').querySelector('.sidebar__tool--active').dataset.tool,
+    'rect', 'y el sidebar sigue pintando el suyo');
+});
+
+test('un clic en un botón flotante selecciona la herramienta con su modal, como el del sidebar', () => {
+  const app = loadApp();
+  const btn = app.$('floatbars').querySelectorAll('.floatbar__tool')
+    .find(b => b.dataset.tool === 'eraser');
+  btn.__fire('click', { target: btn });
+  app.flush();
+  assert.equal(app.$('modal-eraser').open, true,
+    'elegir el Borrador desde la barra flotante abre su modal, como siempre');
+  assert.ok(btn.classList.contains('floatbar__tool--active'));
+});
+
+test('el interruptor persiste en prefs y las posiciones NO', () => {
+  const app = loadApp();
+  const btn = app.$('btn-float-tools');
+  assert.equal(btn.getAttribute('aria-pressed'), 'false', 'de fábrica, sidebar');
+  btn.__fire('click', { target: btn });
+  app.flush();
+  assert.equal(btn.getAttribute('aria-pressed'), 'true');
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.floatToolbars, true, 'el MODO es un ajuste de trabajo y persiste');
+  // Las posiciones y el plegado viven solo en el DOM: si algún día alguien
+  // los mete en prefs, recargar dejaría de volver a fábrica.
+  assert.deepEqual(Object.keys(prefs).filter(k => /float/i.test(k)),
+    ['floatToolbars'], 'ningún otro campo del modo viaja en prefs');
+
+  const again = loadApp({ prefs });
+  assert.equal(again.$('btn-float-tools').getAttribute('aria-pressed'), 'true',
+    'el modo se recuerda al arrancar');
+});
+
+test('plegar una barra alterna su clase y su aria-expanded, y no toca prefs', () => {
+  const app = loadApp();
+  const barra = app.$('floatbars').querySelectorAll('.floatbar')[0];
+  const pliegue = barra.querySelectorAll('.floatbar__collapse')[0];
+  assert.equal(pliegue.getAttribute('aria-expanded'), 'true');
+  pliegue.__fire('click', { target: pliegue });
+  app.flush();
+  assert.ok(barra.classList.contains('floatbar--collapsed'));
+  assert.equal(pliegue.getAttribute('aria-expanded'), 'false');
+  pliegue.__fire('click', { target: pliegue });
+  assert.ok(!barra.classList.contains('floatbar--collapsed'), 'y desplegar lo deshace');
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs') || '{}');
+  assert.ok(!('floatToolbars' in prefs) || prefs.floatToolbars === false,
+    'plegar es mobiliario: no comete ningún ajuste');
+});
+
+test('«Limpiar todo» devuelve el modo flotante a fábrica', () => {
+  const app = loadApp();
+  const btn = app.$('btn-float-tools');
+  btn.__fire('click', { target: btn });
+  app.flush();
+  app.$('btn-clear').__fire('click', { target: app.$('btn-clear') });
+  app.flush();
+  assert.equal(btn.getAttribute('aria-pressed'), 'false');
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.floatToolbars, false,
+    'y queda guardado en el acto, como el resto de lo que resetea el botón');
 });

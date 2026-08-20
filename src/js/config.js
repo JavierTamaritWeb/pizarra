@@ -582,6 +582,23 @@ const TOOL_GROUPS = [
 ];
 
 /**
+ * Reparto de los 7 grupos del sidebar en las 5 barras flotantes (v3.13.0).
+ * Cada entrada referencia los grupos por su `label` de TOOL_GROUPS — son
+ * identificadores estables, anclados por tests/config-templates.test.js — y
+ * el reparto junta lo afín para equilibrar las barras: Formas con 3D (las
+ * mismas diez siluetas, los sólidos las extruyen) y Edificios con Jardín
+ * (las dos secciones de arquitectura). Los labels combinados son SOLO el
+ * asa de la barra: los de TOOL_GROUPS no se tocan.
+ */
+const FLOATBAR_GROUPS = Object.freeze([
+  { label: 'Edición',            groups: ['Edición'] },
+  { label: 'Dibujo',             groups: ['Dibujo'] },
+  { label: 'Formas y 3D',        groups: ['Formas', '3D'] },
+  { label: 'UI',                 groups: ['UI'] },
+  { label: 'Edificios y Jardín', groups: ['Edificios', 'Jardín'] },
+]);
+
+/**
  * Muestras de color del panel. La rejilla (`.panel__color-grid`) es de SEIS
  * columnas, así que cada tramo de seis de este array es una fila visible: el
  * orden de aquí ES la maquetación, y por eso está agrupado en bloques de 6.

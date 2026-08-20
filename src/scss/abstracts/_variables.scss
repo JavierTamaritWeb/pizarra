@@ -115,6 +115,8 @@ $sidebar-btn-w: 6.8rem;
 // Capas. Los z-index 1/2 de dentro del <dialog> quedan fuera a propósito:
 // son locales de su propio contexto de apilamiento.
 $z-canvas-overlay: 10; // editor de texto sobre el lienzo
+$z-floatbar: 30; // barras de herramientas flotantes: sobre el lienzo y su
+                 // overlay, bajo el cajón del panel y su backdrop
 $z-drawer-backdrop: 40;
 $z-drawer: 50;
 

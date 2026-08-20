@@ -178,6 +178,10 @@
       inkTarget:   'shape',
       multiSelect: false,      // «Los clics acumulan selección» (una mano; Shift = atajo)
       alignGuides: true,       // imán y guías de alineación al arrastrar (v2.38.0)
+      // Barras de herramientas flotantes (v3.13.0). El MODO es un ajuste de
+      // trabajo y persiste, como alignGuides; las posiciones y el plegado de
+      // cada barra viven solo en el DOM y mueren con la sesión a propósito.
+      floatToolbars: false,
       canvasBg:    DEFAULT_CANVAS_BG,
       gridColor:   DEFAULT_GRID_COLOR,
       // Letra manuscrita del boceto (id de SKETCH_FONTS). Ajuste cosmético
@@ -1322,6 +1326,7 @@
         headShape: state.headShape,
         curveBulge: state.curveBulge,
         alignGuides: state.alignGuides,
+        floatToolbars: state.floatToolbars,
         buildFloors: state.buildFloors,
         buildBays: state.buildBays,
         roofPitch: state.roofPitch,
@@ -1432,6 +1437,7 @@
           Math.max(CURVE_BULGE_MIN / 100, prefs.curveBulge));
       }
       if (typeof prefs.alignGuides === 'boolean') state.alignGuides = prefs.alignGuides;
+      if (typeof prefs.floatToolbars === 'boolean') state.floatToolbars = prefs.floatToolbars;
       // Contra el catálogo, como la letra: un id de otra versión dejaría el
       // default apuntando a una sombra que ya no existe.
       if (TEXT_SHADOWS.some(sh => sh.id === prefs.textShadow)) {
@@ -1654,6 +1660,10 @@
   let resizeTimer = null;
   window.addEventListener('resize', () => {
     updateBackContent();
+    // Una barra flotante fuera del viewport encogido sería irrecuperable: el
+    // asa es la única forma de moverla. Antes del return de zoomManual — el
+    // clamp no tiene nada que ver con el zoom.
+    clampFloatbars();
     if (zoomManual) return;
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(fitZoomToViewport, 150);
@@ -5946,48 +5956,42 @@
 
   /* ── Build sidebar ── */
 
-  function buildSidebar() {
-    const sidebar = $('sidebar');
-    sidebar.innerHTML = '';
-    TOOL_GROUPS.forEach(group => {
-      const div = document.createElement('div');
-      div.className = 'sidebar__group';
+  /** Botón de herramienta, compartido por el sidebar y las barras flotantes.
+      `block` es el bloque BEM (`sidebar` o `floatbar`): las dos familias
+      llevan clases DISTINTAS a propósito — los tests vm consultan
+      `.sidebar__tool--active` dentro de #sidebar, el roving e2e exige
+      exactamente UN `.sidebar__tool[tabindex="0"]`, y Playwright clica
+      `.sidebar__tool[data-tool=…]` en modo estricto: duplicar la clase
+      rompería los tres sin que nada lo avisara aquí. */
+  function toolButton(t, block) {
+    const btn = document.createElement('button');
+    btn.className = `${block}__tool`;
+    btn.dataset.tool = t.id;
+    btn.title = t.key ? `${t.name} (${t.key.toUpperCase()})` : t.name;
+    // createElement/textContent, como todos los catálogos: era el único
+    // innerHTML interpolado del proyecto (estático, pero la disciplina
+    // «nunca innerHTML» es una sola). El emoji va aria-hidden: el nombre
+    // ya lo da el span de texto y un lector no debe verbalizarlo dos veces.
+    const icon = document.createElement('span');
+    icon.textContent = t.icon;
+    icon.setAttribute('aria-hidden', 'true');
+    const name = document.createElement('span');
+    name.className = `${block}__tool-name`;
+    name.textContent = t.name;
+    btn.appendChild(icon);
+    btn.appendChild(name);
+    btn.addEventListener('click', () => selectTool(t.id));
+    return btn;
+  }
 
-      const label = document.createElement('span');
-      label.className = 'sidebar__group-label';
-      label.textContent = group.label;
-      div.appendChild(label);
-
-      group.tools.forEach(t => {
-        const btn = document.createElement('button');
-        btn.className = 'sidebar__tool';
-        btn.dataset.tool = t.id;
-        btn.title = t.key ? `${t.name} (${t.key.toUpperCase()})` : t.name;
-        // createElement/textContent, como todos los catálogos: era el único
-        // innerHTML interpolado del proyecto (estático, pero la disciplina
-        // «nunca innerHTML» es una sola). El emoji va aria-hidden: el nombre
-        // ya lo da el span de texto y un lector no debe verbalizarlo dos veces.
-        const icon = document.createElement('span');
-        icon.textContent = t.icon;
-        icon.setAttribute('aria-hidden', 'true');
-        const name = document.createElement('span');
-        name.className = 'sidebar__tool-name';
-        name.textContent = t.name;
-        btn.appendChild(icon);
-        btn.appendChild(name);
-        btn.addEventListener('click', () => selectTool(t.id));
-        div.appendChild(btn);
-      });
-      sidebar.appendChild(div);
-    });
-
-    // role="toolbar" promete navegación con flechas: roving tabindex — la
-    // barra entera es UNA parada de Tab (antes eran ~45: cruzar del topbar
-    // al lienzo por teclado costaba una tabulación por herramienta) y el
-    // foco se mueve por dentro con flechas, Home y End.
-    const tools = [...sidebar.querySelectorAll('.sidebar__tool')];
+  /** role="toolbar" promete navegación con flechas: roving tabindex — la
+      barra entera es UNA parada de Tab (antes eran ~45: cruzar del topbar
+      al lienzo por teclado costaba una tabulación por herramienta) y el
+      foco se mueve por dentro con flechas, Home y End. Cada barra flotante
+      es su propia parada, siguiendo el patrón ARIA (un toolbar, un tabstop). */
+  function wireRovingToolbar(container, tools) {
     tools.forEach((b, i) => { b.tabIndex = i === 0 ? 0 : -1; });
-    sidebar.addEventListener('keydown', e => {
+    container.addEventListener('keydown', e => {
       const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
       if (!(e.key in step) && e.key !== 'Home' && e.key !== 'End') return;
       const current = tools.indexOf(document.activeElement);
@@ -6000,13 +6004,162 @@
       tools[next].tabIndex = 0;
       tools[next].focus();
     });
+  }
+
+  function buildSidebar() {
+    const sidebar = $('sidebar');
+    sidebar.innerHTML = '';
+    TOOL_GROUPS.forEach(group => {
+      const div = document.createElement('div');
+      div.className = 'sidebar__group';
+
+      const label = document.createElement('span');
+      label.className = 'sidebar__group-label';
+      label.textContent = group.label;
+      div.appendChild(label);
+
+      group.tools.forEach(t => { div.appendChild(toolButton(t, 'sidebar')); });
+      sidebar.appendChild(div);
+    });
+
+    wireRovingToolbar(sidebar, [...sidebar.querySelectorAll('.sidebar__tool')]);
     updateToolbarActive();
   }
 
+  /* ── Barras de herramientas flotantes (v3.13.0) ──
+     Cinco barras arrastrables que sustituyen VISUALMENTE al sidebar cuando el
+     modo está activo (clase `app--floatbars` + >1100px, CSS puro). El sidebar
+     conserva siempre sus 49 botones — el modo solo lo oculta —, y los botones
+     flotantes son duplicados con su propia clase (ver toolButton). Posiciones
+     y plegado viven en el DOM y NO se persisten: recargar restaura fábrica. */
+
+  // Geometría de fábrica. FLOATBAR_W está acoplado al `width` de `.floatbar`
+  // en _floatbar.scss (8.4rem = 84px) — moverlos juntos. La cascada nace bajo
+  // el topbar (5.2rem = 52px), pegada a la izquierda, una barra junto a otra.
+  const FLOATBAR_W = 84;
+  const FLOATBAR_GAP = 10;
+  const FLOATBAR_TOP = 64;
+  const FLOATBAR_MIN_TOP = 56;   // nunca debajo del topbar: taparía sus botones
+  const FLOATBAR_HANDLE_H = 32;  // el asa siempre alcanzable para recuperarla
+
+  function floatbarHome(i) {
+    return { left: 12 + i * (FLOATBAR_W + FLOATBAR_GAP), top: FLOATBAR_TOP };
+  }
+
+  /** Mantiene una barra alcanzable: el asa dentro del viewport (patrón del
+      menú contextual, que también es un fixed posicionado desde JS). */
+  function clampFloatbar(bar) {
+    const vw = window.innerWidth || 0;
+    const vh = window.innerHeight || 0;
+    if (!vw || !vh) return;
+    const x = parseFloat(bar.style.left) || 0;
+    const y = parseFloat(bar.style.top) || 0;
+    bar.style.left = `${Math.min(Math.max(x, 0), Math.max(0, vw - FLOATBAR_W))}px`;
+    bar.style.top = `${Math.min(Math.max(y, FLOATBAR_MIN_TOP),
+      Math.max(FLOATBAR_MIN_TOP, vh - FLOATBAR_HANDLE_H))}px`;
+  }
+
+  function clampFloatbars() {
+    const host = $('floatbars');
+    if (!host) return;
+    [...host.querySelectorAll('.floatbar')].forEach(clampFloatbar);
+  }
+
+  function buildFloatbars() {
+    const host = $('floatbars');
+    if (!host) return;
+    host.innerHTML = '';
+    FLOATBAR_GROUPS.forEach((fb, i) => {
+      const bar = document.createElement('div');
+      bar.className = 'floatbar';
+      bar.setAttribute('role', 'toolbar');
+      bar.setAttribute('aria-orientation', 'vertical');
+      bar.setAttribute('aria-label', fb.label);
+      const home = floatbarHome(i);
+      bar.style.left = `${home.left}px`;
+      bar.style.top = `${home.top}px`;
+
+      const handle = document.createElement('div');
+      handle.className = 'floatbar__handle';
+      const title = document.createElement('span');
+      title.className = 'floatbar__title';
+      title.textContent = fb.label;
+      const collapse = document.createElement('button');
+      collapse.className = 'floatbar__collapse';
+      collapse.title = 'Plegar/desplegar';
+      collapse.setAttribute('aria-expanded', 'true');
+      collapse.textContent = '▾';
+      handle.appendChild(title);
+      handle.appendChild(collapse);
+      bar.appendChild(handle);
+
+      const tools = document.createElement('div');
+      tools.className = 'floatbar__tools';
+      fb.groups.forEach(label => {
+        const group = TOOL_GROUPS.find(g => g.label === label);
+        if (!group) return;
+        group.tools.forEach(t => { tools.appendChild(toolButton(t, 'floatbar')); });
+      });
+      bar.appendChild(tools);
+
+      collapse.addEventListener('click', () => {
+        const plegada = bar.classList.toggle('floatbar--collapsed');
+        collapse.setAttribute('aria-expanded', String(!plegada));
+        collapse.textContent = plegada ? '▸' : '▾';
+      });
+
+      // Arrastre por el asa: mobiliario, no dibujo — jamás toca `state`, el
+      // undo ni el autosave, y por eso la posición muere con la sesión.
+      handle.addEventListener('pointerdown', e => {
+        if (collapse === e.target || collapse.contains?.(e.target)) return;
+        e.preventDefault();
+        const dx = e.clientX - (parseFloat(bar.style.left) || 0);
+        const dy = e.clientY - (parseFloat(bar.style.top) || 0);
+        handle.setPointerCapture?.(e.pointerId);
+        const move = ev => {
+          bar.style.left = `${ev.clientX - dx}px`;
+          bar.style.top = `${ev.clientY - dy}px`;
+          clampFloatbar(bar);
+        };
+        const up = () => {
+          handle.removeEventListener('pointermove', move);
+          handle.removeEventListener('pointerup', up);
+          handle.removeEventListener('pointercancel', up);
+        };
+        handle.addEventListener('pointermove', move);
+        handle.addEventListener('pointerup', up);
+        handle.addEventListener('pointercancel', up);
+      });
+
+      wireRovingToolbar(bar, [...tools.querySelectorAll('.floatbar__tool')]);
+      host.appendChild(bar);
+    });
+    updateToolbarActive();
+  }
+
+  /** Único punto que escribe `state.floatToolbars` y su clase. No guarda
+      prefs: eso lo hace el click del interruptor, como el resto de mandos —
+      así syncAllControls (arranque, «Limpiar todo») re-aplica sin efectos. */
+  function applyFloatToolbars(on) {
+    state.floatToolbars = !!on;
+    const app = document.querySelector('.app');
+    if (app) app.classList.toggle('app--floatbars', state.floatToolbars);
+    const btn = $('btn-float-tools');
+    if (btn) btn.setAttribute('aria-pressed', String(state.floatToolbars));
+  }
+
   function updateToolbarActive() {
+    // Dos barridos separados (dom-stub no resuelve selectores con coma): el
+    // sidebar y las barras flotantes duplican los botones, así que el activo
+    // se pinta en ambos juegos, cada uno con su clase BEM.
     document.querySelectorAll('.sidebar__tool').forEach(btn => {
       const active = btn.dataset.tool === state.tool;
       btn.classList.toggle('sidebar__tool--active', active);
+      btn.setAttribute('aria-pressed', String(active));
+    });
+    document.querySelectorAll('.floatbar__tool').forEach(btn => {
+      const active = btn.dataset.tool === state.tool;
+      btn.classList.toggle('floatbar__tool--active', active);
       btn.setAttribute('aria-pressed', String(active));
     });
   }
@@ -9336,6 +9489,15 @@
     panelToggle.addEventListener('click',
       () => setPanelOpen(!appEl.classList.contains('app--panel-open')));
     $('panel-backdrop').addEventListener('click', () => setPanelOpen(false));
+
+    // Interruptor de las barras flotantes (v3.13.0): el modo persiste (es un
+    // modo de trabajo, como las guías de alineación); el commit guarda aquí,
+    // no en applyFloatToolbars, para que syncAllControls re-aplique sin
+    // efectos secundarios.
+    $('btn-float-tools').addEventListener('click', () => {
+      applyFloatToolbars(!state.floatToolbars);
+      savePrefs();
+    });
     document.addEventListener('keydown', e => {
       if (e.key !== 'Escape' || !appEl.classList.contains('app--panel-open')) return;
       // Con un modal abierto, Escape pertenece al <dialog> (que se cierra solo).
@@ -11306,6 +11468,9 @@
     updateCanvasPresetActive();
     $('select-modal-multi').checked = state.multiSelect;
     $('select-modal-align').checked = state.alignGuides;
+    // El modo de barras flotantes es clase + aria, no un value: re-aplicarlo
+    // desde state es lo que hace que «Limpiar todo» lo devuelva a fábrica.
+    applyFloatToolbars(state.floatToolbars);
     // Aplica la letra y pide su descarga: el lienzo no dispara la carga de una
     // webfont por sí solo, así que sin esto la primera pintada usaría el
     // resguardo del sistema aunque el .woff2 esté aquí al lado.
@@ -11336,6 +11501,7 @@
     restoreAutosave();
     restorePrefs();
     buildSidebar();
+    buildFloatbars();
     buildColors();
     wireControls();
     setupModals();

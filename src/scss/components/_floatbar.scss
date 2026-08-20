@@ -1,0 +1,168 @@
+@use '../abstracts/breakpoints' as bp;
+@use '../abstracts/variables' as v;
+
+/* ============================================================
+   BLOCK: floatbar / floatbars (v3.13.0)
+   ============================================================ */
+// Las 5 barras de herramientas flotantes, alternativa arrastrable al sidebar.
+// Las construye buildFloatbars (app.js) desde FLOATBAR_GROUPS dentro del
+// contenedor #floatbars (index.html). Tres reglas que sostienen el modo:
+// - La visibilidad es CSS PURO: solo con la clase `app--floatbars` en `.app`
+//   Y por encima del cajón del panel ($panel-drawer, 1100px) se ven las
+//   barras y se oculta el sidebar. Bajo ese umbral no hay regla alguna, así
+//   que el sidebar/cajón de siempre manda — el JS no mide la ventana.
+// - El `+ 1` del media query es deliberado: $panel-drawer es un max-width
+//   (≤1100 = cajón) y este es su complemento exacto (≥1101), sin solape ni
+//   hueco. Si $panel-drawer cambia, este lado le sigue solo.
+// - Como .ctxmenu, este bloque no cuelga de los cuatro contenedores de
+//   _uppercase.scss (nace en JS, y $ui está anclado a existir en el HTML por
+//   smoke), así que trae su propia caja alta — y la repite en `button`,
+//   porque los controles de formulario no la heredan del user-agent.
+
+.floatbars {
+  display: none;
+}
+
+// La trampa [hidden] de siempre: ambos declaran display, así que sin esta
+// regla un `hidden` puesto desde JS no ocultaría nada. Hoy nadie los oculta
+// así — la visibilidad va por clase —, pero el precedente ha mordido 7 veces.
+.floatbars[hidden],
+.floatbar[hidden] {
+  display: none;
+}
+
+.floatbar {
+  position: fixed;
+  z-index: v.$z-floatbar;
+
+  // Acoplado a FLOATBAR_W (app.js, 84px): la cascada de fábrica y el clamp
+  // del arrastre calculan con ese número — mover los dos juntos.
+  width: 8.4rem;
+  display: flex;
+  flex-direction: column;
+  border: 0.1rem solid var(--border-main);
+  border-radius: v.$radius-lg;
+  background: var(--bg-panel);
+  box-shadow: v.$shadow-overlay;
+  text-transform: uppercase;
+
+  button {
+    text-transform: uppercase;
+  }
+
+  &__handle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+    padding: 0.5rem 0.4rem 0.5rem 0.6rem;
+    border-bottom: 0.1rem solid var(--border-main);
+    cursor: grab;
+    user-select: none;
+
+    // El arrastre va por pointer events (app.js): sin esto, en táctil el
+    // gesto sobre el asa haría scroll en vez de mover la barra.
+    touch-action: none;
+  }
+
+  &__title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--text-muted);
+  }
+
+  &__collapse {
+    border: none;
+    border-radius: v.$radius-sm;
+    padding: 0.1rem 0.4rem;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 1rem;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  &__collapse:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  &__tools {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.6rem 0.4rem;
+
+    // La barra más alta (Edificios y Jardín, 17 botones) no cabe en una
+    // ventana baja: escrolea por dentro en vez de dejar el final fuera del
+    // alcance (el clamp de app.js solo garantiza el ASA dentro del viewport).
+    max-height: calc(100vh - 12rem);
+    overflow-y: auto;
+  }
+
+  &--collapsed &__tools {
+    display: none;
+  }
+
+  // Los botones calcan el aspecto del sidebar compacto (_sidebar.scss) con su
+  // propia clase BEM: compartir la clase rompería tres guardas (ver
+  // toolButton en app.js).
+  &__tool {
+    width: v.$sidebar-btn-w;
+    min-height: 4.4rem;
+    padding: 0.3rem 0.2rem;
+    border: none;
+    border-radius: v.$radius-lg;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.1rem;
+    font-size: 1.8rem;
+    background: transparent;
+    color: var(--text-secondary);
+    transition: all var(--ease);
+    cursor: pointer;
+  }
+
+  &__tool:hover {
+    background: v.$primary-tint;
+    color: var(--text-primary);
+  }
+
+  &__tool--active {
+    background: v.$primary-tint-strong;
+    color: var(--color-primary);
+    outline: v.$focus-ring-w solid v.$primary-ring;
+  }
+
+  &__tool-name {
+    font-size: 0.9rem;
+    font-weight: 500;
+    line-height: 1.15;
+    text-align: center;
+  }
+}
+
+/* El interruptor del topbar solo existe donde el modo existe (espejo exacto
+   de .panel-toggle, que hace lo contrario: solo en pantallas estrechas). */
+.float-toggle {
+  display: none;
+}
+
+@include bp.from(bp.$panel-drawer + 1) {
+  .float-toggle {
+    display: inline-flex;
+  }
+
+  .app--floatbars .floatbars {
+    display: block;
+  }
+
+  .app--floatbars .sidebar {
+    display: none;
+  }
+}

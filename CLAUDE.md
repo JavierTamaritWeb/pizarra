@@ -268,6 +268,23 @@ The sidebar is responsive through CSS only: its default `--sidebar-w: 7.2rem`
 (`src/scss/components/_sidebar.scss`). Keep that exact breakpoint aligned with the
 documented desktop behaviour — e2e asserts the computed 72/132px on both sides.
 
+**Barras flotantes (v3.13.0) — detalle completo: `docs/barras-flotantes.md`,
+léelo antes de tocar `buildFloatbars`, `FLOATBAR_GROUPS` o `_floatbar.scss`.**
+El botón «Barras» del topbar conmuta el sidebar por 5 paletas flotantes
+arrastrables (reparto 7→5 en `FLOATBAR_GROUPS`, config.js, con guarda de
+partición). Lo innegociable: los botones flotantes llevan **su propia clase
+`.floatbar__tool`, jamás `.sidebar__tool`** (tres guardas cuentan con que esa
+clase exista una sola vez por herramienta), y `#sidebar` conserva siempre sus
+botones — el modo solo lo oculta por **CSS puro** (`app--floatbars` +
+`min-width: 1101px`, el complemento exacto del cajón; el JS no mide la
+ventana). El MODO persiste en prefs (`floatToolbars`); **posiciones y plegado
+viven solo en el DOM y mueren con la sesión a propósito** — recargar es volver
+a fábrica. `FLOATBAR_W` (app.js, 84) está acoplado al `width: 8.4rem` de
+`.floatbar`. El arrastre por el asa es mobiliario: jamás toca `state`, undo ni
+autosave; `clampFloatbars()` corre en el resize para que ninguna barra quede
+irrecuperable. Cada barra es un `role="toolbar"` con su propio roving
+(`wireRovingToolbar`, compartido con el sidebar igual que `toolButton`).
+
 One controlled exception to immutability discipline: `resolveAnchors()` in app.js runs at the start of `redrawNow` and materializes anchored arrow endpoints (`startAnchor`/`endAnchor` referencing an element `id`) back into the elements — always by replacing with copies, never with `saveUndo` (it's derived state: snapshots capture materialized coords and the post-undo redraw re-resolves). When the chord of a `curveArrow` changes, its control points are re-projected through the old-chord→new-chord similarity transform (`transformControlsToChord`) so the curve keeps its shape — the same helper runs while dragging an endpoint handle in `resizeTo`. Element `id`s are assigned lazily only when something anchors to them.
 
 ### Adding a new element type
