@@ -35,9 +35,11 @@
   position: fixed;
   z-index: v.$z-floatbar;
 
-  // Acoplado a FLOATBAR_W (app.js, 84px): la cascada de fábrica y el clamp
-  // del arrastre calculan con ese número — mover los dos juntos.
-  width: 8.4rem;
+  // Acoplado a FLOATBAR_W (app.js, 136px): la cascada de fábrica y el clamp
+  // del arrastre calculan con ese número — mover los dos juntos. El ancho
+  // sale de las DOS columnas de botones (ver &__tools), calcadas del sidebar
+  // ancho (132px), más el borde.
+  width: 13.6rem;
   display: flex;
   flex-direction: column;
   border: 0.1rem solid var(--border-main);
@@ -89,11 +91,14 @@
     color: var(--text-primary);
   }
 
+  // Dos columnas, la rejilla del sidebar ancho (_sidebar.scss ≥1201px): el
+  // mismo gap y el mismo aire lateral, porque el problema es el mismo — dos
+  // rótulos vecinos en MAYÚSCULAS necesitan calle para no leerse juntos.
   &__tools {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.2rem;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 0.3rem 0.7rem;
     padding: 0.6rem 0.4rem;
 
     // La barra más alta (Edificios y Jardín, 17 botones) no cabe en una
@@ -107,12 +112,12 @@
     display: none;
   }
 
-  // Los botones calcan el aspecto del sidebar compacto (_sidebar.scss) con su
+  // Los botones calcan el aspecto del sidebar ANCHO (_sidebar.scss) con su
   // propia clase BEM: compartir la clase rompería tres guardas (ver
   // toolButton en app.js).
   &__tool {
-    width: v.$sidebar-btn-w;
-    min-height: 4.4rem;
+    width: 100%;
+    min-height: 5.6rem;
     padding: 0.3rem 0.2rem;
     border: none;
     border-radius: v.$radius-lg;
@@ -139,9 +144,13 @@
     outline: v.$focus-ring-w solid v.$primary-ring;
   }
 
+  // El cuerpo y el tracking del sidebar de dos columnas, por el mismo motivo
+  // que allí: en MAYÚSCULAS, «RECTÁNGULO» o «AROMÁTICAS» no caben a 0.9rem en
+  // una columna de ~60px y tocarían al botón vecino.
   &__tool-name {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     font-weight: 500;
+    letter-spacing: -0.02em;
     line-height: 1.15;
     text-align: center;
   }

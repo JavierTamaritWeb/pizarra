@@ -89,8 +89,36 @@ test('arrastrar una barra por el asa la mueve, y no puede salirse del viewport',
   await page.mouse.move(WIDE.width + 400, WIDE.height + 400, { steps: 6 });
   await page.mouse.up();
   const clampada = await barra.boundingBox();
-  expect(clampada.x + 84).toBeLessThanOrEqual(WIDE.width + 1);
+  expect(clampada.x + 136).toBeLessThanOrEqual(WIDE.width + 1);
   expect(clampada.y + 32).toBeLessThanOrEqual(WIDE.height + 1);
+});
+
+test('los botones van en DOS columnas, como el sidebar ancho', async ({ page }) => {
+  await openApp(page, { viewport: WIDE });
+  await activarBarras(page);
+  const cols = await page.locator('.floatbar__tools').first()
+    .evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length);
+  expect(cols).toBe(2);
+});
+
+test('apagar y encender el modo devuelve la barra movida a fábrica', async ({ page }) => {
+  await openApp(page, { viewport: WIDE });
+  await activarBarras(page);
+  const barra = page.locator('.floatbar').first();
+  const fabrica = await barra.boundingBox();
+  const asa = await barra.locator('.floatbar__handle').boundingBox();
+  await page.mouse.move(asa.x + 20, asa.y + asa.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(asa.x + 420, asa.y + 260, { steps: 6 });
+  await page.mouse.up();
+  expect((await barra.boundingBox()).x).not.toBe(fabrica.x);
+
+  await page.locator('#btn-float-tools').click();   // apagar
+  await page.locator('#btn-float-tools').click();   // encender
+  await expect(barra).toBeVisible();
+  const devuelta = await barra.boundingBox();
+  expect(Math.round(devuelta.x)).toBe(Math.round(fabrica.x));
+  expect(Math.round(devuelta.y)).toBe(Math.round(fabrica.y));
 });
 
 test('plegar deja solo el asa y aria-expanded lo cuenta', async ({ page }) => {
@@ -114,11 +142,13 @@ test('recargar conserva el modo pero devuelve posiciones y plegado a fábrica', 
   const barra = page.locator('.floatbar').first();
   const fabrica = await barra.boundingBox();
 
-  // Se arrastra y se pliega la primera barra…
+  // Se arrastra y se pliega la primera barra… (a la derecha de la cascada
+  // entera: si cayera debajo de otra barra, el clic al pliegue lo
+  // interceptaría la de encima)
   const asa = await barra.locator('.floatbar__handle').boundingBox();
   await page.mouse.move(asa.x + 20, asa.y + asa.height / 2);
   await page.mouse.down();
-  await page.mouse.move(asa.x + 500, asa.y + 300, { steps: 6 });
+  await page.mouse.move(asa.x + 900, asa.y + 300, { steps: 6 });
   await page.mouse.up();
   await barra.locator('.floatbar__collapse').click();
   expect((await barra.boundingBox()).x).not.toBe(fabrica.x);

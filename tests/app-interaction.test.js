@@ -6021,7 +6021,7 @@ test('buildFloatbars crea 5 barras en su posición de fábrica y con todos los b
   // La cascada de fábrica: una junto a otra bajo el topbar. Está en el DOM y
   // no en prefs, así que recargar restaura estas mismas coordenadas.
   assert.deepEqual(barras.map(b => b.style.left),
-    ['12px', '106px', '200px', '294px', '388px']);
+    ['12px', '158px', '304px', '450px', '596px']);
   assert.deepEqual([...new Set(barras.map(b => b.style.top))], ['64px']);
   // Mismos botones que el sidebar (que conserva los suyos: el modo solo lo
   // oculta por CSS), cada juego con su propia clase BEM.
@@ -6089,6 +6089,29 @@ test('plegar una barra alterna su clase y su aria-expanded, y no toca prefs', ()
   const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs') || '{}');
   assert.ok(!('floatToolbars' in prefs) || prefs.floatToolbars === false,
     'plegar es mobiliario: no comete ningún ajuste');
+});
+
+test('activar «Barras» devuelve SIEMPRE la disposición de fábrica', () => {
+  const app = loadApp();
+  const btn = app.$('btn-float-tools');
+  btn.__fire('click', { target: btn });
+  app.flush();
+  // Se desordena el mobiliario: una barra movida y otra plegada.
+  const barras = app.$('floatbars').querySelectorAll('.floatbar');
+  barras[0].style.left = '900px';
+  barras[0].style.top = '400px';
+  const pliegue = barras[1].querySelectorAll('.floatbar__collapse')[0];
+  pliegue.__fire('click', { target: pliegue });
+  // Apagar y volver a encender el modo tiene que enseñar la cascada limpia,
+  // no la de la última sesión del modo.
+  btn.__fire('click', { target: btn });
+  btn.__fire('click', { target: btn });
+  app.flush();
+  assert.equal(barras[0].style.left, '12px', 'la barra movida vuelve a su sitio');
+  assert.equal(barras[0].style.top, '64px');
+  assert.ok(!barras[1].classList.contains('floatbar--collapsed'),
+    'la barra plegada vuelve desplegada');
+  assert.equal(pliegue.getAttribute('aria-expanded'), 'true');
 });
 
 test('«Limpiar todo» devuelve el modo flotante a fábrica', () => {

@@ -4,6 +4,16 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.13.1] — 2026-08-20
+
+### Cambiado
+
+- **Las barras flotantes van ahora a dos columnas de botones**, con la misma
+  rejilla y calibración tipográfica del sidebar ancho: la mitad de alto por
+  barra y los rótulos largos siguen cabiendo. Y **pulsar «Barras» enseña
+  siempre la disposición de fábrica** — encender el modo ya no recupera dónde
+  quedaron las barras la última vez, igual que la recarga.
+
 ## [3.13.0] — 2026-08-20
 
 ### Añadido

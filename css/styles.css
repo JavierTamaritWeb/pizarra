@@ -495,7 +495,7 @@ input[type=range]::-moz-range-thumb {
 .floatbar {
   position: fixed;
   z-index: 30;
-  width: 8.4rem;
+  width: 13.6rem;
   display: flex;
   flex-direction: column;
   border: 0.1rem solid var(--border-main);
@@ -540,10 +540,10 @@ input[type=range]::-moz-range-thumb {
   color: var(--text-primary);
 }
 .floatbar__tools {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.2rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 0.3rem 0.7rem;
   padding: 0.6rem 0.4rem;
   max-height: calc(100vh - 12rem);
   overflow-y: auto;
@@ -552,8 +552,8 @@ input[type=range]::-moz-range-thumb {
   display: none;
 }
 .floatbar__tool {
-  width: 6.8rem;
-  min-height: 4.4rem;
+  width: 100%;
+  min-height: 5.6rem;
   padding: 0.3rem 0.2rem;
   border: none;
   border-radius: 0.8rem;
@@ -578,8 +578,9 @@ input[type=range]::-moz-range-thumb {
   outline: 0.2rem solid rgba(78, 205, 196, 0.25);
 }
 .floatbar__tool-name {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-weight: 500;
+  letter-spacing: -0.02em;
   line-height: 1.15;
   text-align: center;
 }

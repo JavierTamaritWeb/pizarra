@@ -6034,9 +6034,10 @@
      y plegado viven en el DOM y NO se persisten: recargar restaura fábrica. */
 
   // Geometría de fábrica. FLOATBAR_W está acoplado al `width` de `.floatbar`
-  // en _floatbar.scss (8.4rem = 84px) — moverlos juntos. La cascada nace bajo
-  // el topbar (5.2rem = 52px), pegada a la izquierda, una barra junto a otra.
-  const FLOATBAR_W = 84;
+  // en _floatbar.scss (13.6rem = 136px, dos columnas de botones) — moverlos
+  // juntos. La cascada nace bajo el topbar (5.2rem = 52px), pegada a la
+  // izquierda, una barra junto a otra.
+  const FLOATBAR_W = 136;
   const FLOATBAR_GAP = 10;
   const FLOATBAR_TOP = 64;
   const FLOATBAR_MIN_TOP = 56;   // nunca debajo del topbar: taparía sus botones
@@ -6063,6 +6064,27 @@
     const host = $('floatbars');
     if (!host) return;
     [...host.querySelectorAll('.floatbar')].forEach(clampFloatbar);
+  }
+
+  /** Devuelve las cinco barras a su estado de fábrica: cascada original y
+      desplegadas. Corre cada vez que el modo SE ACTIVA — encender «Barras»
+      siempre enseña la disposición limpia, no la de la última sesión del
+      modo — además de en la recarga (donde sale gratis: fábrica es como
+      nacen en buildFloatbars). */
+  function resetFloatbars() {
+    const host = $('floatbars');
+    if (!host) return;
+    [...host.querySelectorAll('.floatbar')].forEach((bar, i) => {
+      const home = floatbarHome(i);
+      bar.style.left = `${home.left}px`;
+      bar.style.top = `${home.top}px`;
+      bar.classList.remove('floatbar--collapsed');
+      const collapse = bar.querySelectorAll('.floatbar__collapse')[0];
+      if (collapse) {
+        collapse.setAttribute('aria-expanded', 'true');
+        collapse.textContent = '▾';
+      }
+    });
   }
 
   function buildFloatbars() {
@@ -6146,6 +6168,10 @@
     if (app) app.classList.toggle('app--floatbars', state.floatToolbars);
     const btn = $('btn-float-tools');
     if (btn) btn.setAttribute('aria-pressed', String(state.floatToolbars));
+    // Activar el modo lo enseña siempre en fábrica. Apagarlo no toca nada, y
+    // el viaje ancho→estrecho→ancho tampoco pasa por aquí (es CSS): dentro de
+    // la sesión del modo las posiciones se conservan.
+    if (state.floatToolbars) resetFloatbars();
   }
 
   function updateToolbarActive() {

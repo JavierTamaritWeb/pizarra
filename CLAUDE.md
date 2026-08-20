@@ -278,9 +278,11 @@ clase exista una sola vez por herramienta), y `#sidebar` conserva siempre sus
 botones — el modo solo lo oculta por **CSS puro** (`app--floatbars` +
 `min-width: 1101px`, el complemento exacto del cajón; el JS no mide la
 ventana). El MODO persiste en prefs (`floatToolbars`); **posiciones y plegado
-viven solo en el DOM y mueren con la sesión a propósito** — recargar es volver
-a fábrica. `FLOATBAR_W` (app.js, 84) está acoplado al `width: 8.4rem` de
-`.floatbar`. El arrastre por el asa es mobiliario: jamás toca `state`, undo ni
+viven solo en el DOM y mueren con la sesión a propósito** — recargar Y activar
+el modo (`resetFloatbars`, v3.13.1) es volver a fábrica. Los botones van en dos
+columnas (la rejilla del sidebar ancho) y `FLOATBAR_W` (app.js, 136) está
+acoplado al `width: 13.6rem` de `.floatbar`. El arrastre por el asa es
+mobiliario: jamás toca `state`, undo ni
 autosave; `clampFloatbars()` corre en el resize para que ninguna barra quede
 irrecuperable. Cada barra es un `role="toolbar"` con su propio roving
 (`wireRovingToolbar`, compartido con el sidebar igual que `toolButton`).

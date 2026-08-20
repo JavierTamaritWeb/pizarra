@@ -54,15 +54,24 @@ del cajón (40).
 Las posiciones y el plegado viven **solo en el DOM** (`style.left/top`, clase
 `floatbar--collapsed`): ni en `state` ni en prefs. Recargar restaura la
 cascada de fábrica (`floatbarHome(i)`: bajo el topbar, pegadas a la
-izquierda, una junto a otra) — es el comportamiento pedido, no un ahorro. Lo
+izquierda, una junto a otra) — es el comportamiento pedido, no un ahorro. Y
+desde la v3.13.1 **activar el modo también resetea** (`resetFloatbars()`,
+llamado desde `applyFloatToolbars` solo cuando enciende): pulsar «Barras»
+enseña siempre la disposición limpia, no la de la última sesión del modo. La
+única situación donde las posiciones sobreviven es el viaje
+ancho→estrecho→ancho del viewport, que es CSS puro y no pasa por ahí. Lo
 único que persiste es el **modo** (`state.floatToolbars`, en prefs como
 `alignGuides`: es un modo de trabajo), y «Limpiar todo» lo devuelve a fábrica
 vía `appDefaults()` + `syncAllControls()` → `applyFloatToolbars(state.…)`.
 `applyFloatToolbars` no guarda prefs; guarda el click del interruptor — así
 las re-aplicaciones de arranque y de «Limpiar todo» no tienen efectos.
 
-Acoplamiento a conservar: **`FLOATBAR_W` (app.js, 84) es el `width: 8.4rem`
+Acoplamiento a conservar: **`FLOATBAR_W` (app.js, 136) es el `width: 13.6rem`
 de `.floatbar`** — la cascada de fábrica y el clamp calculan con ese número.
+Desde la v3.13.1 los botones van en **dos columnas** (`.floatbar__tools` es la
+rejilla del sidebar ancho: mismo gap, mismos `min-height: 5.6rem` y cuerpo
+`0.8rem` con tracking negativo del rótulo — la recalibración de MAYÚSCULAS de
+la v2.29.0 aplica igual aquí).
 
 ## Arrastre, clamp y plegado
 
