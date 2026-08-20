@@ -391,6 +391,20 @@ test('config.js — el grupo Edición es Mover, «Select» y Borrador, y solo «
   assert.deepEqual([...ed.tools.filter(t => !t.key).map(t => t.id)], ['pick']);
 });
 
+test('config.js — el grupo UI cierra con el Marco, y es el único suyo sin atajo', () => {
+  const ctx = load('src/js/config.js');
+  const ui = ctx.TOOL_GROUPS.find(g => g.label === 'UI');
+  assert.ok(ui, 'falta el grupo UI en el sidebar');
+  // El marco (v3.12.0) va el último: es el contenedor de todo lo demás del
+  // grupo, no un componente más.
+  assert.deepEqual([...ui.tools.map(t => t.id)],
+    ['text', 'emoji', 'button', 'input', 'imagePlaceholder', 'nav', 'card', 'frame']);
+  // Entró sin tecla por lo de siempre: las 26 letras y los 10 dígitos están
+  // asignados. CLAUDE.md afirma que la lista exacta de herramientas sin atajo
+  // está pinneada, y esta es la parte de esa lista que faltaba.
+  assert.deepEqual([...ui.tools.filter(t => !t.key).map(t => t.id)], ['frame']);
+});
+
 test('config.js — el sidebar de Edificios y BUILDING_TOOLS son la misma lista', () => {
   const ctx = load('src/js/config.js');
   const build = ctx.TOOL_GROUPS.find(g => g.label === 'Edificios');

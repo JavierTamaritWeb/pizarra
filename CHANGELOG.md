@@ -4,6 +4,18 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.12.2] — 2026-08-20
+
+### Corregido
+
+- **Documentación que había envejecido en silencio**: el README y
+  `docs/ajustes-de-herramienta.md` seguían diciendo que Mover y «Select» eran
+  las únicas herramientas sin modal de ajustes, y desde la v3.12.0 el **Marco**
+  es la tercera —a propósito: no tiene ningún ajuste de creación propio, así
+  que un diálogo vacío sería una promesa falsa—. Y una guarda nueva pinea el
+  grupo **UI** del sidebar y que el Marco es el único de ese grupo sin atajo,
+  que es lo que CLAUDE.md afirmaba que estaba pinneado y no lo estaba.
+
 ## [3.12.1] — 2026-08-20
 
 ### Corregido
