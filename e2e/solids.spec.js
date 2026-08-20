@@ -97,7 +97,12 @@ test('la previsualización trae la cara frontal y aristas de los dos tipos', asy
   // y el conector inferior izquierdo, que es DISCONTINUO. Si drawPiecesPreview
   // no fijara el guion por pieza, el primero saldría a trazos también; si no
   // delegara las formas en el renderer, no habría nada que recorrer.
-  const huecos = await page.evaluate(() => {
+  // Se SONDEA, no se mide una sola vez: `settle()` espera dos fotogramas, pero
+  // el pointermove puede no haberse procesado todavía cuando arranca esa
+  // espera, y entonces la previsualización aún no está pintada — la medida
+  // salía 0 (el overlay vacío) en una de cada tres pasadas completas de la
+  // suite, con la app correcta. Ver BUGS.md, v3.12.1.
+  await expect.poll(async () => page.evaluate(() => {
     const c = document.getElementById('overlay-canvas');
     const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
     const pintado = (x, y) => d[(y * c.width + x) * 4 + 3] > 40;
@@ -107,10 +112,9 @@ test('la previsualización trae la cara frontal y aristas de los dos tipos', asy
       total++;
       for (let x = 296; x <= 304; x++) if (pintado(x, y)) { tinta++; break; }
     }
-    return { tinta, total };
-  });
-  expect(huecos.tinta / huecos.total,
-    'el borde izquierdo de la cara frontal tiene que salir continuo').toBeGreaterThan(0.9);
+    return tinta / total;
+  }), { message: 'el borde izquierdo de la cara frontal tiene que salir continuo' })
+    .toBeGreaterThan(0.9);
 
   await page.mouse.up();
   await settle(page);

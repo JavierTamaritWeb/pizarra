@@ -4,6 +4,18 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.12.1] — 2026-08-20
+
+### Corregido
+
+- **La suite end-to-end vuelve a ser determinista.** Fallaba un test distinto
+  en una de cada tres pasadas completas, y ninguno de los dos fallos estaba en
+  la aplicación: una medida del overlay tomada antes de que se pintara —ahora
+  sondeada con `expect.poll`, como ya hacía el spec del feedback— y una
+  igualdad exacta de píxeles imposible de garantizar con el lienzo al 120 %,
+  donde el ratón aterriza en píxeles de dispositivo. Diez pasadas completas
+  seguidas en verde. Detalle en `BUGS.md`. **No cambia nada de la app.**
+
 ## [3.12.0] — 2026-08-20
 
 ### Añadido

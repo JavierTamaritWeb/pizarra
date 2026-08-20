@@ -46,18 +46,29 @@ for (const [tool, nombre] of [['star5', '5 puntas'], ['star6', '6 puntas']]) {
 
     // A mitad de gesto: el overlay tiene que enseñar la estrella. Sin el
     // `case` en paintOverlay esto es exactamente 0.
-    expect(await overlayPixels(page)).toBeGreaterThan(200);
+    //
+    // Se SONDEA en vez de medir una sola vez: `settle()` espera dos
+    // fotogramas, pero el pointermove puede no haberse procesado cuando
+    // arranca esa espera, y entonces el overlay todavía está vacío. Ver
+    // BUGS.md, v3.12.1.
+    await expect.poll(() => overlayPixels(page)).toBeGreaterThan(200);
 
     await page.mouse.up();
     await settle(page);
 
     // Y al soltar, el overlay se limpia y la tinta pasa al lienzo de verdad.
-    expect(await overlayPixels(page)).toBe(0);
-    expect(await paintedPixels(page)).toBeGreaterThan(tinta + 200);
+    await expect.poll(() => overlayPixels(page)).toBe(0);
+    await expect.poll(() => paintedPixels(page)).toBeGreaterThan(tinta + 200);
 
     const [star] = await elements(page);
     expect(star.type).toBe(tool);
-    expect(Math.round(star.w)).toBe(240);
+    // Con tolerancia, y no `=== 240`: el ratón aterriza en píxeles de
+    // DISPOSITIVO y en WIDE el lienzo va al 120 %, así que medio píxel de
+    // pantalla son ~0,4 de lienzo y el radio sale 119,6 de vez en cuando.
+    // Lo que se comprueba es que la caja ES el arrastre, no un redondeo
+    // exacto que la rejilla de píxeles no puede garantizar.
+    expect(Math.abs(star.w - 240), `caja de ${star.w}`).toBeLessThanOrEqual(2);
+    // Esto sí es exacto: los dos lados salen del MISMO radio.
     expect(star.w).toBe(star.h);
   });
 }

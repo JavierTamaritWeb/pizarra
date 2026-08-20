@@ -35,6 +35,36 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### v3.12.1 — Una de cada tres pasadas de la suite e2e fallaba, y cada vez en otro sitio
+
+- **Síntoma:** la suite completa (`npm run test:e2e`) fallaba **un test
+  distinto** en aproximadamente una de cada tres pasadas —`solids.spec.js` o
+  `stars.spec.js`—, y los dos pasaban en aislamiento incluso repetidos cuatro
+  veces. Comprobado en un worktree limpio que el fallo era **anterior** a las
+  fases 5-8: no lo introdujo ningún cambio de la aplicación.
+- **Causa:** dos fallos independientes, los dos en las pruebas y ninguno en la
+  app.
+  1. **Medida única de un overlay que aún no se ha pintado.** `settle()`
+     espera dos fotogramas, pero el `pointermove` puede no haberse procesado
+     todavía cuando arranca esa espera: la previsualización se pinta después y
+     la medida sale **0** (el overlay vacío), no «a medias». Es la cara
+     complementaria de la trampa que ya documentaba la v3.10.0: allí el
+     problema era que esperar no servía, aquí que se espera lo que no es.
+  2. **Exactitud imposible en la rejilla de píxeles.** `stars.spec.js` exigía
+     `Math.round(star.w) === 240`, y en la ventana WIDE el lienzo va al 120 %:
+     el ratón aterriza en píxeles de DISPOSITIVO, así que medio píxel de
+     pantalla son ~0,4 de lienzo y el radio salía 119,6 de vez en cuando.
+- **Arreglo:** las medidas del overlay a mitad de gesto se **sondean** con
+  `expect.poll` (que es lo que `e2e/feedback.spec.js` ya hacía, y por eso
+  nunca falló), y la medida de la caja de la estrella pasa a tener tolerancia
+  de ±2 px — lo que se quiere comprobar es que la caja ES el arrastre, no un
+  redondeo que la rejilla no puede garantizar. Se conserva exacta la igualdad
+  `w === h`, que sí sale del mismo radio.
+- **Guardia:** las propias pruebas, y la evidencia de **diez pasadas completas
+  seguidas en verde** frente a ~1 de cada 3 fallando antes. Regla para las
+  nuevas: **toda medida de píxeles tomada a mitad de gesto va con
+  `expect.poll`**, nunca con una lectura única.
+
 ### v3.10.0 — `elements()` de e2e devuelve la escena VIEJA cuando el cambio no altera el recuento
 
 - **Síntoma:** las guardas nuevas de voltear, alinear y agrupar fallaban con la
