@@ -35,6 +35,81 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### v3.13.3 — La «posición de fábrica» de las barras flotantes se calculó dos veces con coordenadas, y las dos veces salió una disposición que no era la pedida
+
+- **Síntoma:** el usuario pidió que al pulsar «Barras» las paletas aparecieran
+  «en la posición original, no separadas» — y hicieron falta **tres
+  versiones** para dárselo. La v3.13.0 las colocaba en una **fila horizontal**
+  bajo el topbar; la v3.13.2, apiladas a la izquierda pero **saltando a otra
+  columna** cuando no cabían — que en su pantalla volvía a leerse como
+  «separadas» (lo confirmó con una captura). Lo pedido era el sitio del
+  sidebar: **una columna pegada al borde, las barras juntas sin huecos**.
+- **Causa:** dos, una de proceso y una técnica.
+  1. **Interpretar dos veces una petición ambigua en vez de preguntar.**
+     «Posición original, no separadas» admitía varias lecturas y se eligió una
+     plausible cada vez. A la tercera se preguntó con AskUserQuestion y
+     **previews ASCII de las tres disposiciones posibles**, y el usuario eligió
+     la suya en un clic. Ese es el camino correcto desde el principio: cuando
+     una petición de disposición visual admite lecturas, se enseñan bocetos y
+     se pregunta — sale más barato que una versión descartada.
+  2. **Calcular coordenadas para un problema de FLUJO.** Apilar «sin huecos»
+     exige conocer la altura real de cada barra, y ahí no hay opción buena:
+     medirla con `getBoundingClientRect` falla dos veces (con el modo apagado
+     la barra está `display:none` y mide 0, y **el stub del arnés vm devuelve
+     una caja fija de 1200×800 para cualquier elemento** — la v3.13.2 salió
+     con cada barra en su propia columna en los tests por exactamente eso), y
+     estimarla (46 + 59 por fila) deja huecos de ~9 px y se desincroniza del
+     CSS en cuanto alguien toque un padding.
+- **Arreglo:** la disposición de fábrica dejó de calcularse: **es flujo CSS**.
+  `#floatbars` es una franja fija en el borde izquierdo (del topbar abajo, con
+  `overflow-y: auto` — escrolea como el sidebar) y las barras viven dentro en
+  flujo, apiladas sin huecos por construcción. Solo **arrastrar** una barra le
+  pone `position: fixed` inline (en el punto exacto donde estaba:
+  `getBoundingClientRect` da coordenadas de viewport, el sistema de fixed), y
+  volver a fábrica es **borrar esos estilos** (`resetFloatbars`), no recolocar.
+  `clampFloatbar` ignora las barras en flujo — no pueden perderse. Dos reglas
+  que esta entrada deja escritas: **ninguna lógica que corra en el arnés vm
+  puede depender de medir el DOM** (el stub miente con una caja fija), y
+  cuando el resultado deseado es «como lo coloca el CSS», la respuesta es
+  dejárselo al CSS, no imitarlo con números.
+- **Guardia:** `tests/app-interaction.test.js` — *«buildFloatbars crea 5
+  barras en su posición de fábrica…»* exige que las barras nazcan **sin
+  estilos inline de posición** (fábrica = flujo; un cálculo de coordenadas
+  reaparecería como estilos inline y fallaría), y
+  `e2e/floatbars.spec.js` — *«la disposición de fábrica es UNA columna pegada
+  al borde, sin huecos, que escrolea»* mide contra las cajas REALES que cada
+  barra empieza a ≤1 px de donde acaba la anterior, en x=0 desde y=52, y que
+  la columna escrolea (400 px de `scrollTop` mueven la última barra
+  exactamente 400 px).
+
+### v3.13.1 — Activar el modo de barras flotantes recuperaba las posiciones de la sesión anterior del modo
+
+- **Síntoma:** con el modo flotante ya usado una vez —barras arrastradas por
+  el lienzo, alguna plegada—, apagarlo y volver a pulsar «Barras» las
+  enseñaba **donde habían quedado**, desperdigadas. El usuario pidió
+  explícitamente que encender el modo las mostrara siempre en la disposición
+  original (las posiciones ya morían con la recarga, pero no al conmutar).
+- **Causa:** las posiciones viven solo en el DOM (decisión de diseño: ni
+  `state` ni prefs), así que apagar el modo —que es solo quitar la clase
+  `app--floatbars`— las dejaba intactas, y encenderlo las revelaba tal cual.
+  Faltaba distinguir «seguir en la sesión del modo» (el viaje
+  ancho→estrecho→ancho del viewport, donde conservar posiciones es correcto)
+  de «entrar en el modo» (donde se espera la disposición limpia).
+- **Arreglo:** `applyFloatToolbars` llama a `resetFloatbars()` **solo cuando
+  enciende** (`if (state.floatToolbars)`): posiciones a fábrica, barras
+  desplegadas, scroll de la columna a cero. Apagar no toca nada, y el viaje
+  por viewport estrecho tampoco pasa por ahí (es CSS puro), así que dentro de
+  la sesión del modo las posiciones se conservan — que es el único sitio
+  donde deben conservarse.
+- **Guardia:** `tests/app-interaction.test.js` — *«activar «Barras» devuelve
+  SIEMPRE la disposición de fábrica»* (una barra arrastrada a fixed y otra
+  plegada; apagar+encender debe devolver ambas al flujo y desplegadas —
+  **verificada fallando** sin la llamada a `resetFloatbars` en
+  `applyFloatToolbars`) y `e2e/floatbars.spec.js` — *«apagar y encender el
+  modo devuelve la barra movida a fábrica»* con el ratón de verdad, más
+  *«bajo 1100px…»*, que fija el complemento: el viaje por viewport SÍ
+  conserva las posiciones.
+
 ### v3.12.1 — Una de cada tres pasadas de la suite e2e fallaba, y cada vez en otro sitio
 
 - **Síntoma:** la suite completa (`npm run test:e2e`) fallaba **un test
