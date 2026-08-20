@@ -223,6 +223,7 @@
     editingIdx:  null,
     dragLast:    null,  // última posición durante un arrastre de selección
     dragSnapshot: null,
+    frameCargo: null,   // lo que un marco seleccionado se lleva al arrastrarlo
     // Alt+arrastre duplica (v3.8.0): armado en mousedown sobre la selección
     // ya hecha, consumado en el primer fotograma con movimiento real.
     altDup: false,
@@ -398,6 +399,26 @@
           hit = distToSegment(pos, pts[s - 1].x, pts[s - 1].y, pts[s].x, pts[s].y) <= alcance;
         }
         if (hit) return i;
+        continue;
+      }
+      // Un MARCO se coge por su BORDE o por su rótulo, nunca por dentro
+      // (v3.12.0). Con la caja entera, un marco de media pantalla se quedaría
+      // con todos los clics de su interior: no se podría ni seleccionar lo que
+      // contiene ni tirar una marquesina ahí dentro. Es la misma idea que el
+      // alcance del borrador — lo que se ve, no la caja.
+      if (el.type === TOOLS.FRAME) {
+        const b = getElementBounds(el);
+        const m = 6;
+        const enX = pos.x >= b.x - m && pos.x <= b.x + b.w + m;
+        const enY = pos.y >= b.y - m && pos.y <= b.y + b.h + m;
+        const borde = (enX && enY) &&
+          (Math.abs(pos.x - b.x) <= m || Math.abs(pos.x - (b.x + b.w)) <= m ||
+           Math.abs(pos.y - b.y) <= m || Math.abs(pos.y - (b.y + b.h)) <= m);
+        // El rótulo, encima del borde superior: es el asa que ofrece cualquier
+        // editor para mover el marco entero.
+        const rotulo = pos.y >= b.y - 20 && pos.y <= b.y &&
+                       pos.x >= b.x && pos.x <= b.x + Math.min(b.w, 160);
+        if (borde || rotulo) return i;
         continue;
       }
       if (el.type === TOOLS.POLYGON) {
@@ -665,12 +686,44 @@
 
   /** Mueve la selección entera (dx,dy), frenada por clampDelta. Devuelve el
       desplazamiento realmente aplicado, que puede ser (0,0) en el borde. */
+  /**
+   * Lo que un MARCO seleccionado se lleva consigo (v3.12.0): lo que tiene el
+   * centro dentro de su caja. Ni otros marcos —un marco no contiene marcos:
+   * se solapan y arrastrarían medio dibujo—, ni lo bloqueado, ni lo que ya
+   * está seleccionado por su cuenta (se movería dos veces).
+   *
+   * Se calcula UNA vez, al empezar el gesto (`state.frameCargo`): con el
+   * cálculo por fotograma, una pieza que saliera del marco a mitad de
+   * arrastre se quedaría clavada a medio camino.
+   */
+  function frameCargo(sel) {
+    const marcos = sel.map(i => state.elements[i])
+      .filter(el => el && el.type === TOOLS.FRAME)
+      .map(getElementBounds);
+    if (!marcos.length) return [];
+    const dentro = [];
+    state.elements.forEach((el, i) => {
+      if (sel.includes(i) || el.type === TOOLS.FRAME || el.locked) return;
+      const b = getElementBounds(el);
+      if (!b || !Number.isFinite(b.x)) return;
+      const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+      if (marcos.some(m => cx >= m.x && cx <= m.x + m.w && cy >= m.y && cy <= m.y + m.h)) {
+        dentro.push(i);
+      }
+    });
+    return dentro;
+  }
+
   function moveSelectionBy(dx, dy) {
     const box = selectionBounds();
     if (!box) return { dx: 0, dy: 0 };
     const d = clampDelta(box, dx, dy);
     if (!d.dx && !d.dy) return d;
-    state.selection.forEach(i => {
+    // El recorte sigue midiéndose sobre la selección: lo que el marco lleva
+    // dentro viaja con él aunque asome del lienzo, igual que las piezas de un
+    // edificio (la caja combinada, nunca pieza a pieza).
+    const carga = state.frameCargo || frameCargo(state.selection);
+    state.selection.concat(carga).forEach(i => {
       state.elements[i] = moveElement(state.elements[i], d.dx, d.dy);
     });
     return d;
@@ -2099,6 +2152,7 @@
     const hasSel = state.selection.length > 0;
     $('btn-delete-sel').hidden = !hasSel;
     $('btn-duplicate-sel').hidden = !hasSel;
+    $('btn-save-piece').hidden = !hasSel;
     $('zorder-row').hidden = !hasSel;
     // Colocación: voltear vale con un solo objeto; alinear y repartir piden
     // dos y tres UNIDADES (un grupo cuenta como una), así que sus filas se
@@ -2205,7 +2259,7 @@
   /** Tipos con texto propio editable desde el panel. El de `text` es su
       contenido (`value`); el de los componentes UI, su rótulo (`label`). */
   const LABEL_FIELD = el => (el.type === 'text' ? 'value'
-    : ['button', 'input', 'nav', 'card'].includes(el.type) ? 'label' : null);
+    : ['button', 'input', 'nav', 'card', 'frame'].includes(el.type) ? 'label' : null);
 
   /** Vuelca en «Posición y tamaño» la caja real de lo seleccionado. Con varios,
       la caja combinada: escribir en ella mueve o escala el conjunto, igual que
@@ -2878,6 +2932,9 @@
         // sin arrastre no debe dejar un duplicado invisible apilado debajo.
         state.altDup = e.altKey;
         state.dragLast = pos;
+        // Lo que un marco seleccionado se lleva: se fija AQUÍ, al empezar el
+        // gesto, no en cada fotograma (ver frameCargo).
+        state.frameCargo = frameCargo(state.selection);
         // Snapshot ANTES de que el drag mute state.elements
         state.dragSnapshot = snapshot();
         state.didDrag = false;
@@ -2913,6 +2970,7 @@
           state.pendingUnselect = idx;
         }
         state.dragLast = pos;
+        state.frameCargo = frameCargo(state.selection);
         // Snapshot ANTES de que el drag mute state.elements
         state.dragSnapshot = snapshot();
         state.didDrag = false;
@@ -3773,6 +3831,9 @@
       state.dragSnapshot = null;
       state.didDrag = false;
       state.altDup = false; // un Alt+clic sin arrastre no deja duplicado
+      // La carga del marco muere con el gesto: fuera de él, cada nudge o
+      // cada medida tecleada vuelve a calcular lo que hay dentro AHORA.
+      state.frameCargo = null;
 
       // El imán muere con el gesto: sesión y guías fuera, y un repintado del
       // overlay para que la guía no quede colgada tras soltar.
@@ -4019,6 +4080,16 @@
       // (Imagen no está en uiLabels: su renderer no recibe rótulo).
       const label = (state.uiLabels[state.tool] || '').trim();
       if (label) el.label = label;
+      // Un marco nace numerado, como las capas de cualquier editor: «Marco 2»
+      // dice algo, y tres «Marco» no dicen nada. El rótulo se cambia en
+      // «Posición y tamaño», que es donde se edita el texto de un elemento.
+      if (state.tool === TOOLS.FRAME) {
+        const n = state.elements.filter(e => e.type === TOOLS.FRAME).length + 1;
+        el.label = `Marco ${n}`;
+        // Sin temblor: el marco se dibuja recto a propósito, así que el campo
+        // solo sería peso muerto en el JSON.
+        delete el.rough;
+      }
       state.elements.push(el);
     }
     // Edificios — herramientas de creación: 1..N elementos de tipos ya
@@ -4968,6 +5039,153 @@
     redraw();
   }
 
+  /* ── Biblioteca del usuario (v3.12.0) ──
+     «Plantillas» siempre fueron tres, escritas a mano en templates.js. Esto
+     deja al usuario ampliarlas: guardar la selección como pieza y volver a
+     insertarla cuando quiera, en este navegador o en otro (la biblioteca se
+     exporta e importa como .json).
+
+     Las piezas se guardan NORMALIZADAS al origen —restada la esquina de su
+     caja—, así que insertarlas es una traslación y no hace falta guardar
+     dónde estaban. */
+
+  const LIBRARY_KEY = 'sketchwire.library';
+  // Tope explícito: localStorage es la misma cuota que el autoguardado, y la
+  // lección del fallo de cuota (v2.35.0) es que un `catch` mudo pierde
+  // trabajo. Mejor decir que no cabe que dejar de guardar el dibujo.
+  const LIBRARY_MAX = 1024 * 1024;
+
+  function loadLibrary() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(LIBRARY_KEY) || 'null');
+      if (!raw || !Array.isArray(raw.items)) return [];
+      return raw.items.filter(it => it && typeof it.name === 'string' &&
+        Array.isArray(it.elements) && it.elements.length);
+    } catch (_) { return []; }
+  }
+
+  function saveLibrary(items) {
+    const texto = JSON.stringify({ v: 1, items });
+    if (texto.length > LIBRARY_MAX) {
+      showToast('⚠ La biblioteca no admite más: exporta y borra alguna pieza');
+      return false;
+    }
+    try {
+      localStorage.setItem(LIBRARY_KEY, texto);
+      return true;
+    } catch (_) {
+      showToast('⚠ No cabe en este navegador: exporta y borra alguna pieza');
+      return false;
+    }
+  }
+
+  /** Guarda la selección como pieza, con la esquina de su caja en el origen. */
+  function savePiece(nombre) {
+    if (!state.selection.length) return false;
+    const box = selectionBounds();
+    if (!box) return false;
+    const elements = state.selection
+      .map(i => moveElement(state.elements[i], -box.x, -box.y))
+      .map(el => {
+        // La pieza es un dibujo, no un trozo de ESTA escena: se le quitan las
+        // referencias que solo valen aquí —el id de anclaje y los anchors que
+        // apuntan a él— o al insertarla las flechas seguirían enganchadas a
+        // elementos de otro dibujo.
+        const copia = { ...el };
+        delete copia.id;
+        delete copia.startAnchor;
+        delete copia.endAnchor;
+        return copia;
+      });
+    const items = loadLibrary();
+    items.push({ id: newId(), name: nombre, elements });
+    if (!saveLibrary(items)) return false;
+    showToast(`⭐ Pieza guardada: ${nombre}`);
+    return true;
+  }
+
+  /** Inserta una pieza centrada en el lienzo, seleccionada y en un solo undo. */
+  function insertPiece(item) {
+    const els = item.elements.filter(el => Exporter.isValidElement(el));
+    if (!els.length) { showToast('⚠ Esa pieza no tiene nada válido'); return; }
+    let w = 0, h = 0;
+    els.forEach(el => {
+      const b = getElementBounds(el);
+      if (b && Number.isFinite(b.x)) {
+        w = Math.max(w, b.x + b.w);
+        h = Math.max(h, b.y + b.h);
+      }
+    });
+    const dx = Math.round((CANVAS_W - w) / 2), dy = Math.round((CANVAS_H - h) / 2);
+    saveUndo();
+    // insertClones hace el resto: semillas nuevas, ids nuevos y un
+    // buildingGroupId nuevo por cada grupo que la pieza traiga dentro.
+    insertClones(withSeeds(els), dx, dy);
+    selectTool(TOOLS.SELECT, { silent: true });
+    redraw();
+    showToast(`⭐ ${item.name}`);
+  }
+
+  /**
+   * Pinta la lista de «Mis piezas» dentro del modal de plantillas. Cada fila
+   * es el botón que la inserta más su papelera, y el borrado va en DOS pasos
+   * dentro de la propia fila: la biblioteca no entra en el undo, así que un
+   * clic de más sería definitivo.
+   */
+  function buildLibraryList() {
+    const cont = $('library-list');
+    const bloque = $('library-block');
+    if (!cont || !bloque) return;
+    const items = loadLibrary();
+    bloque.hidden = items.length === 0;
+    while (cont.firstChild) cont.removeChild(cont.firstChild);
+    items.forEach(item => {
+      const fila = document.createElement('div');
+      fila.className = 'modal__piece';
+      const usar = document.createElement('button');
+      usar.className = 'modal__template modal__piece-use';
+      usar.title = `Insertar «${item.name}»`;
+      const icono = document.createElement('span');
+      icono.className = 'modal__template-icon';
+      icono.textContent = '⭐';
+      const caja = document.createElement('div');
+      const nombre = document.createElement('strong');
+      nombre.textContent = item.name;
+      const detalle = document.createElement('small');
+      detalle.textContent = `${item.elements.length} elemento${item.elements.length === 1 ? '' : 's'}`;
+      caja.appendChild(nombre);
+      caja.appendChild(detalle);
+      usar.appendChild(icono);
+      usar.appendChild(caja);
+      usar.addEventListener('click', () => {
+        $('modal-templates').close();
+        insertPiece(item);
+      });
+
+      const borrar = document.createElement('button');
+      borrar.className = 'btn btn--ghost modal__piece-del';
+      borrar.textContent = '🗑';
+      borrar.title = `Borrar «${item.name}»`;
+      let armado = false;
+      borrar.addEventListener('click', () => {
+        if (!armado) {
+          armado = true;
+          borrar.textContent = '¿Seguro?';
+          borrar.classList.add('btn--danger');
+          return;
+        }
+        if (saveLibrary(loadLibrary().filter(it => it.id !== item.id))) {
+          buildLibraryList();
+          showToast('🗑 Pieza borrada');
+        }
+      });
+
+      fila.appendChild(usar);
+      fila.appendChild(borrar);
+      cont.appendChild(fila);
+    });
+  }
+
   /* ── Exportar: ámbito y aspecto (v3.9.0) ── */
 
   // Margen del recorte: el trazo a mano se sale de la caja del elemento (el
@@ -5001,6 +5219,26 @@
     const soloSel = (opts.selectionOnly !== undefined
       ? opts.selectionOnly
       : $('export-selection').checked) && state.selection.length > 0;
+    // Un MARCO seleccionado exporta lo que ENMARCA (v3.12.0): la escena
+    // entera recortada a su caja, no el rectángulo solo. Es para lo que
+    // existe un marco, y sale gratis — el recorte ya estaba hecho.
+    const marco = soloSel && state.selection.length === 1 &&
+      state.elements[state.selection[0]].type === TOOLS.FRAME
+      ? state.elements[state.selection[0]] : null;
+    if (marco) {
+      const b = getElementBounds(marco);
+      return {
+        elements: state.elements,
+        options: {
+          overlapMode: state.overlapMode,
+          canvasBg: state.canvasBg, gridColor: state.gridColor, showGrid: state.showGrid,
+          scale: Number($('export-scale').value) || 1,
+          transparent: !!$('export-transparent').checked,
+          // Sin margen: el borde del marco ES el borde que se quiere.
+          box: { x: b.x, y: b.y, w: b.w, h: b.h },
+        },
+      };
+    }
     const elements = soloSel
       ? state.selection.map(i => state.elements[i])
       : state.elements;
@@ -9141,7 +9379,10 @@
     });
 
     const tplModal = $('modal-templates');
-    $('btn-templates').addEventListener('click', () => tplModal.showModal());
+    $('btn-templates').addEventListener('click', () => {
+      buildLibraryList();
+      tplModal.showModal();
+    });
     tplModal.querySelector('.modal__cancel').addEventListener('click', () => tplModal.close());
     closeOnBackdrop(tplModal);
     tplModal.querySelectorAll('[data-template]').forEach(btn => {
@@ -9151,6 +9392,51 @@
         setSelection([]);
         tplModal.close();
         redraw();
+      });
+    });
+
+    /* Biblioteca del usuario: la lista se reconstruye al abrir el modal, con
+       createElement/textContent y nunca innerHTML — el nombre lo escribe el
+       usuario y viaja en un .json que puede venir de fuera. */
+    const pieceModal = $('modal-save-piece');
+    $('btn-save-piece').addEventListener('click', () => {
+      $('piece-name').value = '';
+      pieceModal.showModal();
+    });
+    pieceModal.querySelector('.modal__cancel').addEventListener('click', () => pieceModal.close());
+    closeOnBackdrop(pieceModal);
+    $('btn-piece-save').addEventListener('click', () => {
+      const n = ($('piece-name').value || '').trim().slice(0, 40);
+      if (savePiece(n || `Pieza ${loadLibrary().length + 1}`)) pieceModal.close();
+    });
+
+    $('btn-library-export').addEventListener('click', () => {
+      const items = loadLibrary();
+      if (!items.length) return;
+      Exporter.downloadJSON('pizarra-biblioteca.json', { v: 1, items });
+      showToast('⬇ Biblioteca exportada');
+    });
+    $('btn-library-import').addEventListener('click', () => {
+      Exporter.readJSONFile().then(data => {
+        if (!data || !Array.isArray(data.items)) {
+          showToast('⚠ Ese archivo no es una biblioteca');
+          return;
+        }
+        // Validación elemento a elemento: el archivo puede venir de fuera y
+        // acaba dibujándose y exportándose como cualquier otra cosa.
+        const nuevas = data.items
+          .filter(it => it && typeof it.name === 'string' && Array.isArray(it.elements))
+          .map(it => ({
+            id: newId(),
+            name: String(it.name).slice(0, 40),
+            elements: it.elements.filter(el => Exporter.isValidElement(el)),
+          }))
+          .filter(it => it.elements.length);
+        if (!nuevas.length) { showToast('⚠ No había ninguna pieza válida'); return; }
+        if (saveLibrary(loadLibrary().concat(nuevas))) {
+          buildLibraryList();
+          showToast(`⭐ ${nuevas.length} pieza(s) añadida(s)`);
+        }
       });
     });
 
@@ -10781,6 +11067,7 @@
       state.resizing = null;
       state.marquee = null;
       state.didDrag = false;
+      state.frameCargo = null;
       setSelection([]);
       onMouseDown({
         clientX: info.x, clientY: info.y, altKey: true, shiftKey: false,

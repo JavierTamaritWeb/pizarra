@@ -702,3 +702,23 @@ kbd {
   font-size: 1.1rem;
   color: var(--text-muted);
 }
+
+// Una pieza de la biblioteca (v3.12.0): el botón que la inserta ocupa la fila
+// y la papelera se queda a su derecha, con el mismo alto. Selectores planos,
+// como el resto de este tramo del parcial.
+.modal__piece {
+  display: flex;
+  gap: 0.6rem;
+  align-items: stretch;
+}
+
+.modal__piece-use {
+  flex: 1;
+  min-width: 0;
+}
+
+.modal__piece-del {
+  flex: 0 0 auto;
+  padding: 0 1.2rem;
+  white-space: nowrap;
+}

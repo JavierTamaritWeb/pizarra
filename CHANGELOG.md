@@ -4,6 +4,28 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.12.0] — 2026-08-20
+
+### Añadido
+
+- **Marcos**: el contenedor de una pantalla, con su rótulo numerado. Se coge
+  por el **borde** o por el **rótulo**, nunca por dentro —si no, un marco de
+  media pantalla se quedaría con todos los clics de su interior—, y **al
+  moverlo se lleva lo que hay dentro** (lo que tenga el centro dentro de su
+  caja; lo bloqueado y otros marcos se quedan). Redimensionarlo **no** escala
+  el contenido: estirarlo hace entrar o salir cosas, que es para lo que
+  sirve. Con el marco seleccionado, «Solo la selección» recorta la
+  exportación a su caja exacta: es la forma de sacar una pantalla suelta de
+  un lienzo con varias.
+- **Biblioteca de piezas**: «Guardar como pieza» guarda la selección
+  —normalizada al origen y sin las referencias que solo valían en ese
+  dibujo— y la deja disponible en el modal de **Plantillas**, donde se
+  *inserta* centrada, con semillas e identificadores nuevos y en un solo paso
+  de deshacer. La biblioteca vive en este navegador, **sobrevive a «Limpiar
+  todo»** (es tuya, no del dibujo) y se exporta e importa como `.json`
+  validado elemento a elemento. Borrar una pieza pide confirmación en su
+  propia fila, porque eso no entra en el undo.
+
 ## [3.11.0] — 2026-08-19
 
 ### Añadido

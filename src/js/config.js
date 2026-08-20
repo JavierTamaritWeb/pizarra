@@ -47,6 +47,11 @@ const TOOLS = Object.freeze({
   INPUT:            'input',
   NAV:              'nav',
   CARD:             'card',
+  // Marco (v3.12.0): el contenedor de un wireframe —«móvil», «escritorio»—.
+  // SÍ es un tipo de elemento: se dibuja, se exporta y se valida como
+  // cualquier otro. Lo único propio es que al moverlo se lleva lo que tiene
+  // dentro, y que su caja sirve de recorte al exportar.
+  FRAME:            'frame',
   // Edificios — herramientas de creación (NO tipos de elemento): cada una
   // produce elementos de tipos ya existentes (rect/line). Ver js/building.js.
   BUILD_PLANTA: 'planta',         BUILD_FACADE: 'fachada',
@@ -528,6 +533,9 @@ const TOOL_GROUPS = [
       { id: TOOLS.IMAGE_PLACEHOLDER,icon: '🖼️', name: 'Imagen', key: 'm' },
       { id: TOOLS.NAV,              icon: '☰',  name: 'Navbar', key: 'n' },
       { id: TOOLS.CARD,             icon: '🃏', name: 'Tarjeta', key: 'k' },
+      // Sin tecla: las 26 letras y los 10 dígitos están cogidos (misma
+      // situación que Balcón, «Select» o el Aerógrafo).
+      { id: TOOLS.FRAME,            icon: '⬚',  name: 'Marco' },
     ],
   },
   {
@@ -815,4 +823,7 @@ const UI_DEFAULTS = {
   [TOOLS.IMAGE_PLACEHOLDER]: { w: 200, h: 150 },
   [TOOLS.NAV]:               { w: 600, h: 50 },
   [TOOLS.CARD]:              { w: 220, h: 280 },
+  // El marco nace con la proporción de una pantalla de móvil: es la medida
+  // que un clic sin arrastre tiene que dar por buena.
+  [TOOLS.FRAME]:             { w: 390, h: 700 },
 };

@@ -1781,3 +1781,44 @@ test('los tres campos nuevos sobreviven a un export→import de JSON', () => {
   assert.equal(data.elements[0].fillPattern, 'zigzag');
   assert.equal(data.elements[1].headShape, 'triangle');
 });
+
+/* ============================================================
+   Marcos (v3.12.0)
+   ============================================================ */
+
+const elFrame = { ...base, type: 'frame', x: 100, y: 100, w: 390, h: 700, label: 'Marco 1' };
+
+test('el marco se valida, se exporta a SVG y vuelve del JSON', () => {
+  const ctx = freshCtx();
+  assert.equal(ctx.Exporter.isValidElement(elFrame), true);
+  assert.equal(ctx.Exporter.isValidElement({ ...elFrame, w: 0 }), false);
+  assert.equal(ctx.Exporter.isValidElement({ ...elFrame, label: 7 }), false);
+
+  ctx.Exporter.svg([elFrame]);
+  const out = lastBlob(ctx).content;
+  // Borde fino, sin relleno y con el rótulo encima del borde superior.
+  assert.match(out, /<rect x="100" y="100" width="390" height="700" fill="none" stroke="#33334499" stroke-width="1"\/>/);
+  assert.match(out, /<text x="100" y="95"[^>]*>Marco 1<\/text>/);
+
+  ctx.Exporter.json([elFrame]);
+  const data = JSON.parse(lastBlob(ctx).content);
+  assert.equal(data.elements[0].type, 'frame');
+  assert.equal(ctx.Exporter.isValidElement(data.elements[0]), true);
+});
+
+test('una escena con un marco se exporta a HTML por el SVG incrustado', () => {
+  // El marco no tiene representación en HTML plano: un <div> con borde sería
+  // un rectángulo más, sin su rótulo ni su trazo tenue.
+  const ctx = freshCtx();
+  ctx.Exporter.html([elFrame, elButton]);
+  const out = lastBlob(ctx).content;
+  assert.match(out, /<svg width="1200"/);
+  assert.match(out, /Marco 1/);
+});
+
+test('el rótulo de un marco no puede cerrar el <text> del SVG', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.svg([{ ...elFrame, label: '</text><script>alert(1)</script>' }]);
+  const out = lastBlob(ctx).content;
+  assert.ok(!out.includes('<script>'), 'el rótulo va escapado');
+});

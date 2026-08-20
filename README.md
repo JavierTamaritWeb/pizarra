@@ -4,11 +4,11 @@
 
 **Wireframes, diagramas y bocetos con estética dibujada a mano — en el navegador y sin instalar nada.**
 
-[![Versión](https://img.shields.io/badge/versión-3.11.0-blueviolet?style=flat-square)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-3.12.0-blueviolet?style=flat-square)](CHANGELOG.md)
 [![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?style=flat-square&logo=javascript&logoColor=000)](src/js/)
 [![Estilos](https://img.shields.io/badge/estilos-SCSS%20·%20BEM%20·%20Gulp%205-cf649a?style=flat-square&logo=sass&logoColor=fff)](src/scss/)
 [![Dependencias](https://img.shields.io/badge/dependencias%20en%20runtime-0-brightgreen?style=flat-square)](#arquitectura)
-[![Tests](https://img.shields.io/badge/tests-885%20unitarios%20%2B%20162%20e2e-brightgreen?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-898%20unitarios%20%2B%20167%20e2e-brightgreen?style=flat-square)](#tests)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue?style=flat-square)](LICENSE)
 
 <img src="src/img/screenshot-pizarra.png" alt="La interfaz de Pizarra: barra de herramientas a la izquierda con el grupo 3D visible y la herramienta Prisma activa, en el centro un lienzo de papel azulado con cuadrícula blanca y un wireframe de landing page dibujado a mano junto a un cubo, una esfera y una pirámide hexagonal en volumen, rellenos de turquesa translúcido y con las aristas de detrás discontinuas, y a la derecha el panel de ajustes con la paleta de 36 colores ordenada por el arco iris" width="900">
@@ -73,6 +73,7 @@ Para *usar* la app no hay nada que instalar ni compilar: el CSS ya viene compila
 | **Tinta (bote de pintura)** | Un clic pinta. Dentro de una forma, la rellena a ella; **fuera, encuentra la zona que cierran los trazos de alrededor** —el rombo que dibujan varias líneas cruzadas, que no es ninguna forma y hasta ahora no se podía colorear— y crea una mancha independiente, por debajo de los trazos: se mueve, se borra y se deshace como cualquier elemento. En el lienzo vacío pinta el fondo entero. **«Cerrar huecos»** (0-12 px) evita que la pintura se escape por las junturas mal cerradas, y el modal trae **cuentagotas**, **pintar toda la selección de golpe** y **sustituir un color por otro en todo el lienzo**. Usa el color de relleno de la app, sólido o translúcido; repintar una zona sustituye su mancha en vez de apilar otra. |
 | **Formas** | Rectángulo, redondeado, elipse, cuadrado, trapecio, triángulo, pentágono, hexágono y las **estrellas de 5 y 6 puntas**. Los polígonos regulares se arrastran desde el centro y conservan sus lados iguales; el trapecio admite proporciones libres. |
 | **Relleno tramado** | Además del plano, la superficie puede ir **rayada**, **cruzada**, de **puntos** o en **zigzag**, como un croquis a lápiz. Respeta la silueta de verdad —el rayado de una estrella no cruza los huecos entre puntas—, no engorda el archivo (se regenera desde la semilla, como la nube del aerógrafo) y sale igual en el lienzo, en el PNG y en el SVG. |
+| **Marcos** | El contenedor de una pantalla, con su rótulo. Se coge por el **borde** o por el rótulo —nunca por dentro, así que sigues dibujando y seleccionando dentro de él— y **al moverlo se lleva lo que contiene**; al estirarlo, no: entra o sale contenido, que es para lo que sirve. Con el marco seleccionado, «Exportar → Solo la selección» **recorta a su caja exacta**: la forma de sacar una pantalla suelta de un lienzo con varias. |
 | **Temblor del trazo** | El pulso del dibujo a mano, en tres niveles: **de arquitecto** (casi a regla), **de artista** (el de siempre) y **de caricatura**. Un mando en los ajustes del trazo y de la forma, que son el mismo. |
 | **Puntas de flecha** | Clásica, **maciza**, **barra** —el remate de cota de un plano— o **punto**, en los dos extremos cuando la flecha es de doble punta. |
 | **Estrellas** | Las regulares clásicas —pentagrama y Estrella de David—, con el radio interior en el que prolongar el lado de una punta lleva justo a otra punta: rectas completas, no pétalos. Se comportan como un polígono más —relleno, bordes ocultos, giro (36° y 30°) y las cinco exportaciones—, y el borrador y la selección respetan su **silueta**: el hueco entre dos puntas no es dibujo. |
@@ -170,6 +171,7 @@ Cada pieza de jardín nace con una **etiqueta** dentro del mismo grupo (se mueve
 | **PNG / JPG** | Imagen rasterizada del lienzo limpio |
 | **SVG** | Vectorial escalable, fiel al render |
 | **HTML** | Página editable con componentes reales + SVG incrustado para los trazos |
+| **Mis piezas** | Guarda la selección como **pieza reutilizable** y vuelve a insertarla desde Plantillas cuantas veces quieras, centrada y en un solo paso de deshacer. La biblioteca vive en tu navegador, sobrevive a «Limpiar todo» y se exporta e importa como `.json`. |
 | **JSON** | Proyecto reutilizable — expórtalo e impórtalo después, con validación por tipo de elemento; guarda también el **aspecto del lienzo** y lo restaura al abrirlo |
 
 Tres ajustes gobiernan **qué** sale y **cómo**: la **resolución** (1×, 2× o 3× — el dibujo no cambia, cambian los píxeles), el **fondo transparente** y **solo la selección**, que recorta la exportación a lo que tengas seleccionado, con un margen para que el trazo a mano no salga cortado. Cada formato honra lo que puede representar: el JPG compone siempre el papel (no tiene transparencia) y el HTML ignora la resolución (es un documento, no una imagen). Y **«Copiar imagen al portapapeles»** deja el dibujo listo para pegar en un documento o un chat sin pasar por la carpeta de descargas — también desde el menú del clic derecho, donde copia solo la selección.
@@ -289,7 +291,7 @@ Cuatro convenciones que conviene conocer:
 
 ## Tests
 
-**885 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
+**898 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
 de runtime:
 
 ```bash
@@ -299,7 +301,7 @@ node --test tests/exporter.test.js    # un archivo
 
 Los módulos se cargan en un contexto `node:vm` con stubs de canvas y DOM, incluido `src/js/app.js` completo: los tests lanzan gestos reales —puntero, teclado, modales— y leen el resultado del autoguardado, sin ningún hook de test en el código de producción.
 
-**162 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco, acciones por defecto del navegador, la navegación del lienzo (zoom al cursor, pan, encuadres), el feedback en vivo, los gestos multitáctiles (despachados por CDP), los flujos completos de Verjas y Cancela y el Jardín botánico en escritorio, móvil y anchos intermedios.
+**167 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco, acciones por defecto del navegador, la navegación del lienzo (zoom al cursor, pan, encuadres), el feedback en vivo, los gestos multitáctiles (despachados por CDP), los flujos completos de Verjas y Cancela y el Jardín botánico en escritorio, móvil y anchos intermedios.
 
 ```bash
 npm install && npm run e2e:install    # una vez (descarga Chromium)

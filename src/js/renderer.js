@@ -837,6 +837,28 @@ const Renderer = (() => {
         break;
       }
 
+      // Marco (v3.12.0): el contenedor de un wireframe. Se dibuja con líneas
+      // RECTAS y finas, sin pasar por Sketchy: es una guía de trabajo, no un
+      // trazo del dibujo, y temblando competiría con lo que contiene.
+      case 'frame': {
+        const b = _box(el);
+        ctx.save();
+        ctx.strokeStyle = _tint(el.color, '99');
+        ctx.lineWidth = 1;
+        ctx.setLineDash([]);
+        ctx.strokeRect(b.x + 0.5, b.y + 0.5, b.w, b.h);
+        // El rótulo va ENCIMA del borde superior, fuera de la caja: dentro
+        // taparía justo la esquina donde se suele empezar a componer.
+        const texto = el.label || 'Marco';
+        ctx.font = `12px ${sketchFont()}`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillStyle = _tint(el.color, '99');
+        ctx.fillText(texto, b.x, b.y - 5);
+        ctx.restore();
+        break;
+      }
+
       case 'square':
       case 'triangle':
       case 'pentagon':

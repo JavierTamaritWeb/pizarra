@@ -433,11 +433,22 @@ puntero láser (sin colaboración no tiene público).
   contra dos mutaciones distintas), 5 en `sketchy-renderer`, 6 en `exporter`,
   6 en `app-interaction` y `e2e/fill-pattern.spec.js` (5, con tinta real).
 
-## Fase 8 — Composición (v3.12.0)
+## Fase 8 — Composición ✅ (v3.12.0)
 
-- Marcos: tipo de elemento nuevo, con los 8 puntos de la checklist. Mover el
-  marco arrastra su contenido; redimensionarlo no lo escala. Se enchufa al
-  ámbito de exportación de la fase 5.
-- Biblioteca del usuario: guardar la selección como pieza reutilizable
-  (normalizada al origen), insertarla desde Plantillas, e importar/exportar
-  la biblioteca como JSON validado elemento a elemento.
+- ✅ **Marcos**: tipo de elemento nuevo con los 8 puntos de la checklist. Se
+  coge por el borde o el rótulo (nunca por dentro), se lleva su contenido al
+  moverlo y no lo escala al redimensionarlo, y se enchufa al ámbito de
+  exportación de la fase 5 recortando a su caja exacta.
+- ✅ **Biblioteca del usuario**: guardar la selección como pieza —normalizada
+  al origen y sin id ni anclas—, insertarla centrada desde Plantillas con un
+  solo undo, y exportar/importar la biblioteca como JSON validado elemento a
+  elemento. Sobrevive a «Limpiar todo» y tiene tope de tamaño con aviso.
+- Guardas: 10 en `tests/` (incluidas las tres reglas del arrastre del marco,
+  verificadas contra sus mutaciones) y `e2e/frames.spec.js` (5, con el PNG
+  del tamaño del marco y las filas de «Mis piezas» pulsadas de verdad).
+
+---
+
+**Las cuatro fases están completas.** Lo que queda fuera a conciencia, por si
+alguna vez cambia el criterio: lienzo infinito, colaboración en tiempo real,
+capas y multipágina, importación de Mermaid/Markdown y puntero láser.

@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=3.11.0" />
+  <link rel="stylesheet" href="css/styles.css?v=3.12.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.11.0" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.12.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v3.11.0</span>
+        <span class="topbar__badge">v3.12.0</span>
         <!-- Aviso de autoguardado: visible SOLO mientras localStorage rechaza
              el guardado (cuota llena). Sin él, el fallo era un catch mudo y el
              trabajo posterior se perdía en silencio al recargar. -->
@@ -104,7 +104,7 @@
              exportar, abrir…). role=status + aria-live para que el lector los
              anuncie; los rellena showToast (app.js) y nunca interceptan. -->
         <div class="toasts" id="toast-region" role="status" aria-live="polite"></div>
-        <!-- Menú contextual (v3.11.0): lo rellena showContextMenu (app.js) por
+        <!-- Menú contextual (v3.12.0): lo rellena showContextMenu (app.js) por
              invocación, con las acciones de la selección o del lienzo y su
              atajo a la derecha. [hidden] obligatoria: la clase declara display. -->
         <div class="ctxmenu" id="context-menu" hidden></div>
@@ -218,7 +218,7 @@
           <label class="panel__check">
             <input type="checkbox" id="check-fill-transparent" /> Relleno translúcido
           </label>
-          <!-- Trama del relleno (v3.11.0, la idea de rough.js): el trazo es de
+          <!-- Trama del relleno (v3.12.0, la idea de rough.js): el trazo es de
                mano temblorosa y el relleno era una mancha plana. Los valores
                son los ids de Hatch.PATTERNS más «solid», que es la ausencia
                del campo; tests/smoke.test.js pinea que coincidan. -->
@@ -424,6 +424,13 @@
           <button class="btn btn--ghost btn--block" id="btn-duplicate-sel" hidden>
             ⧉ Duplicar selección
           </button>
+          <!-- Biblioteca del usuario (v3.12.0): guardar la selección como
+               pieza reutilizable. Se inserta desde «Plantillas», que es donde
+               ya se va a buscar algo hecho. -->
+          <button class="btn btn--ghost btn--block" id="btn-save-piece" hidden
+                  title="Guardar la selección en tu biblioteca de piezas">
+            ⭐ Guardar como pieza
+          </button>
           <!-- Orden Z (v2.42.1): el orden del array ES el apilado. Cuatro
                acciones en rejilla de dos columnas (.panel__zorder, con su
                regla [hidden] en _panel.scss — declara display). Atajos:
@@ -434,7 +441,7 @@
             <button class="btn btn--ghost" id="btn-z-back" title="Enviar al fondo (Ctrl+Mayús+↓)">⏬ Al fondo</button>
             <button class="btn btn--ghost" id="btn-z-down" title="Retrasar un paso (Ctrl+↓)">🔽 Retrasar</button>
           </div>
-          <!-- Alinear y distribuir (v3.11.0): las guías al arrastrar ya
+          <!-- Alinear y distribuir (v3.12.0): las guías al arrastrar ya
                imantaban, pero no había forma de decir «éstos cuatro, a la
                izquierda». La rejilla declara display:grid, así que lleva su
                regla [hidden] en _panel.scss. Botones de icono: en tres
@@ -458,7 +465,7 @@
             <button class="btn btn--ghost" data-mirror="h" title="Voltear en horizontal (Mayús+H)">Voltear ↔</button>
             <button class="btn btn--ghost" data-mirror="v" title="Voltear en vertical (Mayús+V)">Voltear ↕</button>
           </div>
-          <!-- Agrupar/desagrupar (v3.11.0): la maquinaria (buildingGroupId)
+          <!-- Agrupar/desagrupar (v3.12.0): la maquinaria (buildingGroupId)
                existía desde Edificios, pero solo la estampaba la app. A ancho
                completo y no en pareja: «Desagrupar» no cabe en media columna
                del panel y salía recortado. -->
@@ -492,7 +499,7 @@
   <dialog class="modal" id="modal-export" aria-labelledby="modal-export-title">
       <h3 class="modal__heading" id="modal-export-title">Exportar Wireframe</h3>
       <p class="modal__sub">Elige el formato de exportación</p>
-      <!-- Ajustes de salida (v3.11.0, la idea de Excalidraw). Van ANTES de los
+      <!-- Ajustes de salida (v3.12.0, la idea de Excalidraw). Van ANTES de los
            formatos porque describen QUÉ se exporta, no cómo se descarga: se
            eligen y luego se pulsa el formato. Cada formato honra lo que puede
            representar (el JPG no tiene alfa; el HTML no tiene resolución) y
@@ -541,7 +548,7 @@
           <small>Proyecto reutilizable (importar después)</small>
         </button>
       </div>
-      <!-- Copiar al portapapeles (v3.11.0): ahorra el viaje descarga → buscar
+      <!-- Copiar al portapapeles (v3.12.0): ahorra el viaje descarga → buscar
            en Descargas → arrastrar. No lleva atajo a propósito (Ctrl+Mayús+C
            es las herramientas de desarrollo del navegador): sus vías son este
            botón y el menú contextual de la selección. -->
@@ -704,6 +711,16 @@
       </section>
 
       <section class="modal__help-group">
+        <h4 class="modal__help-title">⬚ Marcos</h4>
+        <ul class="modal__help-list">
+          <li>Un <strong>marco</strong> es el contenedor de una pantalla: se arrastra para darle la medida y nace con su rótulo («Marco 1»), que se cambia en <strong>«Posición y tamaño»</strong></li>
+          <li>Se coge por el <strong>borde</strong> o por su <strong>rótulo</strong>, nunca por dentro: así puedes seguir seleccionando y dibujando lo que tiene delante</li>
+          <li><strong>Al moverlo se lleva lo que hay dentro</strong> —lo que tenga el centro dentro de su caja—, pero al <em>redimensionarlo</em> no: estirarlo hace entrar o salir contenido, que es justo para lo que sirve. Lo bloqueado y otros marcos se quedan donde están</li>
+          <li>Con el marco <strong>seleccionado</strong>, «Exportar → Solo la selección» recorta la exportación <strong>a su caja exacta</strong>: es la forma de sacar una pantalla suelta de un lienzo con varias</li>
+        </ul>
+      </section>
+
+      <section class="modal__help-group">
         <h4 class="modal__help-title">🧩 Componentes e imágenes</h4>
         <ul class="modal__help-list">
           <li><strong>Botón</strong> (<kbd>B</kbd>), <strong>Input</strong> (<kbd>I</kbd>), <strong>Imagen</strong> (<kbd>M</kbd>), <strong>Navbar</strong> (<kbd>N</kbd>) y <strong>Tarjeta</strong> (<kbd>K</kbd>): arrastra su caja y sale el componente dibujado a mano</li>
@@ -745,6 +762,7 @@
           <li>Si el navegador se queda sin sitio, aparece un aviso en la barra de arriba. Es el momento de <strong>exportar a JSON</strong>: mientras esté encendido, lo nuevo no se está guardando</li>
           <li><strong>Exportar → JSON</strong> baja el proyecto entero —dibujo, ajustes y aspecto del lienzo— y <strong>Abrir proyecto</strong> lo devuelve tal cual. Los otros cuatro formatos son solo de salida</li>
           <li><strong>Plantillas</strong> parte de una estructura hecha —landing, dashboard o formulario—, <em>sustituyendo</em> lo que haya en el lienzo; <kbd>Ctrl</kbd>+<kbd>Z</kbd> lo deshace</li>
+          <li><strong>Mis piezas</strong>: selecciona algo y pulsa <strong>«Guardar como pieza»</strong> en «Elementos». Queda en tu biblioteca y se <em>inserta</em> —sin borrar nada— desde el mismo modal de Plantillas, tantas veces como quieras. La biblioteca vive en este navegador, sobrevive a «Limpiar todo» y se puede <strong>exportar e importar</strong> como archivo <code>.json</code></li>
           <li>Arriba del todo, en <strong>Ajustes</strong>, eliges la <strong>resolución</strong> (1×, 2× o 3×: el dibujo no cambia, cambian los píxeles), el <strong>fondo transparente</strong> (el JPG lo ignora: ese formato no tiene transparencia) y <strong>solo la selección</strong>, que recorta la exportación a lo que tengas seleccionado</li>
           <li><strong>Copiar imagen al portapapeles</strong> deja el dibujo listo para pegar en un documento o un chat, sin pasar por la carpeta de descargas. También está en el menú del clic derecho, y ahí copia solo lo seleccionado</li>
         </ul>
@@ -1008,7 +1026,7 @@
                      min="0" max="100" step="5" value="25"
                      aria-label="Curvatura de las flechas curvas" />
             </label>
-            <!-- Nivel de temblor (v3.11.0, la «sloppiness» de rough.js). Va
+            <!-- Nivel de temblor (v3.12.0, la «sloppiness» de rough.js). Va
                  en los DOS modales de dibujo, y sincronizado: afecta a todo lo
                  que dibuja Sketchy, así que tenerlo solo en uno lo dejaría
                  mintiendo sobre su alcance. Solo cambia el lienzo y el PNG: el
@@ -1021,7 +1039,7 @@
                 <option value="2">De caricatura</option>
               </select>
             </label>
-            <!-- Forma de la punta (v3.11.0). Se ATENÚA, no se oculta, cuando
+            <!-- Forma de la punta (v3.12.0). Se ATENÚA, no se oculta, cuando
                  ni la herramienta ni la selección tienen punta: el mismo
                  criterio que el discontinuo, la presión y la curvatura. -->
             <label class="panel__field" id="stroke-modal-head-row" for="stroke-modal-head">
@@ -1102,7 +1120,7 @@
                      min="1" max="8" step="1" value="2"
                      aria-label="Grosor del trazo" />
             </label>
-            <!-- Nivel de temblor (v3.11.0, la «sloppiness» de rough.js). Va
+            <!-- Nivel de temblor (v3.12.0, la «sloppiness» de rough.js). Va
                  en los DOS modales de dibujo, y sincronizado: afecta a todo lo
                  que dibuja Sketchy, así que tenerlo solo en uno lo dejaría
                  mintiendo sobre su alcance. Solo cambia el lienzo y el PNG: el
@@ -2357,28 +2375,55 @@
           </div>
         </button>
       </div>
+      <!-- Mis piezas (v3.12.0): lo que el usuario haya guardado. Se construye
+           desde localStorage al abrir el modal; con la biblioteca vacía, el
+           bloque entero no aparece. -->
+      <fieldset class="modal__group" id="library-block" hidden>
+        <legend class="modal__group-title">Mis piezas</legend>
+        <div class="modal__list" id="library-list"></div>
+        <div class="panel__zorder">
+          <button class="btn btn--ghost" id="btn-library-export"
+                  title="Descargar la biblioteca como archivo .json">⬇ Exportar</button>
+          <button class="btn btn--ghost" id="btn-library-import"
+                  title="Añadir las piezas de un archivo .json">⬆ Importar</button>
+        </div>
+      </fieldset>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
+  <!-- Modal: guardar la selección como pieza reutilizable (v3.12.0) -->
+  <dialog class="modal" id="modal-save-piece" aria-labelledby="modal-save-piece-title">
+      <h3 class="modal__heading" id="modal-save-piece-title">Guardar como pieza</h3>
+      <p class="modal__sub">La pieza queda en este navegador y se inserta después desde
+        <strong>Plantillas</strong>, tantas veces como quieras.</p>
+      <label class="panel__field" for="piece-name">
+        <span class="panel__title">Nombre</span>
+        <input class="panel__text" type="text" id="piece-name" maxlength="40"
+               placeholder="Cabecera con logo" />
+      </label>
+      <button class="btn btn--block" id="btn-piece-save">Guardar</button>
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=3.11.0"></script>
-  <script src="src/js/sketchy.js?v=3.11.0"></script>
-  <script src="src/js/freehand.js?v=3.11.0"></script>
-  <script src="src/js/arc.js?v=3.11.0"></script>
-  <script src="src/js/curve-path.js?v=3.11.0"></script>
-  <script src="src/js/shape-rotation.js?v=3.11.0"></script>
-  <script src="src/js/regular-polygon.js?v=3.11.0"></script>
-  <script src="src/js/trapezoid.js?v=3.11.0"></script>
-  <script src="src/js/hatch.js?v=3.11.0"></script>
-  <script src="src/js/airbrush.js?v=3.11.0"></script>
-  <script src="src/js/flood.js?v=3.11.0"></script>
-  <script src="src/js/eraser.js?v=3.11.0"></script>
-  <script src="src/js/building.js?v=3.11.0"></script>
-  <script src="src/js/garden.js?v=3.11.0"></script>
-  <script src="src/js/solid.js?v=3.11.0"></script>
-  <script src="src/js/renderer.js?v=3.11.0"></script>
-  <script src="src/js/exporter.js?v=3.11.0"></script>
-  <script src="src/js/templates.js?v=3.11.0"></script>
-  <script src="src/js/app.js?v=3.11.0"></script>
+  <script src="src/js/config.js?v=3.12.0"></script>
+  <script src="src/js/sketchy.js?v=3.12.0"></script>
+  <script src="src/js/freehand.js?v=3.12.0"></script>
+  <script src="src/js/arc.js?v=3.12.0"></script>
+  <script src="src/js/curve-path.js?v=3.12.0"></script>
+  <script src="src/js/shape-rotation.js?v=3.12.0"></script>
+  <script src="src/js/regular-polygon.js?v=3.12.0"></script>
+  <script src="src/js/trapezoid.js?v=3.12.0"></script>
+  <script src="src/js/hatch.js?v=3.12.0"></script>
+  <script src="src/js/airbrush.js?v=3.12.0"></script>
+  <script src="src/js/flood.js?v=3.12.0"></script>
+  <script src="src/js/eraser.js?v=3.12.0"></script>
+  <script src="src/js/building.js?v=3.12.0"></script>
+  <script src="src/js/garden.js?v=3.12.0"></script>
+  <script src="src/js/solid.js?v=3.12.0"></script>
+  <script src="src/js/renderer.js?v=3.12.0"></script>
+  <script src="src/js/exporter.js?v=3.12.0"></script>
+  <script src="src/js/templates.js?v=3.12.0"></script>
+  <script src="src/js/app.js?v=3.12.0"></script>
 </body>
 </html>

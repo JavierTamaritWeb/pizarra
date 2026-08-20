@@ -190,6 +190,10 @@ const Exporter = (() => {
     'pencil', 'airbrush', 'line', 'arrow', 'curveArrow', 'circle',
     'square', 'trapezoid', 'triangle', 'pentagon', 'hexagon',
     'star5', 'star6', 'polygon',
+    // El marco (v3.12.0): un rectángulo fino con su rótulo. En HTML no tiene
+    // representación propia (un <div> con borde sería un rectángulo más), así
+    // que va por el <svg> incrustado como el resto de vectores.
+    'frame',
   ];
 
   function _alphaHex(opacity) {
@@ -410,6 +414,15 @@ const Exporter = (() => {
         case 'image':
           out += `<image x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" href="${_escapeXml(el.src)}" preserveAspectRatio="none"/>\n`;
           break;
+
+        // Marco: borde fino y recto —sin el temblor de Sketchy, igual que en
+        // el lienzo— más su rótulo encima del borde superior.
+        case 'frame': {
+          const tenue = _escapeXml(String(el.color).slice(0, 7)) + '99';
+          out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" fill="none" stroke="${tenue}" stroke-width="1"/>\n`;
+          out += `<text x="${el.x}" y="${el.y - 5}" fill="${tenue}" font-family="${FONT_FALLBACK()}" font-size="12">${_escapeXml(el.label || 'Marco')}</text>\n`;
+          break;
+        }
 
         case 'rect':
           out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" ${sf}/>\n`;
@@ -735,6 +748,37 @@ body { font-family: ${FONT_CSS()};${options.transparent ? '' : ' background: #ff
     if (HEX_COLOR.test(String(options.gridColor || ''))) data.settings.gridColor = options.gridColor;
     if (typeof options.showGrid === 'boolean') data.settings.showGrid = options.showGrid;
     _downloadBlob('wireframe.json', new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+  }
+
+  /**
+   * Descarga cualquier objeto como .json y lee un .json de vuelta (v3.12.0).
+   * Los usa la biblioteca de piezas: es el mismo camino que el proyecto —el
+   * <a download> y el <input type="file"> viven aquí—, pero sin la forma de
+   * un proyecto, que `importJSON` sí impone.
+   */
+  function downloadJSON(filename, data) {
+    _downloadBlob(filename, new Blob([JSON.stringify(data, null, 2)],
+      { type: 'application/json' }));
+  }
+
+  function readJSONFile() {
+    return new Promise(resolve => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.onchange = e => {
+        const file = e.target.files[0];
+        if (!file) return resolve(null);
+        const reader = new FileReader();
+        reader.onload = ev => {
+          try { resolve(JSON.parse(ev.target.result)); }
+          catch (_) { resolve(null); }
+        };
+        reader.onerror = () => resolve(null);
+        reader.readAsText(file);
+      };
+      input.click();
+    });
   }
 
   /* ── Validación de import ── */
@@ -1122,5 +1166,5 @@ body { font-family: ${FONT_CSS()};${options.transparent ? '' : ' background: #ff
   }
 
   return { png, jpg, svg, html, json, importJSON, isValidElement,
-           copyImage, canCopyImage };
+           copyImage, canCopyImage, downloadJSON, readJSONFile };
 })();

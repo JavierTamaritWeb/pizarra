@@ -5770,3 +5770,234 @@ test('el estilo copiado se lleva la trama, el temblor y la punta', () => {
   assert.equal(b.fillPattern, 'hachure');
   assert.equal(b.rough, 2);
 });
+
+/* ────────────────────────────────────────────────────────────
+   Marcos y biblioteca de piezas (v3.12.0)
+   ──────────────────────────────────────────────────────────── */
+
+/** Dibuja un marco y un rectángulo dentro, y otro fuera. */
+function conMarco(app) {
+  app.selectTool('frame');
+  app.drag(100, 100, 500, 500);
+  app.selectTool('rect');
+  app.drag(200, 200, 300, 300);          // dentro
+  app.selectTool('rect');
+  app.drag(700, 200, 800, 300);          // fuera
+  app.selectTool('select');
+  return app.elements();
+}
+
+test('un marco nace numerado y con su rótulo', () => {
+  const app = loadApp();
+  app.selectTool('frame');
+  app.drag(100, 100, 400, 500);
+  app.selectTool('frame');
+  app.drag(600, 100, 900, 500);
+  const els = app.elements();
+  assert.equal(els[0].type, 'frame');
+  assert.equal(els[0].label, 'Marco 1');
+  assert.equal(els[1].label, 'Marco 2');
+  // Se dibuja recto a propósito: el temblor no le aporta nada y sería peso
+  // muerto en el JSON.
+  assert.equal(els[0].rough, undefined);
+  assert.ok(Exporter.isValidElement(els[0]), JSON.stringify(els[0]));
+});
+
+test('mover el marco se lleva lo de dentro y deja lo de fuera', () => {
+  const app = loadApp();
+  const antes = conMarco(app);
+  // Se coge por el BORDE (v3.12.0: el interior de un marco no es asa), y
+  // lejos de las esquinas, que llevan tirador de redimensión.
+  app.click(200, 100);
+  app.drag(200, 100, 300, 100);           // 100px a la derecha
+  const despues = app.elements();
+  assert.equal(dx(antes[0], despues[0]), 100, 'el marco');
+  assert.equal(dx(antes[1], despues[1]), 100, 'lo de dentro va con él');
+  assert.equal(dx(antes[2], despues[2]), 0, 'lo de fuera no se mueve');
+});
+
+test('redimensionar el marco NO escala lo que contiene', () => {
+  // Un marco es un recorte, no un grupo: al estirarlo entra o sale contenido,
+  // que es justo para lo que sirve.
+  const app = loadApp();
+  const antes = conMarco(app);
+  app.click(200, 100);
+  const el = app.$('el-w');
+  el.value = '600';
+  el.__fire('change', { target: el });
+  app.flush();
+  const despues = app.elements();
+  assert.equal(Math.round(despues[0].w), 600, 'el marco se ha estirado');
+  assert.equal(despues[1].x, antes[1].x, 'lo de dentro se queda donde estaba');
+  assert.equal(despues[1].w, antes[1].w);
+});
+
+test('un marco no arrastra a otro marco', () => {
+  // Dos marcos se solapan a menudo (una pantalla dentro de otra al componer):
+  // si uno se llevara al otro, mover el grande arrastraría medio dibujo.
+  const app = loadApp();
+  app.selectTool('frame');
+  app.drag(100, 100, 600, 600);
+  app.selectTool('frame');
+  app.drag(200, 200, 400, 400);
+  app.selectTool('select');
+  const antes = app.elements();
+  app.click(200, 100);                    // borde del marco grande
+  app.drag(200, 100, 250, 100);
+  const despues = app.elements();
+  assert.equal(dx(antes[0], despues[0]), 50);
+  assert.equal(dx(antes[1], despues[1]), 0, 'el marco de dentro no se mueve');
+});
+
+test('lo bloqueado no viaja con el marco', () => {
+  const app = loadApp();
+  conMarco(app);
+  app.click(250, 250);                    // el rectángulo de dentro
+  app.key('L', { ctrlKey: true, shiftKey: true, code: 'KeyL' });
+  const antes = app.elements();
+  app.click(200, 100);
+  app.drag(200, 100, 300, 100);
+  const despues = app.elements();
+  assert.equal(dx(antes[0], despues[0]), 100, 'el marco sí se mueve');
+  assert.equal(dx(antes[1], despues[1]), 0, 'lo bloqueado se queda');
+});
+
+test('guardar una pieza la normaliza al origen y la despega de esta escena', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(400, 300, 500, 400);
+  app.selectTool('arrow');
+  app.drag(420, 320, 480, 380);
+  app.selectTool('select');
+  app.key('a', { ctrlKey: true });
+
+  app.$('btn-save-piece').__fire('click', {});
+  app.flush();
+  app.$('piece-name').value = 'Mi trozo';
+  app.$('btn-piece-save').__fire('click', {});
+  app.flush();
+
+  const lib = JSON.parse(app.dom.localStorage.getItem('sketchwire.library'));
+  assert.equal(lib.items.length, 1);
+  assert.equal(lib.items[0].name, 'Mi trozo');
+  const els = lib.items[0].elements;
+  assert.equal(els.length, 2);
+  // La esquina de la caja queda en el origen.
+  const minX = Math.min(...els.map(e => (e.x !== undefined ? e.x : Math.min(e.x1, e.x2))));
+  const minY = Math.min(...els.map(e => (e.y !== undefined ? e.y : Math.min(e.y1, e.y2))));
+  assert.ok(Math.abs(minX) < 1e-6, `minX = ${minX}`);
+  assert.ok(Math.abs(minY) < 1e-6, `minY = ${minY}`);
+  // Y sin las referencias que solo valen en el dibujo de origen.
+  assert.ok(els.every(e => e.id === undefined && e.startAnchor === undefined));
+  // El dibujo no se ha tocado: guardar es copiar.
+  assert.equal(app.elements().length, 2);
+});
+
+test('insertar una pieza la centra, con semillas nuevas y en un solo undo', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(400, 300, 500, 400);
+  app.selectTool('select');
+  app.key('a', { ctrlKey: true });
+  app.$('btn-save-piece').__fire('click', {});
+  app.flush();
+  app.$('piece-name').value = 'Caja';
+  app.$('btn-piece-save').__fire('click', {});
+  app.flush();
+
+  // Lienzo limpio y a insertarla desde «Plantillas».
+  const otra = loadApp({ });
+  otra.dom.localStorage.setItem('sketchwire.library',
+    app.dom.localStorage.getItem('sketchwire.library'));
+  otra.$('btn-templates').__fire('click', {});
+  otra.flush();
+  const fila = otra.$('library-list').querySelectorAll('.modal__piece-use')[0];
+  assert.ok(fila, 'la pieza tiene que aparecer en la lista');
+  fila.__fire('click', {});
+  otra.flush();
+
+  const els = otra.elements();
+  assert.equal(els.length, 1);
+  // Centrada en el lienzo (1200×800) con su caja de 100×100.
+  assert.equal(Math.round(els[0].x), 550);
+  assert.equal(Math.round(els[0].y), 350);
+  assert.ok(Number.isFinite(els[0].seed));
+  // Un solo paso de deshacer.
+  otra.key('z', { ctrlKey: true });
+  assert.equal(otra.elements().length, 0);
+});
+
+test('la biblioteca sobrevive a «Limpiar todo»: es tuya, no del dibujo', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(400, 300, 500, 400);
+  app.selectTool('select');
+  app.key('a', { ctrlKey: true });
+  app.$('btn-save-piece').__fire('click', {});
+  app.flush();
+  app.$('btn-piece-save').__fire('click', {});   // sin nombre: el de por defecto
+  app.flush();
+  assert.ok(app.dom.localStorage.getItem('sketchwire.library'));
+
+  app.$('btn-clear').__fire('click', {});
+  app.flush();
+  assert.equal(app.elements().length, 0, 'el dibujo sí se vacía');
+  assert.ok(app.dom.localStorage.getItem('sketchwire.library'),
+    'la biblioteca no es parte del dibujo');
+});
+
+test('exportar con un marco seleccionado recorta a su caja y manda la escena entera', () => {
+  const app = loadApp();
+  app.selectTool('frame');
+  app.drag(100, 100, 400, 500);
+  app.selectTool('rect');
+  app.drag(700, 200, 800, 300);          // fuera del marco
+  app.selectTool('select');
+  app.click(200, 100);                    // selecciona el marco por su borde
+
+  const calls = spyExport(app);
+  app.$('btn-export').__fire('click', {});
+  app.flush();
+  app.$('export-selection').checked = true;
+  clickExport(app);
+
+  const { elements, options } = calls[0];
+  // La escena ENTERA: un marco exporta lo que enmarca, no el rectángulo solo.
+  assert.equal(elements.length, 2);
+  // Y el recorte es su caja EXACTA, sin el margen de la selección normal.
+  assert.deepEqual(
+    { x: options.box.x, y: options.box.y, w: options.box.w, h: options.box.h },
+    { x: 100, y: 100, w: 300, h: 400 });
+});
+
+test('un marco se coge por el borde o por su rótulo, nunca por dentro', () => {
+  // Con la caja entera, un marco de media pantalla se queda con todos los
+  // clics de su interior: ni se puede seleccionar lo que contiene ni tirar
+  // una marquesina ahí dentro.
+  const app = loadApp();
+  app.selectTool('frame');
+  app.drag(100, 100, 500, 500);
+  app.selectTool('rect');
+  app.drag(200, 200, 300, 300);
+  app.selectTool('select');
+
+  // Dentro del marco pero lejos del rectángulo: el clic no coge nada.
+  app.click(450, 450);
+  const antes = app.elements();
+  app.drag(450, 450, 470, 450);
+  assert.deepEqual(app.elements(), antes, 'el interior del marco no es asa');
+
+  // El rectángulo de dentro sí se coge, y solo él.
+  app.click(250, 250);
+  app.drag(250, 250, 280, 250);
+  let els = app.elements();
+  assert.equal(dx(antes[1], els[1]), 30, 'lo de dentro se selecciona y se mueve');
+  assert.equal(dx(antes[0], els[0]), 0, 'el marco no se ha movido');
+
+  // Y el borde sí es asa.
+  const previo = app.elements();
+  app.click(300, 100);
+  app.drag(300, 100, 320, 100);
+  els = app.elements();
+  assert.equal(dx(previo[0], els[0]), 20, 'el borde superior mueve el marco');
+});

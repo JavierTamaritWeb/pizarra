@@ -122,7 +122,10 @@ const Eraser = (function () {
   /** Formas cuyo "dibujo" es solo su contorno mientras no estén rellenas. */
   const OUTLINE_TYPES = ['rect', 'roundedRect', 'circle', 'square',
     'triangle', 'pentagon', 'hexagon', 'star5', 'star6', 'trapezoid',
-    'polygon'];
+    'polygon',
+    // El marco (v3.12.0) es su borde y nada más: por la caja se borraría al
+    // barrer por su interior vacío, que es justo donde se dibuja dentro de él.
+    'frame'];
 
   /** Esquina redondeada muestreada, en el mismo radio que dibuja el renderer. */
   function _roundedOutline(b, r = 12, segs = 6) {

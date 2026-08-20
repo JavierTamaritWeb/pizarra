@@ -18,11 +18,13 @@ test('config.js — TOOLS', async t => {
     assert.equal(Object.isFrozen(ctx.TOOLS), true);
   });
 
-  await t.test('TOOLS tiene exactamente los 50 ids esperados', () => {
+  await t.test('TOOLS tiene exactamente los 51 ids esperados', () => {
     const expected = [
       'pencil', 'airbrush', 'line', 'rect', 'roundedRect', 'circle', 'arrow',
       'curveArrow', 'arc', 'text', 'eraser', 'select', 'pick', 'imagePlaceholder',
       'button', 'input', 'nav', 'card', 'image', 'emoji',
+      // Marco (v3.12.0): contenedor de un wireframe, tipo de elemento real
+      'frame',
       'square', 'trapezoid', 'triangle', 'pentagon', 'hexagon', 'star5', 'star6',
       // Polígono libre: tipo de elemento sin botón, como `image`
       'polygon',
@@ -37,11 +39,11 @@ test('config.js — TOOLS', async t => {
       'prisma', 'piramide', 'tronco', 'esfera',
     ];
     const values = Object.values(ctx.TOOLS);
-    assert.equal(values.length, 50);
+    assert.equal(values.length, 51);
     assert.deepEqual([...values].sort(), [...expected].sort());
-    // Las claves también son 50 y únicas
-    assert.equal(Object.keys(ctx.TOOLS).length, 50);
-    assert.equal(new Set(values).size, 50);
+    // Las claves también son 51 y únicas
+    assert.equal(Object.keys(ctx.TOOLS).length, 51);
+    assert.equal(new Set(values).size, 51);
   });
 });
 
