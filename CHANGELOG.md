@@ -4,6 +4,19 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.13.4] — 2026-08-20
+
+### Corregido
+
+- **Documentación al día tras la serie de las barras flotantes**: los dos
+  errores del camino quedan registrados en `BUGS.md` con su guardia verificada
+  (el reset al activar, v3.13.1, y por qué la disposición de fábrica es flujo
+  CSS y no coordenadas, v3.13.3 — incluida la trampa del
+  `getBoundingClientRect` fijo del arnés vm); `docs/barras-flotantes.md`
+  pierde sus dos últimas menciones a la «cascada» calculada, que ya no
+  existe; la Ayuda cuenta que la columna se desplaza con la rueda como la
+  barra lateral; y el README recupera el contador real de la suite e2e.
+
 ## [3.13.3] — 2026-08-20
 
 ### Corregido
