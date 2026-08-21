@@ -4,6 +4,26 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.14.0] — 2026-08-21
+
+### Añadido
+
+- **Una barra flotante se recoge sola: arrástrala de vuelta a la franja de la
+  izquierda y suéltala.** Hasta ahora volver atrás era todo o nada —el botón
+  «Barras» las devuelve las cinco—, así que con dos o más barras colocadas a
+  mano recoger una obligaba a rehacer la composición entera. La franja **se
+  resalta** mientras el puntero la sobrevuela con una barra agarrada, la barra
+  entra **en su sitio de siempre** entre las que sigan acopladas, y **las demás
+  no se mueven**. El botón «Barras» conserva su significado: las devuelve
+  todas, y sigue siendo la vía sin ratón.
+- Detalles: acoplar es *borrar los estilos inline* que puso el arrastre
+  (`dockFloatbar`), así que el flujo CSS recoloca la barra sin calcular ni
+  medir una coordenada; la zona de soltar es la constante `FLOATBAR_DOCK_W`
+  (150 px, acoplada al `width: 15rem` de `.floatbars` y pinneada en smoke)
+  porque medirla en runtime es la trampa del `getBoundingClientRect` fijo del
+  arnés vm; decide el puntero y solo acopla el `pointerup`. De regalo, un clic
+  sin arrastre sobre el asa de una barra acoplada ya no la deja flotando.
+
 ## [3.13.4] — 2026-08-20
 
 ### Corregido

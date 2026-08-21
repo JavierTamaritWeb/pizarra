@@ -146,6 +146,50 @@ test('apagar y encender el modo devuelve la barra movida a fábrica', async ({ p
   expect(Math.round(devuelta.y)).toBe(Math.round(fabrica.y));
 });
 
+/** Arrastra una barra por su asa hasta dejar el PUNTERO en (x,y). */
+async function llevarBarra(page, barra, x, y) {
+  const asa = await barra.locator('.floatbar__handle').boundingBox();
+  await page.mouse.move(asa.x + 20, asa.y + asa.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(x, y, { steps: 6 });
+  await page.mouse.up();
+}
+
+test('arrastrar una barra de vuelta a la franja la acopla sola, en su sitio', async ({ page }) => {
+  await openApp(page, { viewport: WIDE });
+  await activarBarras(page);
+  const b0 = page.locator('.floatbar').nth(0);
+  const b1 = page.locator('.floatbar').nth(1);
+  const b3 = page.locator('.floatbar').nth(3);
+  const fabrica0 = await b0.boundingBox();
+
+  // Dos barras fuera de la columna, en sitios distintos.
+  await llevarBarra(page, b1, 800, 300);
+  await llevarBarra(page, b3, 1100, 560);
+  expect((await b1.boundingBox()).x).toBeGreaterThan(300);
+  const quieta = await b3.boundingBox();
+
+  // Y una vuelve sola: la franja se anuncia como destino mientras el puntero
+  // está encima, y al soltar la barra se acopla.
+  const asa = await b1.locator('.floatbar__handle').boundingBox();
+  await page.mouse.move(asa.x + 20, asa.y + asa.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(60, 300, { steps: 6 });
+  await expect(page.locator('#floatbars')).toHaveClass(/floatbars--drop/);
+  await page.mouse.up();
+  await expect(page.locator('#floatbars')).not.toHaveClass(/floatbars--drop/);
+
+  // Vuelve al FLUJO, o sea a su sitio de siempre: pegada al borde y justo
+  // debajo de la barra 0, sin hueco (la misma medida que la columna de
+  // fábrica). Las demás no se recomponen.
+  const acoplada = await b1.boundingBox();
+  expect(Math.round(acoplada.x)).toBe(0);
+  expect(Math.abs(acoplada.y - (fabrica0.y + fabrica0.height))).toBeLessThanOrEqual(1);
+  const despues = await b3.boundingBox();
+  expect(Math.round(despues.x)).toBe(Math.round(quieta.x));
+  expect(Math.round(despues.y)).toBe(Math.round(quieta.y));
+});
+
 test('plegar deja solo el asa y aria-expanded lo cuenta', async ({ page }) => {
   await openApp(page, { viewport: WIDE });
   await activarBarras(page);

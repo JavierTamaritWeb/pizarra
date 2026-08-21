@@ -6120,6 +6120,54 @@ test('activar «Barras» devuelve SIEMPRE la disposición de fábrica', () => {
   assert.equal(pliegue.getAttribute('aria-expanded'), 'true');
 });
 
+/** Arrastra una barra por su asa desde (x0,y0) hasta (x1,y1) con eventos de
+    puntero reales — el mismo camino que el ratón. */
+function arrastrarBarra(barra, x0, y0, x1, y1) {
+  const asa = barra.querySelectorAll('.floatbar__handle')[0];
+  asa.__fire('pointerdown', { target: asa, clientX: x0, clientY: y0, pointerId: 1 });
+  asa.__fire('pointermove', { target: asa, clientX: x1, clientY: y1, pointerId: 1 });
+  asa.__fire('pointerup', { target: asa, clientX: x1, clientY: y1, pointerId: 1 });
+}
+
+test('soltar una barra dentro de la franja la acopla, y solo a ella', () => {
+  const app = loadApp();
+  const btn = app.$('btn-float-tools');
+  btn.__fire('click', { target: btn });
+  app.flush();
+  const barras = app.$('floatbars').querySelectorAll('.floatbar');
+  // Se sacan dos barras de la columna, como haría el ratón.
+  arrastrarBarra(barras[1], 20, 100, 900, 300);
+  arrastrarBarra(barras[3], 20, 100, 700, 500);
+  assert.equal(barras[1].style.position, 'fixed', 'la barra 1 flota');
+  assert.equal(barras[3].style.position, 'fixed', 'la barra 3 flota');
+  const donde3 = [barras[3].style.left, barras[3].style.top];
+
+  // Y una vuelve sola: soltarla con el puntero sobre la franja la devuelve al
+  // FLUJO (sin estilos inline), así que el CSS la recoloca en su sitio de
+  // siempre entre las acopladas — sin calcular ninguna coordenada.
+  arrastrarBarra(barras[1], 905, 305, 40, 300);
+  assert.ok(!barras[1].style.position && !barras[1].style.left && !barras[1].style.top,
+    'la barra soltada en la franja vuelve al flujo de la columna');
+  assert.equal(barras[3].style.position, 'fixed', 'y la otra sigue flotando');
+  assert.deepEqual([barras[3].style.left, barras[3].style.top], donde3,
+    'exactamente donde estaba: acoplar una no recompone las demás');
+  assert.ok(!app.$('floatbars').classList.contains('floatbars--drop'),
+    'el resaltado de destino muere con el gesto');
+});
+
+test('soltar una barra fuera de la franja la deja flotando', () => {
+  const app = loadApp();
+  const btn = app.$('btn-float-tools');
+  btn.__fire('click', { target: btn });
+  app.flush();
+  const barra = app.$('floatbars').querySelectorAll('.floatbar')[2];
+  // El asa se agarra en (20,100) sobre una barra que arranca en (0,0), así
+  // que el desplazamiento del puntero a (600,400) la deja en (580,300).
+  arrastrarBarra(barra, 20, 100, 600, 400);
+  assert.equal(barra.style.position, 'fixed');
+  assert.equal(barra.style.left, '580px', 'sigue donde la dejó el puntero');
+});
+
 test('«Limpiar todo» devuelve el modo flotante a fábrica', () => {
   const app = loadApp();
   const btn = app.$('btn-float-tools');

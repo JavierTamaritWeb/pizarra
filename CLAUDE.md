@@ -283,7 +283,12 @@ el modo (`resetFloatbars`, v3.13.1) es volver a fábrica. **La fábrica es FLUJO
 CSS, no coordenadas** (v3.13.3): `#floatbars` es una franja fija en el borde
 izquierdo (el sitio del sidebar) con `overflow-y: auto`, las barras se apilan
 dentro sin huecos, y solo el arrastre pone `position: fixed` inline — resetear
-es BORRAR esos estilos, nunca calcular posiciones. Los botones van en dos
+es BORRAR esos estilos, nunca calcular posiciones. **Soltar una barra sobre esa
+franja la acopla SOLA** (v3.14.0, `dockFloatbar` = los mismos tres borrados;
+el flujo la recoloca en su orden sin medir nada, y las demás no se tocan): la
+zona es la constante `FLOATBAR_DOCK_W = 150` acoplada al `width: 15rem` de
+`.floatbars` —jamás su caja medida, que en el arnés vm es 1200×800 como todo—,
+decide el PUNTERO y solo acopla el `pointerup`. Los botones van en dos
 columnas (la rejilla del sidebar ancho) y `FLOATBAR_W` (app.js, 136) está
 acoplado al `width: 13.6rem` de `.floatbar`. El arrastre por el asa es
 mobiliario: jamás toca `state`, undo ni

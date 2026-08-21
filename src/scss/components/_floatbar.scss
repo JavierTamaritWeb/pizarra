@@ -34,9 +34,22 @@
   bottom: 0;
   left: 0;
   z-index: v.$z-floatbar;
+
+  // Acoplado a FLOATBAR_DOCK_W (app.js, 150px): soltar una barra arrastrada
+  // con el puntero dentro de esta franja la devuelve al flujo (v3.14.0) —
+  // mover los dos juntos.
   width: 15rem; // 13.6rem de barra + aire para su sombra
   overflow-y: auto;
   pointer-events: none;
+}
+
+// La franja se anuncia como destino mientras el puntero la sobrevuela con una
+// barra agarrada. Vive solo durante el gesto: la pone y la quita el arrastre.
+.floatbars--drop {
+  background: v.$primary-tint-strong;
+  outline: 0.2rem dashed var(--color-primary);
+  outline-offset: -0.2rem;
+  border-radius: v.$radius-lg;
 }
 
 // La trampa [hidden] de siempre: ambos declaran display, así que sin esta
@@ -83,6 +96,10 @@
     // El arrastre va por pointer events (app.js): sin esto, en táctil el
     // gesto sobre el asa haría scroll en vez de mover la barra.
     touch-action: none;
+  }
+
+  &__handle:active {
+    cursor: grabbing;
   }
 
   &__title {

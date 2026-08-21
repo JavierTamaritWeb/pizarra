@@ -80,9 +80,39 @@ vía `appDefaults()` + `syncAllControls()` → `applyFloatToolbars(state.…)`.
 `applyFloatToolbars` no guarda prefs; guarda el click del interruptor — así
 las re-aplicaciones de arranque y de «Limpiar todo» no tienen efectos.
 
+## Acoplar UNA barra: soltarla en la franja (v3.14.0)
+
+Volver atrás era todo o nada —el botón «Barras», que las devuelve las cinco—,
+así que con dos o más barras colocadas a mano recoger una obligaba a rehacer la
+composición entera. El gesto simétrico al de sacarla la recoge sola:
+**arrastrarla de vuelta sobre la franja izquierda y soltarla**.
+
+Como la fábrica ya es flujo, acoplar es **borrar los estilos inline**:
+`dockFloatbar(bar)` (extraída de `resetFloatbars`, que ahora la usa) quita
+`position/left/top` y el flujo la recoloca **entre las que sigan acopladas, en
+su orden de `FLOATBAR_GROUPS`** — sin calcular ni medir una sola coordenada,
+que es la lección de la v3.13.3. No despliega: el plegado es otro ajuste, y
+quien acopla una barra plegada la quiere plegada.
+
+- **La zona es una CONSTANTE, `FLOATBAR_DOCK_W = 150`** (el `width: 15rem` de
+  `.floatbars`), no la caja medida de la franja: en el arnés vm
+  `getBoundingClientRect` devuelve 1200×800 **para cualquier elemento**, así
+  que medirla haría que toda suelta cayera «dentro» y ninguna guarda vería la
+  diferencia. Con la constante se comprueba por los dos lados.
+- **Decide el PUNTERO**, no la caja de la barra: es lo que el usuario controla
+  y lo que coincide con el resaltado (`floatbars--drop` en `#floatbars`,
+  puesto y quitado por el propio gesto — sin él, el acoplado no se descubre).
+- **Solo acopla el `pointerup`**; un `pointercancel` es un gesto abortado.
+  Efecto lateral buscado: un clic sin arrastre sobre el asa de una barra
+  acoplada la deja acoplada, en vez de volverla `fixed` donde ya estaba.
+- **Sin vía de teclado**, igual que mover una barra: la vía sin ratón sigue
+  siendo el botón «Barras», que las devuelve todas. Dicho en la Ayuda.
+
 Acoplamiento a conservar: **`FLOATBAR_W` (app.js, 136) es el `width: 13.6rem`
-de `.floatbar`** — el clamp del arrastre calcula con ese número (la fábrica
-ya no: es flujo, ver arriba).
+de `.floatbar`** y **`FLOATBAR_DOCK_W` (150) el `width: 15rem` de
+`.floatbars`** — el clamp del arrastre y la zona de acoplado calculan con esos
+números (la fábrica ya no: es flujo, ver arriba). Los dos pares están pinneados
+en `tests/smoke.test.js`.
 Desde la v3.13.1 los botones van en **dos columnas** (`.floatbar__tools` es la
 rejilla del sidebar ancho: mismo gap, mismos `min-height: 5.6rem` y cuerpo
 `0.8rem` con tracking negativo del rótulo — la recalibración de MAYÚSCULAS de
@@ -123,10 +153,19 @@ sus atajos de tecla, que no pasan por ninguna barra.
   una barra arrastrada y despliega la plegada (**verificada fallando** sin la
   llamada a `resetFloatbars`), y «Limpiar todo» a fábrica — además de la foto
   de la guarda grande, que incluye el `aria-pressed` del interruptor.
+- `tests/app-interaction.test.js` (v3.14.0) — el acoplado por arrastre con
+  eventos de puntero reales: *soltar una barra dentro de la franja la acopla,
+  y solo a ella* (la otra sacada conserva sus coordenadas exactas) y *soltar
+  una barra fuera de la franja la deja flotando*. Ambas verificadas fallando
+  contra su mutación (acoplar siempre / no acoplar nunca).
+- `tests/smoke.test.js` — los dos anchos escritos dos veces (`FLOATBAR_W` ↔
+  `13.6rem`, `FLOATBAR_DOCK_W` ↔ `15rem`).
 - `e2e/floatbars.spec.js` — visibilidad real de la conmutación, **la columna
   de fábrica sin huecos medida contra cajas reales (≤1 px entre barras, x=0
   desde y=52) y su scroll**, dibujar desde una barra, arrastre y clamp con el
-  ratón, plegado, recarga (modo sí, posiciones no), apagar+encender resetea,
+  ratón, **acoplar una sola arrastrándola de vuelta (resaltado durante el
+  gesto, vuelve a su sitio en la columna, la otra sacada no se mueve)**,
+  plegado, recarga (modo sí, posiciones no), apagar+encender resetea,
   el umbral de 1100px en ambos sentidos y el roving por barra.
 - `BUGS.md` — entradas v3.13.1 (el reset al activar) y v3.13.3 (por qué la
   fábrica es flujo y no coordenadas, y la trampa del rect fijo del arnés vm).

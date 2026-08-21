@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v3.13.4 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v3.14.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v3\.13\.4</);
-  assert.match(html, /css\/styles\.css\?v=3\.13\.4/);
-  assert.match(html, /src\/js\/app\.js\?v=3\.13\.4/);
-  assert.match(html, /src\/js\/building\.js\?v=3\.13\.4/);
-  assert.match(html, /src\/js\/garden\.js\?v=3\.13\.4/);
-  assert.match(html, /src\/js\/config\.js\?v=3\.13\.4/);
+  assert.match(html, /class="topbar__badge">v3\.14\.0</);
+  assert.match(html, /css\/styles\.css\?v=3\.14\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=3\.14\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=3\.14\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=3\.14\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=3\.14\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -64,9 +64,9 @@ test('index publica v3.13.4 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="modal-pyramid"/);
   assert.match(html, /id="modal-frustum"/);
   assert.match(html, /id="modal-sphere"/);
-  assert.match(html, /src\/js\/solid\.js\?v=3\.13\.4/);
-  assert.match(html, /src\/js\/airbrush\.js\?v=3\.13\.4/);
-  assert.match(html, /src\/js\/hatch\.js\?v=3\.13\.4/);
+  assert.match(html, /src\/js\/solid\.js\?v=3\.14\.0/);
+  assert.match(html, /src\/js\/airbrush\.js\?v=3\.14\.0/);
+  assert.match(html, /src\/js\/hatch\.js\?v=3\.14\.0/);
   // «Los clics acumulan selección» dejó el panel en la v2.17.0 y es el ajuste
   // de «Select». Si volviera a existir la casilla vieja habría dos controles
   // para un mismo estado, y solo uno cableado: el arnés `node:vm` fabrica un
@@ -400,6 +400,28 @@ test('css/styles.css es el artefacto compilado y conserva sus contratos', () => 
   assert.ok(m, 'falta --font-sketch en :root');
   const ctx = load('src/js/config.js'); // sin getComputedStyle: SKETCHY_FONT es el fallback
   assert.equal(m[1].trim().replace(/"/g, "'"), ctx.SKETCHY_FONT);
+});
+
+// Las barras flotantes tienen DOS medidas escritas dos veces: el ancho de la
+// barra (el clamp del arrastre calcula con él) y el de la franja de acoplado
+// (v3.14.0: soltar dentro devuelve la barra al flujo). Ninguna de las dos se
+// mide en runtime a propósito —getBoundingClientRect miente en el arnés vm,
+// BUGS.md v3.13.3—, así que una divergencia entre app.js y el CSS no la vería
+// ninguna guarda: el resaltado y la zona real quedarían descuadrados.
+test('las barras flotantes: anchos acoplados entre app.js y el CSS compilado', () => {
+  const css = fs.readFileSync(path.resolve(__dirname, '..', 'css', 'styles.css'), 'utf8');
+  const app = fs.readFileSync(path.resolve(__dirname, '..', 'src/js/app.js'), 'utf8');
+  const px = re => {
+    const m = app.match(re);
+    assert.ok(m, `falta la constante ${re}`);
+    return Number(m[1]);
+  };
+  assert.match(css, /\.floatbars \{[^}]*width: 15rem/);
+  assert.equal(px(/const FLOATBAR_DOCK_W = (\d+)/), 150,
+    'FLOATBAR_DOCK_W ↔ .floatbars { width: 15rem }');
+  assert.match(css, /\.floatbar \{[^}]*width: 13\.6rem/);
+  assert.equal(px(/const FLOATBAR_W = (\d+)/), 136,
+    'FLOATBAR_W ↔ .floatbar { width: 13.6rem }');
 });
 
 // Regresión de la tokenización v3.3.1 (BUGS.md): dos medidas convivían

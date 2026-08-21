@@ -495,6 +495,13 @@ input[type=range]::-moz-range-thumb {
   pointer-events: none;
 }
 
+.floatbars--drop {
+  background: rgba(78, 205, 196, 0.12);
+  outline: 0.2rem dashed var(--color-primary);
+  outline-offset: -0.2rem;
+  border-radius: 0.8rem;
+}
+
 .floatbars[hidden],
 .floatbar[hidden] {
   display: none;
@@ -525,6 +532,9 @@ input[type=range]::-moz-range-thumb {
   cursor: grab;
   user-select: none;
   touch-action: none;
+}
+.floatbar__handle:active {
+  cursor: grabbing;
 }
 .floatbar__title {
   font-size: 0.9rem;

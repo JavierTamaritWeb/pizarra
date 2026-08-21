@@ -6043,6 +6043,18 @@
   const FLOATBAR_W = 136;
   const FLOATBAR_MIN_TOP = 56;   // nunca debajo del topbar: taparía sus botones
   const FLOATBAR_HANDLE_H = 32;  // el asa siempre alcanzable para recuperarla
+  // Zona de acoplado (v3.14.0): la franja `#floatbars`, acoplada a su
+  // `width: 15rem` en _floatbar.scss. Es una CONSTANTE y no la caja medida
+  // de la franja a propósito: en el arnés vm getBoundingClientRect devuelve
+  // 1200×800 para CUALQUIER elemento (BUGS.md v3.13.3), así que medirla haría
+  // que toda suelta cayera "dentro" y ninguna guarda podría ver la diferencia.
+  const FLOATBAR_DOCK_W = 150;
+
+  /** ¿El puntero está sobre la franja de la columna? Decide el PUNTERO, no la
+      caja de la barra: es lo que el usuario controla y lo que se resalta. */
+  function overFloatbarDock(x, y) {
+    return x < FLOATBAR_DOCK_W && y >= FLOATBAR_MIN_TOP;
+  }
 
   /** Mantiene una barra ARRASTRADA alcanzable: el asa dentro del viewport
       (patrón del menú contextual, el otro fixed posicionado desde JS). Las
@@ -6065,6 +6077,18 @@
     [...host.querySelectorAll('.floatbar')].forEach(clampFloatbar);
   }
 
+  /** Acopla UNA barra: la devuelve al flujo de la columna borrando los estilos
+      inline que puso el arrastre. No coloca nada — el flujo la mete sola entre
+      las que sigan acopladas, en su orden de FLOATBAR_GROUPS —, y no despliega:
+      el plegado es otro ajuste, y quien acopla una barra plegada la quiere
+      plegada. Es la pieza que comparten `resetFloatbars` y el acoplado por
+      arrastre (v3.14.0). */
+  function dockFloatbar(bar) {
+    bar.style.position = '';
+    bar.style.left = '';
+    bar.style.top = '';
+  }
+
   /** Devuelve las cinco barras a su estado de fábrica: de vuelta al FLUJO de
       la columna izquierda —donde vive el sidebar al abrir la app—, juntas y
       desplegadas. No coloca nada: borra los estilos inline que puso el
@@ -6078,9 +6102,7 @@
     if (!host) return;
     host.scrollTop = 0;
     [...host.querySelectorAll('.floatbar')].forEach(bar => {
-      bar.style.position = '';
-      bar.style.left = '';
-      bar.style.top = '';
+      dockFloatbar(bar);
       bar.classList.remove('floatbar--collapsed');
       const collapse = bar.querySelectorAll('.floatbar__collapse')[0];
       if (collapse) {
@@ -6135,7 +6157,10 @@
       // primer arrastre saca la barra del flujo de la columna: pasa a
       // `position: fixed` exactamente donde estaba (getBoundingClientRect da
       // coordenadas de viewport, que es el sistema de fixed) y desde ahí
-      // sigue al puntero.
+      // sigue al puntero. Y el gesto simétrico (v3.14.0): soltarla sobre la
+      // franja de la columna la ACOPLA —solo a ella, las demás se quedan
+      // donde estén—, que es lo que evita tener que rehacer la composición
+      // entera por el botón «Barras» para recoger una sola.
       handle.addEventListener('pointerdown', e => {
         if (collapse === e.target || collapse.contains?.(e.target)) return;
         e.preventDefault();
@@ -6152,15 +6177,27 @@
           bar.style.left = `${ev.clientX - dx}px`;
           bar.style.top = `${ev.clientY - dy}px`;
           clampFloatbar(bar);
+          // Sin resaltado el acoplado no se descubre: la franja se anuncia
+          // como destino mientras el puntero está encima.
+          host.classList.toggle('floatbars--drop',
+            overFloatbarDock(ev.clientX, ev.clientY));
         };
-        const up = () => {
+        const done = () => {
+          host.classList.remove('floatbars--drop');
           handle.removeEventListener('pointermove', move);
           handle.removeEventListener('pointerup', up);
-          handle.removeEventListener('pointercancel', up);
+          handle.removeEventListener('pointercancel', done);
+        };
+        const up = ev => {
+          // Solo el pointerup acopla: un pointercancel es un gesto abortado.
+          // De paso, un clic sin arrastre sobre el asa de una barra acoplada
+          // la deja acoplada, en vez de volverla fixed donde ya estaba.
+          if (overFloatbarDock(ev.clientX, ev.clientY)) dockFloatbar(bar);
+          done();
         };
         handle.addEventListener('pointermove', move);
         handle.addEventListener('pointerup', up);
-        handle.addEventListener('pointercancel', up);
+        handle.addEventListener('pointercancel', done);
       });
 
       wireRovingToolbar(bar, [...tools.querySelectorAll('.floatbar__tool')]);
