@@ -4,6 +4,27 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.14.1] — 2026-08-21
+
+### Corregido
+
+- **Los comentarios de `index.html` mentían sobre su versión**: catorce
+  llevaban `(v3.13.4)` porque una sustitución masiva de una tanda anterior les
+  puso la versión del momento, así que el menú contextual (v3.8.0), la
+  exportación con ámbito y el copiado al portapapeles (v3.9.0), alinear,
+  distribuir y agrupar (v3.10.0), la trama, el temblor y las puntas (v3.11.0),
+  la biblioteca de piezas (v3.12.0) y las propias barras flotantes (v3.13.0)
+  aparecían todos nacidos el mismo día. Cada uno recupera la suya, verificada
+  contra este mismo archivo.
+- **El README nunca mencionó las barras flotantes**: la v3.13.0 entró sin línea
+  propia en la lista de características. Ahora la tiene, con el reparto en
+  cinco paletas, la columna de fábrica, el acoplado de una sola y la regla de
+  que el modo se recuerda pero las posiciones no.
+- La Ayuda decía que mover las barras es cosa del ratón; ahora precisa que
+  recogerlas de una en una también lo es, y que sin ratón la vía es el botón
+  «Barras», que las devuelve todas. El comentario de `#floatbars` documenta que
+  ese nodo es además la zona de acoplado, acoplada a `FLOATBAR_DOCK_W`.
+
 ## [3.14.0] — 2026-08-21
 
 ### Añadido
