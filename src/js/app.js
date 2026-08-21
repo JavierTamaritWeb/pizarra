@@ -6071,22 +6071,49 @@
       Math.max(FLOATBAR_MIN_TOP, vh - FLOATBAR_HANDLE_H))}px`;
   }
 
+  /** Las cinco barras, estén donde estén: acopladas en la columna o
+      arrastradas fuera (colgadas de `.app`, ver floatFloatbar). La columna
+      vive dentro de `.app`, así que un solo barrido las trae todas. */
+  function allFloatbars() {
+    const app = document.querySelector('.app');
+    return app ? [...app.querySelectorAll('.floatbar')] : [];
+  }
+
   function clampFloatbars() {
-    const host = $('floatbars');
-    if (!host) return;
-    [...host.querySelectorAll('.floatbar')].forEach(clampFloatbar);
+    allFloatbars().forEach(clampFloatbar);
+  }
+
+  /** Saca una barra ARRASTRADA de la columna y la cuelga de `.app`. No es
+      mobiliario caprichoso: como hija de `#floatbars` —un contenedor con
+      `overflow-y: auto`— WKWebView (la app de escritorio) la RECORTA a la
+      franja de 15rem aunque sea `fixed`, y al arrastrarla hacia el lienzo
+      «desaparecía detrás» de él (el estándar dice que fixed escapa del
+      recorte del scroll, y el navegador lo cumple; WKWebView no). Se llama
+      con `position: fixed` ya puesto, así que cambiar de padre no la mueve
+      ni un píxel; su z-index fuera de la columna lo da `.app > .floatbar`
+      (_floatbar.scss). */
+  function floatFloatbar(bar) {
+    const app = document.querySelector('.app');
+    if (!app || bar.parentNode === app) return;
+    bar.remove();
+    app.appendChild(bar);
   }
 
   /** Acopla UNA barra: la devuelve al flujo de la columna borrando los estilos
-      inline que puso el arrastre. No coloca nada — el flujo la mete sola entre
-      las que sigan acopladas, en su orden de FLOATBAR_GROUPS —, y no despliega:
-      el plegado es otro ajuste, y quien acopla una barra plegada la quiere
-      plegada. Es la pieza que comparten `resetFloatbars` y el acoplado por
-      arrastre (v3.14.0). */
+      inline que puso el arrastre. No coloca nada — el `order` que estampó
+      buildFloatbars la pinta en su puesto de FLOATBAR_GROUPS aunque vuelva la
+      última al DOM —, y no despliega: el plegado es otro ajuste, y quien
+      acopla una barra plegada la quiere plegada. Es la pieza que comparten
+      `resetFloatbars` y el acoplado por arrastre (v3.14.0). */
   function dockFloatbar(bar) {
     bar.style.position = '';
     bar.style.left = '';
     bar.style.top = '';
+    const host = $('floatbars');
+    if (host && bar.parentNode !== host) {
+      bar.remove();
+      host.appendChild(bar);
+    }
   }
 
   /** Devuelve las cinco barras a su estado de fábrica: de vuelta al FLUJO de
@@ -6101,7 +6128,7 @@
     const host = $('floatbars');
     if (!host) return;
     host.scrollTop = 0;
-    [...host.querySelectorAll('.floatbar')].forEach(bar => {
+    allFloatbars().forEach(bar => {
       dockFloatbar(bar);
       bar.classList.remove('floatbar--collapsed');
       const collapse = bar.querySelectorAll('.floatbar__collapse')[0];
@@ -6116,12 +6143,16 @@
     const host = $('floatbars');
     if (!host) return;
     host.innerHTML = '';
-    FLOATBAR_GROUPS.forEach(fb => {
+    FLOATBAR_GROUPS.forEach((fb, orden) => {
       const bar = document.createElement('div');
       bar.className = 'floatbar';
       bar.setAttribute('role', 'toolbar');
       bar.setAttribute('aria-orientation', 'vertical');
       bar.setAttribute('aria-label', fb.label);
+      // Su puesto de fábrica en la columna, como `order` del flex: el acoplado
+      // por arrastre devuelve la barra con appendChild (al final del DOM) y
+      // este número es quien la pinta en su sitio de FLOATBAR_GROUPS.
+      bar.style.order = String(orden);
 
       const handle = document.createElement('div');
       handle.className = 'floatbar__handle';
@@ -6170,6 +6201,9 @@
           bar.style.left = `${r.left}px`;
           bar.style.top = `${r.top}px`;
         }
+        // Fuera de la columna ANTES de capturar el puntero: dentro de su
+        // scroll, WKWebView recortaría la barra durante todo el arrastre.
+        floatFloatbar(bar);
         const dx = e.clientX - (parseFloat(bar.style.left) || 0);
         const dy = e.clientY - (parseFloat(bar.style.top) || 0);
         handle.setPointerCapture?.(e.pointerId);

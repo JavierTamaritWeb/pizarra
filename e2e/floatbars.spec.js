@@ -66,10 +66,16 @@ test('se dibuja desde una barra flotante igual que desde el sidebar', async ({ p
     .toHaveClass(/floatbar__tool--active/);
 });
 
+/* En los tests con arrastre las barras se localizan por su rótulo, no por
+   posición (.first()/.nth()): una barra arrastrada se muda de la columna a
+   `.app` (floatFloatbar, app.js), así que el ORDEN del DOM cambia con el
+   gesto y un locator posicional pasaría a señalar otra barra. */
+const porNombre = (page, label) => page.locator(`.floatbar[aria-label="${label}"]`);
+
 test('arrastrar una barra por el asa la mueve, y no puede salirse del viewport', async ({ page }) => {
   await openApp(page, { viewport: WIDE });
   await activarBarras(page);
-  const barra = page.locator('.floatbar').first();
+  const barra = porNombre(page, 'Edición');
   const antes = await barra.boundingBox();
 
   const asa = barra.locator('.floatbar__handle');
@@ -129,7 +135,7 @@ test('los botones van en DOS columnas, como el sidebar ancho', async ({ page }) 
 test('apagar y encender el modo devuelve la barra movida a fábrica', async ({ page }) => {
   await openApp(page, { viewport: WIDE });
   await activarBarras(page);
-  const barra = page.locator('.floatbar').first();
+  const barra = porNombre(page, 'Edición');
   const fabrica = await barra.boundingBox();
   const asa = await barra.locator('.floatbar__handle').boundingBox();
   await page.mouse.move(asa.x + 20, asa.y + asa.height / 2);
@@ -158,9 +164,9 @@ async function llevarBarra(page, barra, x, y) {
 test('arrastrar una barra de vuelta a la franja la acopla sola, en su sitio', async ({ page }) => {
   await openApp(page, { viewport: WIDE });
   await activarBarras(page);
-  const b0 = page.locator('.floatbar').nth(0);
-  const b1 = page.locator('.floatbar').nth(1);
-  const b3 = page.locator('.floatbar').nth(3);
+  const b0 = porNombre(page, 'Edición');
+  const b1 = porNombre(page, 'Dibujo');
+  const b3 = porNombre(page, 'UI');
   const fabrica0 = await b0.boundingBox();
 
   // Dos barras fuera de la columna, en sitios distintos.
@@ -208,7 +214,7 @@ test('plegar deja solo el asa y aria-expanded lo cuenta', async ({ page }) => {
 test('recargar conserva el modo pero devuelve posiciones y plegado a fábrica', async ({ page }) => {
   await openApp(page, { viewport: WIDE });
   await activarBarras(page);
-  const barra = page.locator('.floatbar').first();
+  const barra = porNombre(page, 'Edición');
   const fabrica = await barra.boundingBox();
 
   // Se arrastra y se pliega la primera barra… (a la derecha de la cascada
@@ -239,7 +245,7 @@ test('bajo 1100px el modo no existe: vuelve el sidebar; al crecer, las barras si
   await activarBarras(page);
   // Se aparta una barra para comprobar que la posición sobrevive DENTRO de
   // la sesión (lo que muere es la sesión, no el viewport).
-  const barra = page.locator('.floatbar').first();
+  const barra = porNombre(page, 'Edición');
   const asa = await barra.locator('.floatbar__handle').boundingBox();
   await page.mouse.move(asa.x + 20, asa.y + asa.height / 2);
   await page.mouse.down();

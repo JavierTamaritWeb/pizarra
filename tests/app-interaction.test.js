@@ -6148,6 +6148,8 @@ test('soltar una barra dentro de la franja la acopla, y solo a ella', () => {
   arrastrarBarra(barras[1], 905, 305, 40, 300);
   assert.ok(!barras[1].style.position && !barras[1].style.left && !barras[1].style.top,
     'la barra soltada en la franja vuelve al flujo de la columna');
+  assert.equal(barras[1].parentNode, app.$('floatbars'),
+    'y vuelve a colgar de la columna (el arrastre la había mudado a .app)');
   assert.equal(barras[3].style.position, 'fixed', 'y la otra sigue flotando');
   assert.deepEqual([barras[3].style.left, barras[3].style.top], donde3,
     'exactamente donde estaba: acoplar una no recompone las demás');
@@ -6166,6 +6168,11 @@ test('soltar una barra fuera de la franja la deja flotando', () => {
   arrastrarBarra(barra, 20, 100, 600, 400);
   assert.equal(barra.style.position, 'fixed');
   assert.equal(barra.style.left, '580px', 'sigue donde la dejó el puntero');
+  // Y ya no cuelga de la columna: dentro de #floatbars —un contenedor con
+  // overflow— WKWebView (la app de escritorio) recortaba la barra a la
+  // franja de 15rem aunque fuera fixed, y «desaparecía detrás» del lienzo.
+  assert.equal(barra.parentNode, app.dom.document.querySelector('.app'),
+    'la barra arrastrada se muda de la columna a .app');
 });
 
 test('«Limpiar todo» devuelve el modo flotante a fábrica', () => {

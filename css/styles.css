@@ -603,6 +603,19 @@ input[type=range]::-moz-range-thumb {
   text-align: center;
 }
 
+/* Una barra ARRASTRADA no vive en la columna: floatFloatbar (app.js) la
+   cuelga de `.app`, porque dentro de `#floatbars` el overflow de la columna
+   la recorta en WKWebView (la app de escritorio) aunque sea `fixed` — se
+   «escondía detrás» del lienzo al sacarla de la franja. Fuera de la columna
+   ya no hereda su contexto de apilado, así que trae su propio z-index; y
+   fuera del modo (o bajo el umbral del cajón) se oculta, exactamente igual
+   que la columna entera — apagar «Barras» no borra su posición, solo deja
+   de enseñarla. */
+.app > .floatbar {
+  display: none;
+  z-index: 30;
+}
+
 /* El interruptor del topbar solo existe donde el modo existe (espejo exacto
    de .panel-toggle, que hace lo contrario: solo en pantallas estrechas). */
 .float-toggle {
@@ -616,6 +629,11 @@ input[type=range]::-moz-range-thumb {
   .app--floatbars .floatbars {
     display: flex;
     flex-direction: column;
+  }
+  /* La pareja de `.app--floatbars .floatbars`: con el modo activo, las
+     barras arrastradas (hijas directas de `.app`) también se ven. */
+  .app--floatbars > .floatbar {
+    display: flex;
   }
   .app--floatbars .sidebar {
     display: none;
