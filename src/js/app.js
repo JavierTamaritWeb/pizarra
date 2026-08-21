@@ -9670,6 +9670,10 @@
        usuario y viaja en un .json que puede venir de fuera. */
     const pieceModal = $('modal-save-piece');
     $('btn-save-piece').addEventListener('click', () => {
+      // El botón vive oculto sin selección, pero un click() programático (la
+      // barra de menús nativa de la app de escritorio) lo alcanza igual: sin
+      // nada que guardar, el modal se abriría con un Guardar que no hace nada.
+      if (!state.selection.length) return;
       $('piece-name').value = '';
       pieceModal.showModal();
     });
