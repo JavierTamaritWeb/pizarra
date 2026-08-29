@@ -3023,7 +3023,14 @@ confirmados con sonda ejecutada, siete corregidos.
   tres fallan sin el arreglo), más *"una flecha que sale del elemento hacia
   fuera sigue anclándose"*, que ata la otra mitad de la regla. Se escriben con
   un `rect` que cubre el lienzo porque el arnés no decodifica imágenes y el
-  camino de código es el mismo.
+  camino de código es el mismo. Y como el bug se destapó con una IMAGEN,
+  `e2e/imagen-flecha.spec.js` lo repite en Chromium soltando un PNG de verdad
+  sobre el lienzo: con el `app.js` anterior, un trazo pedido de (111,101) a
+  (911,581) salía con el origen en (991,629) —el borde opuesto de la imagen,
+  casi mil píxeles de salto, con la flecha invertida—; con el arreglo el
+  resultado es idéntico a lo pedido. Es la excepción razonada a la regla de
+  reparto: son coordenadas, pero sin un navegador real no hay imagen que
+  decodificar.
 - **Nota:** las flechas ya guardadas con el salto tienen sus coordenadas
   materializadas en el borde; el arreglo evita crear nuevas, pero no las repara
   (quitarles el ancla las dejaría igual de desplazadas). Hay que rehacerlas.

@@ -524,7 +524,10 @@ algo es una anotación, no un conector. Dos cosas que no se deducen del código:
   feedback prometiendo un anclaje que ya no iba a ocurrir.
 
 Guardas en `tests/app-interaction.test.js` (tres que fallan sin el arreglo, más
-una que ata el conector de siempre, el que sale del elemento hacia fuera).
+una que ata el conector de siempre, el que sale del elemento hacia fuera) y en
+`e2e/imagen-flecha.spec.js`, que lo repite con un PNG real soltado en el lienzo
+— excepción razonada a la regla de reparto: son coordenadas, pero el arnés
+`node:vm` no decodifica imágenes y el fallo se destapó justo con una.
 
 ### «Limpiar todo» y los valores de fábrica
 
