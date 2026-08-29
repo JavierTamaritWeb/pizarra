@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=3.14.1" />
+  <link rel="stylesheet" href="css/styles.css?v=3.14.2" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.14.1" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.14.2" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v3.14.1</span>
+        <span class="topbar__badge">v3.14.2</span>
         <!-- Aviso de autoguardado: visible SOLO mientras localStorage rechaza
              el guardado (cuota llena). Sin él, el fallo era un catch mudo y el
              trabajo posterior se perdía en silencio al recargar. -->
@@ -855,7 +855,7 @@
           <li><kbd>D</kbd>: invertir la dirección · <kbd>S</kbd>: curva en S (dos handles)</li>
           <li>La comba con la que <strong>nacen</strong> se elige en los ajustes de la herramienta («Curvatura»); con una curva seleccionada, ese mismo mando <strong>la cambia a ella</strong>, y el doble clic sobre su handle la devuelve a esa comba</li>
           <li><kbd>Shift</kbd> al curvar: arco simétrico · doble click en el handle: resetear · <kbd>+</kbd>/<kbd>−</kbd>: ajustar la curvatura</li>
-          <li>Suelta el extremo de una flecha sobre un elemento para <strong>anclarla</strong>: lo seguirá al moverlo</li>
+          <li>Suelta el extremo de una flecha sobre un elemento para <strong>anclarla</strong>: lo seguirá al moverlo. Una flecha dibujada <strong>entera</strong> encima de un elemento no se ancla (v3.14.2): ahí es una anotación, y se queda donde la trazaste</li>
           <li>Arrastra el handle de la etiqueta para deslizarla por el trazo · doble click en él: recentrarla</li>
         </ul>
       </section>
@@ -2433,24 +2433,24 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=3.14.1"></script>
-  <script src="src/js/sketchy.js?v=3.14.1"></script>
-  <script src="src/js/freehand.js?v=3.14.1"></script>
-  <script src="src/js/arc.js?v=3.14.1"></script>
-  <script src="src/js/curve-path.js?v=3.14.1"></script>
-  <script src="src/js/shape-rotation.js?v=3.14.1"></script>
-  <script src="src/js/regular-polygon.js?v=3.14.1"></script>
-  <script src="src/js/trapezoid.js?v=3.14.1"></script>
-  <script src="src/js/hatch.js?v=3.14.1"></script>
-  <script src="src/js/airbrush.js?v=3.14.1"></script>
-  <script src="src/js/flood.js?v=3.14.1"></script>
-  <script src="src/js/eraser.js?v=3.14.1"></script>
-  <script src="src/js/building.js?v=3.14.1"></script>
-  <script src="src/js/garden.js?v=3.14.1"></script>
-  <script src="src/js/solid.js?v=3.14.1"></script>
-  <script src="src/js/renderer.js?v=3.14.1"></script>
-  <script src="src/js/exporter.js?v=3.14.1"></script>
-  <script src="src/js/templates.js?v=3.14.1"></script>
-  <script src="src/js/app.js?v=3.14.1"></script>
+  <script src="src/js/config.js?v=3.14.2"></script>
+  <script src="src/js/sketchy.js?v=3.14.2"></script>
+  <script src="src/js/freehand.js?v=3.14.2"></script>
+  <script src="src/js/arc.js?v=3.14.2"></script>
+  <script src="src/js/curve-path.js?v=3.14.2"></script>
+  <script src="src/js/shape-rotation.js?v=3.14.2"></script>
+  <script src="src/js/regular-polygon.js?v=3.14.2"></script>
+  <script src="src/js/trapezoid.js?v=3.14.2"></script>
+  <script src="src/js/hatch.js?v=3.14.2"></script>
+  <script src="src/js/airbrush.js?v=3.14.2"></script>
+  <script src="src/js/flood.js?v=3.14.2"></script>
+  <script src="src/js/eraser.js?v=3.14.2"></script>
+  <script src="src/js/building.js?v=3.14.2"></script>
+  <script src="src/js/garden.js?v=3.14.2"></script>
+  <script src="src/js/solid.js?v=3.14.2"></script>
+  <script src="src/js/renderer.js?v=3.14.2"></script>
+  <script src="src/js/exporter.js?v=3.14.2"></script>
+  <script src="src/js/templates.js?v=3.14.2"></script>
+  <script src="src/js/app.js?v=3.14.2"></script>
 </body>
 </html>

@@ -501,6 +501,31 @@ Zoom is applied as a CSS `transform: scale()` on the canvas wrapper; `getPos()` 
 - **`dragLast` stores the pointer's real position, not the clamped one**, so when the pointer comes back the object follows from the first pixel instead of having to re-cross the distance it overshot.
 - **`applyGeometry` clamps before its no-op guard**, so a typed X of 9000 resyncs the field to where the element actually ended up rather than promising a position it doesn't have.
 
+### Conectores anclados: la flecha de dentro NO es un conector (v3.14.2)
+
+Soltar un extremo de flecha sobre un anclable (`ANCHORABLE_TYPES`, que incluye
+`image`) lo conecta, y `resolveAnchors` lo materializa en cada repintado sobre
+el **perímetro** del bbox con `rectEdgePoint` — que prolonga el rayo hasta el
+borde aunque el punto venga de dentro. Con un elemento que cubre el lienzo (una
+imagen encuadrada, y `rasterErase` fabrica `type:'image'` a partir de cualquier
+cosa que el borrador parta) eso mandaba el origen de la flecha al borde del
+lienzo mientras el cuerpo se quedaba donde se trazó: el bug de la v3.14.2.
+
+**La regla:** `connectorAnchorTarget(p, other, excludeIdx)` es el único camino a
+`findAnchorTarget` en creación y en resize, y devuelve -1 cuando los **dos**
+extremos caen sobre el mismo anclable. Una flecha dibujada entera encima de
+algo es una anotación, no un conector. Dos cosas que no se deducen del código:
+
+- **La guarda de «no anclar los dos extremos al mismo elemento» no bastaba**:
+  al aplicarse solo al segundo extremo dejaba `startAnchor` sin `endAnchor`, y
+  esa asimetría esquiva justo la comprobación equivalente de `resolveAnchors`.
+- **La decisión va en `resizeTo`, no en el `onMouseUp`**, porque `anchorCandidate`
+  es además lo que pinta el resaltado turquesa: decidir al soltar dejaba el
+  feedback prometiendo un anclaje que ya no iba a ocurrir.
+
+Guardas en `tests/app-interaction.test.js` (tres que fallan sin el arreglo, más
+una que ata el conector de siempre, el que sale del elemento hacia fuera).
+
 ### «Limpiar todo» y los valores de fábrica
 
 **`appDefaults()` (app.js) es la fuente ÚNICA de los ajustes de fábrica**, y la

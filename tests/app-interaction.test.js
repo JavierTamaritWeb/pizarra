@@ -6187,3 +6187,79 @@ test('«Limpiar todo» devuelve el modo flotante a fábrica', () => {
   assert.equal(prefs.floatToolbars, false,
     'y queda guardado en el acto, como el resto de lo que resetea el botón');
 });
+
+/* ── Flechas sobre un elemento que cubre el lienzo (v4.x) ──
+   Una imagen a pantalla completa es un ANCHORABLE_TYPES como cualquier otro,
+   así que la guarda se escribe con un `rect` grande: es el mismo camino de
+   código y el arnés no decodifica imágenes. */
+
+/** Rect que cubre casi todo el lienzo, como una imagen encuadrada. */
+function conFondoGrande() {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(20, 20, 1180, 780);
+  assert.equal(app.elements().length, 1, 'prerrequisito: el fondo se creó');
+  return app;
+}
+
+test('una flecha dibujada entera sobre un elemento grande no se ancla a él', () => {
+  // El bug: anclaba el origen (al segundo extremo lo rechazaba la guarda de
+  // "mismo elemento") y resolveAnchors lo proyectaba al perímetro del bbox
+  // —con una imagen a pantalla completa, al borde del lienzo—, así que la
+  // flecha saltaba al soltar mientras la línea, que no ancla, se veía bien.
+  const app = conFondoGrande();
+  app.selectTool('arrow');
+  app.drag(300, 250, 900, 600);
+  const flecha = app.elements()[1];
+  assert.equal(flecha.type, 'arrow');
+  assert.equal(flecha.startAnchor, undefined, 'el origen no debe anclarse');
+  assert.equal(flecha.endAnchor, undefined, 'ni la punta');
+  assert.deepEqual(
+    [flecha.x1, flecha.y1, flecha.x2, flecha.y2], [300, 250, 900, 600],
+    'la flecha se queda exactamente donde se dibujó');
+});
+
+test('la flecha curva entera sobre un elemento grande tampoco se ancla', () => {
+  const app = conFondoGrande();
+  app.selectTool('curveArrow');
+  app.drag(300, 250, 900, 600);
+  const flecha = app.elements()[1];
+  assert.equal(flecha.type, 'curveArrow');
+  assert.equal(flecha.startAnchor, undefined);
+  assert.equal(flecha.endAnchor, undefined);
+  assert.deepEqual([flecha.x1, flecha.y1, flecha.x2, flecha.y2],
+    [300, 250, 900, 600]);
+});
+
+test('una flecha que sale del elemento hacia fuera sigue anclándose', () => {
+  // La otra mitad de la regla: el conector de siempre no se toca.
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 300, 250);
+  app.selectTool('arrow');
+  app.drag(200, 180, 800, 600);
+  const flecha = app.elements()[1];
+  assert.ok(flecha.startAnchor, 'el origen, dentro del rect, sí ancla');
+  assert.equal(flecha.endAnchor, undefined, 'la punta queda libre, fuera');
+  // Materializado sobre el perímetro del rect (100,100)-(300,250)
+  const enElBorde = flecha.x1 === 100 || flecha.x1 === 300 ||
+                    flecha.y1 === 100 || flecha.y1 === 250;
+  assert.ok(enElBorde,
+    `el origen debía caer en el perímetro y quedó en ${flecha.x1},${flecha.y1}`);
+});
+
+test('arrastrar un extremo dentro del mismo elemento grande no lo ancla', () => {
+  // Misma regla por la vía del resize: sin ella, mover un extremo de la
+  // flecha sobre la imagen reproducía el salto.
+  const app = conFondoGrande();
+  app.selectTool('arrow');
+  app.drag(300, 250, 900, 600);
+  app.selectTool('select');
+  app.click(600, 425);            // el punto medio de la flecha
+  app.drag(300, 250, 400, 700);   // arrastra el handle del origen
+  const flecha = app.elements()[1];
+  assert.equal(flecha.startAnchor, undefined,
+    'sigue sin conector: los dos extremos están sobre el mismo elemento');
+  assert.deepEqual([flecha.x1, flecha.y1], [400, 700],
+    'y el origen se queda donde lo dejó el puntero');
+});

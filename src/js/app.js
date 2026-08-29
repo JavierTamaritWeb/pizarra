@@ -1076,6 +1076,20 @@
   }
 
   /**
+   * Candidato de anclaje para un extremo, descartando la flecha dibujada
+   * ENTERA dentro del mismo anclable: eso es una anotación encima, no un
+   * conector. Anclar ahí solo un extremo (al otro lo rechaza la guarda de
+   * "mismo elemento") lo proyectaría al perímetro del bbox — con una imagen
+   * que cubre el lienzo, al borde del lienzo, y la flecha salta al soltar.
+   * Devuelve -1 en ese caso.
+   */
+  function connectorAnchorTarget(p, other, excludeIdx) {
+    const idx = findAnchorTarget(p, excludeIdx);
+    if (idx >= 0 && idx === findAnchorTarget(other, excludeIdx)) return -1;
+    return idx;
+  }
+
+  /**
    * Punto del perímetro del bbox en la dirección centro → from (también
    * cuando `from` cae dentro: se prolonga el rayo hasta el borde).
    */
@@ -1155,9 +1169,13 @@
     }
   }
 
-  /** Ancla el extremo dado de una flecha recién creada si cae sobre un anclable. */
-  function attachAnchorOnCreate(el, key, p) {
-    const idx = findAnchorTarget(p);
+  /**
+   * Ancla el extremo dado de una flecha recién creada si cae sobre un
+   * anclable. `otherP` es el extremo contrario: si ambos caen sobre el mismo
+   * elemento, connectorAnchorTarget lo descarta y la flecha nace libre.
+   */
+  function attachAnchorOnCreate(el, key, p, otherP) {
+    const idx = connectorAnchorTarget(p, otherP);
     if (idx < 0) return;
     let target = state.elements[idx];
     // No anclar los dos extremos al mismo elemento (colapsaría la flecha)
@@ -2534,8 +2552,10 @@
     if (draft.dash) el.dash = true;
     saveUndo();
     state.elements.push(el);
-    attachAnchorOnCreate(el, 'startAnchor', { x: first.x1, y: first.y1 });
-    attachAnchorOnCreate(el, 'endAnchor', { x: last.x2, y: last.y2 });
+    const chainStart = { x: first.x1, y: first.y1 };
+    const chainEnd = { x: last.x2, y: last.y2 };
+    attachAnchorOnCreate(el, 'startAnchor', chainStart, chainEnd);
+    attachAnchorOnCreate(el, 'endAnchor', chainEnd, chainStart);
     cancelCurveChain();
     redraw();
     return true;
@@ -2688,7 +2708,12 @@
         copy = CurvePath.withEndpoint(copy, which, p);
         delete copy[which === 'start' ? 'startAnchor' : 'endAnchor'];
         state.elements[state.selection[0]] = copy;
-        r.anchorCandidate = findAnchorTarget(p, state.selection[0]);
+        // El extremo contrario decide igual que al crear: si los dos caen
+        // sobre el mismo anclable no hay conector que valga (y el resaltado
+        // turquesa tampoco debe prometerlo).
+        r.anchorCandidate = connectorAnchorTarget(
+          p, which === 'start' ? CurvePath.end(copy) : CurvePath.start(copy),
+          state.selection[0]);
         r.did = true;
         return;
       }
@@ -2703,7 +2728,10 @@
       }
       if (copy.type === 'curveArrow') copy = transformControlsToChord(copy, r.original);
       state.elements[state.selection[0]] = copy;
-      r.anchorCandidate = findAnchorTarget(p, state.selection[0]);
+      r.anchorCandidate = connectorAnchorTarget(
+        p,
+        r.corner === 'p1' ? { x: copy.x2, y: copy.y2 } : { x: copy.x1, y: copy.y1 },
+        state.selection[0]);
       r.did = true;
       return;
     }
@@ -4014,8 +4042,8 @@
         state.elements.push(el);
         // Extremos sobre un elemento anclable: la flecha nace conectada
         if (state.tool !== TOOLS.LINE) {
-          attachAnchorOnCreate(el, 'startAnchor', p1);
-          attachAnchorOnCreate(el, 'endAnchor', p2);
+          attachAnchorOnCreate(el, 'startAnchor', p1, p2);
+          attachAnchorOnCreate(el, 'endAnchor', p2, p1);
         }
       } else if (state.tool === TOOLS.CURVE_ARROW) {
         // Un clic sin arrastre inicia el modo encadenado; el elemento no entra

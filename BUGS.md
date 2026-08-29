@@ -2990,3 +2990,40 @@ confirmados con sonda ejecutada, siete corregidos.
   desviaciones en el CSS compilado"* — rechaza `border-radius: 0.7rem` y
   `outline: 0.15rem` en el artefacto, los dos valores exactos que convivieron
   con sus escalas.
+
+### Una flecha dibujada sobre una imagen a pantalla completa salta al soltar
+
+- **Síntoma:** con una imagen encuadrada al lienzo entero, trazar una flecha
+  encima la descolocaba en cuanto se soltaba el ratón: el origen aparecía
+  pegado al borde del lienzo mientras el cuerpo y la punta se quedaban donde se
+  había dibujado. Con la herramienta Línea, el mismo gesto se veía perfecto —lo
+  que hacía pensar en dos sistemas de coordenadas, imagen y lienzo, que no
+  existen.
+- **Causa:** el anclaje de conectores. `TOOLS.IMAGE` es un `ANCHORABLE_TYPES`, y
+  `findAnchorTarget` acepta cualquier punto dentro del bbox ± 12 px: con una
+  imagen a pantalla completa, todo el lienzo. Al crear la flecha se anclaba el
+  origen, y la punta la rechazaba la guarda de «no anclar los dos extremos al
+  mismo elemento» — quedaba `startAnchor` sin `endAnchor`, y esa asimetría
+  esquiva la guarda equivalente de `resolveAnchors`, que entonces proyectaba
+  `x1,y1` al perímetro del bbox con `rectEdgePoint` (que prolonga el rayo hasta
+  el borde aunque el punto venga de dentro). La línea no ancla nunca, por eso
+  no lo sufría. Nada de esto necesita una foto: `rasterErase` convierte en
+  `type:'image'` todo lo que el borrador parte por la mitad.
+- **Fix:** `src/js/app.js` — `connectorAnchorTarget(p, other, excludeIdx)` junto
+  a `findAnchorTarget`: si los dos extremos caen sobre el **mismo** anclable no
+  hay conector, es una anotación encima, y no se ancla ninguno. La usan
+  `attachAnchorOnCreate` (que ahora recibe el extremo contrario) y las dos
+  ramas de `resizeTo` que registran el candidato — hacerlo ahí y no en el
+  `onMouseUp` apaga además el resaltado turquesa, que dejaba de prometer un
+  anclaje que ya no iba a ocurrir. El conector de siempre, el que sale del
+  elemento hacia fuera, no cambia.
+- **Guardia:** `tests/app-interaction.test.js` › *"una flecha dibujada entera
+  sobre un elemento grande no se ancla a él"*, su gemela de flecha curva y
+  *"arrastrar un extremo dentro del mismo elemento grande no lo ancla"* (las
+  tres fallan sin el arreglo), más *"una flecha que sale del elemento hacia
+  fuera sigue anclándose"*, que ata la otra mitad de la regla. Se escriben con
+  un `rect` que cubre el lienzo porque el arnés no decodifica imágenes y el
+  camino de código es el mismo.
+- **Nota:** las flechas ya guardadas con el salto tienen sus coordenadas
+  materializadas en el borde; el arreglo evita crear nuevas, pero no las repara
+  (quitarles el ancla las dejaría igual de desplazadas). Hay que rehacerlas.

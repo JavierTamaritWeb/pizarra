@@ -4,6 +4,23 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.14.2] — 2026-08-29
+
+### Corregido
+
+- **Una flecha dibujada sobre una imagen a pantalla completa saltaba al
+  soltarla**: el origen se iba al borde del lienzo mientras el cuerpo y la
+  punta se quedaban donde se había trazado. La causa era el anclaje de
+  conectores — la imagen es un elemento anclable y, cubriendo todo el lienzo,
+  capturaba el origen de cualquier flecha para proyectarlo a su perímetro. Con
+  la Línea, que no ancla, el mismo gesto siempre se vio bien.
+- La regla nueva es general y vale para cualquier elemento anclable, no solo
+  las imágenes: **una flecha dibujada entera dentro del mismo elemento es una
+  anotación encima de él, no un conector**, y se queda tal cual se dibujó.
+  Vale igual al arrastrar después uno de sus extremos, y el resaltado turquesa
+  deja de prometer un anclaje que ya no va a ocurrir. El conector de siempre —
+  el que sale del elemento hacia fuera — no cambia.
+
 ## [3.14.1] — 2026-08-21
 
 ### Corregido
