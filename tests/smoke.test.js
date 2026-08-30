@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v3.15.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v3.16.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v3\.15\.0</);
-  assert.match(html, /css\/styles\.css\?v=3\.15\.0/);
-  assert.match(html, /src\/js\/app\.js\?v=3\.15\.0/);
-  assert.match(html, /src\/js\/building\.js\?v=3\.15\.0/);
-  assert.match(html, /src\/js\/garden\.js\?v=3\.15\.0/);
-  assert.match(html, /src\/js\/config\.js\?v=3\.15\.0/);
+  assert.match(html, /class="topbar__badge">v3\.16\.0</);
+  assert.match(html, /css\/styles\.css\?v=3\.16\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=3\.16\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=3\.16\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=3\.16\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=3\.16\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -64,9 +64,9 @@ test('index publica v3.15.0 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="modal-pyramid"/);
   assert.match(html, /id="modal-frustum"/);
   assert.match(html, /id="modal-sphere"/);
-  assert.match(html, /src\/js\/solid\.js\?v=3\.15\.0/);
-  assert.match(html, /src\/js\/airbrush\.js\?v=3\.15\.0/);
-  assert.match(html, /src\/js\/hatch\.js\?v=3\.15\.0/);
+  assert.match(html, /src\/js\/solid\.js\?v=3\.16\.0/);
+  assert.match(html, /src\/js\/airbrush\.js\?v=3\.16\.0/);
+  assert.match(html, /src\/js\/hatch\.js\?v=3\.16\.0/);
   // «Los clics acumulan selección» dejó el panel en la v2.17.0 y es el ajuste
   // de «Select». Si volviera a existir la casilla vieja habría dos controles
   // para un mismo estado, y solo uno cableado: el arnés `node:vm` fabrica un
@@ -600,6 +600,18 @@ test('el slider de Verjas cubre exactamente de 0 a 350 cm', () => {
     attr('value') <= Building.FENCE_H_MAX_CM);
 });
 
+test('el deslizador de alumbrado deportivo cubre el rango del módulo', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const tag = html.match(/<input[^>]*id="light-mast-height"[\s\S]*?\/>/);
+  assert.ok(tag, 'no existe el slider #light-mast-height');
+  const attrs = tag[0].replace(/\s+/g, ' ');
+  const attr = a => Number(attrs.match(new RegExp(`${a}="([^"]+)"`))[1]);
+  const { Building } = loadAll();
+  assert.equal(attr('min'), Building.LIGHT_M_MIN);
+  assert.equal(attr('max'), Building.LIGHT_M_MAX);
+  assert.equal(attr('value'), Building.LIGHT_M_DEF);
+});
+
 test('el slider de Cancela cubre exactamente de 0 a 350 cm', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
   const tag = html.match(/<input[^>]*id="gate-height"[\s\S]*?\/>/);
@@ -1091,12 +1103,20 @@ test('css/styles.css ensancha los modales de ajustes por encima de 1200px', () =
   assert.match(css, /\.modal__palette \.panel__color-grid \{[\s\S]*?repeat\(6, 2\.8rem\)/);
   // La muestra del relleno comparte aspecto con la del trazo
   assert.match(css, /\.panel__color-swatch,\s*\.panel__fill-swatch \{/);
-  // Y la clase la llevan los quince diálogos con miniatura
+  // La clase la lleva todo diálogo con miniatura... y también alguno sin ella:
+  // lo que pide `modal--settings` es tener mandos que ensanchar, no miniatura
+  // (Iluminación tiene selector y deslizador, pero su altura no se puede
+  // enseñar en una miniatura que se ajusta a bounds). Así que en vez de contar
+  // se comprueba la implicación real, diálogo a diálogo.
   const conMiniatura = (html.match(/<div class="modal__build">/g) || []).length;
-  const marcados = (html.match(/class="modal modal--settings"/g) || []).length;
   assert.equal(conMiniatura, 16); // los quince de la v2.26.0 más la Tinta
-  assert.equal(marcados, conMiniatura,
+  const dialogos = html.match(/<dialog[\s\S]*?<\/dialog>/g) || [];
+  const sinClase = dialogos.filter(d =>
+    /<div class="modal__build">/.test(d) && !/class="modal modal--settings"/.test(d));
+  assert.deepEqual(sinClase.map(d => (d.match(/id="([^"]+)"/) || [])[1]), [],
     'todo modal con miniatura tiene que llevar modal--settings, o se queda estrecho');
+  assert.equal(dialogos.filter(d => /<div class="modal__build">/.test(d)).length,
+    conMiniatura, 'hay miniaturas fuera de un <dialog>');
 });
 
 // El mando del eje (v2.27.0, extendido al Tronco en la v2.28.0). Guarda

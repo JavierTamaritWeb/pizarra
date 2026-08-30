@@ -35,6 +35,9 @@ const MODALES = [
   // El del aerógrafo es el más alto del grupo Dibujo (seis mandos más el
   // bloque del área): el mejor candidato a repetir el fallo de la v2.16.2.
   { tool: 'airbrush', modal: '#modal-airbrush' },
+  // Iluminación creció en la v3.16.0 con los mandos de altura de montaje: son
+  // dos campos, una pista y una fila más de catálogo por encima de «Cancelar».
+  { tool: 'iluminacion', modal: '#modal-light' },
 ];
 
 for (const { tool, modal } of MODALES) {

@@ -156,7 +156,8 @@ const BALCONY_TYPES = Object.freeze([
  * rellena solo.
  *
  * Orden: primero las cuatro de pie (lisa y de forja, de uno y de dos focos),
- * después la de pared y los dos aparatos de gran altura.
+ * después la de pared, el foco de suelo y los dos aparatos de gran altura,
+ * que son los que se acotan por actividad deportiva (LIGHT_SPORTS).
  */
 const LIGHT_TYPES = Object.freeze([
   { id: 'post',   name: 'Farola de pie' },
@@ -165,7 +166,34 @@ const LIGHT_TYPES = Object.freeze([
   { id: 'forge2', name: 'Forja de doble foco' },
   { id: 'wall',   name: 'Farola de pared' },
   { id: 'spot',   name: 'Foco' },
+  { id: 'mast',   name: 'Foco con mástil' },
   { id: 'tower',  name: 'Torre de luz' },
+]);
+
+/**
+ * Alturas de montaje recomendadas para alumbrado deportivo, en metros.
+ *
+ * `m` es la cota que propone cada actividad al elegirla; `lo`–`hi` es el rango
+ * habitual, que se enseña como pista bajo el selector y sirve para avisar
+ * cuando el deslizador se sale de él. Son las cotas de proyecto al uso (del
+ * orden de un cuarto de la distancia al punto más lejano que hay que alumbrar,
+ * criterio de la EN 12193), no una norma: el deslizador manda siempre y la
+ * actividad solo es un punto de partida.
+ *
+ * Solo gobiernan los dos modelos de gran altura —«Foco con mástil» y «Torre de
+ * luz»—; las farolas y el foco de suelo siguen saliendo del arrastre, porque
+ * una farola de jardín no se acota por la actividad deportiva.
+ */
+const LIGHT_SPORTS = Object.freeze([
+  { id: 'padel',     name: 'Pádel y tenis',            m: 8,  lo: 6,  hi: 10 },
+  { id: 'multi',     name: 'Pista polideportiva',      m: 10, lo: 8,  hi: 12 },
+  { id: 'pool',      name: 'Piscina descubierta',      m: 9,  lo: 8,  hi: 10 },
+  { id: 'futsal',    name: 'Fútbol sala y fútbol 7',   m: 13, lo: 12, hi: 15 },
+  { id: 'football',  name: 'Fútbol 11, mástil lateral', m: 16, lo: 15, hi: 18 },
+  { id: 'athletics', name: 'Atletismo',                m: 16, lo: 15, hi: 18 },
+  { id: 'rugby',     name: 'Rugby y hockey',           m: 18, lo: 16, hi: 20 },
+  { id: 'baseball',  name: 'Béisbol',                  m: 22, lo: 20, hi: 25 },
+  { id: 'stadium',   name: 'Estadio, torre de esquina', m: 30, lo: 25, hi: 40 },
 ]);
 
 /** Tipos del botón Tejado (catálogo del modal). El icono lo dibuja app.js

@@ -16,7 +16,7 @@ const { loadAll } = require('./helpers/load.js');
 
 // isValidElement es pura: se toma del cargador normal en vez de hurgar en el
 // contexto vm de la app (sus `const` top-level no cuelgan de globalThis).
-const { Exporter, TOOLS, Airbrush, RegularPolygon } = loadAll();
+const { Exporter, TOOLS, Airbrush, RegularPolygon, Building, LIGHT_SPORTS } = loadAll();
 
 /** Desplazamiento en x de un elemento entre dos escenas (rect/line). */
 const dx = (before, after) =>
@@ -509,7 +509,7 @@ test('el catálogo de Iluminación se llena desde LIGHT_TYPES y elegir un modelo
   const app = loadApp();
   app.selectTool('iluminacion');
   const btns = app.$('light-catalog').querySelectorAll('.modal__light');
-  assert.equal(btns.length, 7, 'un botón por entrada de LIGHT_TYPES');
+  assert.equal(btns.length, 8, 'un botón por entrada de LIGHT_TYPES');
   assert.ok([...btns].every(b => b.querySelector('canvas')),
     'cada botón lleva su icono dibujado con la geometría de la herramienta');
 
@@ -543,6 +543,55 @@ test('el modelo de farola elegido persiste en prefs y vuelve al arrancar', () =>
     .filter(b => b.getAttribute('aria-pressed') === 'true');
   assert.equal(marcado.length, 1, 'solo una variante activa');
   assert.equal(marcado[0].dataset.light, 'tower', 'vuelve marcado el elegido');
+});
+
+test('la actividad deportiva propone su cota y el deslizador la ajusta', () => {
+  const app = loadApp();
+  app.selectTool('iluminacion');
+  const futbol = LIGHT_SPORTS.find(s => s.id === 'football');
+
+  app.$('light-sport').value = 'football';
+  app.$('light-sport').__fire('change', { target: app.$('light-sport') });
+  app.flush();
+  assert.equal(app.$('light-mast-height').value, String(futbol.m),
+    'elegir la actividad no movió la cota a la recomendada');
+  assert.match(app.$('light-mast-hint').textContent, /15–18 m/);
+
+  // La cota manda sobre la actividad: se puede salir del rango, avisando.
+  app.$('light-mast-height').value = '5';
+  app.$('light-mast-height').__fire('input', { target: app.$('light-mast-height') });
+  app.flush();
+  assert.equal(app.$('light-mast-height-val').textContent, '5');
+  assert.match(app.$('light-mast-hint').textContent, /se sale de ese rango/);
+
+  // Y es la que dibuja: una torre a 5 m sale más baja que a la cota de fútbol.
+  const torre = [...app.$('light-catalog').querySelectorAll('.modal__light')]
+    .find(b => b.dataset.light === 'tower');
+  app.$('modal-light').__fire('click', { target: torre });
+  app.flush();
+  app.drag(120, 60, 180, 400);
+  const alto = els => Math.max(...els.map(e => (e.y2 ?? e.y + e.h))) -
+    Math.min(...els.map(e => (e.y1 ?? e.y)));
+  const bajita = alto(app.elements());
+  assert.ok(bajita < 5 * Building.LIGHT_PX_PER_M + 20,
+    'la torre no respetó la cota de 5 m pese al arrastre de 340 px');
+});
+
+test('la cota de alumbrado deportivo persiste en prefs', () => {
+  const app = loadApp();
+  app.selectTool('iluminacion');
+  app.$('light-sport').value = 'stadium';
+  app.$('light-sport').__fire('change', { target: app.$('light-sport') });
+  app.flush();
+
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.lightSport, 'stadium');
+  assert.equal(prefs.lightMastM, LIGHT_SPORTS.find(s => s.id === 'stadium').m);
+
+  const again = loadApp({ prefs });
+  again.selectTool('iluminacion');
+  assert.equal(again.$('light-sport').value, 'stadium', 'no volvió la actividad guardada');
+  assert.equal(again.$('light-mast-height').value, String(prefs.lightMastM));
 });
 
 test('los tipos elegidos en el modal de Fachada persisten en prefs', () => {

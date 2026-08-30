@@ -54,6 +54,17 @@ const Building = (function () {
   const GATE_H_MAX_CM      = 350;
   const GATE_H_DEF_CM      = 200;
   const GATE_PX_PER_CM     = 0.65;
+  // Alumbrado deportivo: el mástil y la torre se acotan EN METROS, como se
+  // proyecta una instalación (ver LIGHT_SPORTS en js/config.js). La escala es
+  // propia y mucho más pequeña que los 65 px/m del muro: aquello es escala de
+  // detalle de fachada, esto es escala de recinto —un mástil de 30 m a 65 px/m
+  // mediría 1.950 px—. A 9 px/m una cancha entera cabe junto a sus torres.
+  const LIGHT_M_MIN        = 4;
+  const LIGHT_M_MAX        = 45;
+  const LIGHT_M_DEF        = 10;
+  const LIGHT_PX_PER_M     = 9;
+  // Los dos únicos modelos cuya altura sale de la cota y no del arrastre.
+  const LIGHT_MAST_TOOLS   = Object.freeze(['mast', 'tower']);
 
   /* Tamaño al hacer clic sin arrastrar. Una puerta o una ventana miden lo mismo
      sea cual sea su tipo, así que les basta una caja por herramienta; el balcón
@@ -94,7 +105,10 @@ const Building = (function () {
       forge2: { w: 96,  h: 190 },
       wall:   { w: 74,  h: 78  },   // cuelga del muro: ni fuste ni base
       spot:   { w: 62,  h: 74  },
-      tower:  { w: 88,  h: 260 },
+      // «mast» y «tower» no están: su caja no puede ser fija porque la altura
+      // sale de la cota en metros y el ancho tiene que acompañarla —un mástil
+      // de 30 m con un cabezal de 76 px sería un poste rechoncho—. La resuelve
+      // el bloque de abajo, que sí conoce la cota.
     } },
   };
 
@@ -104,6 +118,12 @@ const Building = (function () {
     const v = Number(o.fenceHeightCm);
     return Math.min(FENCE_H_MAX_CM,
       Math.max(FENCE_H_MIN_CM, Number.isFinite(v) ? v : FENCE_H_DEF_CM));
+  };
+  /** Cota del mástil en metros, saneada contra el rango del deslizador. */
+  const _lightMastM = o => {
+    const v = Number(o.lightMastM);
+    return Math.min(LIGHT_M_MAX,
+      Math.max(LIGHT_M_MIN, Number.isFinite(v) ? v : LIGHT_M_DEF));
   };
   const _gateHeightCm = o => {
     const v = Number(o.gateHeightCm);
@@ -142,6 +162,23 @@ const Building = (function () {
         ? (cm === 0 ? 1 : Math.max(8, Math.min(20, 8 + cm / 30)))
         : (cm === 0 ? 1 : Math.max(12, cm * GATE_PX_PER_CM));
       b = { ...b, h };
+    }
+    // Mástil y torre: el arrastre da la envergadura del cabezal y la cota en
+    // metros da la altura, igual que en Verjas y Cancela. Así una torre de
+    // fútbol 11 mide lo mismo se trace como se trace, y dos torres puestas
+    // para la misma actividad salen a la misma altura sin apuntar el ratón.
+    if (tool === TOOLS.BUILD_LIGHT && LIGHT_MAST_TOOLS.includes(o.lightType)) {
+      const h = Math.max(24, _lightMastM(o) * LIGHT_PX_PER_M);
+      // Sin arrastre horizontal el ancho sale también de la cota, con la
+      // esbeltez propia de cada modelo: así el icono del catálogo (arrastre
+      // nulo) enseña una torre y no un cajón, cualquiera que sea la actividad.
+      const w = rawW >= MIN_SPAN
+        ? b.w
+        : Math.max(22, h * (o.lightType === 'tower' ? 0.3 : 0.26));
+      // Y se ancla POR LA BASE, no por arriba como Verjas: un mástil se planta
+      // en un punto del suelo y crece hacia arriba. Anclado por arriba, subir
+      // la cota hundía la torre bajo la línea donde se había plantado.
+      b = { ...b, y: Math.max(p1.y, p2.y) - h, w, h };
     }
     switch (tool) {
       case TOOLS.BUILD_PLANTA: return _planta(b, o, o.plantaShape || 'rect');
@@ -2245,6 +2282,7 @@ const Building = (function () {
       case 'forge2': return _lightForge2(b, o);
       case 'wall':   return _lightWall(b, o);
       case 'spot':   return _lightSpot(b, o);
+      case 'mast':   return _lightMast(b, o);
       case 'tower':  return _lightTower(b, o);
       default:       return _lightPost(b, o);   // 'post'
     }
@@ -2341,22 +2379,65 @@ const Building = (function () {
   // Foco: proyector troncocónico sobre rótula, horquilla y pletina. Es la
   // única pieza girada de la sección —un proyector a escuadra no se lee como
   // un foco, sino como una caja.
+  /* Cabezal proyector: el tronco de cono achatado —ancho por la boca, con la
+     línea del cristal— que se lee como un foco, centrado en (cx,cy), de ancho
+     `w` y girado `ang` radianes. Lo comparten el foco de suelo y el mástil:
+     dibujarlo dos veces era condenarlos a divergir. */
+  function _projector(cx, cy, w, ang, o) {
+    const h = Math.max(5, w * 0.6);
+    const p = _rotAt(cx, cy, ang);
+    const at = (dx, dy) => p(cx + dx, cy + dy);
+    const els = _poly([at(-w * 0.44, -h * 0.26), at(w * 0.5, -h * 0.5),
+                       at(w * 0.5, h * 0.5), at(-w * 0.44, h * 0.26)], o);
+    els.push(_lineT(...at(w * 0.26, -h * 0.43), ...at(w * 0.26, h * 0.43), o));
+    return els;
+  }
+
   function _lightSpot(b, o) {
     const cx = b.x + b.w / 2, ground = b.y + b.h;
     const baseW = Math.max(8, b.w * 0.52), baseH = Math.max(3, b.h * 0.08);
     const postH = Math.max(4, b.h * 0.16);
     const hy = ground - baseH - postH;
     const hw = Math.max(10, Math.min(b.w * 0.72, b.h * 0.5));
-    const hh = Math.max(8, hw * 0.6);
-    const p = _rotAt(cx, hy, -0.42);
-    const at = (dx, dy) => p(cx + dx, hy + dy);
-    const els = _poly([at(-hw * 0.44, -hh * 0.26), at(hw * 0.5, -hh * 0.5),
-                       at(hw * 0.5, hh * 0.5), at(-hw * 0.44, hh * 0.26)], o);
-    els.push(_lineT(...at(hw * 0.26, -hh * 0.43), ...at(hw * 0.26, hh * 0.43), o));
+    const els = _projector(cx, hy, hw, -0.42, o);
     const r = Math.max(4, b.w * 0.11);
     els.push(_circleT(cx - r / 2, hy - r / 2, r, r, o));        // rótula
     els.push(_line(cx, hy, cx, ground - baseH, o));             // horquilla
     els.push(_rectEl(cx - baseW / 2, ground - baseH, baseW, baseH, o));
+    return els;
+  }
+
+  /* Foco con mástil: proyectores sobre un mástil tubular. Es LA pieza de
+     alumbrado deportivo, y por eso su altura no sale del arrastre sino de la
+     cota en metros (`o.lightMastM`, que el modal propone según la actividad).
+     Dos consecuencias visibles: el mástil se despieza en tramos a partir de
+     cierta altura —uno de 30 m no se transporta de una pieza— y el cabezal
+     lleva más proyectores cuanto más alto está el montaje, que es como se
+     compensa la distancia al campo. */
+  function _lightMast(b, o) {
+    const cx = b.x + b.w / 2, ground = b.y + b.h;
+    const m = _lightMastM(o);
+    const baseW = Math.max(10, b.w * 0.44), baseH = Math.max(3, b.h * 0.025);
+    const foot = ground - baseH;
+    const topY = b.y + Math.max(8, b.h * 0.09);   // hueco para el cabezal
+    const wT = Math.max(2, b.w * 0.07), wB = Math.max(wT + 2, b.w * 0.15);
+    const half = t => (wT + (wB - wT) * t) / 2;
+    const els = [_line(cx - half(0), topY, cx - half(1), foot, o),
+                 _line(cx + half(0), topY, cx + half(1), foot, o)];
+    els.push(_rectEl(cx - baseW / 2, foot, baseW, baseH, o));   // placa de anclaje
+    const joints = Math.max(0, Math.min(3, Math.round(m / 9) - 1));
+    for (let i = 1; i <= joints; i++) {
+      const t = i / (joints + 1), y = topY + (foot - topY) * t;
+      els.push(_lineT(cx - half(t) * 1.6, y, cx + half(t) * 1.6, y, o));
+    }
+    const k = m >= 20 ? 4 : (m >= 12 ? 3 : 2);
+    const cw = Math.max(wB * 2.2, b.w * 0.92);
+    const pw = Math.max(6, Math.min((cw / k) * 0.82, b.h * 0.26));
+    els.push(_line(cx - cw / 2, topY, cx + cw / 2, topY, o));   // travesaño
+    for (let i = 0; i < k; i++) {
+      els.push(..._projector(cx - cw / 2 + cw * (i + 0.5) / k,
+                             topY - pw * 0.34, pw, -0.32, o));
+    }
     return els;
   }
 
@@ -2389,5 +2470,6 @@ const Building = (function () {
 
   return { elements, MIN_SPAN, ROOF_FRAC, FLOOR_H,
     WALL_GATE_H_MIN, WALL_GATE_H_MAX, WALL_RAIL_H_MIN, WALL_RAIL_H_MAX,
-    FENCE_H_MIN_CM, FENCE_H_MAX_CM, GATE_H_MIN_CM, GATE_H_MAX_CM };
+    FENCE_H_MIN_CM, FENCE_H_MAX_CM, GATE_H_MIN_CM, GATE_H_MAX_CM,
+    LIGHT_M_MIN, LIGHT_M_MAX, LIGHT_M_DEF, LIGHT_PX_PER_M };
 })();

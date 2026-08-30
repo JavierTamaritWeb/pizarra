@@ -38,6 +38,8 @@
     facadeShape: 'flat',  // tipo elegido en el modal de Fachada: flat|gable|profile
     balconyType: 'balcony', // tipo elegido en el modal de Balcón (ver BALCONY_TYPES)
     lightType: 'post',    // modelo elegido en el modal de Iluminación (ver LIGHT_TYPES)
+    lightSport: 'multi',  // actividad que propone la cota (ver LIGHT_SPORTS)
+    lightMastM: 10,       // altura de montaje del mástil y la torre, en metros
     // Muro: vista elegida en el catálogo (ver WALL_VIEWS) + sus 4 ajustes
     // propios del modal (sin gemelo en el panel, como balconyType).
     wallView: 'elevation',
@@ -1360,6 +1362,8 @@
         windowType: state.windowType,
         balconyType: state.balconyType,
         lightType: state.lightType,
+        lightSport: state.lightSport,
+        lightMastM: state.lightMastM,
         // Muro: vista del catálogo + sus 4 ajustes propios, mismo motivo.
         wallDesignVersion: WALL_DESIGN_VERSION,
         wallView: state.wallView,
@@ -1515,6 +1519,11 @@
       restoreVariant(prefs.windowType,  WINDOW_TYPES,  'windowType');
       restoreVariant(prefs.balconyType, BALCONY_TYPES, 'balconyType');
       restoreVariant(prefs.lightType,   LIGHT_TYPES,   'lightType');
+      restoreVariant(prefs.lightSport,  LIGHT_SPORTS,  'lightSport');
+      if (Number.isFinite(prefs.lightMastM)) {
+        state.lightMastM = Math.min(Building.LIGHT_M_MAX,
+          Math.max(Building.LIGHT_M_MIN, prefs.lightMastM));
+      }
       // Las preferencias anteriores a la cancela cóncava guardaban siempre
       // planta + «sin puerta», aunque la persona nunca hubiera tocado Muro.
       // No dejamos que ese default histórico oculte silenciosamente el nuevo
@@ -3153,7 +3162,7 @@
       color: state.color, lineWidth: state.lineWidth,
       plantaShape: state.plantaShape, doorType: state.doorType,
       windowType: state.windowType, balconyType: state.balconyType,
-      lightType: state.lightType,
+      lightType: state.lightType, lightMastM: state.lightMastM,
       floors: state.buildFloors, bays: state.buildBays, roofPitch: state.roofPitch,
       roofType: state.roofType, roofShape: state.roofShape, facadeShape: state.facadeShape,
       wallView: state.wallView, wallMaterial: state.wallMaterial,
@@ -4595,6 +4604,10 @@
      consulta el `.modal__shape` sin acotar) y su comportamiento no está fijado
      por tests, así que unificarlos sería arriesgar una regresión muda a cambio
      de nada visible. El Balcón nace ya en la tabla. */
+  /* Cota con la que se pinta el icono del mástil y de la torre en el catálogo
+     (ver la fila de Iluminación, más abajo). No es la cota de dibujo. */
+  const LIGHT_ICON_M = 7;
+
   const VARIANT_MODALS = [
     // Balcón: la caja del icono es un arrastre nulo A PROPÓSITO, para que la
     // ponga el `byVariant` de cada tipo. Así el icono enseña también su
@@ -4612,11 +4625,16 @@
     // Cancela: planta/alzado en el catálogo; modelo y cota 0–350 cm en sus
     // controles, con la misma geometría que las entradas del Muro.
     { tool: TOOLS.BUILD_GATE, modal: 'modal-gate', root: 'gate-catalog', cls: 'modal__gate', data: 'gate', catalog: GATE_VIEWS, key: 'gateView', gen: () => Building, opts: () => buildOpts(), box: { x: 0, y: 0 } },
-    // Iluminación: catálogo puro (sin select ni miniatura propios) y el mismo
+    // Iluminación: catálogo con dos controles propios (actividad y cota del
+    // mástil, sincronizados por syncLightControls() al abrir) y el mismo
     // arrastre nulo que Balcón —la caja la pone byVariant—, para que el icono
     // enseñe la proporción de cada modelo: la torre alta, la de pared casi
     // cuadrada. A 56 px eso es la mitad de lo que los distingue.
-    { tool: TOOLS.BUILD_LIGHT, modal: 'modal-light', root: 'light-catalog', cls: 'modal__light', data: 'light', catalog: LIGHT_TYPES, key: 'lightType', gen: () => Building, opts: () => buildOpts(), box: { x: 0, y: 0 } },
+    // El icono va con una cota FIJA y baja (LIGHT_ICON_M) en vez de la elegida:
+    // el icono se ajusta a sus bounds, así que la cota no se vería como altura
+    // —solo como esbeltez—, y a 30 m el mástil quedaba reducido a un hilo de
+    // 12 px con el cabezal ilegible. Con 7 m sale la proporción de siempre.
+    { tool: TOOLS.BUILD_LIGHT, modal: 'modal-light', root: 'light-catalog', cls: 'modal__light', data: 'light', catalog: LIGHT_TYPES, key: 'lightType', gen: () => Building, opts: () => ({ ...buildOpts(), lightMastM: LIGHT_ICON_M }), box: { x: 0, y: 0 } },
     { tool: TOOLS.GARDEN_PLOT,   modal: 'modal-plot',   root: 'plot-catalog',   cls: 'modal__plot',   data: 'plot',   catalog: PLOT_SHAPES,   key: 'plotShape'  },
     { tool: TOOLS.GARDEN_TREE,   modal: 'modal-tree',   root: 'tree-catalog',   cls: 'modal__tree',   data: 'tree',   catalog: TREE_TYPES,    key: 'treeType', plant: true },
     { tool: TOOLS.GARDEN_SHRUB,  modal: 'modal-shrub',  root: 'shrub-catalog',  cls: 'modal__shrub',  data: 'shrub',  catalog: SHRUB_TYPES,   key: 'shrubType', plant: true },
@@ -4898,6 +4916,7 @@
       if (id === TOOLS.BUILD_WALL) syncWallControls();
       if (id === TOOLS.BUILD_FENCE) syncFenceControls();
       if (id === TOOLS.BUILD_GATE) syncGateControls();
+      if (id === TOOLS.BUILD_LIGHT) syncLightControls();
       // Prisma, Pirámide y Tronco llevan sus deslizadores de proyección además
       // del catálogo, mismo motivo que Camino y Muro.
       if (SOLID_TOOLS.includes(id)) syncSolidControls();
@@ -8865,6 +8884,28 @@
     });
     $('fence-height').addEventListener('change', savePrefs);
     syncFenceControls();
+    // Iluminación: la actividad es un atajo que MUEVE la cota (no la ata), y
+    // la cota manda siempre —de ahí que se pueda quedar fuera del rango
+    // recomendado y que la pista lo avise en vez de impedirlo.
+    fillVariantSelect('light-sport', LIGHT_SPORTS);
+    $('light-sport').addEventListener('change', e => {
+      const sport = LIGHT_SPORTS.find(item => item.id === e.target.value);
+      if (!sport) return;
+      state.lightSport = sport.id;
+      state.lightMastM = Math.min(Building.LIGHT_M_MAX,
+        Math.max(Building.LIGHT_M_MIN, sport.m));
+      syncLightControls();
+      savePrefs();
+    });
+    $('light-mast-height').addEventListener('input', e => {
+      const v = Number(e.target.value);
+      if (!Number.isFinite(v)) return;
+      state.lightMastM = Math.min(Building.LIGHT_M_MAX,
+        Math.max(Building.LIGHT_M_MIN, v));
+      syncLightControls();
+    });
+    $('light-mast-height').addEventListener('change', savePrefs);
+    syncLightControls();
     // 3D: los mismos cuatro deslizadores repetidos en cuatro modales, contra
     // un único estado. `input` mueve al dedo y `change` guarda, como el resto.
     SOLID_MODALS.forEach(cfg => {
@@ -10764,6 +10805,22 @@
 
   /** Sincroniza y previsualiza la herramienta Verjas. La altura se conserva
       en centímetros de proyecto (0–350), sin conversiones visibles a metros. */
+  /** Vuelca la actividad y la cota en los mandos de #modal-light y actualiza
+      la pista de altura recomendada. Mismo contrato que syncFenceControls().
+      Sin miniatura: los iconos del catálogo se ajustan a sus bounds, así que
+      una cota mayor no se vería en ellos —lo que informa aquí es el número. */
+  function syncLightControls() {
+    const sport = LIGHT_SPORTS.find(item => item.id === state.lightSport)
+      || LIGHT_SPORTS[0];
+    $('light-sport').value = sport.id;
+    $('light-mast-height').value = String(state.lightMastM);
+    $('light-mast-height-val').textContent = String(Math.round(state.lightMastM));
+    const off = state.lightMastM < sport.lo || state.lightMastM > sport.hi;
+    $('light-mast-hint').textContent =
+      `Recomendado para ${sport.name.toLowerCase()}: ${sport.lo}–${sport.hi} m` +
+      (off ? ' · la cota actual se sale de ese rango' : '');
+  }
+
   function syncFenceControls() {
     $('fence-type').value = state.fenceType;
     $('fence-height').value = String(state.fenceHeightCm);

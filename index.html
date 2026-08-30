@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=3.15.0" />
+  <link rel="stylesheet" href="css/styles.css?v=3.16.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.15.0" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.16.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v3.15.0</span>
+        <span class="topbar__badge">v3.16.0</span>
         <!-- Aviso de autoguardado: visible SOLO mientras localStorage rechaza
              el guardado (cuota llena). Sin él, el fallo era un catch mudo y el
              trabajo posterior se perdía en silencio al recargar. -->
@@ -889,7 +889,8 @@
         <ul class="modal__help-list">
           <li><strong>Planta</strong> (<kbd>W</kbd>), <strong>Fachada</strong> (<kbd>1</kbd>), <strong>Tejado</strong> (<kbd>2</kbd>), <strong>Puerta</strong> (<kbd>0</kbd>), <strong>Ventana</strong> (<kbd>Y</kbd>), <strong>Balcón</strong>, <strong>Muro</strong>, <strong>Verjas</strong>, <strong>Cancela</strong> e <strong>Iluminación</strong>: cada una abre un catálogo al pulsarla; elige y arrastra en el lienzo</li>
           <li><strong>Balcón</strong> ofrece 8 tipos —de barrotes, francés, de forja, balaustrada, corrido, acristalado, terraza y mirador—; el arrastre marca el balcón entero (barandilla arriba y losa abajo) y el vuelo sobresale a los lados. No tiene atajo: no quedaban teclas sueltas libres</li>
-          <li><strong>Iluminación</strong> ofrece 7 modelos —farola de pie, de doble foco, de forja, de forja de doble foco, de pared, foco y torre de luz—; el arrastre marca la farola entera, del farol al dado. Tampoco tiene atajo, por el mismo motivo que el Balcón</li>
+          <li><strong>Iluminación</strong> ofrece 8 modelos —farola de pie, de doble foco, de forja, de forja de doble foco, de pared, foco, foco con mástil y torre de luz—; el arrastre marca la farola entera, del farol al dado. Tampoco tiene atajo, por el mismo motivo que el Balcón</li>
+          <li>En los dos modelos de alumbrado deportivo —<strong>foco con mástil</strong> y <strong>torre de luz</strong>— la altura NO sale del arrastre sino de la cota en metros del modal: elegir la actividad (pádel, polideportivo, fútbol 11, atletismo, estadio…) propone la altura de montaje recomendada, y el deslizador de 4 a 45 m la ajusta avisando si se sale del rango. El arrastre ahí solo da la envergadura del cabezal, así que dos torres puestas para la misma actividad salen a la misma altura</li>
           <li><strong>Verjas</strong> ofrece planta y alzado, trece diseños de forja con lanzas —seis inspirados en tradiciones españolas— y altura regulable de <strong>0 a 350 cm</strong>, todo visible en su miniatura en vivo</li>
           <li><strong>Cancela</strong> reúne los 18 estilos de entrada en una herramienta independiente, con planta, alzado, miniatura en vivo y altura de <strong>0 a 350 cm</strong></li>
           <li>En su catálogo, como en los del <strong>Jardín</strong>, el <strong>icono es el dibujo real</strong> que vas a obtener</li>
@@ -1608,9 +1609,27 @@
   </dialog>
 
   <!-- ===== MODAL: ILUMINACIÓN ===== -->
-  <dialog class="modal" id="modal-light" aria-labelledby="modal-light-title">
+  <dialog class="modal modal--settings" id="modal-light" aria-labelledby="modal-light-title">
       <h3 class="modal__heading" id="modal-light-title">Tipo de iluminación</h3>
       <p class="modal__sub">Visto de frente: elige el modelo y arrástralo en el lienzo</p>
+
+      <!-- Altura de montaje: solo gobierna «Foco con mástil» y «Torre de luz» -->
+      <div class="modal__build-fields">
+        <label class="panel__field" for="light-sport">
+          <span class="modal__field-label">Actividad deportiva</span>
+          <select class="panel__select" id="light-sport"></select>
+        </label>
+        <label class="panel__field" for="light-mast-height">
+          <span class="modal__field-label">Altura de montaje: <span id="light-mast-height-val">10</span> m</span>
+          <input class="panel__slider" type="range" id="light-mast-height"
+                 min="4" max="45" step="1" value="10"
+                 aria-describedby="light-mast-hint"
+                 aria-label="Altura de montaje del mástil, de 4 a 45 metros" />
+        </label>
+        <p class="modal__sub" id="light-mast-hint">Recomendado para pista polideportiva: 8–12 m</p>
+      </div>
+
+      <p class="modal__legend">Modelo</p>
       <div id="light-catalog"></div>
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
   </dialog>
@@ -2442,24 +2461,24 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=3.15.0"></script>
-  <script src="src/js/sketchy.js?v=3.15.0"></script>
-  <script src="src/js/freehand.js?v=3.15.0"></script>
-  <script src="src/js/arc.js?v=3.15.0"></script>
-  <script src="src/js/curve-path.js?v=3.15.0"></script>
-  <script src="src/js/shape-rotation.js?v=3.15.0"></script>
-  <script src="src/js/regular-polygon.js?v=3.15.0"></script>
-  <script src="src/js/trapezoid.js?v=3.15.0"></script>
-  <script src="src/js/hatch.js?v=3.15.0"></script>
-  <script src="src/js/airbrush.js?v=3.15.0"></script>
-  <script src="src/js/flood.js?v=3.15.0"></script>
-  <script src="src/js/eraser.js?v=3.15.0"></script>
-  <script src="src/js/building.js?v=3.15.0"></script>
-  <script src="src/js/garden.js?v=3.15.0"></script>
-  <script src="src/js/solid.js?v=3.15.0"></script>
-  <script src="src/js/renderer.js?v=3.15.0"></script>
-  <script src="src/js/exporter.js?v=3.15.0"></script>
-  <script src="src/js/templates.js?v=3.15.0"></script>
-  <script src="src/js/app.js?v=3.15.0"></script>
+  <script src="src/js/config.js?v=3.16.0"></script>
+  <script src="src/js/sketchy.js?v=3.16.0"></script>
+  <script src="src/js/freehand.js?v=3.16.0"></script>
+  <script src="src/js/arc.js?v=3.16.0"></script>
+  <script src="src/js/curve-path.js?v=3.16.0"></script>
+  <script src="src/js/shape-rotation.js?v=3.16.0"></script>
+  <script src="src/js/regular-polygon.js?v=3.16.0"></script>
+  <script src="src/js/trapezoid.js?v=3.16.0"></script>
+  <script src="src/js/hatch.js?v=3.16.0"></script>
+  <script src="src/js/airbrush.js?v=3.16.0"></script>
+  <script src="src/js/flood.js?v=3.16.0"></script>
+  <script src="src/js/eraser.js?v=3.16.0"></script>
+  <script src="src/js/building.js?v=3.16.0"></script>
+  <script src="src/js/garden.js?v=3.16.0"></script>
+  <script src="src/js/solid.js?v=3.16.0"></script>
+  <script src="src/js/renderer.js?v=3.16.0"></script>
+  <script src="src/js/exporter.js?v=3.16.0"></script>
+  <script src="src/js/templates.js?v=3.16.0"></script>
+  <script src="src/js/app.js?v=3.16.0"></script>
 </body>
 </html>

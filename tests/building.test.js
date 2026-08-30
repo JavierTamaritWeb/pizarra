@@ -10,7 +10,7 @@ const { loadAll, createCtxStub } = require('./helpers/load.js');
 
 const ctx = loadAll();
 const { Building, TOOLS, BUILDING_TOOLS, DOOR_TYPES, WINDOW_TYPES, ROOF_TYPES,
-        FACADE_TYPES, BALCONY_TYPES, LIGHT_TYPES, FORGE_TYPES, FENCE_VIEWS,
+        FACADE_TYPES, BALCONY_TYPES, LIGHT_TYPES, LIGHT_SPORTS, FORGE_TYPES, FENCE_VIEWS,
         GATE_TYPES, GATE_VIEWS, Renderer } = ctx;
 const O = { color: '#123456', lineWidth: 3 };
 const P1 = { x: 100, y: 100 }, P2 = { x: 300, y: 260 };
@@ -1068,7 +1068,7 @@ function cajaDe(els) {
   return { x1, y1, x2, y2 };
 }
 
-test('Iluminación: los 7 modelos generan geometría finita y distinta', () => {
+test('Iluminación: los 8 modelos generan geometría finita y distinta', () => {
   const firmas = new Set();
   for (const lt of LIGHT_TYPES.map(v => v.id)) {
     const els = farola(lt);
@@ -1095,6 +1095,11 @@ test('Iluminación: cada modelo se queda dentro de su caja, salvo el vuelo later
     assert.ok(c.x1 >= p1.x - 40 && c.x2 <= p2.x + 40, `${lt}: se va de largo a los lados`);
     assert.ok(c.y1 >= p1.y - 20, `${lt}: se sale por arriba`);
     assert.ok(c.y2 <= p2.y + 1, `${lt}: se sale por debajo del suelo`);
+    // El mástil y la torre no llenan la caja del arrastre (su alto es la cota)
+    // y la de pared cuelga del muro, sin fuste que baje hasta el suelo.
+    if (!['mast', 'tower', 'wall'].includes(lt)) {
+      assert.ok(c.y2 > p2.y - 40, `${lt}: no llega al suelo de su caja`);
+    }
   }
 });
 
@@ -1107,6 +1112,58 @@ test('Iluminación: la caja del clic sin arrastre depende del modelo', () => {
     'la torre debería nacer más esbelta que la farola de pared');
   assert.ok(prop(clic('post2')) > prop(clic('post')),
     'el doble foco debería nacer más ancho que el de foco simple');
+});
+
+/* --- Alumbrado deportivo: la cota manda sobre el arrastre (v3.16.0) --- */
+
+const conCota = (lightType, lightMastM, p1 = { x: 40, y: 20 }, p2 = { x: 140, y: 300 }) =>
+  Building.elements(TOOLS.BUILD_LIGHT, p1, p2, { ...O, lightType, lightMastM });
+
+test('Iluminación: en mástil y torre la altura sale de la cota, no del arrastre', () => {
+  for (const lt of ['mast', 'tower']) {
+    const corto = cajaDe(conCota(lt, 12, { x: 0, y: 0 }, { x: 60, y: 40 }));
+    const largo = cajaDe(conCota(lt, 12, { x: 0, y: 0 }, { x: 60, y: 900 }));
+    const alto = c => c.y2 - c.y1;
+    assert.ok(Math.abs(alto(corto) - alto(largo)) < 2,
+      `${lt}: el arrastre vertical cambió la altura`);
+    assert.ok(Math.abs(alto(corto) - 12 * Building.LIGHT_PX_PER_M) < 12,
+      `${lt}: la altura no responde a la cota en metros`);
+    // El arrastre sí sigue mandando en la envergadura del cabezal.
+    const ancho = c => c.x2 - c.x1;
+    assert.ok(ancho(cajaDe(conCota(lt, 12, { x: 0, y: 0 }, { x: 200, y: 40 })))
+      > ancho(corto) + 20, `${lt}: el arrastre horizontal no ensancha`);
+  }
+});
+
+test('Iluminación: una cota mayor levanta el mástil y la torre', () => {
+  for (const lt of ['mast', 'tower']) {
+    const alto = m => { const c = cajaDe(conCota(lt, m)); return c.y2 - c.y1; };
+    assert.ok(alto(30) > alto(10) * 2.5, `${lt}: 30 m no sale mucho más alto que 10 m`);
+    // Fuera del rango del deslizador la cota se recorta, no se dispara.
+    assert.ok(Math.abs(alto(500) - alto(Building.LIGHT_M_MAX)) < 1, `${lt}: cota sin tope`);
+    assert.ok(Math.abs(alto(-3) - alto(Building.LIGHT_M_MIN)) < 1, `${lt}: cota sin suelo`);
+    assert.ok(Math.abs(alto(undefined) - alto(Building.LIGHT_M_DEF)) < 1, `${lt}: sin cota no cae en el defecto`);
+  }
+});
+
+test('Iluminación: el mástil pone más proyectores cuanto más alto es', () => {
+  const piezas = m => conCota('mast', m).length;
+  assert.ok(piezas(25) > piezas(8), 'el cabezal no crece con la altura');
+  // Las farolas corrientes NO se enteran de la cota: no son alumbrado deportivo.
+  assert.deepEqual(conCota('post', 8), conCota('post', 40));
+});
+
+test('LIGHT_SPORTS: cotas recomendadas coherentes y dentro del deslizador', () => {
+  assert.ok(LIGHT_SPORTS.length >= 6, 'pocas actividades para elegir');
+  const ids = new Set();
+  for (const s of LIGHT_SPORTS) {
+    assert.ok(s.id && s.name, `${s.id}: entrada incompleta`);
+    assert.ok(!ids.has(s.id), `${s.id}: id repetido`);
+    ids.add(s.id);
+    assert.ok(s.lo <= s.m && s.m <= s.hi, `${s.id}: la cota propuesta se sale de su rango`);
+    assert.ok(s.lo >= Building.LIGHT_M_MIN && s.hi <= Building.LIGHT_M_MAX,
+      `${s.id}: el rango no cabe en el deslizador`);
+  }
 });
 
 test('Iluminación: un modelo desconocido cae en la farola de pie', () => {

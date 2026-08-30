@@ -4,6 +4,38 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.16.0] — 2026-08-30
+
+### Añadido
+
+- **Alumbrado deportivo** en la herramienta **Iluminación**: un octavo modelo,
+  el **foco con mástil** —proyectores sobre mástil tubular, con placa de
+  anclaje y las juntas de sus tramos—, y un juego de mandos propios en el modal
+  para acotarlo.
+- Selector de **actividad deportiva** (pádel y tenis, pista polideportiva,
+  piscina descubierta, fútbol sala y fútbol 7, fútbol 11, atletismo, rugby y
+  hockey, béisbol y estadio) que propone la **altura de montaje recomendada**
+  para cada una, y deslizador de **4 a 45 m** para ajustarla. Bajo el selector,
+  una pista con el rango habitual que avisa cuando la cota se sale de él: la
+  actividad es un punto de partida, la cota manda.
+- En los dos modelos de gran altura —**foco con mástil** y **torre de luz**— la
+  altura sale de esa cota y **no del arrastre**, como ya ocurría con la altura
+  de Verjas y Cancela. Dos torres puestas para la misma actividad salen a la
+  misma altura sin apuntar el ratón; el arrastre solo da la envergadura del
+  cabezal. Además se anclan **por la base**: se plantan en el punto del suelo
+  donde se sueltan y crecen hacia arriba.
+- Detalle que sigue a la cota: el mástil se despieza en tramos a partir de
+  cierta altura y su cabezal lleva **más proyectores cuanto más alto** está el
+  montaje.
+
+### Cambiado
+
+- El modal de Iluminación pasa a ser de ajustes (`modal--settings`), con sus
+  mandos por encima del catálogo. Es el primer diálogo con esa clase **sin**
+  miniatura: la cota no se puede enseñar en un icono que se ajusta a sus
+  bounds, así que informa el número. Los iconos del catálogo se pintan con una
+  cota fija de 7 m para que el mástil no quede reducido a un hilo.
+
 ## [3.15.0] — 2026-08-30
 
 ### Añadido

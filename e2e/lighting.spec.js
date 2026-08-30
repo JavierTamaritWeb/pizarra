@@ -5,9 +5,9 @@ const { openApp, elements, readAutosave, selectTool, drag } = require('./helpers
 
 /* Iluminación (v3.15.0): catálogo genérico de VARIANT_MODALS, como el Balcón.
    Lo que se comprueba aquí y NO puede comprobar el arnés node:vm es que el
-   catálogo se pinte de verdad en un navegador —siete iconos con su canvas— y
+   catálogo se pinte de verdad en un navegador —ocho iconos con su canvas— y
    que un clic seleccione la farola entera, no una de sus piezas. */
-test('Iluminación: catálogo de 7 modelos, grupo al dibujar y elección persistente',
+test('Iluminación: catálogo de 8 modelos, grupo al dibujar y elección persistente',
   async ({ page }) => {
     const errors = [];
     page.on('pageerror', error => errors.push(String(error)));
@@ -22,9 +22,9 @@ test('Iluminación: catálogo de 7 modelos, grupo al dibujar y elección persist
     await expect(page.locator('#modal-light')).toBeVisible();
 
     const botones = page.locator('#light-catalog .modal__light');
-    await expect(botones).toHaveCount(7);
+    await expect(botones).toHaveCount(8);
     expect(await botones.evaluateAll(bs => bs.map(b => b.dataset.light)))
-      .toEqual(['post', 'post2', 'forge', 'forge2', 'wall', 'spot', 'tower']);
+      .toEqual(['post', 'post2', 'forge', 'forge2', 'wall', 'spot', 'mast', 'tower']);
 
     // El icono es la geometría real: cada botón lleva su canvas y ninguno sale
     // en blanco (un modelo que no dibuja nada pasaría desapercibido si no).
@@ -38,7 +38,7 @@ test('Iluminación: catálogo de 7 modelos, grupo al dibujar y elección persist
       return hash >>> 0;
     }));
     expect(tintas.includes(null), 'algún modelo sin icono').toBe(false);
-    expect(new Set(tintas).size, 'dos modelos pintan el mismo icono').toBe(7);
+    expect(new Set(tintas).size, 'dos modelos pintan el mismo icono').toBe(8);
 
     await page.locator('#light-catalog .modal__light[data-light="forge2"]').click();
     await expect(page.locator('#modal-light')).not.toBeVisible();
@@ -83,5 +83,53 @@ test('Iluminación: catálogo de 7 modelos, grupo al dibujar y elección persist
     await selectTool(page, 'iluminacion');
     await expect(page.locator('#light-catalog .modal__light[data-light="forge2"]'))
       .toHaveAttribute('aria-pressed', 'true');
+    expect(errors).toEqual([]);
+  });
+
+/* Alumbrado deportivo (v3.16.0): la altura del mástil y de la torre sale de la
+   cota en metros del modal, no del arrastre. En el navegador se comprueba lo
+   que el arnés no ve: que el selector de actividad mueva de verdad el
+   deslizador y que el dibujo obedezca a la cota y no al ratón. */
+test('Alumbrado deportivo: la actividad propone la cota y la cota manda sobre el arrastre',
+  async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', error => errors.push(String(error)));
+    await openApp(page);
+    await selectTool(page, 'iluminacion');
+
+    const cota = page.locator('#light-mast-height');
+    await page.locator('#light-sport').selectOption('football');
+    await expect(cota).toHaveValue('16');
+    await expect(page.locator('#light-mast-hint')).toContainText('15–18 m');
+
+    await page.locator('#light-catalog .modal__light[data-light="tower"]').click();
+    await expect(page.locator('#modal-light')).not.toBeVisible();
+
+    // Dos arrastres verticales muy distintos, la misma torre de 16 m.
+    await drag(page, 260, 120, 340, 200);
+    const corta = await elements(page);
+    await selectTool(page, 'iluminacion');
+    await page.locator('#light-catalog .modal__light[data-light="tower"]').click();
+    await drag(page, 600, 120, 680, 620);
+    const todo = await elements(page);
+    const larga = todo.filter(p => p.buildingGroupId !== corta[0].buildingGroupId);
+
+    const alto = ps => Math.max(...ps.map(p => (p.y2 ?? p.y + p.h))) -
+      Math.min(...ps.map(p => (p.y1 ?? p.y)));
+    expect(Math.abs(alto(corta) - alto(larga)),
+      'el arrastre vertical cambió la altura de la torre').toBeLessThan(2);
+
+    // Bajar la cota SÍ la baja, y el aviso de rango aparece al salirse.
+    await selectTool(page, 'iluminacion');
+    await cota.fill('6');
+    await cota.dispatchEvent('input');
+    await expect(page.locator('#light-mast-hint')).toContainText('se sale de ese rango');
+    await page.locator('#light-catalog .modal__light[data-light="tower"]').click();
+    await drag(page, 900, 120, 960, 620);
+    const bajita = (await elements(page))
+      .filter(p => ![corta[0].buildingGroupId, larga[0].buildingGroupId]
+        .includes(p.buildingGroupId));
+    expect(alto(bajita), 'la torre de 6 m no salió más baja que la de 16 m')
+      .toBeLessThan(alto(corta) * 0.6);
     expect(errors).toEqual([]);
   });

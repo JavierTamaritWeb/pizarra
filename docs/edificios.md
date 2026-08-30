@@ -16,14 +16,14 @@ The gate selector now contains **18 entries** from the shared `GATE_TYPES`: stra
 
 **Verjas** and **Cancela** are autonomous siblings of Muro. Both use a hybrid modal: `FENCE_VIEWS`/`GATE_VIEWS` choose plan or elevation, while a `<select>`, a 0–350 cm slider and a live preview choose the model and physical height. `syncFenceControls`/`renderFencePreview` and `syncGateControls`/`renderGatePreview` are their single sync points. Verjas draws the 13 `FORGE_TYPES`; every design has a defensive finial and `_forgeFinial` gives each blade a distinct classical profile. Cancela draws all 18 `GATE_TYPES` without wall fabric by building its own opening and reusing `_wallGatePlan`/`_wallGateElevation`. Their independent prefs are `fenceView`/`fenceType`/`fenceHeightCm` and `gateView`/`gateType`/`gateHeightCm`; the exported module limits (`FENCE_H_MIN_CM/MAX`, `GATE_H_MIN_CM/MAX`) must match the HTML sliders and are pinned by `tests/smoke.test.js`.
 
-**Iluminación** (v3.15.0) es la décima herramienta y la más sencilla de todas:
-catálogo puro por `VARIANT_MODALS` (`LIGHT_TYPES`, `state.lightType`,
-`#modal-light`), sin ningún mando propio, así que no necesita el
-`syncXControls()` que Verjas y Cancela sí piden en `selectTool`. Siete modelos:
-`post` / `post2` (farola de pie de uno o dos focos), `forge` / `forge2` (los
-mismos en forja, con volutas y brazos en arco), `wall` (de pared), `spot`
-(proyector) y `tower` (torre de celosía). Dos cosas que no se ven en el código
-sin buscarlas:
+**Iluminación** (v3.15.0) es la décima herramienta: catálogo por
+`VARIANT_MODALS` (`LIGHT_TYPES`, `state.lightType`, `#modal-light`) más —desde
+la v3.16.0— dos mandos propios, que sí le obligan a un `syncLightControls()` en
+`selectTool`, como Verjas y Cancela. Ocho modelos: `post` / `post2` (farola de
+pie de uno o dos focos), `forge` / `forge2` (los mismos en forja, con volutas y
+brazos en arco), `wall` (de pared), `spot` (proyector de suelo), `mast` (foco
+con mástil) y `tower` (torre de celosía). Cosas que no se ven en el código sin
+buscarlas:
 
 - **La caja del icono es un arrastre nulo**, como en Balcón: la pone el
   `byVariant` de `DEFAULTS`, y por eso el catálogo enseña la proporción real de
@@ -34,7 +34,36 @@ sin buscarlas:
   que los del balcón francés. Es la única cuya caja por defecto es casi
   cuadrada, y el `_lightShaft` compartido no se le aplica.
 - **El foco es la única pieza girada de la sección** (`_rotAt`, ~24°): un
-  proyector a escuadra no se lee como un foco, sino como una caja.
+  proyector a escuadra no se lee como un foco, sino como una caja. El cabezal
+  lo dibuja `_projector`, compartido con el mástil.
+
+### Alumbrado deportivo: la cota manda (v3.16.0)
+
+`mast` y `tower` no se acotan como el resto. Su altura sale de
+`state.lightMastM` (metros, 4–45) y NO del arrastre, igual que la altura de
+Verjas y Cancela sale de su deslizador: el bloque de `elements()` que las
+detecta (`LIGHT_MAST_TOOLS`) sustituye `b.h` por `cota × LIGHT_PX_PER_M`. El
+arrastre solo da la envergadura del cabezal. `#modal-light` propone la cota con
+un selector de actividad (`LIGHT_SPORTS`, en `js/config.js`: `m` recomendada y
+rango `lo`–`hi`), pero no la ata — la pista de debajo avisa cuando la cota se
+sale del rango en vez de impedirlo.
+
+Cuatro consecuencias que se pagan si se ignoran:
+
+- **`DEFAULTS.byVariant` no tiene entrada para estos dos**, a propósito: su
+  caja no puede ser fija. El alto viene de la cota y el ancho la acompaña
+  (`h × 0,3` en la torre, `× 0,26` en el mástil, con suelo de 22 px), o un
+  mástil de 30 m saldría con el mismo cabezal de 76 px que uno de 8 m.
+- **Se anclan por la BASE** (`y = max(p1.y, p2.y) − h`), no por arriba como
+  Verjas: un mástil se planta en un punto del suelo y crece hacia arriba.
+  Anclado por arriba, subir la cota hundía la torre bajo la línea trazada.
+- **La escala es propia**: `LIGHT_PX_PER_M = 9`, no los 65 px/m del muro.
+  Aquello es escala de detalle de fachada y esto de recinto; a 65 px/m un
+  mástil de 30 m mediría 1.950 px.
+- **El icono del catálogo va con cota fija** (`LIGHT_ICON_M = 7`, en la fila de
+  `VARIANT_MODALS`). El icono se ajusta a sus bounds, así que la cota no se ve
+  como altura sino como esbeltez: a 30 m el mástil quedaba en un hilo de 12 px
+  con el cabezal ilegible.
 
 `#modal-facade` is the one that carries more than a catalogue among the hand-written five, because Fachada is the only one of those with parameters. It holds a **live thumbnail** (`#facade-preview`) plus twins of the panel's four building fields (`#facade-floors`/`#facade-bays`/`#facade-roof-type`/`#facade-roof-pitch`), so a view can be chosen without hunting for the panel. Four rules keep it honest:
 

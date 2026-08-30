@@ -36,15 +36,22 @@ test('el modal de ajustes se ensancha por encima de 1200px, y no antes', async (
     .evaluate(n => getComputedStyle(n).gridTemplateColumns.split(' ').length)).toBe(2);
 });
 
-test('los dieciséis modales con miniatura son los que se ensanchan', async ({ page }) => {
+test('todo modal con miniatura es de los que se ensanchan', async ({ page }) => {
   await openApp(page, { viewport: WIDE });
   // La clase la lleva el diálogo, no el contenedor: si alguien añade un modal
   // con miniatura y se olvida, se queda estrecho y con una columna larguísima.
   // Las fichas botánicas quedan fuera: tienen su propio ancho (.modal--plant).
   const conMiniatura = await page.locator('dialog:has(.modal__build):not(.modal--plant)').count();
-  const anchos = await page.locator('dialog.modal--settings').count();
   expect(conMiniatura).toBe(16); // los quince de la v2.26.0 más la Tinta
-  expect(anchos).toBe(conMiniatura);
+  // La implicación va en un solo sentido: lo que pide `modal--settings` es
+  // tener mandos que ensanchar, no miniatura. Iluminación la lleva sin
+  // miniatura —su cota no se puede enseñar en un icono ajustado a bounds—.
+  const huerfanos = await page
+    .locator('dialog:has(.modal__build):not(.modal--plant):not(.modal--settings)')
+    .evaluateAll(ds => ds.map(d => d.id));
+  expect(huerfanos, 'modal con miniatura sin modal--settings').toEqual([]);
+  expect(await page.locator('dialog.modal--settings').count())
+    .toBeGreaterThanOrEqual(conMiniatura);
 });
 
 test('la paleta del trazo del modal pinta el elemento seleccionado', async ({ page }) => {
