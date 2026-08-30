@@ -10,7 +10,7 @@ const { loadAll, createCtxStub } = require('./helpers/load.js');
 
 const ctx = loadAll();
 const { Building, TOOLS, BUILDING_TOOLS, DOOR_TYPES, WINDOW_TYPES, ROOF_TYPES,
-        FACADE_TYPES, BALCONY_TYPES, FORGE_TYPES, FENCE_VIEWS,
+        FACADE_TYPES, BALCONY_TYPES, LIGHT_TYPES, FORGE_TYPES, FENCE_VIEWS,
         GATE_TYPES, GATE_VIEWS, Renderer } = ctx;
 const O = { color: '#123456', lineWidth: 3 };
 const P1 = { x: 100, y: 100 }, P2 = { x: 300, y: 260 };
@@ -1026,6 +1026,11 @@ test('todos los elementos generados se renderizan sin lanzar', () => {
       assert.doesNotThrow(() => Renderer.renderElement(stub, { ...el, seed: 1 }));
     }
   }
+  for (const lt of LIGHT_TYPES.map(v => v.id)) {
+    for (const el of farola(lt)) {
+      assert.doesNotThrow(() => Renderer.renderElement(stub, { ...el, seed: 1 }));
+    }
+  }
   const wallCombos = [
     { wallView: 'plan', wallMaterial: 'stone', wallGateType: 'none' },
     { wallView: 'plan', wallMaterial: 'concrete', wallGateType: 'single' },
@@ -1041,4 +1046,69 @@ test('todos los elementos generados se renderizan sin lanzar', () => {
       assert.doesNotThrow(() => Renderer.renderElement(stub, { ...el, seed: 1 }));
     }
   }
+});
+
+/* ---------------- Iluminación (v3.15.0) ---------------- */
+
+const farola = (lightType, p1 = { x: 40, y: 20 }, p2 = { x: 140, y: 300 }) =>
+  Building.elements(TOOLS.BUILD_LIGHT, p1, p2, { ...O, lightType });
+
+// Caja real de un conjunto de piezas: los tipos que emite Iluminación son
+// line, rect, circle y curveArrow, y todos exponen o x1/y1/x2/y2 o x/y/w/h.
+function cajaDe(els) {
+  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+  const punto = (x, y) => {
+    x1 = Math.min(x1, x); y1 = Math.min(y1, y);
+    x2 = Math.max(x2, x); y2 = Math.max(y2, y);
+  };
+  for (const el of els) {
+    if (typeof el.x1 === 'number') { punto(el.x1, el.y1); punto(el.x2, el.y2); }
+    else { punto(el.x, el.y); punto(el.x + el.w, el.y + el.h); }
+  }
+  return { x1, y1, x2, y2 };
+}
+
+test('Iluminación: los 7 modelos generan geometría finita y distinta', () => {
+  const firmas = new Set();
+  for (const lt of LIGHT_TYPES.map(v => v.id)) {
+    const els = farola(lt);
+    assert.ok(els.length > 2, `${lt}: apenas generó piezas`);
+    for (const el of els) {
+      for (const k of ['x', 'y', 'w', 'h', 'x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'cx2', 'cy2']) {
+        if (k in el) assert.ok(Number.isFinite(el[k]), `${lt}: ${k} no es finito`);
+      }
+      assert.ok(el.lineWidth >= 1, `${lt}: trazo por debajo de 1 px`);
+      if ('w' in el) assert.ok(el.w > 0 && el.h > 0, `${lt}: caja degenerada`);
+    }
+    firmas.add(JSON.stringify(els));
+  }
+  assert.equal(firmas.size, LIGHT_TYPES.length, 'dos modelos dibujan lo mismo');
+});
+
+test('Iluminación: cada modelo se queda dentro de su caja, salvo el vuelo lateral', () => {
+  // Los brazos del doble foco y los anclajes de la de pared sobresalen a los
+  // lados a propósito —igual que el vuelo del balcón—; en vertical, en cambio,
+  // no hay nada que deba escaparse salvo la perilla del farol.
+  const p1 = { x: 40, y: 20 }, p2 = { x: 140, y: 300 };
+  for (const lt of LIGHT_TYPES.map(v => v.id)) {
+    const c = cajaDe(farola(lt, p1, p2));
+    assert.ok(c.x1 >= p1.x - 40 && c.x2 <= p2.x + 40, `${lt}: se va de largo a los lados`);
+    assert.ok(c.y1 >= p1.y - 20, `${lt}: se sale por arriba`);
+    assert.ok(c.y2 <= p2.y + 1, `${lt}: se sale por debajo del suelo`);
+  }
+});
+
+test('Iluminación: la caja del clic sin arrastre depende del modelo', () => {
+  // Es lo que da sentido al arrastre nulo del icono del catálogo: una torre
+  // nace alta y estrecha, y la de pared casi cuadrada.
+  const clic = lt => cajaDe(farola(lt, { x: 0, y: 0 }, { x: 0, y: 0 }));
+  const prop = c => (c.x2 - c.x1) / (c.y2 - c.y1);
+  assert.ok(prop(clic('tower')) < prop(clic('wall')),
+    'la torre debería nacer más esbelta que la farola de pared');
+  assert.ok(prop(clic('post2')) > prop(clic('post')),
+    'el doble foco debería nacer más ancho que el de foco simple');
+});
+
+test('Iluminación: un modelo desconocido cae en la farola de pie', () => {
+  assert.deepEqual(farola('inventado'), farola('post'));
 });

@@ -4,7 +4,7 @@
 
 **Wireframes, diagramas y bocetos con estética dibujada a mano — en el navegador y sin instalar nada.**
 
-[![Versión](https://img.shields.io/badge/versión-3.14.2-blueviolet?style=flat-square)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-3.15.0-blueviolet?style=flat-square)](CHANGELOG.md)
 [![Vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?style=flat-square&logo=javascript&logoColor=000)](src/js/)
 [![Estilos](https://img.shields.io/badge/estilos-SCSS%20·%20BEM%20·%20Gulp%205-cf649a?style=flat-square&logo=sass&logoColor=fff)](src/scss/)
 [![Dependencias](https://img.shields.io/badge/dependencias%20en%20runtime-0-brightgreen?style=flat-square)](#arquitectura)
@@ -104,7 +104,7 @@ Dos secciones para bocetar arquitectura y entorno con la misma estética. Ningun
 
 <img src="src/img/screenshot-edificios-jardin.png" alt="Un alzado de edificio de tres plantas con tejado a dos aguas, dentro de una parcela rectangular con una encina, una palmera datilera, un ciprés, un seto, un rosal y una fuente, todos etiquetados con su nombre común" width="820">
 
-**Edificios** — planta, fachada, tejado, puerta, ventana, balcón, muro, verjas y cancela. La fachada abre un modal con **miniatura en vivo**, tres vistas y los ajustes de plantas, ventanas por planta, pendiente y cubierta, todos sincronizados con el panel lateral. El balcón trae **8 tipos** y su catálogo, como los del jardín, usa **el dibujo real como icono**. El muro se dibuja en **vista de planta o de alzado**, en piedra, hormigón o ladrillo cara vista, con verja opcional arriba y **dieciocho cancelas** a elegir. La herramienta **Verjas** dibuja paños independientes en planta o alzado, ofrece trece diseños de forja con lanzas —incluidos seis inspirados en tradiciones españolas— y regula su altura entre **0 y 350 cm** mediante una miniatura en vivo. Los trece remates tienen hojas diferentes —lanceolada, aguja, ojiva, rombo, laurel, llama, palmeta, hoja facetada, flor de lis, piramidión, cáliz, corazón y rocalla— sin abandonar el repertorio clásico de los maestros forjadores. La herramienta **Cancela** permite colocar cualquiera de los dieciocho estilos como elemento autónomo, en planta o alzado y con altura regulable de **0 a 350 cm**.
+**Edificios** — planta, fachada, tejado, puerta, ventana, balcón, muro, verjas, cancela e iluminación. La fachada abre un modal con **miniatura en vivo**, tres vistas y los ajustes de plantas, ventanas por planta, pendiente y cubierta, todos sincronizados con el panel lateral. El balcón trae **8 tipos** y su catálogo, como los del jardín, usa **el dibujo real como icono**. El muro se dibuja en **vista de planta o de alzado**, en piedra, hormigón o ladrillo cara vista, con verja opcional arriba y **dieciocho cancelas** a elegir. La herramienta **Verjas** dibuja paños independientes en planta o alzado, ofrece trece diseños de forja con lanzas —incluidos seis inspirados en tradiciones españolas— y regula su altura entre **0 y 350 cm** mediante una miniatura en vivo. Los trece remates tienen hojas diferentes —lanceolada, aguja, ojiva, rombo, laurel, llama, palmeta, hoja facetada, flor de lis, piramidión, cáliz, corazón y rocalla— sin abandonar el repertorio clásico de los maestros forjadores. La herramienta **Cancela** permite colocar cualquiera de los dieciocho estilos como elemento autónomo, en planta o alzado y con altura regulable de **0 a 350 cm**. La herramienta **Iluminación** añade **7 modelos** de alumbrado —farola de pie, de doble foco, de forja, de forja de doble foco, de pared, foco y torre de luz—, con la misma clase de catálogo dibujado con la geometría real.
 
 **Jardín** — **72 variantes en ocho catálogos**, incluidas **51 especies vegetales** documentadas con nombre botánico y dimensiones adultas. Árboles, arbustos, flores, aromáticas y trepadoras se representan en **planta o alzado**, con etapa joven/en desarrollo/adulta, tamaño 50–150 %, escala 8–50 px/m, color natural o tinta y tres tipos de etiqueta. Parcela, decoración y caminos conservan la planta cenital. En todos los catálogos **el icono es el dibujo real**, conserva la proporción botánica de la especie y mantiene rasgos reconocibles —por ejemplo, el ciprés fastigiado en llama o el pino piñonero aparasolado— aunque el trazo siga siendo esquemático. La **parra malvasía** es la excepción que confirma la regla: se dibuja como el emparrado que es —postes, cubierta de vigas y el manto de pámpanos que da la sombra—, en alzado y en planta.
 
@@ -124,6 +124,7 @@ Cada edificio y cada pieza de jardín se crea como una **unidad** — un clic la
 | **Muro** | Planta o alzado · piedra, hormigón o ladrillo · 18 cancelas · verja superior regulable |
 | **Verjas** | Planta o alzado · 13 diseños de forja con lanzas · altura de 0 a 350 cm |
 | **Cancela** | Planta o alzado · 18 estilos clásicos y monumentales · altura de 0 a 350 cm |
+| **Iluminación** | Farola de pie · de doble foco · de forja · de forja de doble foco · de pared · foco · torre de luz |
 | **Jardín** (`8`) | Parcela rectangular · cuadrada · redonda · en L · orgánica, con textura de césped |
 | **Árbol** (`9`) | Encina · pino piñonero · palmera datilera · olivo · almendro · algarrobo · naranjo · ciprés · higuera · granado · limonero · jacaranda · caqui |
 | **Arbusto** (`H`) | Mirto · seto de mirto y lentisco · alcaparra · olivo topiario · romero arbustivo · olivo recortado · lentisco · madroño · jara blanca · dondiego de noche |
@@ -199,7 +200,7 @@ Tres ajustes gobiernan **qué** sale y **cómo**: la **resolución** (1×, 2× o
 | — | 3D: Prisma, Pirámide, Tronco y Esfera van sin atajo (las 26 letras y los 10 dígitos ya estaban asignados) |
 | `T` `J` `B` `I` `M` `N` `K` | Texto · Emoji · Botón · Input · Imagen · Navbar · Tarjeta |
 | `V` `E` | Edición: Mover / seleccionar · Borrador |
-| `W` `1` `2` `0` `Y` | Edificios: Planta · Fachada · Tejado · Puerta · Ventana (Balcón, Muro, Verjas y Cancela no tienen atajo) |
+| `W` `1` `2` `0` `Y` | Edificios: Planta · Fachada · Tejado · Puerta · Ventana (Balcón, Muro, Verjas, Cancela e Iluminación no tienen atajo) |
 | `8` `9` `H` `X` `Z` | Jardín: Jardín · Árbol · Arbusto · Flor · Decoración (Caminos, Aromáticas y Trepadoras van sin atajo) |
 | `Ctrl/Cmd+Z` · `Ctrl+Y` o `Cmd+Shift+Z` | Deshacer · rehacer |
 | `Ctrl/Cmd+D` · `Ctrl/Cmd+A` | Duplicar · seleccionar todo |
@@ -221,7 +222,7 @@ Tres ajustes gobiernan **qué** sale y **cómo**: la **resolución** (1×, 2× o
 | `Mayús+1` · `Mayús+2` · `Ctrl/Cmd+0` | Encuadrar el dibujo · encuadrar la selección · volver al 100 % |
 | `?` | Abrir la ayuda con todos los atajos |
 
-Las herramientas que abren catálogo (Edificios y Jardín) muestran su modal de tipos al pulsar el atajo. **Aerógrafo**, **Balcón**, **Muro**, **Verjas**, **Cancela**, **Caminos**, **Aromáticas** y **Trepadoras** no tienen atajo: ya no queda ninguna tecla suelta libre.
+Las herramientas que abren catálogo (Edificios y Jardín) muestran su modal de tipos al pulsar el atajo. **Aerógrafo**, **Balcón**, **Muro**, **Verjas**, **Cancela**, **Iluminación**, **Caminos**, **Aromáticas** y **Trepadoras** no tienen atajo: ya no queda ninguna tecla suelta libre.
 
 ## Arquitectura
 
@@ -292,7 +293,7 @@ Cuatro convenciones que conviene conocer:
 
 ## Tests
 
-**910 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
+**920 tests unitarios** con el runner nativo de Node, sin ninguna dependencia
 de runtime:
 
 ```bash
@@ -302,7 +303,7 @@ node --test tests/exporter.test.js    # un archivo
 
 Los módulos se cargan en un contexto `node:vm` con stubs de canvas y DOM, incluido `src/js/app.js` completo: los tests lanzan gestos reales —puntero, teclado, modales— y leen el resultado del autoguardado, sin ningún hook de test en el código de producción.
 
-**177 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco, acciones por defecto del navegador, la navegación del lienzo (zoom al cursor, pan, encuadres), el feedback en vivo, los gestos multitáctiles (despachados por CDP), los flujos completos de Verjas y Cancela y el Jardín botánico en escritorio, móvil y anchos intermedios.
+**182 tests end-to-end** en un navegador real (Playwright), para lo que un stub no puede juzgar: layout, CSS, foco, acciones por defecto del navegador, la navegación del lienzo (zoom al cursor, pan, encuadres), el feedback en vivo, los gestos multitáctiles (despachados por CDP), los flujos completos de Verjas y Cancela y el Jardín botánico en escritorio, móvil y anchos intermedios.
 
 ```bash
 npm install && npm run e2e:install    # una vez (descarga Chromium)

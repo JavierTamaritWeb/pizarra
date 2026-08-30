@@ -37,6 +37,7 @@
     roofShape: 'gable',   // tipo elegido en el modal de Tejado: gable|mono|flat|hip|mansard
     facadeShape: 'flat',  // tipo elegido en el modal de Fachada: flat|gable|profile
     balconyType: 'balcony', // tipo elegido en el modal de Balcón (ver BALCONY_TYPES)
+    lightType: 'post',    // modelo elegido en el modal de Iluminación (ver LIGHT_TYPES)
     // Muro: vista elegida en el catálogo (ver WALL_VIEWS) + sus 4 ajustes
     // propios del modal (sin gemelo en el panel, como balconyType).
     wallView: 'elevation',
@@ -1358,6 +1359,7 @@
         doorType: state.doorType,
         windowType: state.windowType,
         balconyType: state.balconyType,
+        lightType: state.lightType,
         // Muro: vista del catálogo + sus 4 ajustes propios, mismo motivo.
         wallDesignVersion: WALL_DESIGN_VERSION,
         wallView: state.wallView,
@@ -1512,6 +1514,7 @@
       restoreVariant(prefs.doorType,    DOOR_TYPES,    'doorType');
       restoreVariant(prefs.windowType,  WINDOW_TYPES,  'windowType');
       restoreVariant(prefs.balconyType, BALCONY_TYPES, 'balconyType');
+      restoreVariant(prefs.lightType,   LIGHT_TYPES,   'lightType');
       // Las preferencias anteriores a la cancela cóncava guardaban siempre
       // planta + «sin puerta», aunque la persona nunca hubiera tocado Muro.
       // No dejamos que ese default histórico oculte silenciosamente el nuevo
@@ -3150,6 +3153,7 @@
       color: state.color, lineWidth: state.lineWidth,
       plantaShape: state.plantaShape, doorType: state.doorType,
       windowType: state.windowType, balconyType: state.balconyType,
+      lightType: state.lightType,
       floors: state.buildFloors, bays: state.buildBays, roofPitch: state.roofPitch,
       roofType: state.roofType, roofShape: state.roofShape, facadeShape: state.facadeShape,
       wallView: state.wallView, wallMaterial: state.wallMaterial,
@@ -4608,6 +4612,11 @@
     // Cancela: planta/alzado en el catálogo; modelo y cota 0–350 cm en sus
     // controles, con la misma geometría que las entradas del Muro.
     { tool: TOOLS.BUILD_GATE, modal: 'modal-gate', root: 'gate-catalog', cls: 'modal__gate', data: 'gate', catalog: GATE_VIEWS, key: 'gateView', gen: () => Building, opts: () => buildOpts(), box: { x: 0, y: 0 } },
+    // Iluminación: catálogo puro (sin select ni miniatura propios) y el mismo
+    // arrastre nulo que Balcón —la caja la pone byVariant—, para que el icono
+    // enseñe la proporción de cada modelo: la torre alta, la de pared casi
+    // cuadrada. A 56 px eso es la mitad de lo que los distingue.
+    { tool: TOOLS.BUILD_LIGHT, modal: 'modal-light', root: 'light-catalog', cls: 'modal__light', data: 'light', catalog: LIGHT_TYPES, key: 'lightType', gen: () => Building, opts: () => buildOpts(), box: { x: 0, y: 0 } },
     { tool: TOOLS.GARDEN_PLOT,   modal: 'modal-plot',   root: 'plot-catalog',   cls: 'modal__plot',   data: 'plot',   catalog: PLOT_SHAPES,   key: 'plotShape'  },
     { tool: TOOLS.GARDEN_TREE,   modal: 'modal-tree',   root: 'tree-catalog',   cls: 'modal__tree',   data: 'tree',   catalog: TREE_TYPES,    key: 'treeType', plant: true },
     { tool: TOOLS.GARDEN_SHRUB,  modal: 'modal-shrub',  root: 'shrub-catalog',  cls: 'modal__shrub',  data: 'shrub',  catalog: SHRUB_TYPES,   key: 'shrubType', plant: true },

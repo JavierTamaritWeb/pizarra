@@ -4,6 +4,23 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.15.0] — 2026-08-30
+
+### Añadido
+
+- **Iluminación**, décima herramienta de la sección **Edificios**: un botón que
+  abre su catálogo con **7 modelos** de alumbrado —farola de pie, farola de
+  doble foco, farola de forja, forja de doble foco, farola de pared, foco y
+  torre de luz—. Como el resto de la sección es de **solo creación**: cada
+  arrastre deja un grupo de `rect`/`line`/`circle`/`curveArrow` corrientes, con
+  lo que se exporta, se deshace y se borra como cualquier otro dibujo.
+- El catálogo va por la tabla genérica `VARIANT_MODALS`, así que su **icono es
+  la geometría real** que va a salir al arrastrar, y con arrastre nulo: cada
+  modelo enseña su propia proporción —la torre alta y estrecha, la de pared
+  casi cuadrada—, que a 56 px es la mitad de lo que los distingue.
+- Entra **sin atajo de teclado**, por el mismo motivo que Balcón, Muro, Verjas
+  y Cancela: no queda ninguna tecla suelta libre.
+
 ## [3.14.2] — 2026-08-29
 
 ### Corregido

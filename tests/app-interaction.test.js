@@ -503,6 +503,48 @@ test('el tipo de balcón elegido persiste en prefs y vuelve al arrancar', () => 
   assert.equal(marcado[0].dataset.balcony, 'mirador', 'vuelve marcada la elegida');
 });
 
+/* ── Iluminación: mismo catálogo genérico que el Balcón ── */
+
+test('el catálogo de Iluminación se llena desde LIGHT_TYPES y elegir un modelo lo aplica', () => {
+  const app = loadApp();
+  app.selectTool('iluminacion');
+  const btns = app.$('light-catalog').querySelectorAll('.modal__light');
+  assert.equal(btns.length, 7, 'un botón por entrada de LIGHT_TYPES');
+  assert.ok([...btns].every(b => b.querySelector('canvas')),
+    'cada botón lleva su icono dibujado con la geometría de la herramienta');
+
+  const forja = [...btns].find(b => b.dataset.light === 'forge');
+  app.$('modal-light').__fire('click', { target: forja });
+  app.flush();
+  app.drag(120, 60, 180, 300);
+
+  const els = app.elements();
+  assert.ok(els.length > 4, 'la farola se dibuja con varias piezas');
+  assert.ok(els.every(e => e.buildingGroupId === els[0].buildingGroupId),
+    'todas las piezas nacen en el mismo grupo');
+  assert.ok(els.some(e => e.type === 'curveArrow' && e.arc === true),
+    'la forja trae las volutas elegidas en el catálogo');
+});
+
+test('el modelo de farola elegido persiste en prefs y vuelve al arrancar', () => {
+  const app = loadApp();
+  app.selectTool('iluminacion');
+  const torre = [...app.$('light-catalog').querySelectorAll('.modal__light')]
+    .find(b => b.dataset.light === 'tower');
+  app.$('modal-light').__fire('click', { target: torre });
+  app.flush();
+
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.lightType, 'tower');
+
+  const again = loadApp({ prefs });
+  again.selectTool('iluminacion');
+  const marcado = [...again.$('light-catalog').querySelectorAll('.modal__light')]
+    .filter(b => b.getAttribute('aria-pressed') === 'true');
+  assert.equal(marcado.length, 1, 'solo una variante activa');
+  assert.equal(marcado[0].dataset.light, 'tower', 'vuelve marcado el elegido');
+});
+
 test('los tipos elegidos en el modal de Fachada persisten en prefs', () => {
   const app = loadApp();
   const win = app.$('facade-window-type');

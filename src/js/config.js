@@ -58,7 +58,7 @@ const TOOLS = Object.freeze({
   BUILD_ROOF:   'tejado',         BUILD_DOOR:   'puerta',
   BUILD_WINDOW: 'ventana',        BUILD_BALCONY:'balcon',
   BUILD_WALL:   'muro',           BUILD_FENCE:  'verja',
-  BUILD_GATE:   'cancela',
+  BUILD_GATE:   'cancela',   BUILD_LIGHT:  'iluminacion',
   // Jardín — herramientas de creación (NO tipos de elemento): producen
   // rect/line/circle/curveArrow/text. La vegetación admite planta y alzado.
   GARDEN_PLOT:   'jardin',        GARDEN_TREE:   'arbol',
@@ -79,7 +79,7 @@ const TOOLS = Object.freeze({
 const BUILDING_TOOLS = Object.freeze([
   TOOLS.BUILD_PLANTA, TOOLS.BUILD_FACADE, TOOLS.BUILD_ROOF,
   TOOLS.BUILD_DOOR, TOOLS.BUILD_WINDOW, TOOLS.BUILD_BALCONY, TOOLS.BUILD_WALL,
-  TOOLS.BUILD_FENCE, TOOLS.BUILD_GATE,
+  TOOLS.BUILD_FENCE, TOOLS.BUILD_GATE, TOOLS.BUILD_LIGHT,
 ]);
 
 /** Formas de huella del botón Planta (catálogo del modal). Ampliable.
@@ -141,6 +141,31 @@ const BALCONY_TYPES = Object.freeze([
   { id: 'glass',      name: 'Balcón acristalado' },
   { id: 'terrace',    name: 'Terraza' },
   { id: 'mirador',    name: 'Mirador' },
+]);
+
+/**
+ * Modelos del botón Iluminación (catálogo del modal).
+ *
+ * Como el Balcón, el modelo manda en la proporción —una farola de pared es
+ * casi cuadrada y una torre es un mástil—, así que su caja por defecto va por
+ * variante en `byVariant` (js/building.js) y el icono del catálogo nace de un
+ * arrastre nulo para enseñar esa proporción.
+ *
+ * Su icono NO se dibuja a mano: lo pinta la geometría real de js/building.js.
+ * Añadir un modelo = una entrada aquí y su `case` en `_lightTool`; el modal se
+ * rellena solo.
+ *
+ * Orden: primero las cuatro de pie (lisa y de forja, de uno y de dos focos),
+ * después la de pared y los dos aparatos de gran altura.
+ */
+const LIGHT_TYPES = Object.freeze([
+  { id: 'post',   name: 'Farola de pie' },
+  { id: 'post2',  name: 'Farola de doble foco' },
+  { id: 'forge',  name: 'Farola de forja' },
+  { id: 'forge2', name: 'Forja de doble foco' },
+  { id: 'wall',   name: 'Farola de pared' },
+  { id: 'spot',   name: 'Foco' },
+  { id: 'tower',  name: 'Torre de luz' },
 ]);
 
 /** Tipos del botón Tejado (catálogo del modal). El icono lo dibuja app.js
@@ -554,6 +579,7 @@ const TOOL_GROUPS = [
       { id: TOOLS.BUILD_WALL,    icon: '🧱', name: 'Muro y cancela' },
       { id: TOOLS.BUILD_FENCE,   icon: '╫',  name: 'Verjas' },
       { id: TOOLS.BUILD_GATE,    icon: '⚜',  name: 'Cancela' },
+      { id: TOOLS.BUILD_LIGHT,   icon: '💡', name: 'Iluminación' },
     ],
   },
   {

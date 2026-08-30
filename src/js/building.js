@@ -86,6 +86,16 @@ const Building = (function () {
     } },
     [TOOLS.BUILD_FENCE]: { w: 200, h: FENCE_H_DEF_CM * FENCE_PX_PER_CM },
     [TOOLS.BUILD_GATE]:  { w: 180, h: GATE_H_DEF_CM * GATE_PX_PER_CM },
+    // Iluminación: como el Balcón, el modelo manda en la proporción —una
+    // farola de pared es casi cuadrada y una torre es un mástil—, así que la
+    // caja del clic sin arrastre va por variante.
+    [TOOLS.BUILD_LIGHT]: { w: 46, h: 190, variantKey: 'lightType', byVariant: {
+      post2:  { w: 96,  h: 190 },
+      forge2: { w: 96,  h: 190 },
+      wall:   { w: 74,  h: 78  },   // cuelga del muro: ni fuste ni base
+      spot:   { w: 62,  h: 74  },
+      tower:  { w: 88,  h: 260 },
+    } },
   };
 
   const _wallHeightM = o => (Number(o.wallHeight) === 2 ? 2 : 1);
@@ -143,6 +153,7 @@ const Building = (function () {
       case TOOLS.BUILD_WALL:   return _wallTool(b, o);
       case TOOLS.BUILD_FENCE:  return _fenceTool(b, o);
       case TOOLS.BUILD_GATE:   return _gateTool(b, o);
+      case TOOLS.BUILD_LIGHT:  return _lightTool(b, o);
       default: return [];
     }
   }
@@ -2152,6 +2163,227 @@ const Building = (function () {
       els.push(..._railPanel(gate.gx + i * leafW, top, leafW, gh, o, gap));
     }
     if (leaves === 2) els.push(_line(gate.gx + leafW, top, gate.gx + leafW, ground, o));
+    return els;
+  }
+
+  /* ── Iluminación ──
+     Siete modelos, todos dentro de la caja del arrastre. La geometría es
+     RELATIVA a `b` y con un `Math.max` en cada detalle: el mismo código pinta
+     el icono del catálogo a 56×48 px, y sin suelo mínimo las volutas y los
+     barrotes se convierten allí en una mancha. */
+
+  // Arco de detalle (volutas y tornapuntas de la forja): mismo recurso que
+  // _balconyIron —un curveArrow sin puntas— con reserva a recta si el arco
+  // degenera.
+  const _arcT = (x1, y1, x2, y2, sag, o) => {
+    const a = ArcMath.arcCtrls(x1, y1, x2, y2, sag);
+    return a
+      ? { type: 'curveArrow', x1, y1, x2, y2,
+          cx: a.cx, cy: a.cy, cx2: a.cx2, cy2: a.cy2,
+          arc: true, heads: 'none', color: o.color, lineWidth: _thinW(o) }
+      : _lineT(x1, y1, x2, y2, o);
+  };
+
+  // Rotación en torno a un punto: la usa el proyector, que es la única pieza
+  // de la sección que no está a escuadra (un foco apuntando al frente no se
+  // lee como tal).
+  const _rotAt = (cx, cy, ang) => (px, py) => {
+    const dx = px - cx, dy = py - cy, c = Math.cos(ang), s = Math.sin(ang);
+    return [cx + dx * c - dy * s, cy + dx * s + dy * c];
+  };
+
+  const _lightMetrics = b => {
+    const shaftW = Math.max(2, Math.min(b.w * 0.12, b.h * 0.035));
+    return {
+      cx: b.x + b.w / 2,
+      ground: b.y + b.h,
+      shaftW,
+      baseH: Math.max(3, b.h * 0.05),
+      baseW: Math.max(shaftW * 2.6, b.w * 0.3),
+    };
+  };
+
+  /**
+   * Farol: tronco de pirámide con la boca ancha ABAJO, capucha y perilla.
+   * `top` es el remate y `h` incluye solo el cuerpo (la perilla sobresale por
+   * arriba, igual que el vuelo del balcón sobresale a los lados).
+   */
+  function _lantern(cx, top, w, h, o) {
+    const hb = w / 2, ht = w * 0.34;
+    const els = _poly([[cx - ht, top], [cx + ht, top],
+                       [cx + hb, top + h], [cx - hb, top + h]], o);
+    const cap = Math.max(2, h * 0.16);
+    els.push(_lineT(cx - ht * 1.4, top, cx + ht * 1.4, top, o));   // capucha
+    els.push(_lineT(cx, top - cap, cx, top, o));                   // perilla
+    if (h > 8) els.push(_lineT(cx, top, cx, top + h, o));          // montante
+    return els;
+  }
+
+  // Fuste ligeramente troncocónico desde `yTop` hasta el dado, más el dado.
+  function _lightShaft(m, o, yTop) {
+    const wT = m.shaftW, wB = m.shaftW * 1.8, yB = m.ground - m.baseH;
+    const els = _poly([[m.cx - wT / 2, yTop], [m.cx + wT / 2, yTop],
+                       [m.cx + wB / 2, yB], [m.cx - wB / 2, yB]], o);
+    els.push(_rectEl(m.cx - m.baseW / 2, yB, m.baseW, m.baseH, o));
+    return els;
+  }
+
+  // Volutas simétricas bajo el farol: lo que distingue la forja de la lisa.
+  function _lightScrolls(cx, y, span, drop, o) {
+    const els = [];
+    for (const s of [-1, 1]) {
+      els.push(_arcT(cx, y + drop, cx + s * span, y, s * drop * 0.9, o));
+    }
+    return els;
+  }
+
+  // Despacho del botón Iluminación según o.lightType (elegido en el modal).
+  function _lightTool(b, o) {
+    switch (o.lightType) {
+      case 'post2':  return _lightPost2(b, o);
+      case 'forge':  return _lightForge(b, o);
+      case 'forge2': return _lightForge2(b, o);
+      case 'wall':   return _lightWall(b, o);
+      case 'spot':   return _lightSpot(b, o);
+      case 'tower':  return _lightTower(b, o);
+      default:       return _lightPost(b, o);   // 'post'
+    }
+  }
+
+  // Farola de pie: un farol sobre el fuste.
+  function _lightPost(b, o) {
+    const m = _lightMetrics(b);
+    const lw = Math.max(6, Math.min(b.w * 0.72, b.h * 0.17));
+    const lh = Math.max(6, Math.min(b.h * 0.2, lw * 1.3));
+    const top = b.y + Math.max(2, b.h * 0.05);
+    return [..._lantern(m.cx, top, lw, lh, o), ..._lightShaft(m, o, top + lh)];
+  }
+
+  // Doble foco: UN fuste con travesaño y dos faroles colgados de sus extremos
+  // —no dos farolas—, que es lo que distingue el modelo.
+  function _lightPost2(b, o) {
+    const m = _lightMetrics(b);
+    const lw = Math.max(5, Math.min(b.w * 0.36, b.h * 0.13));
+    const lh = Math.max(5, Math.min(b.h * 0.16, lw * 1.3));
+    const top = b.y + Math.max(2, b.h * 0.05);
+    const arm = Math.max(lw * 0.8, b.w * 0.3);
+    const armY = top + lh + Math.max(3, b.h * 0.035);
+    const els = [];
+    for (const s of [-1, 1]) {
+      els.push(..._lantern(m.cx + s * arm, top, lw, lh, o));
+      els.push(_lineT(m.cx + s * arm, top + lh, m.cx + s * arm, armY, o));
+    }
+    els.push(_line(m.cx - arm, armY, m.cx + arm, armY, o));
+    return [...els, ..._lightShaft(m, o, armY)];
+  }
+
+  // Forja: mismo esqueleto que la lisa más volutas en el cuello y un anillo
+  // en el fuste.
+  function _lightForge(b, o) {
+    const m = _lightMetrics(b);
+    const lw = Math.max(6, Math.min(b.w * 0.66, b.h * 0.16));
+    const lh = Math.max(6, Math.min(b.h * 0.19, lw * 1.3));
+    const top = b.y + Math.max(3, b.h * 0.06);
+    const neck = top + lh;
+    const els = [..._lantern(m.cx, top, lw, lh, o)];
+    els.push(..._lightScrolls(m.cx, neck, Math.max(4, lw * 0.6),
+                              Math.max(4, b.h * 0.06), o));
+    els.push(..._lightShaft(m, o, neck));
+    const rh = Math.max(3, b.h * 0.022);
+    const ry = m.ground - m.baseH - Math.max(6, b.h * 0.11);
+    els.push(_circleT(m.cx - m.shaftW, ry, m.shaftW * 2, rh, o));
+    return els;
+  }
+
+  // Forja de doble foco: los brazos son arcos, no un travesaño recto.
+  function _lightForge2(b, o) {
+    const m = _lightMetrics(b);
+    const lw = Math.max(5, Math.min(b.w * 0.34, b.h * 0.12));
+    const lh = Math.max(5, Math.min(b.h * 0.15, lw * 1.3));
+    const top = b.y + Math.max(3, b.h * 0.06);
+    const arm = Math.max(lw * 0.85, b.w * 0.3);
+    const knot = top + lh + Math.max(6, b.h * 0.09);
+    const els = [];
+    for (const s of [-1, 1]) {
+      els.push(..._lantern(m.cx + s * arm, top, lw, lh, o));
+      els.push(_arcT(m.cx, knot, m.cx + s * arm, top + lh,
+                     s * Math.max(4, arm * 0.35), o));
+    }
+    els.push(..._lightScrolls(m.cx, knot, Math.max(4, arm * 0.42),
+                              Math.max(4, b.h * 0.05), o));
+    return [...els, ..._lightShaft(m, o, knot)];
+  }
+
+  // De pared: no lleva fuste ni dado —va colgada—, así que su caja es la placa
+  // de anclaje, el brazo y el farol. Mismo recurso que el balcón francés: los
+  // anclajes al muro son lo que dice que esto no se sostiene solo.
+  function _lightWall(b, o) {
+    const pw = Math.max(3, b.w * 0.11), ph = Math.max(8, b.h * 0.36);
+    const py = b.y + Math.max(2, b.h * 0.06);
+    const lw = Math.max(6, Math.min(b.w * 0.5, b.h * 0.5));
+    const lh = Math.max(6, Math.min(b.h * 0.42, lw * 1.3));
+    const cx = b.x + b.w - lw / 2;
+    const armY = py + Math.max(3, ph * 0.22);
+    const hang = Math.max(3, b.h * 0.06);
+    const els = [_rectEl(b.x, py, pw, ph, o)];                 // placa
+    els.push(_line(b.x + pw, armY, cx, armY, o));              // brazo
+    els.push(_arcT(b.x + pw, py + ph * 0.92,
+                   b.x + pw + (cx - b.x - pw) * 0.55, armY,
+                   Math.max(4, b.w * 0.16), o));               // tornapunta
+    els.push(_lineT(cx, armY, cx, armY + hang, o));            // colgante
+    els.push(..._lantern(cx, armY + hang, lw, lh, o));
+    for (const ay of [py + ph * 0.14, py + ph * 0.86]) {       // anclajes
+      els.push(_lineT(b.x - Math.max(3, pw), ay, b.x, ay, o));
+    }
+    return els;
+  }
+
+  // Foco: proyector troncocónico sobre rótula, horquilla y pletina. Es la
+  // única pieza girada de la sección —un proyector a escuadra no se lee como
+  // un foco, sino como una caja.
+  function _lightSpot(b, o) {
+    const cx = b.x + b.w / 2, ground = b.y + b.h;
+    const baseW = Math.max(8, b.w * 0.52), baseH = Math.max(3, b.h * 0.08);
+    const postH = Math.max(4, b.h * 0.16);
+    const hy = ground - baseH - postH;
+    const hw = Math.max(10, Math.min(b.w * 0.72, b.h * 0.5));
+    const hh = Math.max(8, hw * 0.6);
+    const p = _rotAt(cx, hy, -0.42);
+    const at = (dx, dy) => p(cx + dx, hy + dy);
+    const els = _poly([at(-hw * 0.44, -hh * 0.26), at(hw * 0.5, -hh * 0.5),
+                       at(hw * 0.5, hh * 0.5), at(-hw * 0.44, hh * 0.26)], o);
+    els.push(_lineT(...at(hw * 0.26, -hh * 0.43), ...at(hw * 0.26, hh * 0.43), o));
+    const r = Math.max(4, b.w * 0.11);
+    els.push(_circleT(cx - r / 2, hy - r / 2, r, r, o));        // rótula
+    els.push(_line(cx, hy, cx, ground - baseH, o));             // horquilla
+    els.push(_rectEl(cx - baseW / 2, ground - baseH, baseW, baseH, o));
+    return els;
+  }
+
+  // Torre: mástil de celosía con cruces de San Andrés y corona de proyectores.
+  function _lightTower(b, o) {
+    const cx = b.x + b.w / 2, ground = b.y + b.h;
+    const headH = Math.max(9, b.h * 0.14);
+    const topY = b.y + headH, H = Math.max(1, ground - topY);
+    const wT = Math.max(4, b.w * 0.22), wB = Math.max(wT + 4, b.w * 0.66);
+    const half = t => (wT + (wB - wT) * t) / 2;
+    const els = [_line(cx - half(0), topY, cx - half(1), ground, o),
+                 _line(cx + half(0), topY, cx + half(1), ground, o)];
+    const n = Math.max(2, Math.min(9, Math.round(H / Math.max(12, b.w * 0.34))));
+    for (let i = 0; i < n; i++) {
+      const t0 = i / n, t1 = (i + 1) / n;
+      const y0 = topY + H * t0, y1 = topY + H * t1;
+      els.push(_lineT(cx - half(t0), y0, cx + half(t1), y1, o),
+               _lineT(cx + half(t0), y0, cx - half(t1), y1, o));
+      if (i) els.push(_lineT(cx - half(t0), y0, cx + half(t0), y0, o));
+    }
+    const cw = Math.max(wT * 1.8, b.w * 0.56);
+    els.push(_line(cx - cw / 2, topY, cx + cw / 2, topY, o));   // pasarela
+    const k = 3, pw = (cw / k) * 0.72, ph = Math.max(4, headH * 0.62);
+    for (let i = 0; i < k; i++) {
+      const x = cx - cw / 2 + cw * (i + 0.5) / k - pw / 2;
+      els.push(_rectT(x, topY - ph, pw, ph, o));
+    }
     return els;
   }
 

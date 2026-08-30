@@ -16,6 +16,26 @@ The gate selector now contains **18 entries** from the shared `GATE_TYPES`: stra
 
 **Verjas** and **Cancela** are autonomous siblings of Muro. Both use a hybrid modal: `FENCE_VIEWS`/`GATE_VIEWS` choose plan or elevation, while a `<select>`, a 0–350 cm slider and a live preview choose the model and physical height. `syncFenceControls`/`renderFencePreview` and `syncGateControls`/`renderGatePreview` are their single sync points. Verjas draws the 13 `FORGE_TYPES`; every design has a defensive finial and `_forgeFinial` gives each blade a distinct classical profile. Cancela draws all 18 `GATE_TYPES` without wall fabric by building its own opening and reusing `_wallGatePlan`/`_wallGateElevation`. Their independent prefs are `fenceView`/`fenceType`/`fenceHeightCm` and `gateView`/`gateType`/`gateHeightCm`; the exported module limits (`FENCE_H_MIN_CM/MAX`, `GATE_H_MIN_CM/MAX`) must match the HTML sliders and are pinned by `tests/smoke.test.js`.
 
+**Iluminación** (v3.15.0) es la décima herramienta y la más sencilla de todas:
+catálogo puro por `VARIANT_MODALS` (`LIGHT_TYPES`, `state.lightType`,
+`#modal-light`), sin ningún mando propio, así que no necesita el
+`syncXControls()` que Verjas y Cancela sí piden en `selectTool`. Siete modelos:
+`post` / `post2` (farola de pie de uno o dos focos), `forge` / `forge2` (los
+mismos en forja, con volutas y brazos en arco), `wall` (de pared), `spot`
+(proyector) y `tower` (torre de celosía). Dos cosas que no se ven en el código
+sin buscarlas:
+
+- **La caja del icono es un arrastre nulo**, como en Balcón: la pone el
+  `byVariant` de `DEFAULTS`, y por eso el catálogo enseña la proporción real de
+  cada modelo. Sin eso los siete iconos salen con la misma silueta esbelta y la
+  torre deja de distinguirse de la farola.
+- **La de pared no lleva fuste ni dado**, así que su caja no llega al suelo:
+  es placa + brazo + farol, y sus anclajes sobresalen por la izquierda igual
+  que los del balcón francés. Es la única cuya caja por defecto es casi
+  cuadrada, y el `_lightShaft` compartido no se le aplica.
+- **El foco es la única pieza girada de la sección** (`_rotAt`, ~24°): un
+  proyector a escuadra no se lee como un foco, sino como una caja.
+
 `#modal-facade` is the one that carries more than a catalogue among the hand-written five, because Fachada is the only one of those with parameters. It holds a **live thumbnail** (`#facade-preview`) plus twins of the panel's four building fields (`#facade-floors`/`#facade-bays`/`#facade-roof-type`/`#facade-roof-pitch`), so a view can be chosen without hunting for the panel. Four rules keep it honest:
 
 - **One opts builder.** `buildOpts()` is the single source for every `Building.elements` call — drag preview, commit, and thumbnail. Never inline a fresh opts object; a field added to one and not the others makes preview ≠ result.
