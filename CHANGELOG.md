@@ -4,6 +4,15 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.21.0] — 2026-09-01
+
+### Añadido
+
+- Quinta forma de punta de flecha: **Media** (`half`) — un ala sola, el rasgo
+  de un «1» escrito a mano. Vale para la flecha recta, la curva y la flecha
+  semicírculo, en canvas y en los exportadores vectoriales, porque
+  `Sketchy.headGeometry` es la fuente única de las cinco.
+
 ## [3.20.0] — 2026-09-01
 
 ### Añadido

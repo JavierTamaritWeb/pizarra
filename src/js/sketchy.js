@@ -216,7 +216,7 @@ const Sketchy = (() => {
    * vacío. La ausencia de `shape` (o una desconocida) devuelve las dos rayas
    * de toda la vida, que es lo que hace que un proyecto anterior salga igual.
    */
-  const HEAD_SHAPES = Object.freeze(['bar', 'dot', 'triangle']);
+  const HEAD_SHAPES = Object.freeze(['bar', 'dot', 'triangle', 'half']);
 
   function headGeometry(x, y, angle, len, shape) {
     const out = { lines: [], polygon: null, circle: null };
@@ -235,6 +235,12 @@ const Sketchy = (() => {
       return out;
     }
     const alas = arrowHead(x, y, angle, len);
+    if (shape === 'half') {
+      // Un ala sola: el rasgo de un «1» escrito a mano. La de angle + 0.4,
+      // que en una flecha hacia arriba cae al lado izquierdo, como en el 1.
+      out.lines = [alas[1]];
+      return out;
+    }
     if (shape === 'triangle') {
       // El mismo triángulo que dibujan las dos rayas, pero macizo.
       out.polygon = [

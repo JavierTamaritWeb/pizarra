@@ -1101,4 +1101,8 @@ test('cada forma de punta emite su primitiva, y la ausencia las dos rayas', () =
   const barra = flecha({ headShape: 'bar' });
   assert.equal(barra.callsTo('stroke').length, 2);
   assert.equal(barra.callsTo('fill').length, 0);
+  // Media: cuerpo + un ala sola (el rasgo de un 1).
+  const media = flecha({ headShape: 'half' });
+  assert.equal(media.callsTo('stroke').length, 2);
+  assert.equal(media.callsTo('fill').length, 0);
 });

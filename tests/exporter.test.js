@@ -1754,6 +1754,8 @@ test('cada forma de punta tiene su markup en el SVG', () => {
   assert.match(svg({ headShape: 'triangle' }), /<polygon points="[^"]+" fill="#333344" stroke="none"\/>/);
   assert.match(svg({ headShape: 'dot' }), /<circle cx="100" cy="0" r="4\.2" fill="#333344"/);
   assert.equal((svg({ headShape: 'bar' }).match(/<line /g) || []).length, 2);
+  assert.equal((svg({ headShape: 'half' }).match(/<line /g) || []).length, 2,
+    'media: cuerpo + un ala sola');
 });
 
 test('el temblor no llega al SVG: esos formatos exportan geometría limpia', () => {
