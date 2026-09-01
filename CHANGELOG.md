@@ -4,6 +4,18 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.19.0] — 2026-09-01
+
+### Añadido
+
+- **Triángulo irregular** en la sección Formas (icono ⊿): a diferencia del
+  regular, llena la caja arrastrada sin exigir lados iguales. En «Ajustes de
+  la forma» un selector nuevo elige los lados: **isósceles** (2 iguales) o
+  **escaleno** (3 distintos) — con un triángulo seleccionado cambia el suyo;
+  sin selección, cómo nace el próximo. Gira a cuartos de vuelta como el
+  trapecio, admite relleno, tramas, bordes ocultos, borrador y anclaje de
+  flechas, y viaja en JSON/SVG/HTML/PNG con su vértice (`apex`) validado.
+
 ## [3.18.1] — 2026-09-01
 
 ### Cambiado

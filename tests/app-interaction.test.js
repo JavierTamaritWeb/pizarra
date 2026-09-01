@@ -6351,3 +6351,60 @@ test('arrastrar un extremo dentro del mismo elemento grande no lo ancla', () => 
   assert.deepEqual([flecha.x1, flecha.y1], [400, 700],
     'y el origen se queda donde lo dejó el puntero');
 });
+
+/* ── Triángulo irregular (v3.19.0) ─────────────────────────── */
+
+test('el triángulo irregular nace isósceles llenando la caja, y el selector fija el próximo', () => {
+  const app = loadApp();
+  app.selectTool('freeTriangle');
+  // Elegir la herramienta abre #modal-shape con la fila «Tipo de triángulo».
+  assert.equal(app.$('modal-shape').open, true);
+  assert.equal(app.$('shape-modal-tri-row').hidden, false);
+  assert.equal(app.$('shape-modal-tri').value, 'isosceles');
+  app.drag(100, 100, 300, 220);
+  let els = app.elements();
+  assert.equal(els.length, 1);
+  assert.equal(els[0].type, 'freeTriangle');
+  // Llena la caja arrastrada, sin exigir cuadrado.
+  assert.deepEqual([els[0].x, els[0].y, els[0].w, els[0].h], [100, 100, 200, 120]);
+  // El isósceles es el formato compacto: sin campo `apex`.
+  assert.equal(els[0].apex, undefined);
+
+  // Sin selección, el selector fija cómo nace el PRÓXIMO.
+  const sel = app.$('shape-modal-tri');
+  sel.value = 'escaleno';
+  sel.__fire('change', { target: sel });
+  app.drag(400, 100, 520, 200);
+  els = app.elements();
+  assert.equal(els[1].apex, 0.25);
+  // Y el primero no se ha tocado.
+  assert.equal(els[0].apex, undefined);
+});
+
+test('con un triángulo irregular seleccionado, el selector cambia SU vértice, con undo de un paso', () => {
+  const app = loadApp();
+  app.selectTool('freeTriangle');
+  app.drag(100, 100, 300, 220);
+  app.selectTool('select');
+  app.drag(50, 50, 350, 260);
+  // La fila enseña el valor del seleccionado (isósceles).
+  assert.equal(app.$('shape-modal-tri-row').hidden, false);
+  assert.equal(app.$('shape-modal-tri').value, 'isosceles');
+  const sel = app.$('shape-modal-tri');
+  sel.value = 'escaleno';
+  sel.__fire('change', { target: sel });
+  assert.equal(app.elements()[0].apex, 0.25);
+  // Deshacer devuelve el isósceles en un solo paso.
+  app.key('z', { ctrlKey: true });
+  assert.equal(app.elements()[0].apex, undefined);
+});
+
+test('la fila «Tipo de triángulo» no aparece con otras formas', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  assert.equal(app.$('shape-modal-tri-row').hidden, true);
+  app.selectTool('trapezoid');
+  assert.equal(app.$('shape-modal-tri-row').hidden, true);
+  app.selectTool('freeTriangle');
+  assert.equal(app.$('shape-modal-tri-row').hidden, false);
+});

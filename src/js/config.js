@@ -16,6 +16,10 @@ const TOOLS = Object.freeze({
   SQUARE:           'square',
   TRAPEZOID:        'trapezoid',
   TRIANGLE:         'triangle',
+  // Triángulo irregular: rellena la caja arrastrada (no exige w === h) y su
+  // vértice superior vive en `apex` (fracción del ancho). Geometría en
+  // Trapezoid, su gemelo exacto: caja libre y giro a cuartos de vuelta.
+  FREE_TRIANGLE:    'freeTriangle',
   PENTAGON:         'pentagon',
   HEXAGON:          'hexagon',
   // Estrellas regulares: tipos de elemento REALES, como el resto de Formas.
@@ -297,9 +301,10 @@ const SOLID_TOOLS = Object.freeze([
   TOOLS.SOLID_SPHERE,
 ]);
 
-/** Las diez secciones son EXACTAMENTE los diez tipos del grupo Formas: la cara
+/** Las diez secciones son los tipos históricos del grupo Formas: la cara
     frontal se emite como el elemento 2D real de ese tipo, así que el id de la
-    sección ES el `el.type` que se crea. */
+    sección ES el `el.type` que se crea. El triángulo irregular (v3.19.0)
+    queda fuera a propósito: su `apex` no tiene sentido como cara de sólido. */
 const SOLID_SECTIONS = Object.freeze([
   TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE, TOOLS.SQUARE, TOOLS.TRAPEZOID,
   TOOLS.TRIANGLE, TOOLS.PENTAGON, TOOLS.HEXAGON, TOOLS.STAR5, TOOLS.STAR6,
@@ -552,6 +557,8 @@ const TOOL_GROUPS = [
       { id: TOOLS.SQUARE,       icon: '□',  name: 'Cuadrado',   key: '4' },
       { id: TOOLS.TRAPEZOID,    icon: '⏢',  name: 'Trapecio',   key: '7' },
       { id: TOOLS.TRIANGLE,     icon: '△',  name: 'Triángulo regular', key: '3' },
+      // Sin atajo, como las estrellas: letras y dígitos están todos asignados.
+      { id: TOOLS.FREE_TRIANGLE, icon: '⊿', name: 'Triángulo irregular' },
       { id: TOOLS.PENTAGON,     icon: '⬠',  name: 'Pentágono regular', key: '5' },
       { id: TOOLS.HEXAGON,      icon: '⬡',  name: 'Hexágono regular',  key: '6' },
       // Sin atajo, como Balcón, «Select» y el Aerógrafo: las 26 letras y los

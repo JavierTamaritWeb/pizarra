@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=3.18.1" />
+  <link rel="stylesheet" href="css/styles.css?v=3.19.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.18.1" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.19.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v3.18.1</span>
+        <span class="topbar__badge">v3.19.0</span>
         <!-- Aviso de autoguardado: visible SOLO mientras localStorage rechaza
              el guardado (cuota llena). Sin él, el fallo era un catch mudo y el
              trabajo posterior se perdía en silencio al recargar. -->
@@ -74,7 +74,7 @@
       </nav>
     </header>
 
-  <!-- Pestañas de documento (v3.18.1): varias pizarras abiertas a la vez.
+  <!-- Pestañas de documento (v3.19.0): varias pizarras abiertas a la vez.
        Es un <nav> con aria-current, no role=tablist: no hay tabpanel que
        conmutar (es el mismo lienzo con otro documento) — semánticamente es
        navegación entre documentos. Las pestañas las fabrica renderTabsBar(). -->
@@ -743,6 +743,7 @@
           <li>Cuadrado, triángulo, pentágono, hexágono y las dos estrellas se arrastran desde el <strong>centro</strong> y conservan todos sus lados iguales</li>
           <li>Las <strong>estrellas de 5 y 6 puntas</strong> son las regulares clásicas —pentagrama y Estrella de David—; no tienen atajo, se eligen en el sidebar</li>
           <li>El trapecio se arrastra entre dos esquinas y puede redimensionarse libremente</li>
+          <li>El <strong>triángulo irregular</strong> también llena la caja arrastrada: en «Ajustes de la forma» se elige <strong>isósceles</strong> (2 lados iguales) o <strong>escaleno</strong> (3 lados distintos)</li>
           <li>Admiten relleno sólido o translúcido y el modo de bordes ocultos</li>
         </ul>
       </section>
@@ -1244,6 +1245,21 @@
                contiene escondido sería un recuadro vacío con título. Y como
                .modal__group declara `display`, el [hidden] necesita su regla —la
                trampa documentada en _panel.scss. -->
+          <!-- Lados del triángulo irregular (v3.19.0): solo aparece con esa
+               herramienta activa o con uno seleccionado. Misma semántica dual
+               que el giro: sin selección fija cómo nace el próximo; con un
+               triángulo irregular seleccionado, cambia el suyo. -->
+          <fieldset class="modal__group" id="shape-modal-tri-row" hidden>
+            <legend class="modal__group-title">Tipo de triángulo</legend>
+            <label class="panel__field" for="shape-modal-tri">
+              <span class="modal__field-label">Lados</span>
+              <select class="panel__select" id="shape-modal-tri">
+                <option value="isosceles">Isósceles (2 lados iguales)</option>
+                <option value="escaleno">Escaleno (3 lados distintos)</option>
+              </select>
+            </label>
+          </fieldset>
+
           <fieldset class="modal__group" id="shape-modal-rotation-row">
             <legend class="modal__group-title">Orientación</legend>
             <label class="panel__field" for="shape-modal-rotation">
@@ -2491,24 +2507,24 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=3.18.1"></script>
-  <script src="src/js/sketchy.js?v=3.18.1"></script>
-  <script src="src/js/freehand.js?v=3.18.1"></script>
-  <script src="src/js/arc.js?v=3.18.1"></script>
-  <script src="src/js/curve-path.js?v=3.18.1"></script>
-  <script src="src/js/shape-rotation.js?v=3.18.1"></script>
-  <script src="src/js/regular-polygon.js?v=3.18.1"></script>
-  <script src="src/js/trapezoid.js?v=3.18.1"></script>
-  <script src="src/js/hatch.js?v=3.18.1"></script>
-  <script src="src/js/airbrush.js?v=3.18.1"></script>
-  <script src="src/js/flood.js?v=3.18.1"></script>
-  <script src="src/js/eraser.js?v=3.18.1"></script>
-  <script src="src/js/building.js?v=3.18.1"></script>
-  <script src="src/js/garden.js?v=3.18.1"></script>
-  <script src="src/js/solid.js?v=3.18.1"></script>
-  <script src="src/js/renderer.js?v=3.18.1"></script>
-  <script src="src/js/exporter.js?v=3.18.1"></script>
-  <script src="src/js/templates.js?v=3.18.1"></script>
-  <script src="src/js/app.js?v=3.18.1"></script>
+  <script src="src/js/config.js?v=3.19.0"></script>
+  <script src="src/js/sketchy.js?v=3.19.0"></script>
+  <script src="src/js/freehand.js?v=3.19.0"></script>
+  <script src="src/js/arc.js?v=3.19.0"></script>
+  <script src="src/js/curve-path.js?v=3.19.0"></script>
+  <script src="src/js/shape-rotation.js?v=3.19.0"></script>
+  <script src="src/js/regular-polygon.js?v=3.19.0"></script>
+  <script src="src/js/trapezoid.js?v=3.19.0"></script>
+  <script src="src/js/hatch.js?v=3.19.0"></script>
+  <script src="src/js/airbrush.js?v=3.19.0"></script>
+  <script src="src/js/flood.js?v=3.19.0"></script>
+  <script src="src/js/eraser.js?v=3.19.0"></script>
+  <script src="src/js/building.js?v=3.19.0"></script>
+  <script src="src/js/garden.js?v=3.19.0"></script>
+  <script src="src/js/solid.js?v=3.19.0"></script>
+  <script src="src/js/renderer.js?v=3.19.0"></script>
+  <script src="src/js/exporter.js?v=3.19.0"></script>
+  <script src="src/js/templates.js?v=3.19.0"></script>
+  <script src="src/js/app.js?v=3.19.0"></script>
 </body>
 </html>

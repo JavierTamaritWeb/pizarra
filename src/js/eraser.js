@@ -122,6 +122,7 @@ const Eraser = (function () {
   /** Formas cuyo "dibujo" es solo su contorno mientras no estén rellenas. */
   const OUTLINE_TYPES = ['rect', 'roundedRect', 'circle', 'square',
     'triangle', 'pentagon', 'hexagon', 'star5', 'star6', 'trapezoid',
+    'freeTriangle',
     'polygon',
     // El marco (v3.12.0) es su borde y nada más: por la caja se borraría al
     // barrer por su interior vacío, que es justo donde se dibuja dentro de él.

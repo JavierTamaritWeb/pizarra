@@ -1,16 +1,35 @@
 /* ============================================================
-   trapezoid.js — Geometría del trapecio y sus cuartos de vuelta
+   trapezoid.js — Geometría de las «formas de caja»: trapecio y
+   triángulo irregular. Ambas rellenan el rectángulo arrastrado
+   (sin exigir w === h) y giran a cuartos de vuelta.
    ============================================================ */
 
 const Trapezoid = (() => {
   'use strict';
+
+  /** Vértice superior del triángulo irregular, como fracción del ancho:
+      0.5 deja los dos lados inclinados iguales (isósceles) y cualquier
+      otro valor los hace los tres distintos (escaleno). */
+  const APEX = Object.freeze({ isosceles: 0.5, escaleno: 0.25 });
+
+  function isType(type) {
+    return type === 'trapezoid' || type === 'freeTriangle';
+  }
+
+  /** `apex` saneado: fuera de (0,1) o ausente cae al isósceles, para que un
+      JSON manipulado no degenere el triángulo en una línea. */
+  function apexRatio(el) {
+    const apex = Number(el && el.apex);
+    return apex > 0 && apex < 1 ? apex : APEX.isosceles;
+  }
 
   function normalize(degrees) {
     return ((degrees % 360) + 360) % 360;
   }
 
   /**
-   * Trapecio isósceles: base superior al 60% y base inferior completa.
+   * Trapecio isósceles (base superior al 60% y base inferior completa) o
+   * triángulo irregular (vértice superior en `apex`, base completa abajo).
    * En 90°/270°, ShapeRotation ya intercambió w/h; se reconstruyen las
    * dimensiones anteriores al giro para conservar exactamente la forma.
    */
@@ -24,12 +43,18 @@ const Trapezoid = (() => {
     const quarter = Math.round(degrees / 90) % 4;
     const baseW = quarter % 2 ? height : width;
     const baseH = quarter % 2 ? width : height;
-    const points = [
-      { x: -baseW * 0.3, y: -baseH / 2 },
-      { x:  baseW * 0.3, y: -baseH / 2 },
-      { x:  baseW / 2,   y:  baseH / 2 },
-      { x: -baseW / 2,   y:  baseH / 2 },
-    ];
+    const points = el.type === 'freeTriangle'
+      ? [
+        { x: baseW * (apexRatio(el) - 0.5), y: -baseH / 2 },
+        { x:  baseW / 2, y:  baseH / 2 },
+        { x: -baseW / 2, y:  baseH / 2 },
+      ]
+      : [
+        { x: -baseW * 0.3, y: -baseH / 2 },
+        { x:  baseW * 0.3, y: -baseH / 2 },
+        { x:  baseW / 2,   y:  baseH / 2 },
+        { x: -baseW / 2,   y:  baseH / 2 },
+      ];
     const angle = degrees * Math.PI / 180;
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
@@ -41,7 +66,7 @@ const Trapezoid = (() => {
 
   function contains(point, el) {
     const points = vertices(el);
-    if (points.length !== 4) return false;
+    if (points.length < 3) return false;
     let inside = false;
     for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
       const a = points[i];
@@ -53,5 +78,5 @@ const Trapezoid = (() => {
     return inside;
   }
 
-  return { normalize, vertices, contains };
+  return { APEX, isType, apexRatio, normalize, vertices, contains };
 })();

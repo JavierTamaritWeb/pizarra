@@ -151,6 +151,7 @@
       fillTransparent: true, // usa fillOpacity en vez del tinte fijo del trazo
       fillOpacity: 0.4,   // opacidad del relleno translúcido (0..1)
       shapeRotation: 0,   // giro con el que nacen las formas que lo admiten
+      triKind: 'isosceles', // lados del próximo triángulo irregular (ver Trapezoid.APEX)
       overlapMode: 'normal', // normal | hidden-dashed
       pendingEmoji: EMOJI_GROUPS[0].emojis[0], // el que se estampa con la herramienta Emoji
       emojiSize:   EMOJI_MIN_SIZE, // tamaño de los próximos emojis, independiente del de letra
@@ -454,7 +455,7 @@
         if (hit) return i;
         continue;
       }
-      if (el.type === TOOLS.TRAPEZOID) {
+      if (Trapezoid.isType(el.type)) {
         const vertices = Trapezoid.vertices(el);
         let hit = Trapezoid.contains(pos, el);
         for (let v = 0; v < vertices.length && !hit; v++) {
@@ -1027,7 +1028,8 @@
 
   const ANCHORABLE_TYPES = [
     TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE,
-    TOOLS.SQUARE, TOOLS.TRAPEZOID, TOOLS.TRIANGLE, TOOLS.PENTAGON, TOOLS.HEXAGON,
+    TOOLS.SQUARE, TOOLS.TRAPEZOID, TOOLS.FREE_TRIANGLE,
+    TOOLS.TRIANGLE, TOOLS.PENTAGON, TOOLS.HEXAGON,
     TOOLS.BUTTON, TOOLS.INPUT,
     TOOLS.IMAGE_PLACEHOLDER, TOOLS.IMAGE, TOOLS.NAV, TOOLS.CARD,
   ];
@@ -1043,6 +1045,7 @@
   ];
   const FILLABLE_TYPES = [
     TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE, TOOLS.TRAPEZOID,
+    TOOLS.FREE_TRIANGLE,
     ...REGULAR_POLYGON_TYPES,
     // El polígono libre no tiene herramienta, pero sí relleno: aislar una cara
     // de un sólido con Alt+clic y recolorearla tiene que funcionar.
@@ -2483,7 +2486,7 @@
     sampleCurve: (el, n) => CurvePath.sample(el, n),
     polygonVertices: el => (RegularPolygon.isType(el.type) ? RegularPolygon.vertices(el)
       : el.type === TOOLS.POLYGON ? el.points : null),
-    trapezoidVertices: el => (el.type === TOOLS.TRAPEZOID ? Trapezoid.vertices(el) : null),
+    trapezoidVertices: el => (Trapezoid.isType(el.type) ? Trapezoid.vertices(el) : null),
     isEmpty: el => (el.type === 'airbrush' ? Airbrush.isEmpty(el) : false),
     session: opts.preview ? eraserSession.geo : null,
     rasterErase: (el, pts, r) => {
@@ -3962,10 +3965,14 @@
       case TOOLS.CIRCLE:
         octx.beginPath(); octx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2); octx.stroke();
         break;
-      case TOOLS.TRAPEZOID: {
+      case TOOLS.TRAPEZOID:
+      case TOOLS.FREE_TRIANGLE: {
         // El giro elegido entra también en la previsualización: si no, el
         // arrastre enseñaría una forma y al soltar saldría otra.
-        const vertices = Trapezoid.vertices({ x, y, w, h, rotation: creationRotation() });
+        const vertices = Trapezoid.vertices({
+          type: state.tool, x, y, w, h,
+          apex: creationApex(), rotation: creationRotation(),
+        });
         if (!vertices.length) break;
         octx.beginPath();
         octx.moveTo(vertices[0].x, vertices[0].y);
@@ -4516,6 +4523,7 @@
     // Geometric shapes
     else if ([
       TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE, TOOLS.TRAPEZOID,
+      TOOLS.FREE_TRIANGLE,
       ...REGULAR_POLYGON_TYPES,
     ].includes(state.tool)) {
       const polygonBox = REGULAR_POLYGON_TYPES.includes(state.tool)
@@ -4547,6 +4555,12 @@
         // histórico, y en rect/redondeado isValidElement lo rechaza.
         const rotation = creationRotation();
         if (rotation) shape.rotation = rotation;
+        // El vértice del triángulo irregular: solo se escribe cuando no es el
+        // isósceles (0.5), que es el valor al que cae la lectura sin campo.
+        const apex = creationApex();
+        if (state.tool === TOOLS.FREE_TRIANGLE && apex !== Trapezoid.APEX.isosceles) {
+          shape.apex = apex;
+        }
         state.elements.push(shape);
       }
     }
@@ -5999,10 +6013,18 @@
       // La caja no cambia de proporciones: reflejar no intercambia lados.
       const mid = mir({ x: m.x + m.w / 2, y: m.y + m.h / 2 });
       m.x = mid.x - m.w / 2; m.y = mid.y - m.h / 2;
-      if (RegularPolygon.isType(m.type) || m.type === TOOLS.TRAPEZOID) {
+      if (RegularPolygon.isType(m.type) || Trapezoid.isType(m.type)) {
         const r = m.rotation || 0;
         const next = ShapeRotation.normalize(h ? -r : 180 - r);
         if (next) m.rotation = next; else delete m.rotation;
+      }
+      // El triángulo irregular no es simétrico: reflejarlo lleva el vértice
+      // al otro lado (apex → 1 - apex), en ambos ejes — el ajuste de giro de
+      // arriba ya absorbe la diferencia entre ellos.
+      if (m.type === TOOLS.FREE_TRIANGLE) {
+        const apex = 1 - Trapezoid.apexRatio(m);
+        if (apex === Trapezoid.APEX.isosceles) delete m.apex;
+        else m.apex = apex;
       }
       if (m.type === 'image') {
         const src = mirrorImage(m, axis);
@@ -6204,7 +6226,7 @@
       const w = m.h, h = m.w;                    // el cuarto de vuelta los cambia
       m.x = mid.x - w / 2; m.y = mid.y - h / 2;
       m.w = w; m.h = h;
-      if (RegularPolygon.isType(m.type) || m.type === TOOLS.TRAPEZOID) {
+      if (RegularPolygon.isType(m.type) || Trapezoid.isType(m.type)) {
         const next = ShapeRotation.normalize((m.rotation || 0) + sign * 90);
         if (next) m.rotation = next; else delete m.rotation;
       }
@@ -7499,11 +7521,12 @@
   const STROKE_TOOLS = [
     TOOLS.PENCIL, TOOLS.LINE, TOOLS.ARROW, TOOLS.CURVE_ARROW, TOOLS.ARC,
   ];
-  /** Las diez de Formas: abren #modal-shape, con trazo, relleno y giro. Cada
+  /** Las once de Formas: abren #modal-shape, con trazo, relleno y giro. Cada
       herramienta produce un elemento de su mismo id (el Cuadrado incluido: es
       un polígono regular de cuatro lados, no un `rect`). */
   const SHAPE_TOOLS = [
     TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE, TOOLS.TRAPEZOID,
+    TOOLS.FREE_TRIANGLE,
     ...REGULAR_POLYGON_TYPES,
   ];
   /** Los cinco componentes de UI que comparten #modal-ui (Texto tiene el suyo
@@ -7564,7 +7587,13 @@
       serializa intercambiando ancho y alto, así que un cuarto de vuelta sobre
       una caja que aún estás arrastrando no significa nada — e `isValidElement`
       rechaza un `rotation` en ellos. El círculo, por razones obvias. */
-  const ROTATABLE_TOOLS = [...REGULAR_POLYGON_TYPES, TOOLS.TRAPEZOID];
+  const ROTATABLE_TOOLS = [...REGULAR_POLYGON_TYPES, TOOLS.TRAPEZOID, TOOLS.FREE_TRIANGLE];
+
+  /** Vértice con el que nace el próximo triángulo irregular. Misma regla que
+      creationRotation: fuente única para la previsualización y la creación. */
+  function creationApex() {
+    return Trapezoid.APEX[state.triKind] || Trapezoid.APEX.isosceles;
+  }
 
   /** Giro con el que nace la próxima forma, ya ajustado al paso de la
       herramienta activa. Fuente ÚNICA para la previsualización del arrastre y
@@ -8087,6 +8116,17 @@
     const rotType = single && ShapeRotation.isType(single.type) &&
       ROTATABLE_TOOLS.includes(single.type) ? single.type
       : ROTATABLE_TOOLS.includes(state.tool) ? state.tool : null;
+    // Lados del triángulo irregular — misma semántica dual que el giro: con
+    // uno seleccionado enseña el suyo; sin selección, el de la próxima. La
+    // fila solo aparece cuando gobierna un triángulo irregular.
+    const triRow = $('shape-modal-tri-row');
+    const triEl = single && single.type === TOOLS.FREE_TRIANGLE ? single : null;
+    triRow.hidden = !(triEl || (!single && state.tool === TOOLS.FREE_TRIANGLE));
+    if (!triRow.hidden) {
+      const apex = triEl ? Trapezoid.apexRatio(triEl) : creationApex();
+      $('shape-modal-tri').value =
+        apex === Trapezoid.APEX.isosceles ? 'isosceles' : 'escaleno';
+    }
     const row = $('shape-modal-rotation-row');
     row.hidden = !rotType;
     if (rotType) {
@@ -8147,6 +8187,10 @@
     };
     const rot = +$('shape-modal-rotation').value;
     if (rot && ROTATABLE_TOOLS.includes(type)) el.rotation = rot;
+    if (type === TOOLS.FREE_TRIANGLE) {
+      el.apex = single && single.type === TOOLS.FREE_TRIANGLE
+        ? Trapezoid.apexRatio(single) : creationApex();
+    }
     if ($('shape-modal-fill').checked) {
       el.fill = true;
       // El picker enseña SIEMPRE un color (hex6(fillColor || color)), pero la
@@ -9141,6 +9185,32 @@
       if (unchanged) state.elements = snap;
       else pushUndo(snap);
     }
+    // Lados del triángulo irregular — semántica dual como el giro: con
+    // selección cambia los triángulos seleccionados (un paso de undo); sin
+    // selección fija cómo nace el próximo.
+    $('shape-modal-tri').addEventListener('change', e => {
+      const kind = e.target.value === 'escaleno' ? 'escaleno' : 'isosceles';
+      const apex = Trapezoid.APEX[kind];
+      const targets = state.selection.filter(
+        i => state.elements[i].type === TOOLS.FREE_TRIANGLE);
+      if (targets.length) {
+        const changed = targets.some(
+          i => Trapezoid.apexRatio(state.elements[i]) !== apex);
+        if (changed) {
+          saveUndo();
+          targets.forEach(i => {
+            const el = { ...state.elements[i] };
+            if (apex === Trapezoid.APEX.isosceles) delete el.apex;
+            else el.apex = apex;
+            state.elements[i] = el;
+          });
+          redraw();
+        }
+      } else {
+        state.triKind = kind;
+      }
+      syncShapeControls();
+    });
     $('shape-modal-rotation').addEventListener('input', e => applyShapeRotation(+e.target.value));
     $('shape-modal-rotation').addEventListener('change', commitRotationGesture);
     $('shape-modal-rotation').addEventListener('pointerup', commitRotationGesture);

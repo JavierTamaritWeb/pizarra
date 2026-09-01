@@ -18,7 +18,7 @@ test('config.js — TOOLS', async t => {
     assert.equal(Object.isFrozen(ctx.TOOLS), true);
   });
 
-  await t.test('TOOLS tiene exactamente los 52 ids esperados', () => {
+  await t.test('TOOLS tiene exactamente los 53 ids esperados', () => {
     const expected = [
       'pencil', 'airbrush', 'line', 'rect', 'roundedRect', 'circle', 'arrow',
       'curveArrow', 'arc', 'text', 'eraser', 'select', 'pick', 'imagePlaceholder',
@@ -26,6 +26,8 @@ test('config.js — TOOLS', async t => {
       // Marco (v3.12.0): contenedor de un wireframe, tipo de elemento real
       'frame',
       'square', 'trapezoid', 'triangle', 'pentagon', 'hexagon', 'star5', 'star6',
+      // Triángulo irregular (v3.19.0): llena la caja y guarda su vértice en `apex`
+      'freeTriangle',
       // Polígono libre: tipo de elemento sin botón, como `image`
       'polygon',
       // Tinta (creación): el bote de pintura NO es un tipo — lo que crea es un
@@ -40,11 +42,11 @@ test('config.js — TOOLS', async t => {
       'prisma', 'piramide', 'tronco', 'esfera',
     ];
     const values = Object.values(ctx.TOOLS);
-    assert.equal(values.length, 52);
+    assert.equal(values.length, 53);
     assert.deepEqual([...values].sort(), [...expected].sort());
-    // Las claves también son 52 y únicas
-    assert.equal(Object.keys(ctx.TOOLS).length, 52);
-    assert.equal(new Set(values).size, 52);
+    // Las claves también son 53 y únicas
+    assert.equal(Object.keys(ctx.TOOLS).length, 53);
+    assert.equal(new Set(values).size, 53);
   });
 });
 
@@ -95,23 +97,24 @@ test('config.js — genera los botones Cuadrado y Trapecio con atajos propios', 
   });
 });
 
-test('config.js — Formas son diez, y solo las dos estrellas van sin atajo', () => {
+test('config.js — Formas son once, y solo estrellas y triángulo irregular van sin atajo', () => {
   const ctx = load('src/js/config.js');
   const forms = ctx.TOOL_GROUPS.find(group => group.label === 'Formas');
   assert.ok(forms, 'falta el grupo Formas en el sidebar');
-  // El orden es el que se pinta: de la caja al polígono, y las estrellas al
-  // final porque son las últimas en llegar y las únicas cóncavas.
+  // El orden es el que se pinta: de la caja al polígono —el triángulo
+  // irregular junto al regular—, y las estrellas al final porque son las
+  // últimas en llegar y las únicas cóncavas.
   assert.deepEqual([...forms.tools.map(t => t.id)], [
     'rect', 'roundedRect', 'circle', 'square', 'trapezoid',
-    'triangle', 'pentagon', 'hexagon', 'star5', 'star6',
+    'triangle', 'freeTriangle', 'pentagon', 'hexagon', 'star5', 'star6',
   ]);
-  // Las estrellas entraron sin tecla por lo mismo que Balcón, «Select» y el
-  // Aerógrafo: las 26 letras y los 10 dígitos están asignados, y `f q d s` son
-  // acciones de la flecha curva que se atienden ANTES que TOOL_KEYS. Se fija
-  // aquí para que el hueco no crezca por descuido ni una forma con atajo lo
-  // pierda en una refactorización.
+  // Estrellas y triángulo irregular entraron sin tecla por lo mismo que
+  // Balcón, «Select» y el Aerógrafo: las 26 letras y los 10 dígitos están
+  // asignados, y `f q d s` son acciones de la flecha curva que se atienden
+  // ANTES que TOOL_KEYS. Se fija aquí para que el hueco no crezca por
+  // descuido ni una forma con atajo lo pierda en una refactorización.
   assert.deepEqual([...forms.tools.filter(t => !t.key).map(t => t.id)],
-    ['star5', 'star6']);
+    ['freeTriangle', 'star5', 'star6']);
 });
 
 test('config.js — COLORS son colores hex válidos (#rrggbb)', () => {
@@ -461,13 +464,16 @@ test('config.js — el sidebar de 3D y SOLID_TOOLS son la misma lista, y ninguna
   assert.equal(labels[labels.indexOf('Formas') + 1], '3D');
 });
 
-test('config.js — las secciones de 3D son exactamente los diez tipos de Formas', () => {
+test('config.js — las secciones de 3D son los tipos de Formas menos el triángulo irregular', () => {
   const ctx = load('src/js/config.js');
   const formas = ctx.TOOL_GROUPS.find(g => g.label === 'Formas');
   // El id de la sección ES el `el.type` que se crea: la cara frontal se emite
   // como el elemento 2D real de ese tipo. Si dejaran de coincidir, la cara
   // saldría de un tipo que el renderer no conoce y no se dibujaría nada.
-  assert.deepEqual([...ctx.SOLID_SECTIONS], [...formas.tools.map(t => t.id)]);
+  // El triángulo irregular queda fuera a propósito (v3.19.0): su `apex` no
+  // tiene sentido como cara de un sólido.
+  assert.deepEqual([...ctx.SOLID_SECTIONS],
+    [...formas.tools.map(t => t.id).filter(id => id !== 'freeTriangle')]);
 });
 
 test('config.js — FLOATBAR_GROUPS reparte los 7 grupos en 5 barras sin repetir ni dejar ninguno', () => {

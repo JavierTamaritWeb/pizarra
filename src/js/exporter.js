@@ -188,7 +188,7 @@ const Exporter = (() => {
       (Sin 'eraser': html() desvía a _svgScene toda escena que los tenga.) */
   const VECTOR_TYPES = [
     'pencil', 'airbrush', 'line', 'arrow', 'curveArrow', 'circle',
-    'square', 'trapezoid', 'triangle', 'pentagon', 'hexagon',
+    'square', 'trapezoid', 'freeTriangle', 'triangle', 'pentagon', 'hexagon',
     'star5', 'star6', 'polygon',
     // El marco (v3.12.0): un rectángulo fino con su rótulo. En HTML no tiene
     // representación propia (un <div> con borde sería un rectángulo más), así
@@ -447,7 +447,8 @@ const Exporter = (() => {
           break;
         }
 
-        case 'trapezoid': {
+        case 'trapezoid':
+        case 'freeTriangle': {
           const points = Trapezoid.vertices(el).map(p => `${p.x},${p.y}`).join(' ');
           out += `<polygon points="${points}" ${sf}/>\n`;
           break;
@@ -567,7 +568,7 @@ const Exporter = (() => {
       const points = RegularPolygon.vertices(el).map(p => `${p.x},${p.y}`).join(' ');
       return `<polygon points="${points}" fill="${fill}" stroke="none"/>\n`;
     }
-    if (el.type === 'trapezoid') {
+    if (Trapezoid.isType(el.type)) {
       const points = Trapezoid.vertices(el).map(p => `${p.x},${p.y}`).join(' ');
       return `<polygon points="${points}" fill="${fill}" stroke="none"/>\n`;
     }
@@ -821,7 +822,8 @@ body { font-family: ${FONT_CSS()};${options.transparent ? '' : ' background: #ff
   // `polygon` con `ink: true`. Es la diferencia exacta con el aerógrafo.
   /** Tipos con superficie que puede tramarse (los mismos que admiten fill). */
   const HATCHABLE = ['rect', 'roundedRect', 'circle', 'square', 'trapezoid',
-    'triangle', 'pentagon', 'hexagon', 'star5', 'star6', 'polygon'];
+    'freeTriangle', 'triangle', 'pentagon', 'hexagon', 'star5', 'star6',
+    'polygon'];
 
   const CREATION_ONLY_TOOLS = [TOOLS.SELECT, TOOLS.ARC, TOOLS.EMOJI, TOOLS.INK,
     ...BUILDING_TOOLS, ...GARDEN_TOOLS, ...SOLID_TOOLS];
@@ -922,7 +924,13 @@ body { font-family: ${FONT_CSS()};${options.transparent ? '' : ' background: #ff
     if (el.rotation !== undefined) {
       if (!(_isNum(el.rotation) && el.rotation >= 0 && el.rotation < 360)) return false;
       if (!(RegularPolygon.isType(el.type) ||
-            (el.type === 'trapezoid' && el.rotation % 90 === 0))) return false;
+            (Trapezoid.isType(el.type) && el.rotation % 90 === 0))) return false;
+    }
+    // apex: vértice superior del triángulo irregular, fracción abierta (0,1).
+    // En cualquier otro tipo es un campo ajeno y se rechaza.
+    if (el.apex !== undefined) {
+      if (!(el.type === 'freeTriangle' &&
+            _isNum(el.apex) && el.apex > 0 && el.apex < 1)) return false;
     }
     // label (etiqueta de componentes y flechas)
     if (el.label !== undefined && typeof el.label !== 'string') return false;
@@ -1088,7 +1096,7 @@ body { font-family: ${FONT_CSS()};${options.transparent ? '' : ' background: #ff
       return _isNum(el.x) && _isNum(el.y) && _isNum(el.w) && _isNum(el.h) &&
              el.w > 0 && el.h > 0 && Math.abs(el.w - el.h) < 1e-6;
     }
-    if (el.type === 'trapezoid') {
+    if (Trapezoid.isType(el.type)) {
       return _isNum(el.x) && _isNum(el.y) && _isNum(el.w) && _isNum(el.h) &&
              el.w > 0 && el.h > 0;
     }

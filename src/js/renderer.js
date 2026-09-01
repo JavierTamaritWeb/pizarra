@@ -268,7 +268,7 @@ const Renderer = (() => {
 
   const OVERLAP_SHAPE_TYPES = new Set([
     'rect', 'roundedRect', 'circle', 'square', 'trapezoid',
-    'triangle', 'pentagon', 'hexagon', 'star5', 'star6',
+    'freeTriangle', 'triangle', 'pentagon', 'hexagon', 'star5', 'star6',
   ]);
   const OUTLINE_STEP = 4;
 
@@ -294,7 +294,7 @@ const Renderer = (() => {
         point.y < b.y || point.y > b.y + b.h) return false;
     if (el.type === 'rect') return true;
     if (RegularPolygon.isType(el.type)) return RegularPolygon.contains(point, el);
-    if (el.type === 'trapezoid') return Trapezoid.contains(point, el);
+    if (Trapezoid.isType(el.type)) return Trapezoid.contains(point, el);
     if (el.type === 'circle') {
       const rx = b.w / 2, ry = b.h / 2;
       if (!rx || !ry) return false;
@@ -338,7 +338,7 @@ const Renderer = (() => {
       });
       return points;
     }
-    if (el.type === 'trapezoid') {
+    if (Trapezoid.isType(el.type)) {
       const vertices = Trapezoid.vertices(el);
       vertices.forEach((vertex, index) => {
         const next = vertices[(index + 1) % vertices.length];
@@ -869,6 +869,7 @@ const Renderer = (() => {
         break;
 
       case 'trapezoid':
+      case 'freeTriangle':
         _trapezoid(ctx, el, options);
         break;
 
