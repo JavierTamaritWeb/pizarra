@@ -150,8 +150,8 @@ const Renderer = (() => {
    * El triángulo y el punto se RELLENAN con el color del trazo: son macizos
    * por definición, y trazar su contorno con Sketchy los dejaría huecos.
    */
-  function _paintHead(ctx, el, x, y, angle, len) {
-    const g = Sketchy.headGeometry(x, y, angle, len, el.headShape);
+  function _paintHead(ctx, el, x, y, angle, len, bend = 0) {
+    const g = Sketchy.headGeometry(x, y, angle, len, el.headShape, bend);
     if (g.polygon) {
       ctx.beginPath();
       ctx.moveTo(g.polygon[0].x, g.polygon[0].y);
@@ -1038,14 +1038,17 @@ const Renderer = (() => {
         const curveEnd = CurvePath.end(el);
         // heads:'none' (semicírculos): trazo sin punta en ningún extremo
         if (el.heads !== 'none') {
-          // Punta orientada según la tangente del último tramo
+          // Punta orientada según la tangente del último tramo; el lado de la
+          // comba (punta Media) sale de CurvePath, la misma cuenta que el SVG.
           const tangent = CurvePath.endTangent(el);
-          _paintHead(ctx, el, curveEnd.x, curveEnd.y, Math.atan2(tangent.dy, tangent.dx), headLen);
+          _paintHead(ctx, el, curveEnd.x, curveEnd.y,
+            Math.atan2(tangent.dy, tangent.dx), headLen, CurvePath.endBend(el));
         }
         // Doble punta opcional: tangente del primer tramo hacia el inicio
         if (el.heads === 'both') {
           const tangent = CurvePath.startTangent(el);
-          _paintHead(ctx, el, curveStart.x, curveStart.y, Math.atan2(tangent.dy, tangent.dx), headLen);
+          _paintHead(ctx, el, curveStart.x, curveStart.y,
+            Math.atan2(tangent.dy, tangent.dx), headLen, CurvePath.startBend(el));
         }
         _arrowLabel(ctx, el);
         break;

@@ -4,6 +4,17 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.22.2] — 2026-09-01
+
+### Corregido
+
+- **Punta «Media» en curvas**: en la flecha curva y en la flecha semicírculo
+  el ala salía del lado cóncavo y la punta se veía al revés. Ahora cae del
+  lado de la **comba** (el convexo), continuando el giro del trazo, en ambos
+  extremos y en ambos sentidos; la recta conserva el ala del «1». La cuenta
+  del lado (`CurvePath.endBend`/`startBend`) es única y la comparten renderer
+  y exportador SVG, con test de regresión en las cuatro orientaciones.
+
 ## [3.22.1] — 2026-09-01
 
 ### Corregido

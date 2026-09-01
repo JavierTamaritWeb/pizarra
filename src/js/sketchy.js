@@ -218,7 +218,10 @@ const Sketchy = (() => {
    */
   const HEAD_SHAPES = Object.freeze(['bar', 'dot', 'triangle', 'half']);
 
-  function headGeometry(x, y, angle, len, shape) {
+  /* `bend` (v3.22.2): lado de la comba en el extremo, para la punta Media —
+     el signo de cross(cuerda→punta, dirección de la punta). Solo lo pasan
+     las curvas; en una recta es 0 y el ala cae al lado del «1» de siempre. */
+  function headGeometry(x, y, angle, len, shape, bend = 0) {
     const out = { lines: [], polygon: null, circle: null };
     if (shape === 'bar') {
       // Una barra perpendicular al trazo: el remate de cota de un plano.
@@ -236,9 +239,12 @@ const Sketchy = (() => {
     }
     const alas = arrowHead(x, y, angle, len);
     if (shape === 'half') {
-      // Un ala sola: el rasgo de un «1» escrito a mano. La de angle + 0.4,
-      // que en una flecha hacia arriba cae al lado izquierdo, como en el 1.
-      out.lines = [alas[1]];
+      // Un ala sola: el rasgo de un «1» escrito a mano. En una recta (bend 0)
+      // es la de angle + 0.4, que en una flecha hacia arriba cae al lado
+      // izquierdo, como en el 1. En una curva el ala debe caer del lado de la
+      // COMBA (el convexo), continuando el giro del trazo — con bend < 0 la
+      // comba queda a la derecha de la marcha y el ala cambia de lado.
+      out.lines = [bend < 0 ? alas[0] : alas[1]];
       return out;
     }
     if (shape === 'triangle') {

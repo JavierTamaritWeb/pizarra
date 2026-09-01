@@ -285,11 +285,11 @@ const Exporter = (() => {
    * Las 2 <line> de una punta de flecha (solo valores numéricos calculados;
    * `s` ya viene con color/grosor escapados). Geometría de Sketchy.arrowHead.
    */
-  function _svgArrowHead(x, y, angle, len, s, el) {
+  function _svgArrowHead(x, y, angle, len, s, el, bend = 0) {
     // La forma sale de la MISMA función que usa el renderer (v3.11.0): el
     // triángulo y el punto son macizos, así que se rellenan con el color del
     // trazo en vez de trazarse.
-    const g = Sketchy.headGeometry(x, y, angle, len, el && el.headShape);
+    const g = Sketchy.headGeometry(x, y, angle, len, el && el.headShape, bend);
     const color = _escapeXml(String((el && el.color) || '#000000'));
     if (g.polygon) {
       const pts = g.polygon.map(p => `${_round(p.x)},${_round(p.y)}`).join(' ');
@@ -402,13 +402,17 @@ const Exporter = (() => {
           const curveEnd = CurvePath.end(el);
           // heads:'none' (semicírculos): sin punta en ningún extremo
           if (el.heads !== 'none') {
+            // Lado de la comba (punta Media): la cuenta vive en CurvePath,
+            // compartida con el renderer.
             const tangent = CurvePath.endTangent(el);
-            out += _svgArrowHead(curveEnd.x, curveEnd.y, Math.atan2(tangent.dy, tangent.dx), chl, s, el);
+            out += _svgArrowHead(curveEnd.x, curveEnd.y,
+              Math.atan2(tangent.dy, tangent.dx), chl, s, el, CurvePath.endBend(el));
           }
           // Doble punta opcional: tangente en el inicio (control → inicio)
           if (el.heads === 'both') {
             const tangent = CurvePath.startTangent(el);
-            out += _svgArrowHead(curveStart.x, curveStart.y, Math.atan2(tangent.dy, tangent.dx), chl, s, el);
+            out += _svgArrowHead(curveStart.x, curveStart.y,
+              Math.atan2(tangent.dy, tangent.dx), chl, s, el, CurvePath.startBend(el));
           }
           out += _svgArrowLabel(el, color);
           break;

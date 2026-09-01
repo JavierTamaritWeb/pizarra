@@ -150,6 +150,22 @@ const CurvePath = (() => {
     return { dx, dy };
   }
 
+  /* Lado de la comba en cada extremo (v3.22.2): el signo de
+     cross(cuerda hacia esa punta, tangente saliente). Lo consume la punta
+     «Media» (Sketchy.headGeometry con `bend`): el ala debe caer del lado
+     CONVEXO, continuando el giro del trazo. Vive aquí y no duplicado en
+     renderer y exporter, o el ala saldría de un lado en pantalla y del otro
+     en el SVG. En una recta da 0 y la punta conserva el ala del «1». */
+  function endBend(el) {
+    const a = start(el), b = end(el), t = endTangent(el);
+    return (b.x - a.x) * t.dy - (b.y - a.y) * t.dx;
+  }
+
+  function startBend(el) {
+    const a = start(el), b = end(el), t = startTangent(el);
+    return (a.x - b.x) * t.dy - (a.y - b.y) * t.dx;
+  }
+
   function mapSegment(seg, map) {
     const p1 = map(seg.x1, seg.y1);
     const c1 = map(seg.cx, seg.cy);
@@ -298,6 +314,8 @@ const CurvePath = (() => {
     bounds,
     start,
     end,
+    startBend,
+    endBend,
     startTangent,
     endTangent,
     move,

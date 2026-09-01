@@ -1106,3 +1106,54 @@ test('cada forma de punta emite su primitiva, y la ausencia las dos rayas', () =
   assert.equal(media.callsTo('stroke').length, 2);
   assert.equal(media.callsTo('fill').length, 0);
 });
+
+/* ────────────────────────────────────────────────────────────
+   Punta «Media» en curvas: el ala cae del lado de la comba (v3.22.2)
+   ──────────────────────────────────────────────────────────── */
+
+test('la punta Media cae del lado de la comba, en curvas y arcos de ambos sentidos', () => {
+  const ctx = require('./helpers/load.js').loadAll();
+  const { CurvePath, ArcMath } = ctx;
+  const S = ctx.Sketchy;
+  // Punto de la curva en t (cuadrática o cúbica), para medir la comba real.
+  const bez = (el, t) => {
+    const mt = 1 - t;
+    if (el.cx2 !== undefined) return {
+      x: mt ** 3 * el.x1 + 3 * mt * mt * t * el.cx + 3 * mt * t * t * el.cx2 + t ** 3 * el.x2,
+      y: mt ** 3 * el.y1 + 3 * mt * mt * t * el.cy + 3 * mt * t * t * el.cy2 + t ** 3 * el.y2,
+    };
+    return { x: mt * mt * el.x1 + 2 * mt * t * el.cx + t * t * el.x2,
+             y: mt * mt * el.y1 + 2 * mt * t * el.cy + t * t * el.y2 };
+  };
+  const casos = [
+    ['curva comba abajo',  { type: 'curveArrow', x1: 100, y1: 100, x2: 300, y2: 100, cx: 200, cy: 180 }],
+    ['curva comba arriba', { type: 'curveArrow', x1: 100, y1: 100, x2: 300, y2: 100, cx: 200, cy: 20 }],
+    ['arco comba abajo',   { type: 'curveArrow', x1: 100, y1: 100, x2: 300, y2: 100,
+      ...ArcMath.arcCtrls(100, 100, 300, 100, 100), arc: true }],
+    ['arco comba arriba',  { type: 'curveArrow', x1: 100, y1: 100, x2: 300, y2: 100,
+      ...ArcMath.arcCtrls(100, 100, 300, 100, -100), arc: true }],
+  ];
+  for (const [nombre, el] of casos) {
+    const a = CurvePath.start(el), b = CurvePath.end(el);
+    const t = CurvePath.endTangent(el);
+    const g = S.headGeometry(b.x, b.y, Math.atan2(t.dy, t.dx), 14, 'half', CurvePath.endBend(el));
+    const ala = g.lines[0];
+    // Lado real de la comba: el punto medio de la curva respecto a la cuerda.
+    const m = bez(el, 0.5);
+    const cu = { x: b.x - a.x, y: b.y - a.y };
+    const ladoComba = cu.x * (m.y - (a.y + b.y) / 2) - cu.y * (m.x - (a.x + b.x) / 2);
+    const ladoAla = cu.x * (ala.y2 - b.y) - cu.y * (ala.x2 - b.x);
+    assert.ok(ladoComba * ladoAla > 0,
+      `${nombre}: el ala cae del lado contrario a la comba`);
+    // Y con doble punta, el ala del INICIO también cae del lado de la comba.
+    const ts = CurvePath.startTangent(el);
+    const gs = S.headGeometry(a.x, a.y, Math.atan2(ts.dy, ts.dx), 14, 'half', CurvePath.startBend(el));
+    const ladoAlaIni = cu.x * (gs.lines[0].y2 - a.y) - cu.y * (gs.lines[0].x2 - a.x);
+    assert.ok(ladoComba * ladoAlaIni > 0,
+      `${nombre}: el ala del inicio cae del lado contrario a la comba`);
+  }
+  // En una recta (bend 0) el ala conserva el lado del «1»: la izquierda de la
+  // marcha — hacia arriba, cae a la izquierda.
+  const recta = S.headGeometry(0, 0, -Math.PI / 2, 14, 'half', 0);
+  assert.ok(recta.lines[0].x2 < 0, 'la recta debe conservar el ala izquierda del 1');
+});
