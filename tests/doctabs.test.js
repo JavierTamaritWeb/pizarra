@@ -19,6 +19,7 @@ const DOC = id => 'sketchwire.doc.' + id;
 
 const indice = app => JSON.parse(app.dom.localStorage.getItem(TABS));
 const barra = app => app.$('doctabs-list').querySelectorAll('.doctabs__tab');
+const nombres = app => barra(app).map(w => w.querySelector('.doctabs__label').textContent);
 
 const nuevaPestana = app => {
   const btn = app.$('btn-tab-new');
@@ -49,8 +50,9 @@ test('sin índice previo, el autosave existente se convierte en la única pesta�
   const idx = indice(app);
   assert.equal(idx.v, 1);
   assert.equal(idx.order.length, 1, 'una sola pestaña');
-  assert.equal(idx.order[0].name, 'Pizarra 1');
+  assert.equal(idx.order[0].label, '', 'sin texto corto: el rótulo es automático');
   assert.equal(idx.active, idx.order[0].id);
+  assert.deepEqual(nombres(app), ['Pizarra 1']);
   assert.equal(app.elements().length, 1, 'el dibujo del autosave sigue ahí');
   assert.equal(barra(app).length, 1, 'la barra enseña la pestaña');
   assert.equal(barra(app)[0].querySelector('.doctabs__close'), null,
@@ -61,7 +63,22 @@ test('un índice corrupto se trata como ausente: una pestaña sobre el autosave'
   const app = loadApp({ storage: { [TABS]: '{"v":1,"active":' } });
   const idx = indice(app);
   assert.equal(idx.order.length, 1);
-  assert.equal(idx.order[0].name, 'Pizarra 1');
+  assert.deepEqual(nombres(app), ['Pizarra 1']);
+});
+
+test('un índice v3.17.0 (con `name`) migra: el nombre de fábrica se descarta y el personalizado pasa a texto corto', () => {
+  const app = loadApp({
+    autosave: { elements: [], settings: { overlapMode: 'normal' } },
+    storage: {
+      [TABS]: { v: 1, active: 'aaa', order: [{ id: 'aaa', name: 'Pizarra 2' }, { id: 'bbb', name: 'Croquis patio' }] },
+      [DOC('bbb')]: { elements: [], settings: { overlapMode: 'normal' } },
+    },
+  });
+  const idx = indice(app);
+  assert.equal(idx.order[0].label, '', '«Pizarra 2» era el nombre de fábrica: fuera');
+  assert.equal(idx.order[1].label, 'Croquis patio', 'el personalizado se conserva');
+  assert.deepEqual(nombres(app), ['Pizarra 1', 'Pizarra 2 - Croquis patio'],
+    'y el número pasa a ser la posición');
 });
 
 test('con índice y docs sembrados vuelven todas las pestañas, con la activa recordada', () => {
@@ -69,7 +86,7 @@ test('con índice y docs sembrados vuelven todas las pestañas, con la activa re
   const app = loadApp({
     autosave: { elements: [], settings: { overlapMode: 'normal' } },
     storage: {
-      [TABS]: { v: 1, active: 'aaa', order: [{ id: 'aaa', name: 'Croquis' }, { id: 'bbb', name: 'Planta' }] },
+      [TABS]: { v: 1, active: 'aaa', order: [{ id: 'aaa', label: 'Croquis' }, { id: 'bbb', label: 'Planta' }] },
       [DOC('bbb')]: docB,
     },
   });
@@ -93,7 +110,7 @@ test('el botón «+» crea una pestaña vacía y aparta el documento anterior', 
   nuevaPestana(app);
   const idx = indice(app);
   assert.equal(idx.order.length, 2);
-  assert.equal(idx.order[1].name, 'Pizarra 2');
+  assert.deepEqual(nombres(app), ['Pizarra 1', 'Pizarra 2']);
   assert.equal(idx.active, idx.order[1].id, 'la nueva queda activa');
   assert.equal(app.elements().length, 0, 'y nace vacía');
   const dormido = JSON.parse(app.dom.localStorage.getItem(DOC(idx.order[0].id)));
@@ -123,17 +140,24 @@ test('cambiar de pestaña y volver devuelve cada dibujo a su sitio', () => {
     'el doc despierto no se duplica: vive solo en el autosave');
 });
 
-test('«Pizarra N» rellena los huecos: cerrar la 2 y crear otra vuelve a dar «Pizarra 2»', () => {
+test('el número es la posición: cerrar una intermedia renumera las siguientes', () => {
   const app = loadApp();
   nuevaPestana(app);            // Pizarra 2
-  nuevaPestana(app);            // Pizarra 3
-  // Cerrar «Pizarra 2» (vacía: sin diálogo)
-  const wrap = barra(app)[1];
-  app.$('doctabs-list').__fire('click', { target: wrap.querySelector('.doctabs__close') });
+  // Ponerle nombre a la 2, para ver que el número cambia y el nombre no
+  app.$('doctabs-list').__fire('dblclick', { target: barra(app)[1].querySelector('.doctabs__label') });
   app.flush();
-  nuevaPestana(app);
-  assert.deepEqual(indice(app).order.map(t => t.name),
-    ['Pizarra 1', 'Pizarra 3', 'Pizarra 2']);
+  const input = app.$('doctabs-list').querySelector('.doctabs__input');
+  input.value = 'Garaje';
+  input.__fire('keydown', { key: 'Enter', target: input });
+  app.flush();
+  nuevaPestana(app);            // Pizarra 3
+  assert.deepEqual(nombres(app), ['Pizarra 1', 'Pizarra 2 - Garaje', 'Pizarra 3']);
+  // Cerrar la 1 (vacía: directo) — «Garaje» pasa a ser la Pizarra 1
+  app.$('doctabs-list').__fire('click', { target: barra(app)[0].querySelector('.doctabs__close') });
+  app.flush();
+  assert.deepEqual(nombres(app), ['Pizarra 1 - Garaje', 'Pizarra 2']);
+  // El índice no guarda ningún número: solo el texto corto
+  assert.deepEqual(indice(app).order.map(t => t.label), ['Garaje', '']);
 });
 
 /* ── Deshacer y aspecto, por pestaña ── */
@@ -236,36 +260,41 @@ test('cerrar la pestaña activa despierta a la vecina con su dibujo', () => {
 
 /* ── Renombrar ── */
 
-test('doble clic renombra con un input inline: Enter confirma y Escape cancela', () => {
+test('doble clic edita solo el texto corto, con el «Pizarra N - » fijo delante', () => {
   const app = loadApp();
   const label = barra(app)[0].querySelector('.doctabs__label');
   app.$('doctabs-list').__fire('dblclick', { target: label });
   app.flush();
   let input = app.$('doctabs-list').querySelector('.doctabs__input');
   assert.ok(input, 'aparece el input inline');
+  assert.equal(input.value, '', 'el input edita el texto corto, no el rótulo entero');
+  assert.equal(app.$('doctabs-list').querySelector('.doctabs__prefix').textContent,
+    'Pizarra 1 - ', 'el prefijo automático queda delante, fijo');
   input.value = 'Fachada sur';
   input.__fire('keydown', { key: 'Enter', target: input });
   app.flush();
-  assert.equal(indice(app).order[0].name, 'Fachada sur');
-  assert.equal(barra(app)[0].querySelector('.doctabs__label').textContent, 'Fachada sur');
+  assert.equal(indice(app).order[0].label, 'Fachada sur');
+  assert.deepEqual(nombres(app), ['Pizarra 1 - Fachada sur']);
 
   // Escape: ni caso al texto escrito
   app.$('doctabs-list').__fire('dblclick', { target: barra(app)[0].querySelector('.doctabs__label') });
   app.flush();
   input = app.$('doctabs-list').querySelector('.doctabs__input');
+  assert.equal(input.value, 'Fachada sur', 'el input parte del texto corto actual');
   input.value = 'Otro nombre';
   input.__fire('keydown', { key: 'Escape', target: input });
   app.flush();
-  assert.equal(indice(app).order[0].name, 'Fachada sur', 'Escape no cambia nada');
+  assert.equal(indice(app).order[0].label, 'Fachada sur', 'Escape no cambia nada');
 
-  // Un nombre vacío tampoco cuela
+  // Vaciar BORRA el nombre: la pestaña vuelve a «Pizarra N» a secas
   app.$('doctabs-list').__fire('dblclick', { target: barra(app)[0].querySelector('.doctabs__label') });
   app.flush();
   input = app.$('doctabs-list').querySelector('.doctabs__input');
   input.value = '   ';
   input.__fire('keydown', { key: 'Enter', target: input });
   app.flush();
-  assert.equal(indice(app).order[0].name, 'Fachada sur');
+  assert.equal(indice(app).order[0].label, '', 'vacío = sin nombre');
+  assert.deepEqual(nombres(app), ['Pizarra 1']);
 });
 
 /* ── Integraciones ── */
@@ -284,6 +313,26 @@ test('«Limpiar todo» limpia SOLO la pestaña activa: las demás ni se enteran'
   assert.equal(dormido.elements.length, 1, 'la otra pestaña conserva su dibujo');
   assert.deepEqual(indice(app).order.map(t => t.name), idx.order.map(t => t.name),
     'el índice de pestañas no se toca');
+});
+
+test('reabrir un proyecto exportado no duplica el prefijo «Pizarra N - »', async () => {
+  // El archivo exportado se llama por el rótulo completo («Pizarra 1 - Casa
+  // .json»); si al reabrirlo el nombre de archivo se usara tal cual como
+  // texto corto, saldría «Pizarra 2 - Pizarra 1 - Casa».
+  const app = loadApp();
+  const proyecto = () => {
+    const arr = [{ type: 'rect', x: 10, y: 10, w: 40, h: 30, color: '#123456', lineWidth: 2 }];
+    Object.defineProperty(arr, 'overlapMode', { value: 'normal', enumerable: false });
+    Object.defineProperty(arr, 'projectName', { value: '', enumerable: false });
+    Object.defineProperty(arr, 'fileName', { value: 'Pizarra 1 - Casa', enumerable: false });
+    return arr;
+  };
+  app.context.Exporter.importJSON = async () => proyecto();
+  app.$('btn-import').__fire('click', {});
+  await new Promise(r => setImmediate(r));
+  app.flush();
+  assert.equal(indice(app).order[1].label, 'Casa', 'el prefijo viejo se limpia');
+  assert.deepEqual(nombres(app), ['Pizarra 1', 'Pizarra 2 - Casa']);
 });
 
 test('los atajos: Ctrl+Alt+T crea, Ctrl+Alt+flechas cambia, Ctrl+Alt+W cierra', () => {

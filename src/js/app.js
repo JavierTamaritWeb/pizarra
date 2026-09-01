@@ -1342,18 +1342,23 @@
   const newTabId = () =>
     Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6);
 
-  /** «Pizarra N» con el menor N libre: cerrar la 2 y crear otra da «Pizarra 2»
-      otra vez, no «Pizarra 4» — los huecos se rellenan. */
-  function defaultTabName() {
-    const usados = new Set(tabs.order.map(t => t.name));
-    let n = 1;
-    while (usados.has(`Pizarra ${n}`)) n++;
-    return `Pizarra ${n}`;
-  }
+  /** Nomenclatura automática (v3.18.0): el rótulo se CALCULA, nunca se
+      guarda — «Pizarra N» o «Pizarra N - nombre», donde N es la POSICIÓN en
+      la barra (cerrar una intermedia renumera las siguientes gratis) y
+      `label` es el único dato del usuario: su texto corto, '' si no hay. */
+  const tabDisplayName = i =>
+    `Pizarra ${i + 1}` + (tabs.order[i].label ? ` - ${tabs.order[i].label}` : '');
+  const displayNameOf = id => {
+    const i = tabs.order.findIndex(t => t.id === id);
+    return i < 0 ? id : tabDisplayName(i);
+  };
 
+  /** El texto corto de la pestaña activa: es lo que viaja como `name` en el
+      JSON de proyecto — el display entero haría bola de nieve al reimportar
+      («Pizarra N - Pizarra 1 - Casa»). */
   const activeTabName = () => {
     const t = tabs && tabs.order.find(x => x.id === tabs.active);
-    return t ? t.name : '';
+    return t ? t.label : '';
   };
 
   /** Fuente única de lo que ES un documento. La consumen el autosave y el
@@ -1404,9 +1409,18 @@
       const idx = JSON.parse(localStorage.getItem(TABS_KEY));
       const bien = idx && idx.v === 1 && typeof idx.active === 'string' &&
         Array.isArray(idx.order) && idx.order.length > 0 &&
-        idx.order.every(t => t && typeof t.id === 'string' && typeof t.name === 'string') &&
+        idx.order.every(t => t && typeof t.id === 'string' &&
+          (typeof t.label === 'string' || typeof t.name === 'string')) &&
         idx.order.some(t => t.id === idx.active);
-      return bien ? { v: 1, active: idx.active, order: idx.order.map(t => ({ id: t.id, name: t.name })) } : null;
+      if (!bien) return null;
+      // Migración desde la v3.17.0, que guardaba el rótulo entero en `name`:
+      // un «Pizarra 3» de fábrica se queda sin texto corto; cualquier otro
+      // nombre ERA la personalización y pasa a ser el label.
+      const label = t => {
+        if (typeof t.label === 'string') return t.label.slice(0, 60);
+        return /^pizarra \d+$/i.test(t.name.trim()) ? '' : t.name.trim().slice(0, 60);
+      };
+      return { v: 1, active: idx.active, order: idx.order.map(t => ({ id: t.id, label: label(t) })) };
     } catch (_) { return null; }
   }
 
@@ -1433,8 +1447,7 @@
       localStorage.setItem(DOC_KEY_PREFIX + id, JSON.stringify(doc));
     } catch (_) {
       $('autosave-warn').hidden = false;
-      const t = tabs.order.find(x => x.id === id);
-      showToast(`⚠ Sin espacio: «${t ? t.name : id}» puede perder cambios al recargar`);
+      showToast(`⚠ Sin espacio: «${displayNameOf(id)}» puede perder cambios al recargar`);
     }
     // El historial también alimenta la caché de imágenes: deshacer en esa
     // pestaña, al volver, debe repintar sin recargar nada.
@@ -1513,7 +1526,7 @@
     settleGestures();
     stashActiveDoc();
     const id = newTabId();
-    tabs.order.push({ id, name: (name || '').trim() || defaultTabName() });
+    tabs.order.push({ id, label: (name || '').trim().slice(0, 60) });
     tabs.active = id;
     applyDoc(doc || { elements: [], settings: aspectDefaults() });
     state.undoStack = [];
@@ -1544,8 +1557,7 @@
       // Jamás confirm(): un diálogo nativo congela WKWebView bajo
       // automatización y no se puede estilar. El <dialog> propio, sí.
       tabPendingClose = id;
-      const t = tabs.order.find(x => x.id === id);
-      $('tab-close-name').textContent = t.name;
+      $('tab-close-name').textContent = displayNameOf(id);
       $('modal-tab-close').showModal();
       return;
     }
@@ -1592,11 +1604,13 @@
     renderTabsBar();
   }
 
-  function renameTab(id, name) {
+  /** Cambia el TEXTO CORTO (el «Pizarra N - » es automático y no se toca).
+      El vacío es válido: borra el nombre y la pestaña vuelve a «Pizarra N». */
+  function renameTab(id, label) {
     const t = tabs.order.find(x => x.id === id);
-    const limpio = String(name || '').trim().slice(0, 60);
-    if (!t || !limpio || limpio === t.name) { renderTabsBar(); return; }
-    t.name = limpio;
+    const limpio = String(label || '').trim().slice(0, 60);
+    if (!t || limpio === t.label) { renderTabsBar(); return; }
+    t.label = limpio;
     saveTabsIndex();
     renderTabsBar();
   }
@@ -1608,17 +1622,18 @@
     const list = $('doctabs-list');
     if (!list) return;
     list.innerHTML = '';
-    tabs.order.forEach(t => {
+    tabs.order.forEach((t, i) => {
+      const nombre = tabDisplayName(i);
       const wrap = document.createElement('div');
       wrap.className = 'doctabs__tab' + (t.id === tabs.active ? ' doctabs__tab--active' : '');
       wrap.dataset.tabId = t.id;
       const label = document.createElement('button');
       label.type = 'button';
       label.className = 'doctabs__label';
-      label.textContent = t.name;
+      label.textContent = nombre;
       label.title = t.id === tabs.active
-        ? 'Doble clic para renombrar'
-        : `Ir a «${t.name}»`;
+        ? 'Doble clic para ponerle nombre'
+        : `Ir a «${nombre}»`;
       if (t.id === tabs.active) label.setAttribute('aria-current', 'true');
       wrap.appendChild(label);
       if (tabs.order.length > 1) {
@@ -1627,27 +1642,34 @@
         close.className = 'doctabs__close';
         close.textContent = '×';
         close.title = 'Cerrar pizarra';
-        close.setAttribute('aria-label', `Cerrar «${t.name}»`);
+        close.setAttribute('aria-label', `Cerrar «${nombre}»`);
         wrap.appendChild(close);
       }
       list.appendChild(wrap);
     });
   }
 
-  /** Doble clic en la pestaña activa → input inline. Enter o perder el foco
-      confirma; Escape cancela. Nunca prompt(): congela WKWebView. */
+  /** Doble clic en la pestaña activa → input inline que edita SOLO el texto
+      corto; el «Pizarra N - » queda delante como texto fijo, para que se vea
+      qué parte no se puede tocar. Enter o perder el foco confirma; Escape
+      cancela. Nunca prompt(): congela WKWebView. */
   function startRenameTab(id) {
     const list = $('doctabs-list');
     const wrap = [...list.querySelectorAll('.doctabs__tab')].find(w => w.dataset.tabId === id);
     if (!wrap) return;
     const label = wrap.querySelector('.doctabs__label');
-    const t = tabs.order.find(x => x.id === id);
+    const i = tabs.order.findIndex(x => x.id === id);
+    const prefijo = document.createElement('span');
+    prefijo.className = 'doctabs__prefix';
+    prefijo.textContent = `Pizarra ${i + 1} - `;
     const input = document.createElement('input');
     input.className = 'doctabs__input';
     input.type = 'text';
-    input.value = t.name;
-    input.setAttribute('aria-label', 'Nombre de la pizarra');
+    input.value = tabs.order[i].label;
+    input.placeholder = 'nombre corto';
+    input.setAttribute('aria-label', 'Nombre corto de la pizarra');
     label.replaceWith(input);
+    wrap.insertBefore(prefijo, input);
     input.focus();
     if (input.select) input.select();
     let done = false;
@@ -1714,9 +1736,11 @@
     tabs = loadTabsIndex();
     if (!tabs) {
       const id = newTabId();
-      tabs = { v: 1, active: id, order: [{ id, name: 'Pizarra 1' }] };
-      saveTabsIndex();
+      tabs = { v: 1, active: id, order: [{ id, label: '' }] };
     }
+    // Reescritura incondicional: deja persistida la migración name→label de
+    // un índice v3.17.0 (loadTabsIndex la hace solo en memoria). Idempotente.
+    saveTabsIndex();
     try {
       const raw = localStorage.getItem(AUTOSAVE_KEY);
       if (raw) applyDoc(JSON.parse(raw));
@@ -5704,7 +5728,7 @@
         options: {
           overlapMode: state.overlapMode,
           canvasBg: state.canvasBg, gridColor: state.gridColor, showGrid: state.showGrid,
-          name: activeTabName(),
+          name: activeTabName(), fileBase: displayNameOf(tabs.active),
           scale: Number($('export-scale').value) || 1,
           transparent: !!$('export-transparent').checked,
           // Sin margen: el borde del marco ES el borde que se quiere.
@@ -5720,9 +5744,12 @@
       canvasBg:    state.canvasBg,
       gridColor:   state.gridColor,
       showGrid:    state.showGrid,
-      // El nombre de la pizarra viaja en el JSON de proyecto (v3.17.0): al
-      // reabrirlo, su pestaña recupera el nombre. Solo lo usa Exporter.json.
+      // El nombre CORTO de la pizarra viaja en el JSON de proyecto (v3.17.0):
+      // al reabrirlo, su pestaña recupera el nombre. El archivo, en cambio,
+      // se llama por el rótulo completo («Pizarra 1 - Casa.json»). Solo los
+      // usa Exporter.json.
       name:        activeTabName(),
+      fileBase:    displayNameOf(tabs.active),
       scale:       Number($('export-scale').value) || 1,
       transparent: !!$('export-transparent').checked,
     };
@@ -9572,9 +9599,12 @@
         if (els.gridColor) doc.settings.gridColor = els.gridColor;
         if (typeof els.showGrid === 'boolean') doc.settings.showGrid = els.showGrid;
         doc.settings.overlapMode = els.overlapMode === 'hidden-dashed' ? 'hidden-dashed' : 'normal';
-        // El nombre de la pestaña: el del propio proyecto (el que viaja en el
-        // JSON o, si no, el del archivo) — es como el usuario lo conoce.
-        createTab(els.projectName || els.fileName || '', doc);
+        // El texto corto de la pestaña: el del propio proyecto (el que viaja
+        // en el JSON) o, si no, el nombre del archivo LIMPIO de un prefijo
+        // «Pizarra N - » viejo — sin esa limpieza, reabrir un
+        // «Pizarra 1 - Casa.json» daría «Pizarra N - Pizarra 1 - Casa».
+        const delArchivo = String(els.fileName || '').replace(/^pizarra \d+( - )?/i, '');
+        createTab(els.projectName || delArchivo, doc);
         const total = state.elements.length;
         showToast(`📂 Proyecto abierto (${total} elemento${total === 1 ? '' : 's'})`);
       }

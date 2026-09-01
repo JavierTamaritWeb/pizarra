@@ -108,26 +108,40 @@ test('cerrar: la vacía sin preguntar, la ocupada con el diálogo propio; renomb
     .locator('.doctabs__close').click();
   await page.locator('#btn-tab-close-confirm').click();
   await settle(page);
-  expect(await nombresBarra(page)).toEqual(['Pizarra 2']);
+  // La superviviente se renumera: el número es la posición, no un nombre.
+  expect(await nombresBarra(page)).toEqual(['Pizarra 1']);
   const restante = await indice(page);
   expect(await page.evaluate(
     ids => ids.map(id => localStorage.getItem('sketchwire.doc.' + id)),
     [restante.order[0].id]),
   ).toEqual([null]);
 
-  // Renombrar la activa con doble clic
+  // Renombrar la activa con doble clic: el input edita SOLO el texto corto
+  // y el «Pizarra N - » queda fijo delante como texto estático.
   await page.locator('#doctabs-list .doctabs__label').dblclick();
   const input = page.locator('.doctabs__input');
   await expect(input).toBeVisible();
+  await expect(page.locator('.doctabs__prefix')).toHaveText('Pizarra 1 - ');
   await input.fill('Fachada sur');
   await input.press('Enter');
-  await expect(page.locator('#doctabs-list .doctabs__label')).toHaveText('Fachada sur');
-  expect((await indice(page)).order[0].name).toBe('Fachada sur');
+  await expect(page.locator('#doctabs-list .doctabs__label')).toHaveText('Pizarra 1 - Fachada sur');
+  expect((await indice(page)).order[0].label).toBe('Fachada sur');
 
   // Y el nombre sobrevive a la recarga
   await page.reload();
   await page.waitForSelector('.sidebar__tool');
-  expect(await nombresBarra(page)).toEqual(['Fachada sur']);
+  expect(await nombresBarra(page)).toEqual(['Pizarra 1 - Fachada sur']);
+
+  // Renumeración: crear otra delante no existe, pero cerrar la 1 con nombre
+  // muestra que el número es la posición — la que queda pasa a ser Pizarra 1.
+  await page.locator('#btn-tab-new').click();
+  await settle(page);
+  expect(await nombresBarra(page)).toEqual(['Pizarra 1 - Fachada sur', 'Pizarra 2']);
+  // «Fachada sur» está vacía (su dibujo se cerró antes): cierre directo.
+  await page.locator('.doctabs__tab', { hasText: 'Fachada sur' }).locator('.doctabs__close').click();
+  await settle(page);
+  expect(await nombresBarra(page)).toEqual(['Pizarra 1'],
+    'la superviviente se renumera a Pizarra 1');
   expect(errors).toEqual([]);
 });
 

@@ -80,6 +80,19 @@
     }
   }
 
+  // El prefijo «Pizarra N - » durante el renombrado: texto fijo con la letra
+  // del rótulo — enseña qué parte del nombre es automática y no se edita.
+  &__prefix {
+    display: flex;
+    align-items: center;
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding-left: 1rem;
+    white-space: nowrap;
+  }
+
   // El input del renombrado ocupa el hueco del rótulo, con su misma letra.
   &__input {
     border: none;
@@ -89,9 +102,9 @@
     font-size: 1.2rem;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    padding: 0 1rem;
+    padding: 0 0.6rem;
     height: 100%;
-    width: 14rem;
+    width: 11rem;
     outline: 0.1rem solid var(--color-primary);
   }
 

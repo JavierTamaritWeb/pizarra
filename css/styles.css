@@ -383,6 +383,16 @@ input[type=range]::-moz-range-thumb {
   opacity: 1;
   color: var(--color-danger);
 }
+.doctabs__prefix {
+  display: flex;
+  align-items: center;
+  color: var(--text-secondary);
+  font-size: 1.2rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding-left: 1rem;
+  white-space: nowrap;
+}
 .doctabs__input {
   border: none;
   background: var(--bg-surface);
@@ -391,9 +401,9 @@ input[type=range]::-moz-range-thumb {
   font-size: 1.2rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  padding: 0 1rem;
+  padding: 0 0.6rem;
   height: 100%;
-  width: 14rem;
+  width: 11rem;
   outline: 0.1rem solid var(--color-primary);
 }
 .doctabs__new {

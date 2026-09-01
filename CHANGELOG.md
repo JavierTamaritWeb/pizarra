@@ -4,6 +4,24 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.18.0] — 2026-09-01
+
+### Cambiado
+
+- **Nomenclatura automática de pestañas**: toda pestaña se llama
+  **«Pizarra N»** o **«Pizarra N - nombre»**, donde el número es su
+  **posición** en la barra —cerrar una intermedia renumera las siguientes
+  solo— y el nombre es un texto corto del usuario. El doble clic edita **solo
+  el texto corto**, con el «Pizarra N - » fijo delante como texto estático;
+  dejarlo vacío borra el nombre (antes se rechazaba). El índice
+  `sketchwire.tabs` guarda ahora `{id, label}` en vez de `{id, name}`: un
+  índice v3.17.0 migra solo al arrancar (un «Pizarra N» de fábrica queda sin
+  texto corto; cualquier otro nombre pasa a ser el label).
+- El JSON de proyecto lleva como `name` el **texto corto** (no el rótulo
+  entero: reimportarlo haría bola de nieve) y el archivo exportado se llama
+  por el rótulo completo («Pizarra 1 - Casa.json»). Al abrir un proyecto, un
+  prefijo «Pizarra N - » viejo en el nombre del archivo se limpia.
+
 ## [3.17.0] — 2026-09-01
 
 ### Añadido

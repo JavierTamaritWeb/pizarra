@@ -752,9 +752,11 @@ body { font-family: ${FONT_CSS()};${options.transparent ? '' : ' background: #ff
     // anteriores ignoran los campos que no conocen.
     const nombre = String(options.name || '').trim();
     if (nombre) data.name = nombre;
-    // Y el archivo se llama como el proyecto, no siempre «wireframe.json» —
-    // solo caracteres seguros para un nombre de archivo.
-    const archivo = nombre ? nombre.replace(/[^\w \u00C0-\u024F.-]+/g, '').trim() : '';
+    // Y el archivo se llama por el rótulo completo de la pestaña
+    // («Pizarra 1 - Casa.json») si el llamador lo pasa, o por el nombre a
+    // secas — solo caracteres seguros para un nombre de archivo.
+    const base = String(options.fileBase || '').trim() || nombre;
+    const archivo = base ? base.replace(/[^\w \u00C0-\u024F.-]+/g, '').trim() : '';
     _downloadBlob((archivo || 'wireframe') + '.json',
       new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   }

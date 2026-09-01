@@ -112,6 +112,13 @@ function createElementStub(tag, doc) {
       return child;
     },
     remove() { if (el.parentNode) el.parentNode.removeChild(el); },
+    insertBefore(nuevo, referencia) {
+      const i = children.indexOf(referencia);
+      if (i < 0) return el.appendChild(nuevo);
+      children.splice(i, 0, nuevo);
+      nuevo.parentNode = el;
+      return nuevo;
+    },
     // replaceWith: lo usa el renombrado inline de las pestañas (v3.17.0),
     // que cambia el rótulo por un <input> en el sitio exacto del rótulo.
     replaceWith(otro) {
