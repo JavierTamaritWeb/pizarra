@@ -6144,10 +6144,10 @@ test('un marco se coge por el borde o por su rótulo, nunca por dentro', () => {
    viewport son cosa de e2e/floatbars.spec.js — dom-stub no aplica estilos ni
    tiene layout. */
 
-test('buildFloatbars crea 5 barras en su posición de fábrica y con todos los botones', () => {
+test('buildFloatbars crea 6 barras en su posición de fábrica y con todos los botones', () => {
   const app = loadApp();
   const barras = app.$('floatbars').querySelectorAll('.floatbar');
-  assert.equal(barras.length, 5, 'cinco barras flotantes');
+  assert.equal(barras.length, 6, 'seis barras flotantes');
   // La disposición de fábrica es FLUJO CSS: las barras apiladas sin huecos
   // dentro de la columna #floatbars, pegada al borde izquierdo donde vive el
   // sidebar. Fábrica = SIN estilos inline — el arrastre es lo único que pone
@@ -6161,7 +6161,7 @@ test('buildFloatbars crea 5 barras en su posición de fábrica y con todos los b
   // oculta por CSS), cada juego con su propia clase BEM.
   const flotantes = app.$('floatbars').querySelectorAll('.floatbar__tool');
   const fijos = app.$('sidebar').querySelectorAll('.sidebar__tool');
-  assert.equal(flotantes.length, fijos.length, 'los 49 botones también flotan');
+  assert.equal(flotantes.length, fijos.length, 'todos los botones del sidebar también flotan');
   assert.deepEqual(flotantes.map(b => b.dataset.tool), fijos.map(b => b.dataset.tool));
 });
 

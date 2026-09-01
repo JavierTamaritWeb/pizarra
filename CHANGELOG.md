@@ -4,6 +4,16 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.22.1] — 2026-09-01
+
+### Corregido
+
+- **Barras flotantes**: Edificios y Jardín ya no comparten paleta. Juntas, con
+  las siete herramientas nuevas de la parte técnica del plano, sumaban 25
+  botones — una barra más alta que la propia ventana. El botón «Barras»
+  desglosa ahora el lateral en **seis** paletas, con Edificios y Jardín cada
+  una en la suya.
+
 ## [3.22.0] — 2026-09-01
 
 La mayor ampliación de herramientas del proyecto: **13 botones nuevos** (TOOLS pasa de 54 a 67), seis en UI y siete en Edificios, todos con catálogo de variantes y sin atajo (no quedan teclas libres).

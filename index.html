@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=3.22.0" />
+  <link rel="stylesheet" href="css/styles.css?v=3.22.1" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.22.0" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.22.1" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v3.22.0</span>
+        <span class="topbar__badge">v3.22.1</span>
         <!-- Aviso de autoguardado: visible SOLO mientras localStorage rechaza
              el guardado (cuota llena). Sin él, el fallo era un catch mudo y el
              trabajo posterior se perdía en silencio al recargar. -->
@@ -74,7 +74,7 @@
       </nav>
     </header>
 
-  <!-- Pestañas de documento (v3.22.0): varias pizarras abiertas a la vez.
+  <!-- Pestañas de documento (v3.22.1): varias pizarras abiertas a la vez.
        Es un <nav> con aria-current, no role=tablist: no hay tabpanel que
        conmutar (es el mismo lienzo con otro documento) — semánticamente es
        navegación entre documentos. Las pestañas las fabrica renderTabsBar(). -->
@@ -627,10 +627,10 @@
       <section class="modal__help-group">
         <h4 class="modal__help-title">🧰 Barras flotantes</h4>
         <ul class="modal__help-list">
-          <li>El botón <strong>Barras</strong> de la barra superior desglosa las herramientas en <strong>cinco paletas flotantes</strong> —Edición, Dibujo, Formas y 3D, UI, Edificios y Jardín— que puedes llevar a donde quieras; pulsarlo otra vez devuelve la barra lateral de siempre</li>
+          <li>El botón <strong>Barras</strong> de la barra superior desglosa las herramientas en <strong>seis paletas flotantes</strong> —Edición, Dibujo, Formas y 3D, UI, Edificios y Jardín— que puedes llevar a donde quieras; pulsarlo otra vez devuelve la barra lateral de siempre</li>
           <li>Cada barra se <strong>arrastra por su asa</strong> (la franja superior con el nombre) y se <strong>pliega</strong> con el botón <strong>▾</strong> hasta dejar solo el asa</li>
           <li>Para <strong>recoger una sola barra</strong>, arrástrala de vuelta a la <strong>franja de la izquierda</strong> —se resalta al entrar— y suéltala: vuelve a su sitio en la columna y <strong>las demás se quedan donde están</strong></li>
-          <li>Las posiciones y el plegado <strong>no se guardan</strong>: al pulsar <strong>Barras</strong> o al recargar, las cinco aparecen siempre <strong>apiladas a la izquierda</strong> —donde vive la barra lateral— listas para llevarlas donde quieras. Si no caben todas, esa columna <strong>se desplaza con la rueda</strong>, como la barra lateral. El modo en sí sí se recuerda</li>
+          <li>Las posiciones y el plegado <strong>no se guardan</strong>: al pulsar <strong>Barras</strong> o al recargar, las seis aparecen siempre <strong>apiladas a la izquierda</strong> —donde vive la barra lateral— listas para llevarlas donde quieras. Si no caben todas, esa columna <strong>se desplaza con la rueda</strong>, como la barra lateral. El modo en sí sí se recuerda</li>
           <li>Moverlas y recogerlas de una en una es cosa del <strong>ratón</strong>; sin él, el botón <strong>Barras</strong> las devuelve todas. Las herramientas siguen teniendo sus teclas y cada barra se recorre con las <strong>flechas</strong> del teclado</li>
           <li>En pantallas estrechas (donde el panel es un cajón) el modo no existe: manda la barra lateral</li>
         </ul>
@@ -1257,7 +1257,7 @@
                contiene escondido sería un recuadro vacío con título. Y como
                .modal__group declara `display`, el [hidden] necesita su regla —la
                trampa documentada en _panel.scss. -->
-          <!-- Lados del triángulo irregular (v3.22.0): solo aparece con esa
+          <!-- Lados del triángulo irregular (v3.22.1): solo aparece con esa
                herramienta activa o con uno seleccionado. Misma semántica dual
                que el giro: sin selección fija cómo nace el próximo; con un
                triángulo irregular seleccionado, cambia el suyo. -->
@@ -1453,7 +1453,7 @@
       <button class="btn btn--ghost btn--block modal__cancel">Cerrar</button>
   </dialog>
 
-  <!-- ===== MODALES: PIEZAS UI CON CATÁLOGO (v3.22.0) =====
+  <!-- ===== MODALES: PIEZAS UI CON CATÁLOGO (v3.22.1) =====
        Formulario, Tabla y Gráfico eligen su variante aquí al seleccionar la
        herramienta; para EDITAR una pieza ya creada, el ⚙ abre #modal-ui como
        con el resto de componentes. Los iconos los pinta el renderer real
@@ -2385,7 +2385,7 @@
   <dialog class="modal" id="modal-roof" aria-labelledby="modal-roof-title">
       <h3 class="modal__heading" id="modal-roof-title">Tipo de tejado</h3>
       <p class="modal__sub">Elige el tipo y arrástralo en el lienzo</p>
-      <!-- El complemento (v3.22.0) NO es una variante del catálogo: baja a un
+      <!-- El complemento (v3.22.1) NO es una variante del catálogo: baja a un
            select, como el diseño de la verja — 5 formas × 4 añadidos como
            catálogo serían 20 iconos. Lo dibuja building.js sobre el faldón. -->
       <label class="panel__field" for="roof-addon">
@@ -2396,7 +2396,7 @@
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
   </dialog>
 
-  <!-- ===== MODALES: PARTE TÉCNICA DEL PLANO (v3.22.0) =====
+  <!-- ===== MODALES: PARTE TÉCNICA DEL PLANO (v3.22.1) =====
        Los seis con catálogo los rellena app.js (buildVariantCatalog) desde
        VARIANT_MODALS, con la geometría real de src/js/building.js: el icono
        enseña lo que va a crear. La Cota no tiene variantes: su modal es solo
@@ -2622,24 +2622,24 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=3.22.0"></script>
-  <script src="src/js/sketchy.js?v=3.22.0"></script>
-  <script src="src/js/freehand.js?v=3.22.0"></script>
-  <script src="src/js/arc.js?v=3.22.0"></script>
-  <script src="src/js/curve-path.js?v=3.22.0"></script>
-  <script src="src/js/shape-rotation.js?v=3.22.0"></script>
-  <script src="src/js/regular-polygon.js?v=3.22.0"></script>
-  <script src="src/js/trapezoid.js?v=3.22.0"></script>
-  <script src="src/js/hatch.js?v=3.22.0"></script>
-  <script src="src/js/airbrush.js?v=3.22.0"></script>
-  <script src="src/js/flood.js?v=3.22.0"></script>
-  <script src="src/js/eraser.js?v=3.22.0"></script>
-  <script src="src/js/building.js?v=3.22.0"></script>
-  <script src="src/js/garden.js?v=3.22.0"></script>
-  <script src="src/js/solid.js?v=3.22.0"></script>
-  <script src="src/js/renderer.js?v=3.22.0"></script>
-  <script src="src/js/exporter.js?v=3.22.0"></script>
-  <script src="src/js/templates.js?v=3.22.0"></script>
-  <script src="src/js/app.js?v=3.22.0"></script>
+  <script src="src/js/config.js?v=3.22.1"></script>
+  <script src="src/js/sketchy.js?v=3.22.1"></script>
+  <script src="src/js/freehand.js?v=3.22.1"></script>
+  <script src="src/js/arc.js?v=3.22.1"></script>
+  <script src="src/js/curve-path.js?v=3.22.1"></script>
+  <script src="src/js/shape-rotation.js?v=3.22.1"></script>
+  <script src="src/js/regular-polygon.js?v=3.22.1"></script>
+  <script src="src/js/trapezoid.js?v=3.22.1"></script>
+  <script src="src/js/hatch.js?v=3.22.1"></script>
+  <script src="src/js/airbrush.js?v=3.22.1"></script>
+  <script src="src/js/flood.js?v=3.22.1"></script>
+  <script src="src/js/eraser.js?v=3.22.1"></script>
+  <script src="src/js/building.js?v=3.22.1"></script>
+  <script src="src/js/garden.js?v=3.22.1"></script>
+  <script src="src/js/solid.js?v=3.22.1"></script>
+  <script src="src/js/renderer.js?v=3.22.1"></script>
+  <script src="src/js/exporter.js?v=3.22.1"></script>
+  <script src="src/js/templates.js?v=3.22.1"></script>
+  <script src="src/js/app.js?v=3.22.1"></script>
 </body>
 </html>

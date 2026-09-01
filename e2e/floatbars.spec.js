@@ -18,7 +18,7 @@ const {
 /** Activa el modo flotante desde el interruptor del topbar. */
 async function activarBarras(page) {
   await page.locator('#btn-float-tools').click();
-  await expect(page.locator('.floatbar')).toHaveCount(5);
+  await expect(page.locator('.floatbar')).toHaveCount(6);
   await expect(page.locator('.floatbar').first()).toBeVisible();
 }
 
@@ -36,13 +36,13 @@ async function selectFloatTool(page, toolId) {
   await settle(page);
 }
 
-test('conmutar enseña 5 barras rotuladas y oculta el sidebar; volver lo restaura', async ({ page }) => {
+test('conmutar enseña 6 barras rotuladas y oculta el sidebar; volver lo restaura', async ({ page }) => {
   await openApp(page, { viewport: WIDE });
   await expect(page.locator('#sidebar')).toBeVisible();
 
   await activarBarras(page);
   await expect(page.locator('.floatbar__title')).toHaveText([
-    'Edición', 'Dibujo', 'Formas y 3D', 'UI', 'Edificios y Jardín',
+    'Edición', 'Dibujo', 'Formas y 3D', 'UI', 'Edificios', 'Jardín',
   ]);
   // El sidebar se OCULTA, no se vacía: sus botones siguen en el DOM.
   await expect(page.locator('#sidebar')).toBeHidden();
@@ -230,7 +230,7 @@ test('recargar conserva el modo pero devuelve posiciones y plegado a fábrica', 
 
   // …y la recarga la devuelve a su sitio, desplegada, con el modo puesto.
   await page.reload();
-  await expect(page.locator('.floatbar')).toHaveCount(5);
+  await expect(page.locator('.floatbar')).toHaveCount(6);
   await expect(page.locator('.floatbar').first()).toBeVisible();
   await expect(page.locator('#sidebar')).toBeHidden();
   const trasRecarga = await page.locator('.floatbar').first().boundingBox();

@@ -489,10 +489,10 @@ test('config.js — las secciones de 3D son los tipos de Formas menos el triáng
     [...formas.tools.map(t => t.id).filter(id => id !== 'freeTriangle')]);
 });
 
-test('config.js — FLOATBAR_GROUPS reparte los 7 grupos en 5 barras sin repetir ni dejar ninguno', () => {
+test('config.js — FLOATBAR_GROUPS reparte los 7 grupos en 6 barras sin repetir ni dejar ninguno', () => {
   const ctx = load('src/js/config.js');
   const fb = ctx.FLOATBAR_GROUPS;
-  assert.equal(fb.length, 5, 'son cinco barras flotantes');
+  assert.equal(fb.length, 6, 'son seis barras flotantes');
   // Partición exacta: cada grupo del sidebar aparece en UNA barra, en el
   // mismo orden en que se pintan — si un grupo nuevo entra en TOOL_GROUPS
   // sin barra asignada, sus herramientas no existirían en el modo flotante
@@ -501,14 +501,16 @@ test('config.js — FLOATBAR_GROUPS reparte los 7 grupos en 5 barras sin repetir
   // contexto no comparten prototipo con los del host y deepEqual los rechaza.
   const repartidos = [...fb.flatMap(b => [...b.groups])];
   assert.deepEqual(repartidos, [...ctx.TOOL_GROUPS.map(g => g.label)]);
-  // El reparto acordado, con sus rótulos de asa exactos: Formas con 3D y
-  // Edificios con Jardín comparten barra; el resto va sola.
+  // El reparto acordado, con sus rótulos de asa exactos: solo Formas y 3D
+  // comparten barra. Edificios y Jardín se separaron en la v3.22.1: juntas,
+  // con la parte técnica del plano, eran 25 botones — más que la ventana.
   assert.deepEqual([...fb.map(b => [b.label, [...b.groups]])], [
     ['Edición', ['Edición']],
     ['Dibujo', ['Dibujo']],
     ['Formas y 3D', ['Formas', '3D']],
     ['UI', ['UI']],
-    ['Edificios y Jardín', ['Edificios', 'Jardín']],
+    ['Edificios', ['Edificios']],
+    ['Jardín', ['Jardín']],
   ]);
 });
 
