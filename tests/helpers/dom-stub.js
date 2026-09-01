@@ -112,6 +112,16 @@ function createElementStub(tag, doc) {
       return child;
     },
     remove() { if (el.parentNode) el.parentNode.removeChild(el); },
+    // replaceWith: lo usa el renombrado inline de las pestañas (v3.17.0),
+    // que cambia el rótulo por un <input> en el sitio exacto del rótulo.
+    replaceWith(otro) {
+      const padre = el.parentNode;
+      if (!padre) return;
+      const i = padre.children.indexOf(el);
+      padre.children.splice(i, 1, otro);
+      otro.parentNode = padre;
+      el.parentNode = null;
+    },
     querySelector(sel) { return descendants(el).find(c => matches(c, sel)) || null; },
     querySelectorAll(sel) { return descendants(el).filter(c => matches(c, sel)); },
     closest(sel) { return closestFrom(el, sel); },

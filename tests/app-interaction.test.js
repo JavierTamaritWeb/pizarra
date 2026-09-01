@@ -5017,16 +5017,17 @@ test('escalar un grupo vegetal escala también su gardenMeta, y regenerar no lo 
     `regenerar no debe encoger la planta al tamaño original (quedó en ${b2.w.toFixed(0)}px de ${b1.w.toFixed(0)}px)`);
 });
 
-/* ── «Abrir proyecto» avisa antes de sustituir (v2.42.0) ────────── */
+/* ── «Abrir proyecto» abre en pestaña nueva (v3.17.0; antes sustituía) ── */
 
-test('abrir un proyecto sustituye el lienzo, y con dibujo dentro pregunta antes', async () => {
-  // El botón se llamaba «Importar» y no decía ni qué formato abre ni que se
-  // lleva por delante lo que haya en pantalla; el usuario preguntó qué hacía.
+test('abrir un proyecto abre una pestaña nueva y no toca el dibujo actual', async () => {
+  // Hasta la v3.16.0 sustituía el lienzo con un confirm() de por medio; con
+  // pestañas ya no hay nada que perder: el dibujo se queda en su pestaña.
   const app = loadApp();
   const proyecto = () => {
     const arr = [{ type: 'rect', x: 10, y: 10, w: 40, h: 30,
       color: '#123456', lineWidth: 2 }];
     Object.defineProperty(arr, 'overlapMode', { value: 'normal', enumerable: false });
+    Object.defineProperty(arr, 'fileName', { value: 'fachada-norte', enumerable: false });
     return arr;
   };
   app.context.Exporter.importJSON = async () => proyecto();
@@ -5036,31 +5037,23 @@ test('abrir un proyecto sustituye el lienzo, y con dibujo dentro pregunta antes'
     app.flush();
   };
 
-  // Con el lienzo VACÍO no se molesta al usuario: no hay nada que perder.
-  await abrir();
-  assert.equal(app.context.confirms.length, 0,
-    'con el lienzo vacío no debe preguntar nada');
-  assert.equal(app.elements().length, 1, 'el proyecto se ha abierto');
-
-  // Con dibujo dentro, pregunta; y si se dice que NO, no toca nada.
+  // Con dibujo dentro NO pregunta nada: se abre al lado, no encima.
   app.selectTool('rect');
   app.drag(200, 200, 300, 280);
   const antes = app.elements();
-  app.context.confirmAnswer = false;
   await abrir();
-  assert.equal(app.context.confirms.length, 1, 'tenía que preguntar');
-  assert.match(app.context.confirms[0], /sustituir/i);
-  assert.deepEqual(app.elements().map(e => e.type), antes.map(e => e.type),
-    'al decir que no, el dibujo se queda como estaba');
+  assert.equal(app.context.confirms.length, 0, 'con pestañas no hay nada que confirmar');
+  assert.equal(app.elements().length, 1, 'la pestaña nueva contiene el proyecto');
 
-  // Y si se dice que sí, sustituye —no fusiona— y se puede deshacer.
-  app.context.confirmAnswer = true;
-  await abrir();
-  assert.equal(app.elements().length, 1, 'sustituye el lienzo entero');
-  app.key('z', { ctrlKey: true });
-  app.flush();
-  assert.equal(app.elements().length, antes.length,
-    'Ctrl+Z devuelve el dibujo anterior');
+  const tabs = JSON.parse(app.dom.localStorage.getItem('sketchwire.tabs'));
+  assert.equal(tabs.order.length, 2, 'hay una pestaña más');
+  assert.equal(tabs.order[1].name, 'fachada-norte', 'la pestaña se llama como el archivo');
+  assert.equal(tabs.active, tabs.order[1].id, 'y queda activa');
+
+  // El dibujo anterior sigue entero en su pestaña.
+  const dormida = JSON.parse(app.dom.localStorage.getItem('sketchwire.doc.' + tabs.order[0].id));
+  assert.deepEqual(dormida.elements.map(e => e.type), antes.map(e => e.type),
+    'el dibujo anterior sigue en su pestaña');
 });
 
 /* ── Abrir un proyecto restaura el aspecto con el que se dibujó (v3.1.0) ──
@@ -5089,17 +5082,20 @@ test('abrir un proyecto restaura su aspecto, y uno sin aspecto no lo toca', asyn
   assert.equal(app.$('canvas-bg-picker').value, '#1f2b2a', 'el papel del proyecto');
   assert.equal(app.$('grid-color-picker').value, '#4e6b66');
   assert.equal(app.$('check-grid').checked, false, 'y la cuadrícula, apagada como venía');
-  // Queda guardado: si no, la recarga siguiente lo devolvería al de fábrica.
-  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
-  assert.equal(prefs.canvasBg, '#1f2b2a');
+  // Con pestañas el aspecto viaja en el DOCUMENTO, no en prefs: queda escrito
+  // en el autosave de su pestaña y la recarga lo recupera de ahí.
+  const auto = JSON.parse(app.dom.localStorage.getItem('sketchwire.autosave'));
+  assert.equal(auto.settings.canvasBg, '#1f2b2a');
+  assert.equal(auto.settings.showGrid, false);
 
   // Un proyecto ANTERIOR (o de otra herramienta) no trae aspecto, y la
-  // ausencia significa «deja el que tengas»: no se inventa uno de fábrica.
-  app.context.confirmAnswer = true;
+  // ausencia significa el DEFAULT del usuario —prefs, o la mesa tal y como
+  // está puesta si prefs aún no existe—: no se inventa uno de fábrica.
+  const prefsAntes = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs')) || {};
+  const fondoAntes = app.$('canvas-bg-picker').value;
   await abrir({});
-  assert.equal(app.$('canvas-bg-picker').value, '#1f2b2a',
-    'sin aspecto en el archivo, el del usuario se queda');
-  assert.equal(app.$('check-grid').checked, false);
+  assert.equal(app.$('canvas-bg-picker').value, prefsAntes.canvasBg || fondoAntes,
+    'sin aspecto en el archivo, la pestaña nueva usa el default del usuario');
 });
 
 /* ── Curvatura ajustable al crear (v3.2.0) ──

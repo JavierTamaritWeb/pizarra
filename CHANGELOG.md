@@ -4,6 +4,43 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.17.0] — 2026-09-01
+
+### Añadido
+
+- **Pestañas de pizarra**: varias pizarras abiertas a la vez, en una barra
+  propia bajo la superior. Cada pestaña es un documento independiente —su
+  dibujo, su historial de deshacer, su zoom/encuadre y su aspecto de lienzo—.
+  El botón **«+»** crea una nueva; la **«×»** cierra (con un diálogo propio si
+  tiene dibujo — nunca `confirm()`, que congela WKWebView); **doble clic**
+  renombra con un input inline. La última pestaña no se puede cerrar.
+- **Persistencia completa**: al cerrar y reabrir la app vuelven TODAS las
+  pestañas con la activa recordada. Contrato de almacenamiento:
+  `sketchwire.autosave` sigue siendo el documento activo (formato de siempre,
+  con el aspecto añadido a `settings`), `sketchwire.tabs` es el índice y
+  `sketchwire.doc.<id>` guarda los documentos dormidos. Una sesión de una
+  versión anterior se convierte sola en una pestaña «Pizarra 1» sobre su
+  autosave, sin mover un byte.
+- Atajos (nunca única vía): `Ctrl/Cmd+Alt+T` nueva pizarra, `Ctrl/Cmd+Alt+W`
+  cerrar, `Ctrl/Cmd+Alt+←/→` cambiar de pestaña. Con Alt a propósito: `Cmd+T`
+  y `Cmd+W` pertenecen al navegador (y en la app de escritorio `Cmd+W`
+  cierra la ventana).
+- El JSON de proyecto lleva ahora un campo `name` opcional (el nombre de la
+  pestaña) y el archivo exportado se llama como el proyecto; los importadores
+  anteriores lo ignoran.
+
+### Cambiado
+
+- **«Abrir proyecto» abre en pestaña nueva** (con el nombre del proyecto o
+  del archivo) y ya no sustituye el lienzo — desaparece su `confirm()`.
+- **El aspecto del lienzo es por documento**: papel, color de rejilla y
+  cuadrícula viajan con cada pestaña; prefs conserva el default con el que
+  nacen las nuevas.
+- **«Limpiar todo» limpia solo la pestaña activa**: las demás pizarras y el
+  índice no se tocan.
+- La caché de imágenes se poda contando TODAS las pestañas: las imágenes de
+  las pizarras dormidas ya no se pierden al podar.
+
 ## [3.16.0] — 2026-08-30
 
 ### Añadido

@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=3.16.0" />
+  <link rel="stylesheet" href="css/styles.css?v=3.17.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.16.0" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.17.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v3.16.0</span>
+        <span class="topbar__badge">v3.17.0</span>
         <!-- Aviso de autoguardado: visible SOLO mientras localStorage rechaza
              el guardado (cuota llena). Sin él, el fallo era un catch mudo y el
              trabajo posterior se perdía en silencio al recargar. -->
@@ -53,7 +53,7 @@
           <span class="btn__icon" aria-hidden="true">🧰</span> <span class="btn__label">Barras</span>
         </button>
         <button class="btn btn--ghost" id="btn-import"
-                title="Abrir un proyecto .json guardado con Exportar → JSON. Sustituye el dibujo actual.">
+                title="Abrir un proyecto .json guardado con Exportar → JSON. Se abre en una pestaña nueva.">
           <span class="btn__icon" aria-hidden="true">📂</span> <span class="btn__label">Abrir proyecto</span>
         </button>
         <button class="btn btn--ghost" id="btn-templates" title="Plantillas">
@@ -73,6 +73,16 @@
         </button>
       </nav>
     </header>
+
+  <!-- Pestañas de documento (v3.17.0): varias pizarras abiertas a la vez.
+       Es un <nav> con aria-current, no role=tablist: no hay tabpanel que
+       conmutar (es el mismo lienzo con otro documento) — semánticamente es
+       navegación entre documentos. Las pestañas las fabrica renderTabsBar(). -->
+  <nav class="doctabs" id="doctabs" aria-label="Pizarras abiertas">
+    <div class="doctabs__list" id="doctabs-list"></div>
+    <button class="doctabs__new" id="btn-tab-new" type="button"
+            title="Nueva pizarra (Ctrl/Cmd+Alt+T)" aria-label="Nueva pizarra">+</button>
+  </nav>
 
     <!-- ── Main Body ── -->
     <div class="app__body">
@@ -792,6 +802,16 @@
           <li><strong>Mis piezas</strong>: selecciona algo y pulsa <strong>«Guardar como pieza»</strong> en «Elementos». Queda en tu biblioteca y se <em>inserta</em> —sin borrar nada— desde el mismo modal de Plantillas, tantas veces como quieras. La biblioteca vive en este navegador, sobrevive a «Limpiar todo» y se puede <strong>exportar e importar</strong> como archivo <code>.json</code></li>
           <li>Arriba del todo, en <strong>Ajustes</strong>, eliges la <strong>resolución</strong> (1×, 2× o 3×: el dibujo no cambia, cambian los píxeles), el <strong>fondo transparente</strong> (el JPG lo ignora: ese formato no tiene transparencia) y <strong>solo la selección</strong>, que recorta la exportación a lo que tengas seleccionado</li>
           <li><strong>Copiar imagen al portapapeles</strong> deja el dibujo listo para pegar en un documento o un chat, sin pasar por la carpeta de descargas. También está en el menú del clic derecho, y ahí copia solo lo seleccionado</li>
+        </ul>
+      </section>
+
+      <section class="modal__help-group">
+        <h4 class="modal__help-title">🗂️ Pestañas de pizarra</h4>
+        <ul class="modal__help-list">
+          <li>Bajo la barra superior viven las <strong>pestañas</strong>: cada una es una pizarra independiente, con su dibujo, su historial de deshacer, su zoom y su aspecto de lienzo. El botón <strong>«+»</strong> crea una nueva; al cerrar y reabrir la app <strong>vuelven todas</strong>, con la activa recordada</li>
+          <li><strong>Doble clic</strong> en la pestaña activa la renombra (Enter confirma, Esc cancela) · la <strong>«×»</strong> la cierra, preguntando antes si tiene dibujo · la última pestaña no se puede cerrar</li>
+          <li><strong>Abrir proyecto</strong> ya no sustituye nada: el archivo .json se abre en su <strong>propia pestaña</strong>, con su nombre</li>
+          <li>Atajos: <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd> nueva · <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Alt</kbd>+<kbd>W</kbd> cerrar · <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Alt</kbd>+<kbd>←</kbd>/<kbd>→</kbd> cambiar de pestaña</li>
         </ul>
       </section>
 
@@ -1606,6 +1626,16 @@
       <p class="modal__sub">Visto de frente: elige el tipo y arrástralo en el lienzo</p>
       <div id="balcony-catalog"></div>
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
+  <!-- ===== MODAL: CERRAR PESTAÑA =====
+       Diálogo propio, jamás confirm(): un diálogo nativo congela WKWebView
+       bajo automatización y no se puede estilar. -->
+  <dialog class="modal" id="modal-tab-close" aria-labelledby="modal-tab-close-title">
+      <h3 class="modal__heading" id="modal-tab-close-title">Cerrar pizarra</h3>
+      <p class="modal__sub">¿Cerrar «<span id="tab-close-name"></span>»? Se perderá lo que no hayas exportado.</p>
+      <button class="btn btn--primary btn--block" id="btn-tab-close-confirm">Cerrar la pizarra</button>
+      <button class="btn btn--ghost btn--block modal__cancel" id="btn-tab-close-cancel">Cancelar</button>
   </dialog>
 
   <!-- ===== MODAL: ILUMINACIÓN ===== -->
@@ -2461,24 +2491,24 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=3.16.0"></script>
-  <script src="src/js/sketchy.js?v=3.16.0"></script>
-  <script src="src/js/freehand.js?v=3.16.0"></script>
-  <script src="src/js/arc.js?v=3.16.0"></script>
-  <script src="src/js/curve-path.js?v=3.16.0"></script>
-  <script src="src/js/shape-rotation.js?v=3.16.0"></script>
-  <script src="src/js/regular-polygon.js?v=3.16.0"></script>
-  <script src="src/js/trapezoid.js?v=3.16.0"></script>
-  <script src="src/js/hatch.js?v=3.16.0"></script>
-  <script src="src/js/airbrush.js?v=3.16.0"></script>
-  <script src="src/js/flood.js?v=3.16.0"></script>
-  <script src="src/js/eraser.js?v=3.16.0"></script>
-  <script src="src/js/building.js?v=3.16.0"></script>
-  <script src="src/js/garden.js?v=3.16.0"></script>
-  <script src="src/js/solid.js?v=3.16.0"></script>
-  <script src="src/js/renderer.js?v=3.16.0"></script>
-  <script src="src/js/exporter.js?v=3.16.0"></script>
-  <script src="src/js/templates.js?v=3.16.0"></script>
-  <script src="src/js/app.js?v=3.16.0"></script>
+  <script src="src/js/config.js?v=3.17.0"></script>
+  <script src="src/js/sketchy.js?v=3.17.0"></script>
+  <script src="src/js/freehand.js?v=3.17.0"></script>
+  <script src="src/js/arc.js?v=3.17.0"></script>
+  <script src="src/js/curve-path.js?v=3.17.0"></script>
+  <script src="src/js/shape-rotation.js?v=3.17.0"></script>
+  <script src="src/js/regular-polygon.js?v=3.17.0"></script>
+  <script src="src/js/trapezoid.js?v=3.17.0"></script>
+  <script src="src/js/hatch.js?v=3.17.0"></script>
+  <script src="src/js/airbrush.js?v=3.17.0"></script>
+  <script src="src/js/flood.js?v=3.17.0"></script>
+  <script src="src/js/eraser.js?v=3.17.0"></script>
+  <script src="src/js/building.js?v=3.17.0"></script>
+  <script src="src/js/garden.js?v=3.17.0"></script>
+  <script src="src/js/solid.js?v=3.17.0"></script>
+  <script src="src/js/renderer.js?v=3.17.0"></script>
+  <script src="src/js/exporter.js?v=3.17.0"></script>
+  <script src="src/js/templates.js?v=3.17.0"></script>
+  <script src="src/js/app.js?v=3.17.0"></script>
 </body>
 </html>

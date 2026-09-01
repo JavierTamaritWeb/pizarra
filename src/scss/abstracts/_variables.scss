@@ -103,6 +103,7 @@ $swatch-size: 2.8rem; // muestra de color/relleno/aspecto, y las columnas de su 
 
 // Dimensiones (1rem = 10px, ver base/_reset.scss)
 $topbar-h: 5.2rem;
+$doctabs-h: 3.4rem; // barra de pestañas de documento (v3.17.0)
 $sidebar-w: 7.2rem; // barra compacta de una columna
 $sidebar-w-wide: 13.2rem; // dos columnas, desde $sidebar-2col (_breakpoints.scss)
 $panel-w: 22rem;

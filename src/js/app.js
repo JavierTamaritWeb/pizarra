@@ -1270,10 +1270,7 @@
     // bien mientras cada autoguardado fallaba para siempre, y lo dibujado
     // después de llenarse la cuota se perdía al recargar sin ninguna señal.
     try {
-      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({
-        elements: state.elements,
-        settings: { overlapMode: state.overlapMode },
-      }));
+      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(serializeActiveDoc()));
       $('autosave-warn').hidden = true;
     } catch (_) {
       $('autosave-warn').hidden = false;
@@ -1305,24 +1302,433 @@
     collect(state.elements);
     state.undoStack.forEach(collect);
     state.redoStack.forEach(collect);
+    // Y los de las OTRAS pestañas: la caché del Renderer es global, así que
+    // podar solo con el documento activo borraría las imágenes de las
+    // pestañas inactivas — al volver, huecos en blanco sin recarga posible.
+    for (const srcs of inactiveDocSrcs.values()) srcs.forEach(src => live.add(src));
     Renderer.pruneImageCache(live);
   }
 
-  function restoreAutosave() {
+  /* ── Pestañas de documento (v3.17.0) ──
+     Varias pizarras abiertas a la vez. El contrato de almacenamiento:
+
+       sketchwire.autosave   → el documento ACTIVO, formato de siempre
+                               ({elements, settings}); settings crece con el
+                               aspecto (canvasBg/gridColor/showGrid), que pasa
+                               a ser POR DOCUMENTO. Que el activo siga en esta
+                               clave es deliberado: el arnés de tests y el e2e
+                               observan la app por aquí, y el espejo a disco
+                               de pyzarra la restaura igual que siempre.
+       sketchwire.tabs       → índice {v:1, active, order:[{id,name}...]}.
+       sketchwire.doc.<id>   → los documentos NO activos, mismo formato. El
+                               activo no se duplica aquí (la cuota ya aprieta
+                               con un solo documento).
+
+     Al cambiar de pestaña: el activo se vuelca a su sketchwire.doc.<id>, el
+     entrante se lee, se aplica y SU clave doc se borra (pasa a vivir en el
+     autosave). Sin sketchwire.tabs (sesión de una versión anterior) se crea
+     una sola pestaña sobre el autosave existente: cero movimiento de datos.
+
+     Deshacer/rehacer, zoom y scroll son POR PESTAÑA pero solo en memoria
+     (tabRuntime): hoy tampoco sobreviven a recargar, y persistir 50 copias
+     del lienzo por pestaña reventaría la cuota. */
+
+  const TABS_KEY = 'sketchwire.tabs';
+  const DOC_KEY_PREFIX = 'sketchwire.doc.';
+  let tabs = null;                    // índice en memoria; fuente: TABS_KEY
+  const tabRuntime = new Map();       // id → {undoStack, redoStack, view}
+  const inactiveDocSrcs = new Map();  // id → Set de src (ver pruneImageCache)
+
+  const newTabId = () =>
+    Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6);
+
+  /** «Pizarra N» con el menor N libre: cerrar la 2 y crear otra da «Pizarra 2»
+      otra vez, no «Pizarra 4» — los huecos se rellenan. */
+  function defaultTabName() {
+    const usados = new Set(tabs.order.map(t => t.name));
+    let n = 1;
+    while (usados.has(`Pizarra ${n}`)) n++;
+    return `Pizarra ${n}`;
+  }
+
+  const activeTabName = () => {
+    const t = tabs && tabs.order.find(x => x.id === tabs.active);
+    return t ? t.name : '';
+  };
+
+  /** Fuente única de lo que ES un documento. La consumen el autosave y el
+      volcado de pestañas: si un campo nuevo entra aquí, entra en los dos. */
+  function serializeActiveDoc() {
+    return {
+      elements: state.elements,
+      settings: {
+        overlapMode: state.overlapMode,
+        canvasBg:    state.canvasBg,
+        gridColor:   state.gridColor,
+        showGrid:    state.showGrid,
+      },
+    };
+  }
+
+  /** Aplica un documento (o el formato histórico: array pelado) a `state`,
+      con la misma validación elemento a elemento del autosave de siempre.
+      La AUSENCIA de un campo de aspecto deja el que haya —un autosave de una
+      versión anterior no trae aspecto y debe conservar el de prefs—. */
+  function applyDoc(saved) {
+    state.elements = [];
+    if (Array.isArray(saved)) {
+      state.elements = saved.filter(Exporter.isValidElement);
+    } else if (saved && Array.isArray(saved.elements)) {
+      state.elements = saved.elements.filter(Exporter.isValidElement);
+      const st = saved.settings || {};
+      if (['normal', 'hidden-dashed'].includes(st.overlapMode)) {
+        state.overlapMode = st.overlapMode;
+      }
+      if (HEX_RE.test(String(st.canvasBg  || ''))) state.canvasBg  = st.canvasBg;
+      if (HEX_RE.test(String(st.gridColor || ''))) state.gridColor = st.gridColor;
+      if (typeof st.showGrid === 'boolean') state.showGrid = st.showGrid;
+    }
+    setSelection([]);
+    state.editingIdx = null;
+    // Los mandos que enseñan el aspecto, al momento (en el arranque es
+    // redundante con syncAllControls; al cambiar de pestaña es lo único).
+    $('canvas-bg-picker').value = state.canvasBg;
+    $('grid-color-picker').value = state.gridColor;
+    $('check-grid').checked = state.showGrid;
+    $('overlap-mode').value = state.overlapMode;
+    updateCanvasPresetActive();
+  }
+
+  function loadTabsIndex() {
+    try {
+      const idx = JSON.parse(localStorage.getItem(TABS_KEY));
+      const bien = idx && idx.v === 1 && typeof idx.active === 'string' &&
+        Array.isArray(idx.order) && idx.order.length > 0 &&
+        idx.order.every(t => t && typeof t.id === 'string' && typeof t.name === 'string') &&
+        idx.order.some(t => t.id === idx.active);
+      return bien ? { v: 1, active: idx.active, order: idx.order.map(t => ({ id: t.id, name: t.name })) } : null;
+    } catch (_) { return null; }
+  }
+
+  function saveTabsIndex() {
+    try { localStorage.setItem(TABS_KEY, JSON.stringify(tabs)); } catch (_) {}
+  }
+
+  const docSrcsOf = doc => {
+    const srcs = new Set();
+    (doc && Array.isArray(doc.elements) ? doc.elements : []).forEach(el => {
+      if (el.type === 'image' && el.src) srcs.add(el.src);
+    });
+    return srcs;
+  };
+
+  /** Vuelca el documento activo a su sketchwire.doc.<id> y aparta su runtime
+      (historial + cámara). Si la cuota no da, se avisa con nombre y apellidos
+      pero el cambio de pestaña SIGUE: los datos están vivos en memoria y el
+      autosave del activo anterior sigue en disco. */
+  function stashActiveDoc() {
+    const id = tabs.active;
+    const doc = serializeActiveDoc();
+    try {
+      localStorage.setItem(DOC_KEY_PREFIX + id, JSON.stringify(doc));
+    } catch (_) {
+      $('autosave-warn').hidden = false;
+      const t = tabs.order.find(x => x.id === id);
+      showToast(`⚠ Sin espacio: «${t ? t.name : id}» puede perder cambios al recargar`);
+    }
+    // El historial también alimenta la caché de imágenes: deshacer en esa
+    // pestaña, al volver, debe repintar sin recargar nada.
+    const srcs = docSrcsOf(doc);
+    const collect = els => els.forEach(el => { if (el.type === 'image' && el.src) srcs.add(el.src); });
+    state.undoStack.forEach(collect);
+    state.redoStack.forEach(collect);
+    inactiveDocSrcs.set(id, srcs);
+    tabRuntime.set(id, {
+      undoStack: state.undoStack,
+      redoStack: state.redoStack,
+      view: {
+        zoom: state.zoom,
+        zoomManual,
+        scrollLeft: canvasArea ? canvasArea.scrollLeft : 0,
+        scrollTop:  canvasArea ? canvasArea.scrollTop  : 0,
+      },
+    });
+  }
+
+  /** Saneado previo a todo cambio de documento: ningún transitorio del gesto
+      debe colarse en el volcado ni sobrevivir al swap (mismo criterio que
+      «Limpiar todo»). El texto a medio escribir se CONFIRMA, no se tira. */
+  function settleGestures() {
+    if (!textInput.hidden) commitText();
+    cancelCurveChain();
+  }
+
+  function switchTab(id) {
+    if (!tabs || id === tabs.active || !tabs.order.some(t => t.id === id)) return;
+    settleGestures();
+    stashActiveDoc();
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(DOC_KEY_PREFIX + id)); } catch (_) {}
+    applyDoc(saved);
+    try { localStorage.removeItem(DOC_KEY_PREFIX + id); } catch (_) {}
+    inactiveDocSrcs.delete(id);
+    const rt = tabRuntime.get(id);
+    tabRuntime.delete(id);
+    state.undoStack = rt ? rt.undoStack : [];
+    state.redoStack = rt ? rt.redoStack : [];
+    tabs.active = id;
+    saveTabsIndex();
+    saveAutosaveNow();
+    if (rt && rt.view) {
+      zoomManual = rt.view.zoomManual;
+      applyZoom(rt.view.zoom);
+      if (canvasArea) {
+        canvasArea.scrollLeft = rt.view.scrollLeft;
+        canvasArea.scrollTop  = rt.view.scrollTop;
+      }
+    } else {
+      zoomManual = false;
+      fitZoomToViewport();
+    }
+    renderTabsBar();
+    redraw();
+  }
+
+  /** El aspecto con el que nace una pestaña nueva: el default guardado en
+      prefs (la «mesa de trabajo» del usuario), con el aspecto actual de
+      respaldo si prefs no existe o no trae algún campo. */
+  function aspectDefaults() {
+    let prefs = null;
+    try { prefs = JSON.parse(localStorage.getItem(PREFS_KEY)); } catch (_) {}
+    prefs = prefs || {};
+    return {
+      overlapMode: ['normal', 'hidden-dashed'].includes(prefs.overlapMode) ? prefs.overlapMode : state.overlapMode,
+      canvasBg:  HEX_RE.test(String(prefs.canvasBg  || '')) ? prefs.canvasBg  : state.canvasBg,
+      gridColor: HEX_RE.test(String(prefs.gridColor || '')) ? prefs.gridColor : state.gridColor,
+      showGrid:  typeof prefs.showGrid === 'boolean' ? prefs.showGrid : state.showGrid,
+    };
+  }
+
+  function createTab(name, doc) {
+    settleGestures();
+    stashActiveDoc();
+    const id = newTabId();
+    tabs.order.push({ id, name: (name || '').trim() || defaultTabName() });
+    tabs.active = id;
+    applyDoc(doc || { elements: [], settings: aspectDefaults() });
+    state.undoStack = [];
+    state.redoStack = [];
+    saveTabsIndex();
+    saveAutosaveNow();
+    zoomManual = false;
+    fitZoomToViewport();
+    renderTabsBar();
+    redraw();
+  }
+
+  /** ¿Tiene elementos ese documento? El activo se mira en `state`; los demás,
+      en su clave de disco. Decide si cerrar pregunta o no. */
+  function tabHasContent(id) {
+    if (id === tabs.active) return state.elements.length > 0;
+    try {
+      const doc = JSON.parse(localStorage.getItem(DOC_KEY_PREFIX + id));
+      return !!(doc && Array.isArray(doc.elements) && doc.elements.length);
+    } catch (_) { return false; }
+  }
+
+  let tabPendingClose = null;
+
+  function closeTab(id) {
+    if (!tabs || tabs.order.length <= 1 || !tabs.order.some(t => t.id === id)) return;
+    if (tabHasContent(id)) {
+      // Jamás confirm(): un diálogo nativo congela WKWebView bajo
+      // automatización y no se puede estilar. El <dialog> propio, sí.
+      tabPendingClose = id;
+      const t = tabs.order.find(x => x.id === id);
+      $('tab-close-name').textContent = t.name;
+      $('modal-tab-close').showModal();
+      return;
+    }
+    reallyCloseTab(id);
+  }
+
+  function reallyCloseTab(id) {
+    const i = tabs.order.findIndex(t => t.id === id);
+    if (i < 0 || tabs.order.length <= 1) return;
+    tabs.order.splice(i, 1);
+    try { localStorage.removeItem(DOC_KEY_PREFIX + id); } catch (_) {}
+    tabRuntime.delete(id);
+    inactiveDocSrcs.delete(id);
+    if (id === tabs.active) {
+      // La vecina de la derecha, o la última si se cerró la del extremo.
+      const next = tabs.order[Math.min(i, tabs.order.length - 1)].id;
+      // switchTab exige que `active` siga siendo válido para el stash; aquí
+      // el doc cerrado ya no existe, así que se activa a mano.
+      tabs.active = next;
+      let saved = null;
+      try { saved = JSON.parse(localStorage.getItem(DOC_KEY_PREFIX + next)); } catch (_) {}
+      applyDoc(saved);
+      try { localStorage.removeItem(DOC_KEY_PREFIX + next); } catch (_) {}
+      inactiveDocSrcs.delete(next);
+      const rt = tabRuntime.get(next);
+      tabRuntime.delete(next);
+      state.undoStack = rt ? rt.undoStack : [];
+      state.redoStack = rt ? rt.redoStack : [];
+      saveAutosaveNow();
+      if (rt && rt.view) {
+        zoomManual = rt.view.zoomManual;
+        applyZoom(rt.view.zoom);
+        if (canvasArea) {
+          canvasArea.scrollLeft = rt.view.scrollLeft;
+          canvasArea.scrollTop  = rt.view.scrollTop;
+        }
+      } else {
+        zoomManual = false;
+        fitZoomToViewport();
+      }
+      redraw();
+    }
+    saveTabsIndex();
+    renderTabsBar();
+  }
+
+  function renameTab(id, name) {
+    const t = tabs.order.find(x => x.id === id);
+    const limpio = String(name || '').trim().slice(0, 60);
+    if (!t || !limpio || limpio === t.name) { renderTabsBar(); return; }
+    t.name = limpio;
+    saveTabsIndex();
+    renderTabsBar();
+  }
+
+  /** Reconstruye la barra desde el índice. Sin innerHTML, como los catálogos.
+      La última pestaña no lleva «×»: no es cerrable — siempre queda al menos
+      una pizarra, que es donde se está dibujando. */
+  function renderTabsBar() {
+    const list = $('doctabs-list');
+    if (!list) return;
+    list.innerHTML = '';
+    tabs.order.forEach(t => {
+      const wrap = document.createElement('div');
+      wrap.className = 'doctabs__tab' + (t.id === tabs.active ? ' doctabs__tab--active' : '');
+      wrap.dataset.tabId = t.id;
+      const label = document.createElement('button');
+      label.type = 'button';
+      label.className = 'doctabs__label';
+      label.textContent = t.name;
+      label.title = t.id === tabs.active
+        ? 'Doble clic para renombrar'
+        : `Ir a «${t.name}»`;
+      if (t.id === tabs.active) label.setAttribute('aria-current', 'true');
+      wrap.appendChild(label);
+      if (tabs.order.length > 1) {
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'doctabs__close';
+        close.textContent = '×';
+        close.title = 'Cerrar pizarra';
+        close.setAttribute('aria-label', `Cerrar «${t.name}»`);
+        wrap.appendChild(close);
+      }
+      list.appendChild(wrap);
+    });
+  }
+
+  /** Doble clic en la pestaña activa → input inline. Enter o perder el foco
+      confirma; Escape cancela. Nunca prompt(): congela WKWebView. */
+  function startRenameTab(id) {
+    const list = $('doctabs-list');
+    const wrap = [...list.querySelectorAll('.doctabs__tab')].find(w => w.dataset.tabId === id);
+    if (!wrap) return;
+    const label = wrap.querySelector('.doctabs__label');
+    const t = tabs.order.find(x => x.id === id);
+    const input = document.createElement('input');
+    input.className = 'doctabs__input';
+    input.type = 'text';
+    input.value = t.name;
+    input.setAttribute('aria-label', 'Nombre de la pizarra');
+    label.replaceWith(input);
+    input.focus();
+    if (input.select) input.select();
+    let done = false;
+    const finish = commit => {
+      if (done) return;
+      done = true;
+      if (commit) renameTab(id, input.value);
+      else renderTabsBar();
+    };
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+      else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+      // Que las teclas no lleguen al atajo global (b = borrador, etc.).
+      e.stopPropagation();
+    });
+    input.addEventListener('blur', () => finish(true));
+  }
+
+  function wireTabs() {
+    $('doctabs-list').addEventListener('click', e => {
+      const wrap = e.target.closest && e.target.closest('.doctabs__tab');
+      if (!wrap) return;
+      const id = wrap.dataset.tabId;
+      if (e.target.closest('.doctabs__close')) closeTab(id);
+      else if (e.target.closest('.doctabs__label')) switchTab(id);
+    });
+    $('doctabs-list').addEventListener('dblclick', e => {
+      const wrap = e.target.closest && e.target.closest('.doctabs__tab');
+      if (!wrap || !e.target.closest('.doctabs__label')) return;
+      if (wrap.dataset.tabId !== tabs.active) return;   // renombrar exige estar en ella
+      startRenameTab(wrap.dataset.tabId);
+    });
+    $('btn-tab-new').addEventListener('click', () => createTab());
+    const modal = $('modal-tab-close');
+    $('btn-tab-close-confirm').addEventListener('click', () => {
+      // El id se captura ANTES de cerrar: el evento `close` del propio
+      // dialog limpia tabPendingClose (es lo que hace que Escape y el
+      // backdrop equivalgan a Cancelar), y aquí llegaría ya en null.
+      const id = tabPendingClose;
+      tabPendingClose = null;
+      modal.close();
+      if (id) reallyCloseTab(id);
+    });
+    $('btn-tab-close-cancel').addEventListener('click', () => {
+      tabPendingClose = null;
+      modal.close();
+    });
+    // El backdrop cierra, como en el resto de modales (la receta de
+    // closeOnBackdrop, que vive dentro de setupModals y aquí no llega).
+    modal.addEventListener('click', e => {
+      if (e.target !== modal) return; // click en un hijo: nunca cierra
+      const r = modal.getBoundingClientRect();
+      const inside = e.clientX >= r.left && e.clientX <= r.right &&
+                     e.clientY >= r.top && e.clientY <= r.bottom;
+      if (!inside) modal.close();
+    });
+    modal.addEventListener('close', () => { tabPendingClose = null; });
+  }
+
+  /** Arranque: índice + documento activo. Sin índice (versión anterior o
+      primera vez) se fabrica uno con UNA pestaña sobre el autosave que haya:
+      la migración es no crear nada nuevo, solo darle nombre a lo que hay. */
+  function restoreTabs() {
+    tabs = loadTabsIndex();
+    if (!tabs) {
+      const id = newTabId();
+      tabs = { v: 1, active: id, order: [{ id, name: 'Pizarra 1' }] };
+      saveTabsIndex();
+    }
     try {
       const raw = localStorage.getItem(AUTOSAVE_KEY);
-      if (!raw) return;
-      const saved = JSON.parse(raw);
-      if (Array.isArray(saved)) {
-        // Formato histórico: solo el array de elementos.
-        state.elements = saved.filter(Exporter.isValidElement);
-      } else if (saved && Array.isArray(saved.elements)) {
-        state.elements = saved.elements.filter(Exporter.isValidElement);
-        if (saved.settings && ['normal', 'hidden-dashed'].includes(saved.settings.overlapMode)) {
-          state.overlapMode = saved.settings.overlapMode;
-        }
-      }
+      if (raw) applyDoc(JSON.parse(raw));
     } catch (_) { /* autosave corrupto: se ignora */ }
+    // Los src de imagen de las pestañas inactivas, a la mesa desde ya: la
+    // primera poda llega con el primer autosave, antes de ningún cambio.
+    tabs.order.forEach(t => {
+      if (t.id === tabs.active) return;
+      try {
+        inactiveDocSrcs.set(t.id, docSrcsOf(JSON.parse(localStorage.getItem(DOC_KEY_PREFIX + t.id))));
+      } catch (_) {}
+    });
   }
 
   // Solo longitudes hex válidas en CSS (3/4/6/8): {3,8} aceptaba #abcde,
@@ -5298,6 +5704,7 @@
         options: {
           overlapMode: state.overlapMode,
           canvasBg: state.canvasBg, gridColor: state.gridColor, showGrid: state.showGrid,
+          name: activeTabName(),
           scale: Number($('export-scale').value) || 1,
           transparent: !!$('export-transparent').checked,
           // Sin margen: el borde del marco ES el borde que se quiere.
@@ -5313,6 +5720,9 @@
       canvasBg:    state.canvasBg,
       gridColor:   state.gridColor,
       showGrid:    state.showGrid,
+      // El nombre de la pizarra viaja en el JSON de proyecto (v3.17.0): al
+      // reabrirlo, su pestaña recupera el nombre. Solo lo usa Exporter.json.
+      name:        activeTabName(),
       scale:       Number($('export-scale').value) || 1,
       transparent: !!$('export-transparent').checked,
     };
@@ -9117,6 +9527,11 @@
       // PREFS_KEY, y un aspecto que sólo viviera en `state` volvería al de
       // fábrica en la siguiente recarga.
       savePrefs();
+      // Con pestañas, «Limpiar todo» limpia SOLO la activa: los
+      // sketchwire.doc.* de las demás y el índice sketchwire.tabs no se
+      // tocan (arriba solo se borran AUTOSAVE y PREFS). El autosave vacío se
+      // deja escrito para que la recarga no resucite el dibujo borrado.
+      saveAutosaveNow();
       redraw();
     });
 
@@ -9141,39 +9556,25 @@
     $('btn-ungroup').addEventListener('click', ungroupSelection);
 
     // Import
-    // «Abrir proyecto»: lee un .json de los que produce Exportar → JSON y
-    // SUSTITUYE el lienzo con él — no fusiona. Se llamaba «Importar» a secas
-    // y no decía ni qué formato abre ni que se lleva por delante lo que haya
-    // (el usuario preguntó qué hacía el botón, v2.42.0).
+    // «Abrir proyecto»: lee un .json de los que produce Exportar → JSON y lo
+    // abre en una PESTAÑA NUEVA (v3.17.0). Antes sustituía el lienzo con un
+    // confirm() de por medio; con pestañas ya no hay nada que perder — el
+    // dibujo actual se queda en su pestaña, intacto.
     $('btn-import').addEventListener('click', async () => {
       const els = await Exporter.importJSON();
       if (els) {
-        // Con el lienzo ocupado se pregunta: sí, `saveUndo` lo deja
-        // recuperable con Ctrl+Z, pero enterarse DESPUÉS de que el dibujo ha
-        // desaparecido no consuela a nadie. Vacío no hay nada que perder y no
-        // se molesta. Diálogo nativo como los avisos del propio importJSON.
-        const n = state.elements.length;
-        if (n && !confirm(
-          `Se sustituirá el dibujo actual (${n} elemento${n === 1 ? '' : 's'}) ` +
-          'por el proyecto que vas a abrir. ¿Continuar?')) return;
-        saveUndo();
-        state.elements = withSeeds(els);
-        state.overlapMode = els.overlapMode === 'hidden-dashed' ? 'hidden-dashed' : 'normal';
-        $('overlap-mode').value = state.overlapMode;
-        // Y el ASPECTO con el que se dibujó, si el archivo lo trae (v3.1.0).
-        // Un dibujo hecho sobre «Pizarra» con tinta clara se abría sobre el
-        // papel de quien lo abre —blanco, muchas veces— y el trazo se volvía
-        // invisible. La AUSENCIA de estos campos (un JSON anterior, o de otra
-        // herramienta) deja el aspecto como esté: no se inventa uno.
-        if (els.canvasBg)  { state.canvasBg  = els.canvasBg;  $('canvas-bg-picker').value = els.canvasBg; }
-        if (els.gridColor) { state.gridColor = els.gridColor; $('grid-color-picker').value = els.gridColor; }
-        if (typeof els.showGrid === 'boolean') { state.showGrid = els.showGrid; $('check-grid').checked = els.showGrid; }
-        updateCanvasPresetActive();
-        savePrefs();
-        // Los índices de selección previos apuntarían a elementos importados
-        // arbitrarios; se limpia como al cargar una plantilla.
-        setSelection([]);
-        redraw();
+        // El ASPECTO con el que se dibujó viaja en el doc, si el archivo lo
+        // trae (v3.1.0): tinta clara sobre «Pizarra» debe abrirse sobre
+        // «Pizarra». La AUSENCIA de esos campos (un JSON anterior, o de otra
+        // herramienta) deja el default de prefs: no se inventa un aspecto.
+        const doc = { elements: withSeeds(els), settings: aspectDefaults() };
+        if (els.canvasBg)  doc.settings.canvasBg  = els.canvasBg;
+        if (els.gridColor) doc.settings.gridColor = els.gridColor;
+        if (typeof els.showGrid === 'boolean') doc.settings.showGrid = els.showGrid;
+        doc.settings.overlapMode = els.overlapMode === 'hidden-dashed' ? 'hidden-dashed' : 'normal';
+        // El nombre de la pestaña: el del propio proyecto (el que viaja en el
+        // JSON o, si no, el del archivo) — es como el usuario lo conoce.
+        createTab(els.projectName || els.fileName || '', doc);
         const total = state.elements.length;
         showToast(`📂 Proyecto abierto (${total} elemento${total === 1 ? '' : 's'})`);
       }
@@ -9360,6 +9761,22 @@
       if (e.repeat) return;
       if (e.shiftKey) ungroupSelection(); else groupSelection();
       return;
+    }
+
+    // Pestañas (v3.17.0): con Alt para no chocar con el navegador ni con la
+    // ventana nativa (Cmd+T abre pestaña DEL NAVEGADOR y Cmd+W la cierra; en
+    // WKWebView Cmd+W cierra la app entera). Nunca única vía: todo esto se
+    // hace también con la barra de pestañas.
+    if ((e.ctrlKey || e.metaKey) && e.altKey && !e.shiftKey) {
+      if (e.code === 'KeyT') { e.preventDefault(); if (!e.repeat) createTab(); return; }
+      if (e.code === 'KeyW') { e.preventDefault(); if (!e.repeat) closeTab(tabs.active); return; }
+      if (e.code === 'ArrowRight' || e.code === 'ArrowLeft') {
+        e.preventDefault();
+        const i = tabs.order.findIndex(t => t.id === tabs.active);
+        const paso = e.code === 'ArrowRight' ? 1 : -1;
+        switchTab(tabs.order[(i + paso + tabs.order.length) % tabs.order.length].id);
+        return;
+      }
     }
 
     // Undo / Redo (Cmd+Shift+Z es el redo estándar en macOS)
@@ -11704,13 +12121,18 @@
   function init() {
     // Repintar cuando cargue una imagen (autosave/import restauran data-URLs)
     Renderer.setImageLoadCallback(redraw);
-    restoreAutosave();
+    // Prefs ANTES que el documento: el aspecto guardado en prefs es el
+    // DEFAULT, y el que viaja en el doc de la pestaña activa debe pisarlo
+    // (al revés, cambiar de fondo en una pestaña se perdería al recargar).
     restorePrefs();
+    restoreTabs();
     buildSidebar();
     buildFloatbars();
     buildColors();
     wireControls();
     setupModals();
+    wireTabs();
+    renderTabsBar();
     // Después de setupModals: las casillas de los cinco modales botánicos las
     // crea installPlantControls, y hasta aquí no existen. Y después de
     // wireControls, porque el selector de letra ya tiene sus opciones.

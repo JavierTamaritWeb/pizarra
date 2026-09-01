@@ -747,7 +747,16 @@ body { font-family: ${FONT_CSS()};${options.transparent ? '' : ' background: #ff
     if (HEX_COLOR.test(String(options.canvasBg || ''))) data.settings.canvasBg = options.canvasBg;
     if (HEX_COLOR.test(String(options.gridColor || ''))) data.settings.gridColor = options.gridColor;
     if (typeof options.showGrid === 'boolean') data.settings.showGrid = options.showGrid;
-    _downloadBlob('wireframe.json', new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+    // El nombre de la pizarra (v3.17.0): con pestañas, reabrir un proyecto
+    // recupera su nombre. Opcional y al margen de `version`: los importadores
+    // anteriores ignoran los campos que no conocen.
+    const nombre = String(options.name || '').trim();
+    if (nombre) data.name = nombre;
+    // Y el archivo se llama como el proyecto, no siempre «wireframe.json» —
+    // solo caracteres seguros para un nombre de archivo.
+    const archivo = nombre ? nombre.replace(/[^\w \u00C0-\u024F.-]+/g, '').trim() : '';
+    _downloadBlob((archivo || 'wireframe') + '.json',
+      new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   }
 
   /**
@@ -1134,6 +1143,17 @@ body { font-family: ${FONT_CSS()};${options.transparent ? '' : ' background: #ff
             for (const k of Object.keys(aspecto)) {
               Object.defineProperty(valid, k, { value: aspecto[k], enumerable: false });
             }
+            // Los NOMBRES para la pestaña (v3.17.0), no enumerables como el
+            // resto: el que viaja en el JSON y, de respaldo, el del archivo
+            // sin su extensión.
+            Object.defineProperty(valid, 'projectName', {
+              value: typeof data.name === 'string' ? data.name.trim() : '',
+              enumerable: false,
+            });
+            Object.defineProperty(valid, 'fileName', {
+              value: String(file.name || '').replace(/\.json$/i, ''),
+              enumerable: false,
+            });
             resolve(valid);
           } catch {
             alert('Archivo JSON inválido');

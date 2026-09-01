@@ -1,0 +1,115 @@
+@use '../abstracts/variables' as v;
+
+/* ============================================================
+   BLOCK: doctabs — pestañas de documento (v3.17.0)
+
+   Fila propia entre el topbar y el cuerpo. `.app` es flex column con
+   overflow hidden, así que basta con flex-shrink: 0 para que la barra no
+   se coma al lienzo. Con muchas pestañas, scroll horizontal AQUÍ dentro:
+   el body no debe desplazarse nunca en horizontal.
+   ============================================================ */
+.doctabs {
+  display: flex;
+  align-items: stretch;
+  gap: 0.4rem;
+  height: var(--doctabs-h);
+  padding: 0.4rem 0.8rem 0;
+  background: var(--bg-panel);
+  border-bottom: 0.1rem solid var(--border-main);
+  flex-shrink: 0;
+
+  &__list {
+    display: flex;
+    align-items: stretch;
+    gap: 0.4rem;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    min-width: 0; // sin esto la lista no cede y el «+» se sale de la barra
+  }
+
+  &__tab {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    max-width: 20rem;
+    border: 0.1rem solid var(--border-main);
+    border-bottom: none;
+    border-radius: 0.6rem 0.6rem 0 0;
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+
+    &--active {
+      background: var(--bg-app);
+      color: var(--text-primary);
+      border-color: var(--color-primary);
+    }
+  }
+
+  &__label {
+    // Botón «desnudo»: la pestaña entera es el control, el botón solo aporta
+    // foco y semántica. La elipsis vive aquí, no en el contenedor.
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-size: 1.2rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 0 1rem;
+    height: 100%;
+    max-width: 16rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  &__close {
+    border: none;
+    background: none;
+    color: inherit;
+    font-size: 1.4rem;
+    line-height: 1;
+    padding: 0 0.7rem 0 0.2rem;
+    cursor: pointer;
+    opacity: 0.55;
+
+    &:hover {
+      opacity: 1;
+      color: var(--color-danger);
+    }
+  }
+
+  // El input del renombrado ocupa el hueco del rótulo, con su misma letra.
+  &__input {
+    border: none;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 1.2rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 0 1rem;
+    height: 100%;
+    width: 14rem;
+    outline: 0.1rem solid var(--color-primary);
+  }
+
+  &__new {
+    border: 0.1rem dashed var(--border-main);
+    border-bottom: none;
+    border-radius: 0.6rem 0.6rem 0 0;
+    background: none;
+    color: var(--text-secondary);
+    font-size: 1.6rem;
+    line-height: 1;
+    padding: 0 1.2rem;
+    cursor: pointer;
+    flex-shrink: 0;
+
+    &:hover {
+      color: var(--color-primary);
+      border-color: var(--color-primary);
+    }
+  }
+}

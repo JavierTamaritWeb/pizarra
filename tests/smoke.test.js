@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v3.16.0 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v3.17.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v3\.16\.0</);
-  assert.match(html, /css\/styles\.css\?v=3\.16\.0/);
-  assert.match(html, /src\/js\/app\.js\?v=3\.16\.0/);
-  assert.match(html, /src\/js\/building\.js\?v=3\.16\.0/);
-  assert.match(html, /src\/js\/garden\.js\?v=3\.16\.0/);
-  assert.match(html, /src\/js\/config\.js\?v=3\.16\.0/);
+  assert.match(html, /class="topbar__badge">v3\.17\.0</);
+  assert.match(html, /css\/styles\.css\?v=3\.17\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=3\.17\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=3\.17\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=3\.17\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=3\.17\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -64,9 +64,9 @@ test('index publica v3.16.0 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="modal-pyramid"/);
   assert.match(html, /id="modal-frustum"/);
   assert.match(html, /id="modal-sphere"/);
-  assert.match(html, /src\/js\/solid\.js\?v=3\.16\.0/);
-  assert.match(html, /src\/js\/airbrush\.js\?v=3\.16\.0/);
-  assert.match(html, /src\/js\/hatch\.js\?v=3\.16\.0/);
+  assert.match(html, /src\/js\/solid\.js\?v=3\.17\.0/);
+  assert.match(html, /src\/js\/airbrush\.js\?v=3\.17\.0/);
+  assert.match(html, /src\/js\/hatch\.js\?v=3\.17\.0/);
   // «Los clics acumulan selección» dejó el panel en la v2.17.0 y es el ajuste
   // de «Select». Si volviera a existir la casilla vieja habría dos controles
   // para un mismo estado, y solo uno cableado: el arnés `node:vm` fabrica un
@@ -200,10 +200,12 @@ test('todo botón de la barra superior envuelve su rótulo en .btn__label', () =
     'el rótulo recortado no puede ser absolute: escapa del overflow y crea scroll');
 });
 
-test('«Abrir proyecto» dice lo que abre y lo que se lleva por delante', () => {
+test('«Abrir proyecto» dice lo que abre y dónde lo abre', () => {
   // Se llamaba «Importar» a secas: ni el formato (.json, y solo ese de los
-  // cinco que exporta) ni que SUSTITUYE el lienzo. El usuario preguntó qué
-  // hacía el botón (v2.42.0). El arnés vm no ve el texto ni el title.
+  // cinco que exporta) ni qué hace con el lienzo. El usuario preguntó qué
+  // hacía el botón (v2.42.0). Desde la v3.17.0 abre en pestaña nueva, y el
+  // title debe prometer ESO — «sustituye» sería mentir. El arnés vm no ve
+  // el texto ni el title.
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
   const btn = html.match(/<button[^>]*id="btn-import"[\s\S]*?<\/button>/);
   assert.ok(btn, 'falta el botón de abrir proyecto');
@@ -211,8 +213,10 @@ test('«Abrir proyecto» dice lo que abre y lo que se lleva por delante', () => 
     'el botón tiene que decir que abre un proyecto, no «Importar» a secas');
   assert.match(btn[0], /title="[^"]*\.json[^"]*"/,
     'su ayuda tiene que nombrar el formato que abre');
-  assert.match(btn[0], /title="[^"]*[Ss]ustituye[^"]*"/,
-    'su ayuda tiene que avisar de que reemplaza el dibujo');
+  assert.match(btn[0], /title="[^"]*pestaña nueva[^"]*"/,
+    'su ayuda tiene que decir que se abre en una pestaña nueva');
+  assert.doesNotMatch(btn[0], /[Ss]ustituye/,
+    'ya no sustituye nada: prometerlo sería mentir');
   // Y la Ayuda explica el ciclo completo, incluido que los otros cuatro
   // formatos no se pueden reabrir y que una imagen se pega con Ctrl+V.
   assert.match(html, /Exportar → JSON<\/strong> baja el proyecto/,

@@ -20,11 +20,16 @@ const { createDom } = require('./dom-stub.js');
 const { createCtxStub } = require('./ctx-stub.js');
 const { ALL_FILES, PROJECT_ROOT, loadScript } = require('./load.js');
 
-function loadApp({ prefs, autosave } = {}) {
+function loadApp({ prefs, autosave, storage } = {}) {
   const html = fs.readFileSync(path.join(PROJECT_ROOT, 'index.html'), 'utf8');
   const dom = createDom({ html });
   if (prefs) dom.localStorage.setItem('sketchwire.prefs', JSON.stringify(prefs));
   if (autosave) dom.localStorage.setItem('sketchwire.autosave', JSON.stringify(autosave));
+  // Claves adicionales (p. ej. sketchwire.tabs y sketchwire.doc.<id> de las
+  // pestañas): objeto {clave: valor}, serializado si no es ya un string.
+  for (const [k, v] of Object.entries(storage || {})) {
+    dom.localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
+  }
 
   // Captura la rAF real del dom ANTES de mezclar: si el sandbox la
   // reexportara delegando en window, Object.assign la haría recursiva.
