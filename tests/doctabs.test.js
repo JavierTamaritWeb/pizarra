@@ -76,8 +76,9 @@ test('un índice v3.17.0 (con `name`) migra: el nombre de fábrica se descarta y
   });
   const idx = indice(app);
   assert.equal(idx.order[0].label, '', '«Pizarra 2» era el nombre de fábrica: fuera');
-  assert.equal(idx.order[1].label, 'Croquis patio', 'el personalizado se conserva');
-  assert.deepEqual(nombres(app), ['Pizarra 1', 'Pizarra 2 - Croquis patio'],
+  assert.equal(idx.order[1].label, 'Croquis pati',
+    'el personalizado se conserva, recortado al tope de 12 caracteres');
+  assert.deepEqual(nombres(app), ['Pizarra 1', 'Pizarra 2 - Croquis pati'],
     'y el número pasa a ser la posición');
 });
 
@@ -313,6 +314,19 @@ test('«Limpiar todo» limpia SOLO la pestaña activa: las demás ni se enteran'
   assert.equal(dormido.elements.length, 1, 'la otra pestaña conserva su dibujo');
   assert.deepEqual(indice(app).order.map(t => t.name), idx.order.map(t => t.name),
     'el índice de pestañas no se toca');
+});
+
+test('el texto corto se recorta a 12 caracteres, y el input no deja escribir más', () => {
+  const app = loadApp();
+  app.$('doctabs-list').__fire('dblclick', { target: barra(app)[0].querySelector('.doctabs__label') });
+  app.flush();
+  const input = app.$('doctabs-list').querySelector('.doctabs__input');
+  assert.equal(input.maxLength, 12, 'el input declara el tope');
+  input.value = 'Un nombre larguísimo de verdad';
+  input.__fire('keydown', { key: 'Enter', target: input });
+  app.flush();
+  assert.equal(indice(app).order[0].label, 'Un nombre la', '12 caracteres justos');
+  assert.deepEqual(nombres(app), ['Pizarra 1 - Un nombre la']);
 });
 
 test('reabrir un proyecto exportado no duplica el prefijo «Pizarra N - »', async () => {

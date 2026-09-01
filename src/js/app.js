@@ -1342,6 +1342,11 @@
   const newTabId = () =>
     Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6);
 
+  // Tope del texto corto: 12 caracteres. La barra está dimensionada para que
+  // «Pizarra N - » + 12 caracteres se lean ENTEROS, sin puntos suspensivos;
+  // un tope mayor solo serviría para volver a recortar con elipsis.
+  const TAB_LABEL_MAX = 12;
+
   /** Nomenclatura automática (v3.18.0): el rótulo se CALCULA, nunca se
       guarda — «Pizarra N» o «Pizarra N - nombre», donde N es la POSICIÓN en
       la barra (cerrar una intermedia renumera las siguientes gratis) y
@@ -1417,8 +1422,8 @@
       // un «Pizarra 3» de fábrica se queda sin texto corto; cualquier otro
       // nombre ERA la personalización y pasa a ser el label.
       const label = t => {
-        if (typeof t.label === 'string') return t.label.slice(0, 60);
-        return /^pizarra \d+$/i.test(t.name.trim()) ? '' : t.name.trim().slice(0, 60);
+        if (typeof t.label === 'string') return t.label.slice(0, TAB_LABEL_MAX);
+        return /^pizarra \d+$/i.test(t.name.trim()) ? '' : t.name.trim().slice(0, TAB_LABEL_MAX);
       };
       return { v: 1, active: idx.active, order: idx.order.map(t => ({ id: t.id, label: label(t) })) };
     } catch (_) { return null; }
@@ -1526,7 +1531,7 @@
     settleGestures();
     stashActiveDoc();
     const id = newTabId();
-    tabs.order.push({ id, label: (name || '').trim().slice(0, 60) });
+    tabs.order.push({ id, label: (name || '').trim().slice(0, TAB_LABEL_MAX) });
     tabs.active = id;
     applyDoc(doc || { elements: [], settings: aspectDefaults() });
     state.undoStack = [];
@@ -1608,7 +1613,7 @@
       El vacío es válido: borra el nombre y la pestaña vuelve a «Pizarra N». */
   function renameTab(id, label) {
     const t = tabs.order.find(x => x.id === id);
-    const limpio = String(label || '').trim().slice(0, 60);
+    const limpio = String(label || '').trim().slice(0, TAB_LABEL_MAX);
     if (!t || limpio === t.label) { renderTabsBar(); return; }
     t.label = limpio;
     saveTabsIndex();
@@ -1666,6 +1671,7 @@
     input.className = 'doctabs__input';
     input.type = 'text';
     input.value = tabs.order[i].label;
+    input.maxLength = TAB_LABEL_MAX;
     input.placeholder = 'nombre corto';
     input.setAttribute('aria-label', 'Nombre corto de la pizarra');
     label.replaceWith(input);

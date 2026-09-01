@@ -4,6 +4,16 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.18.1] — 2026-09-01
+
+### Cambiado
+
+- El texto corto de la pestaña admite **12 caracteres** y la barra está
+  dimensionada para enseñarlos ENTEROS tras el «Pizarra N - », sin puntos
+  suspensivos (antes el rótulo se recortaba con elipsis a media palabra). El
+  input de renombrado declara el tope (`maxlength`) y todo lo que llegue más
+  largo —una migración, un nombre de archivo— se recorta a 12.
+
 ## [3.18.0] — 2026-09-01
 
 ### Cambiado

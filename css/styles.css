@@ -341,7 +341,7 @@ input[type=range]::-moz-range-thumb {
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  max-width: 20rem;
+  max-width: 34rem;
   border: 0.1rem solid var(--border-main);
   border-bottom: none;
   border-radius: 0.6rem 0.6rem 0 0;
@@ -363,7 +363,7 @@ input[type=range]::-moz-range-thumb {
   text-transform: uppercase;
   padding: 0 1rem;
   height: 100%;
-  max-width: 16rem;
+  max-width: 31rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -403,7 +403,7 @@ input[type=range]::-moz-range-thumb {
   text-transform: uppercase;
   padding: 0 0.6rem;
   height: 100%;
-  width: 11rem;
+  width: 14rem;
   outline: 0.1rem solid var(--color-primary);
 }
 .doctabs__new {

@@ -5047,8 +5047,8 @@ test('abrir un proyecto abre una pestaña nueva y no toca el dibujo actual', asy
 
   const tabs = JSON.parse(app.dom.localStorage.getItem('sketchwire.tabs'));
   assert.equal(tabs.order.length, 2, 'hay una pestaña más');
-  assert.equal(tabs.order[1].label, 'fachada-norte',
-    'el nombre del archivo pasa a ser el texto corto («Pizarra 2 - fachada-norte»)');
+  assert.equal(tabs.order[1].label, 'fachada-nort',
+    'el nombre del archivo pasa a ser el texto corto, al tope de 12 caracteres');
   assert.equal(tabs.active, tabs.order[1].id, 'y queda activa');
 
   // El dibujo anterior sigue entero en su pestaña.
