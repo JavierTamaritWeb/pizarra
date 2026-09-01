@@ -2905,8 +2905,9 @@
     const text = tool === TOOLS.TEXT || tool === TOOLS.EMOJI ||
       selHas(el => el.type === 'text');
     const dashable = DASHABLE_TYPES.includes(tool) || tool === TOOLS.ARC ||
-      selHas(el => DASHABLE_TYPES.includes(el.type));
+      tool === TOOLS.ARC_ARROW || selHas(el => DASHABLE_TYPES.includes(el.type));
     const headed = tool === TOOLS.ARROW || tool === TOOLS.CURVE_ARROW ||
+      tool === TOOLS.ARC_ARROW ||
       selHas(el => (el.type === 'arrow' || el.type === 'curveArrow') && el.heads !== 'none');
 
     $('panel-sec-element').hidden = !state.selection.length;
@@ -3528,7 +3529,8 @@
 
     state.isDrawing = true;
     state.startPos  = pos;
-    state.curveFlip = (state.tool === TOOLS.CURVE_ARROW || state.tool === TOOLS.ARC)
+    state.curveFlip = (state.tool === TOOLS.CURVE_ARROW || state.tool === TOOLS.ARC ||
+        state.tool === TOOLS.ARC_ARROW)
       ? e.shiftKey
       : false;
     state.pathFreeAngle = (state.tool === TOOLS.GARDEN_PATH) ? e.shiftKey : false;
@@ -4012,9 +4014,11 @@
         octx.stroke();
         break;
       }
-      case TOOLS.ARC: {
+      case TOOLS.ARC:
+      case TOOLS.ARC_ARROW: {
         // Mismo semicírculo de 180° que tendrá el elemento al soltarse
-        // (Shift durante el trazado comba hacia el otro lado)
+        // (Shift durante el trazado comba hacia el otro lado); la punta no se
+        // previsualiza, igual que en las otras flechas
         const L = Math.hypot(pos.x - state.startPos.x, pos.y - state.startPos.y);
         const arc = ArcMath.arcCtrls(state.startPos.x, state.startPos.y, pos.x, pos.y,
           (state.curveFlip ? -1 : 1) * L / 2);
@@ -4198,7 +4202,8 @@
     // mientras el commit del mouseup sí snapea (preview ≠ resultado).
     if (!(state.tool === TOOLS.CURVE_ARROW && state.curveChain)) lastPos = pos;
     // Shift mientras se traza la flecha curva: curva hacia el otro lado
-    if (state.tool === TOOLS.CURVE_ARROW || state.tool === TOOLS.ARC) state.curveFlip = e.shiftKey;
+    if (state.tool === TOOLS.CURVE_ARROW || state.tool === TOOLS.ARC ||
+        state.tool === TOOLS.ARC_ARROW) state.curveFlip = e.shiftKey;
     // Shift mientras se traza el camino: recorrido en cualquier inclinación
     if (state.tool === TOOLS.GARDEN_PATH) state.pathFreeAngle = e.shiftKey;
     // Los puntos se acumulan en cada evento (no se pierde trazo) descartando
@@ -4454,12 +4459,13 @@
     const h = Math.abs(p2.y - p1.y);
 
     // Line / Arrow / Curve / Arc (descarta clicks sin arrastre: longitud ~0)
-    if ([TOOLS.LINE, TOOLS.ARROW, TOOLS.CURVE_ARROW, TOOLS.ARC].includes(state.tool)) {
+    if ([TOOLS.LINE, TOOLS.ARROW, TOOLS.CURVE_ARROW, TOOLS.ARC, TOOLS.ARC_ARROW].includes(state.tool)) {
       if (Math.hypot(p2.x - p1.x, p2.y - p1.y) >= 4) {
         saveUndo();
+        const esArco = state.tool === TOOLS.ARC || state.tool === TOOLS.ARC_ARROW;
         const el = {
-          // La herramienta arco no es un tipo de elemento: crea curveArrow
-          type: state.tool === TOOLS.ARC ? TOOLS.CURVE_ARROW : state.tool,
+          // Las herramientas de arco no son tipos de elemento: crean curveArrow
+          type: esArco ? TOOLS.CURVE_ARROW : state.tool,
           x1: p1.x, y1: p1.y,
           x2: p2.x, y2: p2.y,
           color: state.color, lineWidth: state.lineWidth,
@@ -4473,25 +4479,28 @@
           el.cx = c.cx;
           el.cy = c.cy;
         }
-        if (state.tool === TOOLS.ARC) {
+        if (esArco) {
           // Semicírculo de 180°: el arrastre es el diámetro (radio = mitad
           // de la longitud arrastrada; Shift: comba hacia el otro lado).
-          // Sin puntas de flecha: es un trazo, no un conector.
+          // El semicírculo pelado es un trazo, no un conector: sin puntas.
+          // La flecha semicírculo sí las lleva (la punta va al extremo donde
+          // acaba el arrastre, como en las otras flechas).
           const L = Math.hypot(p2.x - p1.x, p2.y - p1.y);
           const arc = ArcMath.arcCtrls(p1.x, p1.y, p2.x, p2.y,
             (state.curveFlip ? -1 : 1) * L / 2);
           Object.assign(el, arc);
           el.arc = true;
-          el.heads = 'none';
+          if (state.tool === TOOLS.ARC) el.heads = 'none';
         }
-        if ((state.tool === TOOLS.ARROW || state.tool === TOOLS.CURVE_ARROW) && state.doubleHead) {
+        const conPunta = state.tool === TOOLS.ARROW ||
+          state.tool === TOOLS.CURVE_ARROW || state.tool === TOOLS.ARC_ARROW;
+        if (conPunta && state.doubleHead) {
           el.heads = 'both';
         }
         // Forma de la punta (v3.11.0): solo donde hay punta, y solo si no es
         // la clásica — su ausencia son las dos rayas de siempre. El
         // semicírculo no lleva punta (`heads:'none'`), así que tampoco forma.
-        if (state.headShape !== 'line' && state.tool !== TOOLS.ARC &&
-            (state.tool === TOOLS.ARROW || state.tool === TOOLS.CURVE_ARROW)) {
+        if (state.headShape !== 'line' && conPunta) {
           el.headShape = state.headShape;
         }
         if (state.dashed) el.dash = true;
@@ -7520,6 +7529,7 @@
       propios y, por tanto, las que abren #modal-stroke. */
   const STROKE_TOOLS = [
     TOOLS.PENCIL, TOOLS.LINE, TOOLS.ARROW, TOOLS.CURVE_ARROW, TOOLS.ARC,
+    TOOLS.ARC_ARROW,
   ];
   /** Las once de Formas: abren #modal-shape, con trazo, relleno y giro. Cada
       herramienta produce un elemento de su mismo id (el Cuadrado incluido: es
@@ -7545,6 +7555,7 @@
   const MODAL_EDIT_TYPE = {
     [TOOLS.PENCIL]: 'pencil', [TOOLS.LINE]: 'line', [TOOLS.ARROW]: 'arrow',
     [TOOLS.CURVE_ARROW]: 'curveArrow', [TOOLS.ARC]: 'curveArrow',
+    [TOOLS.ARC_ARROW]: 'curveArrow',
     [TOOLS.TEXT]: 'text', [TOOLS.AIRBRUSH]: 'airbrush',
   };
   /** Las dos herramientas de Edición que TRABAJAN sobre la selección: nunca la
@@ -7827,7 +7838,7 @@
     // syncPanelSections; sin la exclusión, la casilla quedaba habilitada e
     // inerte con uno seleccionado (auditoría v2.10.1).
     const heads = state.tool === TOOLS.ARROW || state.tool === TOOLS.CURVE_ARROW ||
-      arrows.some(el => el.heads !== 'none');
+      state.tool === TOOLS.ARC_ARROW || arrows.some(el => el.heads !== 'none');
     $('stroke-modal-double-row').classList.toggle('modal__field--off', !heads);
     $('stroke-modal-double').disabled = !heads;
     // Y el discontinuo se atenúa para el lápiz, con el criterio del panel
@@ -7836,7 +7847,7 @@
     // discontinua, el trazo salía continuo y encima cambiaba en silencio
     // state.dashed — la siguiente LÍNEA nacía discontinua sin pedirlo.
     const dashable = DASHABLE_TYPES.includes(state.tool) || state.tool === TOOLS.ARC ||
-      dashables.length > 0;
+      state.tool === TOOLS.ARC_ARROW || dashables.length > 0;
     $('stroke-modal-dash-row').classList.toggle('modal__field--off', !dashable);
     $('stroke-modal-dash').disabled = !dashable;
     // Presión simulada: solo del lápiz. Mismo trato que el discontinuo —
@@ -7993,7 +8004,8 @@
       // state.tool una flecha seleccionada se dibujaba como línea sin punta.
       type: (single
         ? (single.type === 'arrow' || single.type === 'curveArrow') && single.heads !== 'none'
-        : state.tool === TOOLS.ARROW || state.tool === TOOLS.CURVE_ARROW)
+        : state.tool === TOOLS.ARROW || state.tool === TOOLS.CURVE_ARROW ||
+          state.tool === TOOLS.ARC_ARROW)
         ? 'arrow' : 'line',
       x1: w * 0.12, y1: h * 0.62, x2: w * 0.88, y2: h * 0.38,
       color: single ? single.color : state.color,

@@ -4,6 +4,17 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.20.0] — 2026-09-01
+
+### Añadido
+
+- **Flecha semicírculo** (⤾) en la sección Dibujo: el mismo arco de 180° del
+  Semicírculo pero con punta de flecha — nace en el extremo donde acaba el
+  arrastre, `D` la invierte, Mayús comba hacia el otro lado, «Doble punta»
+  pone las dos y el selector «Punta» elige la forma (Clásica, Maciza, Barra o
+  Punto). Crea un `curveArrow` con `arc: true`, como el Semicírculo: renderer,
+  exportadores, borrador y validación no cambian.
+
 ## [3.19.0] — 2026-09-01
 
 ### Añadido

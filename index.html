@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=3.19.0" />
+  <link rel="stylesheet" href="css/styles.css?v=3.20.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.19.0" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.20.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v3.19.0</span>
+        <span class="topbar__badge">v3.20.0</span>
         <!-- Aviso de autoguardado: visible SOLO mientras localStorage rechaza
              el guardado (cuota llena). Sin él, el fallo era un catch mudo y el
              trabajo posterior se perdía en silencio al recargar. -->
@@ -74,7 +74,7 @@
       </nav>
     </header>
 
-  <!-- Pestañas de documento (v3.19.0): varias pizarras abiertas a la vez.
+  <!-- Pestañas de documento (v3.20.0): varias pizarras abiertas a la vez.
        Es un <nav> con aria-current, no role=tablist: no hay tabpanel que
        conmutar (es el mismo lienzo con otro documento) — semánticamente es
        navegación entre documentos. Las pestañas las fabrica renderTabsBar(). -->
@@ -689,7 +689,7 @@
         <h4 class="modal__help-title">✏️ Lápiz y trazo</h4>
         <ul class="modal__help-list">
           <li><strong>Temblor</strong>: cuánto tiembla el trazo dibujado a mano — <strong>de arquitecto</strong> (casi a regla), <strong>de artista</strong> (el de siempre) o <strong>de caricatura</strong>. Está en los ajustes del trazo y en los de la forma, y es el mismo mando en los dos. Cambia el lienzo y las imágenes PNG/JPG; el SVG y el HTML se exportan con la geometría limpia, como siempre</li>
-          <li>Al elegir <strong>Lápiz</strong> (<kbd>P</kbd>), <strong>Línea</strong> (<kbd>L</kbd>), <strong>Flecha</strong> (<kbd>A</kbd>), <strong>Flecha curva</strong> (<kbd>U</kbd>) o <strong>Semicírculo</strong> (<kbd>G</kbd>) se abren sus <strong>ajustes</strong>, con muestra en vivo: grosor, color, discontinuo y doble punta. Volver a pulsar la herramienta los reabre</li>
+          <li>Al elegir <strong>Lápiz</strong> (<kbd>P</kbd>), <strong>Línea</strong> (<kbd>L</kbd>), <strong>Flecha</strong> (<kbd>A</kbd>), <strong>Flecha curva</strong> (<kbd>U</kbd>), <strong>Semicírculo</strong> (<kbd>G</kbd>) o <strong>Flecha semicírculo</strong> (⤾) se abren sus <strong>ajustes</strong>, con muestra en vivo: grosor, color, discontinuo y doble punta. Volver a pulsar la herramienta los reabre</li>
           <li><strong>«Trazo con presión»</strong> (solo el lápiz) hace que el grosor siga la <strong>velocidad del gesto</strong>: rápido sale fino, despacio grueso, y las puntas quedan afiladas, como un lápiz de verdad. Desmarcado, el lápiz dibuja con el grosor uniforme de siempre</li>
           <li><strong>«Curvatura»</strong> (solo la flecha curva) decide con cuánta comba nacen: del <strong>0 %</strong> —una recta con punta— al 100 %, en porcentaje de la distancia entre los dos extremos. Antes era siempre la misma y todas las curvas salían iguales. La muestra del modal se curva con el mando</li>
           <li>Con algo seleccionado, esos mandos <strong>editan la selección</strong>; sin nada seleccionado, configuran lo próximo que dibujes</li>
@@ -885,6 +885,7 @@
         <h4 class="modal__help-title">Semicírculos</h4>
         <ul class="modal__help-list">
           <li>Herramienta <strong>◠</strong> (<kbd>G</kbd>): semicírculo de 180° · el arrastre fija el diámetro</li>
+          <li>Herramienta <strong>⤾ Flecha semicírculo</strong>: el mismo arco pero con <strong>punta</strong> — nace donde acaba el arrastre, <kbd>D</kbd> la pasa al otro extremo, <kbd>Mayús</kbd> al trazar comba hacia el otro lado, «Doble punta» pone las dos y el selector <strong>«Punta»</strong> elige la forma (Clásica, Maciza, Barra o Punto)</li>
           <li><kbd>+</kbd>/<kbd>−</kbd> o su handle turquesa: cambiar el radio</li>
           <li><kbd>Q</kbd>: convertir flecha curva ↔ semicírculo</li>
         </ul>
@@ -1245,7 +1246,7 @@
                contiene escondido sería un recuadro vacío con título. Y como
                .modal__group declara `display`, el [hidden] necesita su regla —la
                trampa documentada en _panel.scss. -->
-          <!-- Lados del triángulo irregular (v3.19.0): solo aparece con esa
+          <!-- Lados del triángulo irregular (v3.20.0): solo aparece con esa
                herramienta activa o con uno seleccionado. Misma semántica dual
                que el giro: sin selección fija cómo nace el próximo; con un
                triángulo irregular seleccionado, cambia el suyo. -->
@@ -2507,24 +2508,24 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=3.19.0"></script>
-  <script src="src/js/sketchy.js?v=3.19.0"></script>
-  <script src="src/js/freehand.js?v=3.19.0"></script>
-  <script src="src/js/arc.js?v=3.19.0"></script>
-  <script src="src/js/curve-path.js?v=3.19.0"></script>
-  <script src="src/js/shape-rotation.js?v=3.19.0"></script>
-  <script src="src/js/regular-polygon.js?v=3.19.0"></script>
-  <script src="src/js/trapezoid.js?v=3.19.0"></script>
-  <script src="src/js/hatch.js?v=3.19.0"></script>
-  <script src="src/js/airbrush.js?v=3.19.0"></script>
-  <script src="src/js/flood.js?v=3.19.0"></script>
-  <script src="src/js/eraser.js?v=3.19.0"></script>
-  <script src="src/js/building.js?v=3.19.0"></script>
-  <script src="src/js/garden.js?v=3.19.0"></script>
-  <script src="src/js/solid.js?v=3.19.0"></script>
-  <script src="src/js/renderer.js?v=3.19.0"></script>
-  <script src="src/js/exporter.js?v=3.19.0"></script>
-  <script src="src/js/templates.js?v=3.19.0"></script>
-  <script src="src/js/app.js?v=3.19.0"></script>
+  <script src="src/js/config.js?v=3.20.0"></script>
+  <script src="src/js/sketchy.js?v=3.20.0"></script>
+  <script src="src/js/freehand.js?v=3.20.0"></script>
+  <script src="src/js/arc.js?v=3.20.0"></script>
+  <script src="src/js/curve-path.js?v=3.20.0"></script>
+  <script src="src/js/shape-rotation.js?v=3.20.0"></script>
+  <script src="src/js/regular-polygon.js?v=3.20.0"></script>
+  <script src="src/js/trapezoid.js?v=3.20.0"></script>
+  <script src="src/js/hatch.js?v=3.20.0"></script>
+  <script src="src/js/airbrush.js?v=3.20.0"></script>
+  <script src="src/js/flood.js?v=3.20.0"></script>
+  <script src="src/js/eraser.js?v=3.20.0"></script>
+  <script src="src/js/building.js?v=3.20.0"></script>
+  <script src="src/js/garden.js?v=3.20.0"></script>
+  <script src="src/js/solid.js?v=3.20.0"></script>
+  <script src="src/js/renderer.js?v=3.20.0"></script>
+  <script src="src/js/exporter.js?v=3.20.0"></script>
+  <script src="src/js/templates.js?v=3.20.0"></script>
+  <script src="src/js/app.js?v=3.20.0"></script>
 </body>
 </html>

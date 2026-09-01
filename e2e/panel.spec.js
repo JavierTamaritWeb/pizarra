@@ -48,8 +48,8 @@ test('pulsar una herramienta de dibujo abre sus ajustes de trazo', async ({ page
   const modal = page.locator('#modal-stroke');
 
   // Lo mismo que hacen el Borrador y los catálogos: elegir la herramienta abre
-  // su modal. Las cinco de dibujo, sin excepción.
-  for (const tool of ['pencil', 'line', 'arrow', 'curveArrow', 'arc']) {
+  // su modal. Las seis de dibujo con ajustes de trazo, sin excepción.
+  for (const tool of ['pencil', 'line', 'arrow', 'curveArrow', 'arc', 'arcArrow']) {
     await page.locator(`.sidebar__tool[data-tool="${tool}"]`).click();
     await expect(modal, `${tool} debería abrir sus ajustes de trazo`)
       .toHaveAttribute('open', '');

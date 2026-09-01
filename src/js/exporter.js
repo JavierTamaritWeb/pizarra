@@ -825,7 +825,7 @@ body { font-family: ${FONT_CSS()};${options.transparent ? '' : ' background: #ff
     'freeTriangle', 'triangle', 'pentagon', 'hexagon', 'star5', 'star6',
     'polygon'];
 
-  const CREATION_ONLY_TOOLS = [TOOLS.SELECT, TOOLS.ARC, TOOLS.EMOJI, TOOLS.INK,
+  const CREATION_ONLY_TOOLS = [TOOLS.SELECT, TOOLS.ARC, TOOLS.ARC_ARROW, TOOLS.EMOJI, TOOLS.INK,
     ...BUILDING_TOOLS, ...GARDEN_TOOLS, ...SOLID_TOOLS];
   const ELEMENT_TYPES = Object.values(TOOLS).filter(t => !CREATION_ONLY_TOOLS.includes(t));
 

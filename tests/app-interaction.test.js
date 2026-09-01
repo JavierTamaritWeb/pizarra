@@ -5822,6 +5822,48 @@ test('la forma de la punta solo se estampa en flechas, y nunca en un semicírcul
   assert.equal(arco.headShape, undefined);
 });
 
+// La Flecha semicírculo (v3.20.0) es el arco de siempre pero flecha: mismo
+// curveArrow con arc:true y la MISMA geometría que crea el Semicírculo, solo
+// que sin heads:'none' — la punta nace en el extremo donde acaba el arrastre.
+test('la flecha semicírculo nace con punta y con la geometría exacta del semicírculo', () => {
+  const app = loadApp();
+  app.selectTool('arc');
+  app.drag(100, 400, 300, 400);
+  app.selectTool('arcArrow');
+  app.drag(100, 400, 300, 400);
+  const [semi, flecha] = app.elements();
+
+  assert.equal(flecha.type, 'curveArrow');
+  assert.equal(flecha.arc, true);
+  assert.equal(flecha.heads, undefined, 'sin heads ≡ punta en el extremo final');
+  assert.equal(flecha.headShape, undefined, 'la clásica no se estampa');
+  // El arco es idéntico al del Semicírculo: solo cambia la punta
+  for (const k of ['x1', 'y1', 'cx', 'cy', 'cx2', 'cy2', 'x2', 'y2']) {
+    assert.equal(flecha[k], semi[k], k);
+  }
+
+  // Y hereda los ajustes de flecha: forma de punta y doble punta
+  elegir(app, 'stroke-modal-head', 'bar');
+  const doble = app.$('check-double-head');
+  doble.checked = true;
+  doble.__fire('change', { target: doble });
+  app.drag(100, 500, 300, 500);
+  const conTodo = app.elements()[2];
+  assert.equal(conTodo.headShape, 'bar');
+  assert.equal(conTodo.heads, 'both');
+});
+
+// Con la herramienta activa, «Punta» y «Doble punta» deben estar operativas
+// (el Semicírculo pelado las atenúa; su gemela con flecha no).
+test('la flecha semicírculo enciende los mandos de punta del modal de trazo', () => {
+  const app = loadApp();
+  app.selectTool('arcArrow');
+  assert.equal(app.$('stroke-modal-head').disabled, false);
+  assert.equal(app.$('stroke-modal-double').disabled, false);
+  assert.equal(app.$('stroke-modal-dash').disabled, false,
+    'el discontinuo también aplica, como en el semicírculo');
+});
+
 test('los tres ajustes sobreviven a la recarga y vuelven a fábrica al limpiar', () => {
   const app = loadApp();
   elegir(app, 'fill-pattern', 'zigzag');

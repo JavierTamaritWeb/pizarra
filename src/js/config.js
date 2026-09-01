@@ -40,6 +40,7 @@ const TOOLS = Object.freeze({
   ARROW:            'arrow',
   CURVE_ARROW:      'curveArrow',
   ARC:              'arc', // herramienta de creación: produce curveArrow con arc:true
+  ARC_ARROW:        'arcArrow', // herramienta de creación: produce curveArrow con arc:true Y punta
   TEXT:             'text',
   EMOJI:            'emoji', // herramienta de creación: produce elementos text
   ERASER:           'eraser',
@@ -546,6 +547,9 @@ const TOOL_GROUPS = [
       { id: TOOLS.ARROW,  icon: '➡️', name: 'Flecha',   key: 'a' },
       { id: TOOLS.CURVE_ARROW, icon: '↷', name: 'Flecha curva', key: 'u' },
       { id: TOOLS.ARC,    icon: '◠', name: 'Semicírculo', key: 'g' },
+      // El semicírculo con punta: mismo arco, nace flecha. Sin atajo por lo
+      // mismo que el Aerógrafo.
+      { id: TOOLS.ARC_ARROW, icon: '⤾', name: 'Flecha semicírculo' },
     ],
   },
   {

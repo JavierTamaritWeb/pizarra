@@ -18,10 +18,13 @@ test('config.js — TOOLS', async t => {
     assert.equal(Object.isFrozen(ctx.TOOLS), true);
   });
 
-  await t.test('TOOLS tiene exactamente los 53 ids esperados', () => {
+  await t.test('TOOLS tiene exactamente los 54 ids esperados', () => {
     const expected = [
       'pencil', 'airbrush', 'line', 'rect', 'roundedRect', 'circle', 'arrow',
-      'curveArrow', 'arc', 'text', 'eraser', 'select', 'pick', 'imagePlaceholder',
+      'curveArrow', 'arc',
+      // Flecha semicírculo (v3.20.0, creación): el mismo arco pero con punta
+      'arcArrow',
+      'text', 'eraser', 'select', 'pick', 'imagePlaceholder',
       'button', 'input', 'nav', 'card', 'image', 'emoji',
       // Marco (v3.12.0): contenedor de un wireframe, tipo de elemento real
       'frame',
@@ -42,11 +45,11 @@ test('config.js — TOOLS', async t => {
       'prisma', 'piramide', 'tronco', 'esfera',
     ];
     const values = Object.values(ctx.TOOLS);
-    assert.equal(values.length, 53);
+    assert.equal(values.length, 54);
     assert.deepEqual([...values].sort(), [...expected].sort());
-    // Las claves también son 53 y únicas
-    assert.equal(Object.keys(ctx.TOOLS).length, 53);
-    assert.equal(new Set(values).size, 53);
+    // Las claves también son 54 y únicas
+    assert.equal(Object.keys(ctx.TOOLS).length, 54);
+    assert.equal(new Set(values).size, 54);
   });
 });
 
@@ -57,12 +60,12 @@ test('config.js — Aerógrafo y Tinta van junto al Lápiz y son los de Dibujo s
   // El orden es el que se pinta: las dos herramientas a mano alzada juntas, y
   // luego lo geométrico (línea, flechas, semicírculo).
   assert.deepEqual([...dibujo.tools.map(t => t.id)],
-    ['pencil', 'airbrush', 'ink', 'line', 'arrow', 'curveArrow', 'arc']);
-  // Entró sin atajo por lo mismo que «Select» y Balcón: no queda ninguna
+    ['pencil', 'airbrush', 'ink', 'line', 'arrow', 'curveArrow', 'arc', 'arcArrow']);
+  // Entraron sin atajo por lo mismo que «Select» y Balcón: no queda ninguna
   // tecla suelta libre. Fijar la lista impide tanto que lo pierda un refactor
   // como que gane uno que choque.
   assert.deepEqual([...dibujo.tools.filter(t => !t.key).map(t => t.id)],
-    ['airbrush', 'ink']);
+    ['airbrush', 'ink', 'arcArrow']);
 });
 
 test('config.js — TOOL_GROUPS: cada tool referenciado existe en TOOLS', () => {

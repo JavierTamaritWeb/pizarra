@@ -1051,6 +1051,7 @@ test("Exporter.isValidElement: rechaza type:'arc' y type:'emoji' (herramientas d
   const v = el => ctx.Exporter.isValidElement(el);
   // Con x/y/w/h numéricos pasarían el resto de la validación; deben caer por type
   assert.equal(v({ ...base, type: 'arc', x: 0, y: 0, w: 10, h: 10 }), false);
+  assert.equal(v({ ...base, type: 'arcArrow', x: 0, y: 0, w: 10, h: 10 }), false);
   assert.equal(v({ ...base, type: 'emoji', x: 0, y: 0, w: 10, h: 10 }), false);
   // 'select' ya se rechazaba; se mantiene
   assert.equal(v({ ...base, type: 'select', x: 0, y: 0, w: 10, h: 10 }), false);
