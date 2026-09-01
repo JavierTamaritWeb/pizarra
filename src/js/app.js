@@ -58,6 +58,21 @@
     gateView: 'elevation',
     gateType: 'concave',
     gateHeightCm: 200,
+    // Parte técnica del plano (v3.22.0)
+    stairType: 'straight',
+    stairView: 'plan',   // planta | alzado, select del modal de Escalera
+    dimScale: 50,        // escala 1:N compartida por Cota, escala gráfica y Siluetas
+    symbolType: 'north',
+    symbolLevelM: 0,     // cota de nivel del símbolo ▽, en metros
+    columnType: 'square',
+    furnitureType: 'wc',
+    porchType: 'porch',
+    silhouetteType: 'person',
+    roofAddon: 'none',   // complemento del Tejado: chimney | dormer | skylight
+    // Piezas UI con catálogo (v3.22.0): variante con la que nacen.
+    formVariant: 'checkbox',
+    tableVariant: 'grid',
+    chartVariant: 'bars',
     buildFloors: 'auto', // nº de plantas de Fachada/Alzado/Perfil ('auto' = según la altura)
     buildBays: 'auto',   // ventanas por planta ('auto' = según el ancho)
     roofPitch: 0.36,     // fracción de altura del tejado en Alzado/Perfil (0.20–0.50)
@@ -157,7 +172,8 @@
       emojiSize:   EMOJI_MIN_SIZE, // tamaño de los próximos emojis, independiente del de letra
       // Rótulo con el que nacen los componentes UI ('' = default del renderer).
       // Imagen no está: el renderer de imagePlaceholder no recibe rótulo.
-      uiLabels:    { button: '', input: '', nav: '', card: '' },
+      uiLabels:    { button: '', input: '', nav: '', card: '',
+        formControl: '', uiTable: '', dialog: '' },
       doubleHead:  false, // nuevas flechas con punta en ambos extremos
       dashed:      false, // nuevas líneas/flechas con trazo discontinuo
       strokeTaper: false, // nuevos trazos de lápiz con presión simulada (v2.37.0)
@@ -1032,6 +1048,8 @@
     TOOLS.TRIANGLE, TOOLS.PENTAGON, TOOLS.HEXAGON,
     TOOLS.BUTTON, TOOLS.INPUT,
     TOOLS.IMAGE_PLACEHOLDER, TOOLS.IMAGE, TOOLS.NAV, TOOLS.CARD,
+    TOOLS.FORM_CONTROL, TOOLS.UI_TABLE, TOOLS.CHART,
+    TOOLS.DIALOG, TOOLS.TABS, TOOLS.SIDEBAR,
   ];
   const ANCHOR_THRESHOLD = 12;
 
@@ -1821,6 +1839,20 @@
         gateView: state.gateView,
         gateType: state.gateType,
         gateHeightCm: state.gateHeightCm,
+        // Parte técnica del plano y piezas UI (v3.22.0), mismo motivo.
+        stairType: state.stairType,
+        stairView: state.stairView,
+        dimScale: state.dimScale,
+        symbolType: state.symbolType,
+        symbolLevelM: state.symbolLevelM,
+        columnType: state.columnType,
+        furnitureType: state.furnitureType,
+        porchType: state.porchType,
+        silhouetteType: state.silhouetteType,
+        roofAddon: state.roofAddon,
+        formVariant: state.formVariant,
+        tableVariant: state.tableVariant,
+        chartVariant: state.chartVariant,
         // Variantes de Jardín, por el mismo motivo.
         plotShape: state.plotShape,
         treeType: state.treeType,
@@ -2003,6 +2035,21 @@
         state.gateHeightCm = Math.min(Building.GATE_H_MAX_CM,
           Math.max(Building.GATE_H_MIN_CM, prefs.gateHeightCm));
       }
+      restoreVariant(prefs.stairType, STAIR_TYPES, 'stairType');
+      restoreVariant(prefs.stairView, STAIR_VIEWS, 'stairView');
+      if (Building.DIM_SCALES.includes(prefs.dimScale)) state.dimScale = prefs.dimScale;
+      restoreVariant(prefs.symbolType, SYMBOL_TYPES, 'symbolType');
+      if (Number.isFinite(prefs.symbolLevelM)) {
+        state.symbolLevelM = Math.min(99, Math.max(-99, prefs.symbolLevelM));
+      }
+      restoreVariant(prefs.columnType, COLUMN_TYPES, 'columnType');
+      restoreVariant(prefs.furnitureType, FURNITURE_TYPES, 'furnitureType');
+      restoreVariant(prefs.porchType, PORCH_TYPES, 'porchType');
+      restoreVariant(prefs.silhouetteType, SILHOUETTE_TYPES, 'silhouetteType');
+      restoreVariant(prefs.roofAddon, ROOF_ADDONS, 'roofAddon');
+      restoreVariant(prefs.formVariant, FORM_VARIANTS, 'formVariant');
+      restoreVariant(prefs.tableVariant, TABLE_VARIANTS, 'tableVariant');
+      restoreVariant(prefs.chartVariant, CHART_VARIANTS, 'chartVariant');
       restoreVariant(prefs.plotShape,   PLOT_SHAPES,   'plotShape');
       restoreVariant(prefs.treeType,    TREE_TYPES,    'treeType');
       restoreVariant(prefs.shrubType,   SHRUB_TYPES,   'shrubType');
@@ -2302,7 +2349,8 @@
      (arnés vm, exportaciones) el borrador se comporta como siempre: borrado
      íntegro. */
   const RASTER_ERASE_TYPES = ['text', 'image', 'imagePlaceholder',
-    'button', 'input', 'nav', 'card'];
+    'button', 'input', 'nav', 'card',
+    'formControl', 'uiTable', 'chart', 'dialog', 'tabs', 'sidebar'];
   const RASTER_MAX_SIDE = 4096;   // salvaguarda: nunca rasterizar un lienzo absurdo
 
   /** Margen alrededor de la caja: el dibujo se sale de ella por el temblor de
@@ -2738,7 +2786,8 @@
   /** Tipos con texto propio editable desde el panel. El de `text` es su
       contenido (`value`); el de los componentes UI, su rótulo (`label`). */
   const LABEL_FIELD = el => (el.type === 'text' ? 'value'
-    : ['button', 'input', 'nav', 'card', 'frame'].includes(el.type) ? 'label' : null);
+    : ['button', 'input', 'nav', 'card', 'frame',
+       'formControl', 'uiTable', 'dialog'].includes(el.type) ? 'label' : null);
 
   /** Vuelca en «Posición y tamaño» la caja real de lo seleccionado. Con varios,
       la caja combinada: escribir en ella mueve o escala el conjunto, igual que
@@ -3615,6 +3664,20 @@
       fenceHeightCm: state.fenceHeightCm,
       gateView: state.gateView, gateType: state.gateType,
       gateHeightCm: state.gateHeightCm,
+      stairType: state.stairType, stairView: state.stairView,
+      dimScale: state.dimScale, symbolType: state.symbolType,
+      symbolLevelM: state.symbolLevelM, columnType: state.columnType,
+      furnitureType: state.furnitureType, porchType: state.porchType,
+      silhouetteType: state.silhouetteType, roofAddon: state.roofAddon,
+      // La cifra de la Cota se centra midiendo el texto real: mismo contrato
+      // e invariante que la inyección de gardenOpts (solo puede MOVERLA).
+      measureText: (value, fontSize) => {
+        ctx.save();
+        ctx.font = `${fontSize}px ${sketchFont()}`;
+        const w = ctx.measureText(value).width;
+        ctx.restore();
+        return w;
+      },
     };
   }
 
@@ -4590,6 +4653,18 @@
       // (Imagen no está en uiLabels: su renderer no recibe rótulo).
       const label = (state.uiLabels[state.tool] || '').trim();
       if (label) el.label = label;
+      // Variante elegida en el catálogo (v3.22.0): solo si NO es la primera
+      // entrada — la ausencia ES el default, y así es como se serializa.
+      const variantField = {
+        [TOOLS.FORM_CONTROL]: ['formVariant', FORM_VARIANTS],
+        [TOOLS.UI_TABLE]:     ['tableVariant', TABLE_VARIANTS],
+        [TOOLS.CHART]:        ['chartVariant', CHART_VARIANTS],
+      }[state.tool];
+      if (variantField) {
+        const v = state[variantField[0]];
+        if (variantField[1].some(it => it.id === v) &&
+            v !== variantField[1][0].id) el.variant = v;
+      }
       // Un marco nace numerado, como las capas de cualquier editor: «Marco 2»
       // dice algo, y tres «Marco» no dicen nada. El rótulo se cambia en
       // «Posición y tamaño», que es donde se edita el texto de un elemento.
@@ -4753,7 +4828,8 @@
 
   /* ── Edición con doble click (herramienta Mover) ── */
 
-  const LABELED_TYPES = [TOOLS.BUTTON, TOOLS.INPUT, TOOLS.NAV, TOOLS.CARD];
+  const LABELED_TYPES = [TOOLS.BUTTON, TOOLS.INPUT, TOOLS.NAV, TOOLS.CARD,
+    TOOLS.FORM_CONTROL, TOOLS.UI_TABLE, TOOLS.DIALOG];
 
   mainCanvas.addEventListener('dblclick', e => {
     // Dedupe táctil (v3.7.0): el doble-tap fabrica un dblclick sintético
@@ -5094,6 +5170,21 @@
     // —solo como esbeltez—, y a 30 m el mástil quedaba reducido a un hilo de
     // 12 px con el cabezal ilegible. Con 7 m sale la proporción de siempre.
     { tool: TOOLS.BUILD_LIGHT, modal: 'modal-light', root: 'light-catalog', cls: 'modal__light', data: 'light', catalog: LIGHT_TYPES, key: 'lightType', gen: () => Building, opts: () => ({ ...buildOpts(), lightMastM: LIGHT_ICON_M }), box: { x: 0, y: 0 } },
+    // Parte técnica del plano (v3.22.0): las seis con catálogo entran por la
+    // vía genérica, cero SVG a mano. Escalera y Símbolos llevan además
+    // controles propios (vista / cota de nivel), sincronizados al abrir.
+    { tool: TOOLS.BUILD_STAIR, modal: 'modal-stair', root: 'stair-catalog', cls: 'modal__stair', data: 'stair', catalog: STAIR_TYPES, key: 'stairType', gen: () => Building, opts: () => buildOpts(), box: { x: 0, y: 0 } },
+    { tool: TOOLS.BUILD_SYMBOL, modal: 'modal-symbol', root: 'symbol-catalog', cls: 'modal__symbol', data: 'symbol', catalog: SYMBOL_TYPES, key: 'symbolType', gen: () => Building, opts: () => buildOpts(), box: { x: 0, y: 0 } },
+    { tool: TOOLS.BUILD_COLUMN, modal: 'modal-column', root: 'column-catalog', cls: 'modal__column', data: 'column', catalog: COLUMN_TYPES, key: 'columnType', gen: () => Building, opts: () => buildOpts(), box: { x: 0, y: 0 } },
+    { tool: TOOLS.BUILD_FURNITURE, modal: 'modal-furniture', root: 'furniture-catalog', cls: 'modal__furniture', data: 'furniture', catalog: FURNITURE_TYPES, key: 'furnitureType', gen: () => Building, opts: () => buildOpts(), box: { x: 0, y: 0 } },
+    { tool: TOOLS.BUILD_PORCH, modal: 'modal-porch', root: 'porch-catalog', cls: 'modal__porch', data: 'porch', catalog: PORCH_TYPES, key: 'porchType', gen: () => Building, opts: () => buildOpts(), box: { x: 0, y: 0 } },
+    { tool: TOOLS.BUILD_SILHOUETTE, modal: 'modal-silhouette', root: 'silhouette-catalog', cls: 'modal__silhouette', data: 'silhouette', catalog: SILHOUETTE_TYPES, key: 'silhouetteType', gen: () => Building, opts: () => buildOpts(), box: { x: 0, y: 0 } },
+    // Piezas UI con catálogo (v3.22.0): el icono NO puede salir de
+    // drawPiecesPreview (no son piezas, son elementos): `icon` lo pinta con el
+    // renderer REAL, ver uiVariantIcon.
+    { tool: TOOLS.FORM_CONTROL, modal: 'modal-form', root: 'form-catalog', cls: 'modal__form', data: 'form', catalog: FORM_VARIANTS, key: 'formVariant', icon: v => uiVariantIcon(TOOLS.FORM_CONTROL, v) },
+    { tool: TOOLS.UI_TABLE, modal: 'modal-uitable', root: 'uitable-catalog', cls: 'modal__uitable', data: 'uitable', catalog: TABLE_VARIANTS, key: 'tableVariant', icon: v => uiVariantIcon(TOOLS.UI_TABLE, v) },
+    { tool: TOOLS.CHART, modal: 'modal-chart', root: 'chart-catalog', cls: 'modal__chart', data: 'chart', catalog: CHART_VARIANTS, key: 'chartVariant', icon: v => uiVariantIcon(TOOLS.CHART, v) },
     { tool: TOOLS.GARDEN_PLOT,   modal: 'modal-plot',   root: 'plot-catalog',   cls: 'modal__plot',   data: 'plot',   catalog: PLOT_SHAPES,   key: 'plotShape'  },
     { tool: TOOLS.GARDEN_TREE,   modal: 'modal-tree',   root: 'tree-catalog',   cls: 'modal__tree',   data: 'tree',   catalog: TREE_TYPES,    key: 'treeType', plant: true },
     { tool: TOOLS.GARDEN_SHRUB,  modal: 'modal-shrub',  root: 'shrub-catalog',  cls: 'modal__shrub',  data: 'shrub',  catalog: SHRUB_TYPES,   key: 'shrubType', plant: true },
@@ -5347,7 +5438,7 @@
     if (id === TOOLS.BUILD_PLANTA) { updatePlantaActive(); $('modal-planta').showModal(); }
     if (id === TOOLS.BUILD_DOOR) { updateDoorActive(); $('modal-door').showModal(); }
     if (id === TOOLS.BUILD_WINDOW) { updateWindowActive(); $('modal-window').showModal(); }
-    if (id === TOOLS.BUILD_ROOF) { updateRoofActive(); $('modal-roof').showModal(); }
+    if (id === TOOLS.BUILD_ROOF) { updateRoofActive(); $('roof-addon').value = state.roofAddon; $('modal-roof').showModal(); }
     // Fachada se reconstruye entera (no solo el resaltado): el icono del alzado
     // y la miniatura dependen de ajustes que pueden haber cambiado fuera.
     if (id === TOOLS.BUILD_FACADE) {
@@ -5376,6 +5467,10 @@
       if (id === TOOLS.BUILD_FENCE) syncFenceControls();
       if (id === TOOLS.BUILD_GATE) syncGateControls();
       if (id === TOOLS.BUILD_LIGHT) syncLightControls();
+      // Escalera y Símbolos llevan controles propios además del catálogo,
+      // mismo motivo que Camino y Muro.
+      if (id === TOOLS.BUILD_STAIR) syncStairControls();
+      if (id === TOOLS.BUILD_SYMBOL) syncSymbolControls();
       // Prisma, Pirámide y Tronco llevan sus deslizadores de proyección además
       // del catálogo, mismo motivo que Camino y Muro.
       if (SOLID_TOOLS.includes(id)) syncSolidControls();
@@ -5386,6 +5481,9 @@
     // está en opensVariantModal, porque cerrarlo no cancela nada; la esfera
     // ya se puede dibujar con los ajustes que tenga.
     if (id === TOOLS.SOLID_SPHERE) { syncSolidControls(); $('modal-sphere').showModal(); }
+    // La Cota tampoco tiene variante que elegir: su modal es sólo de ajustes
+    // (la escala 1:N), se abre como el de la Esfera y cerrarlo no cancela nada.
+    if (id === TOOLS.BUILD_DIM) { syncDimControls(); $('modal-dim').showModal(); }
   }
 
   function deleteSelection() {
@@ -7539,10 +7637,14 @@
     TOOLS.FREE_TRIANGLE,
     ...REGULAR_POLYGON_TYPES,
   ];
-  /** Los cinco componentes de UI que comparten #modal-ui (Texto tiene el suyo
-      propio, #modal-text, porque sus ajustes son otros: tamaño de letra). */
+  /** Los componentes de UI que comparten #modal-ui (Texto tiene el suyo
+      propio, #modal-text, porque sus ajustes son otros: tamaño de letra).
+      Diálogo, Pestañas y Menú lateral (v3.22.0) entran aquí: son piezas
+      únicas, sin catálogo — Formulario, Tabla y Gráfico abren su catálogo al
+      elegirlos, pero se EDITAN también en #modal-ui (ver TYPE_SETTINGS_MODAL). */
   const UI_MODAL_TOOLS = [
     TOOLS.BUTTON, TOOLS.INPUT, TOOLS.IMAGE_PLACEHOLDER, TOOLS.NAV, TOOLS.CARD,
+    TOOLS.DIALOG, TOOLS.TABS, TOOLS.SIDEBAR,
   ];
   /** Tipo de elemento que el modal de ajustes de cada herramienta sabe editar.
       Es la tabla de «pulsar la herramienta del elemento seleccionado lo edita»
@@ -7580,6 +7682,10 @@
   };
   SHAPE_TOOLS.forEach(t => { TYPE_SETTINGS_MODAL[t] = openShapeModal; });
   UI_MODAL_TOOLS.forEach(t => { TYPE_SETTINGS_MODAL[t] = openUiModal; });
+  // Las tres piezas UI con catálogo también se EDITAN en #modal-ui (rótulo,
+  // trazo, color); su variante solo se elige al crear, en su catálogo.
+  [TOOLS.FORM_CONTROL, TOOLS.UI_TABLE, TOOLS.CHART]
+    .forEach(t => { TYPE_SETTINGS_MODAL[t] = openUiModal; });
 
   /** Los ajustes que gobiernan la selección ENTERA, o null si no hay unos
       solos. Con tipos distintos devuelve null a propósito: no existe UN modal
@@ -8320,7 +8426,14 @@
     [TOOLS.BUTTON]: 'Botón', [TOOLS.INPUT]: 'Input',
     [TOOLS.IMAGE_PLACEHOLDER]: 'Imagen', [TOOLS.NAV]: 'Navbar',
     [TOOLS.CARD]: 'Tarjeta',
+    [TOOLS.FORM_CONTROL]: 'Formulario', [TOOLS.UI_TABLE]: 'Tabla',
+    [TOOLS.CHART]: 'Gráfico', [TOOLS.DIALOG]: 'Diálogo',
+    [TOOLS.TABS]: 'Pestañas', [TOOLS.SIDEBAR]: 'Menú lateral',
   };
+
+  /** Piezas UI sin rótulo: su texto es simulado (trazos), como el de la
+      tarjeta — un campo de rótulo que no pinta nada sería un engaño. */
+  const UNLABELED_UI = [TOOLS.IMAGE_PLACEHOLDER, TOOLS.CHART, TOOLS.TABS, TOOLS.SIDEBAR];
 
   /** Punto único de sincronía de los ajustes de componente. El tipo mostrado
       es el del componente seleccionado si lo hay (⚙ con selección) y el de la
@@ -8336,7 +8449,7 @@
     // con multi-selección tampoco se ofrece — la regla del panel es que con
     // varias piezas los controles de texto no se tocan (#el-label-row hace lo
     // mismo), y un campo visible que no edita nada es un callejón sin salida.
-    const labeled = state.selection.length <= 1 && uiType !== TOOLS.IMAGE_PLACEHOLDER;
+    const labeled = state.selection.length <= 1 && !UNLABELED_UI.includes(uiType);
     $('ui-modal-label-row').hidden = !labeled;
     if (labeled && document.activeElement !== $('ui-modal-label')) {
       $('ui-modal-label').value = single ? (single.label || '')
@@ -8379,6 +8492,7 @@
     };
     const label = single ? single.label : (state.uiLabels[uiType] || '').trim();
     if (label) el.label = label;
+    if (single && single.variant) el.variant = single.variant;
     pctx.scale(s, s);
     Renderer.renderElement(pctx, el);
   }
@@ -9431,6 +9545,47 @@
     });
     $('light-mast-height').addEventListener('change', savePrefs);
     syncLightControls();
+    // Escalera: la vista es un select junto al catálogo, y los iconos del
+    // catálogo DEPENDEN de ella — cambiarla reconstruye el grid en caliente.
+    fillVariantSelect('stair-view', STAIR_VIEWS);
+    $('stair-view').addEventListener('change', e => {
+      state.stairView = e.target.value === 'elevation' ? 'elevation' : 'plan';
+      buildVariantCatalog(variantModalOf(TOOLS.BUILD_STAIR));
+      savePrefs();
+    });
+    syncStairControls();
+    // Símbolos: la cota de nivel del ▽, en metros con signo.
+    $('symbol-level').addEventListener('input', e => {
+      const v = Number(e.target.value);
+      if (!Number.isFinite(v)) return;
+      state.symbolLevelM = Math.min(99, Math.max(-99, v));
+    });
+    $('symbol-level').addEventListener('change', () => {
+      buildVariantCatalog(variantModalOf(TOOLS.BUILD_SYMBOL));
+      savePrefs();
+    });
+    syncSymbolControls();
+    // Cota: la escala 1:N compartida (Cota, escala gráfica, Siluetas).
+    Building.DIM_SCALES.forEach(n => {
+      const opt = document.createElement('option');
+      opt.value = String(n);
+      opt.textContent = '1:' + n;
+      $('dim-scale').appendChild(opt);
+    });
+    $('dim-scale').addEventListener('change', e => {
+      const v = Number(e.target.value);
+      state.dimScale = Building.DIM_SCALES.includes(v) ? v : Building.DIM_SCALE_DEF;
+      savePrefs();
+    });
+    syncDimControls();
+    // Tejado: el complemento baja a un select del modal (ver ROOF_ADDONS).
+    fillVariantSelect('roof-addon', ROOF_ADDONS);
+    $('roof-addon').value = state.roofAddon;
+    $('roof-addon').addEventListener('change', e => {
+      state.roofAddon = ROOF_ADDONS.some(a => a.id === e.target.value)
+        ? e.target.value : 'none';
+      savePrefs();
+    });
     // 3D: los mismos cuatro deslizadores repetidos en cuatro modales, contra
     // un único estado. `input` mueve al dedo y `change` guarda, como el resto.
     SOLID_MODALS.forEach(cfg => {
@@ -10379,6 +10534,11 @@
     sphereModal.querySelector('.modal__cancel').addEventListener('click', () => sphereModal.close());
     closeOnBackdrop(sphereModal);
 
+    // Cota: como la Esfera, solo ajustes (la escala 1:N) — misma pareja.
+    const dimModal = $('modal-dim');
+    dimModal.querySelector('.modal__cancel').addEventListener('click', () => dimModal.close());
+    closeOnBackdrop(dimModal);
+
     // Ajustes de «Select»: mismo contrato de cierre que el del borrador. Cada
     // modal cablea el suyo, así que un diálogo nuevo sin esta pareja de líneas
     // no se puede cerrar — y un <dialog showModal> abierto deja inerte el
@@ -10577,6 +10737,9 @@
   }
 
   function variantIcon(cfg, variantId) {
+    // Icono propio de la fila (piezas UI): el genérico de abajo pinta con
+    // drawPiecesPreview, que sabe de piezas (line/rect/…), no de elementos UI.
+    if (cfg.icon) return cfg.icon(variantId);
     const canvas = document.createElement('canvas');
     canvas.className = 'modal__shape-icon';
     canvas.setAttribute('aria-hidden', 'true');
@@ -10619,6 +10782,42 @@
     ictx.translate(-(x1 + x2) / 2, -(y1 + y2) / 2);
     // A esta escala el trazo fino del detalle desaparecería: se le pone suelo.
     drawPiecesPreview(ictx, els.map(el => ({ ...el, lineWidth: Math.max(el.lineWidth, 0.9 / s) })));
+    return canvas;
+  }
+
+  /** Icono de catálogo de una pieza UI (v3.22.0): la misma idea que
+      variantIcon —el icono ES lo que saldrá al soltar— pero pintado con el
+      renderer REAL, como la miniatura de renderUiPreview, porque las piezas
+      UI son elementos completos y no listas de line/rect. */
+  function uiVariantIcon(type, variantId) {
+    const canvas = document.createElement('canvas');
+    canvas.className = 'modal__shape-icon';
+    canvas.setAttribute('aria-hidden', 'true');
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = GARDEN_ICON_W * dpr;
+    canvas.height = GARDEN_ICON_H * dpr;
+    canvas.style.width = GARDEN_ICON_W + 'px';
+    canvas.style.height = GARDEN_ICON_H + 'px';
+    const ictx = canvas.getContext('2d');
+    if (!ictx) return canvas;
+    ictx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ictx.fillStyle = state.canvasBg;
+    ictx.fillRect(0, 0, GARDEN_ICON_W, GARDEN_ICON_H);
+    const defs = UI_DEFAULTS[type];
+    const pad = 5;
+    const k = Math.min((GARDEN_ICON_W - pad * 2) / defs.w,
+                       (GARDEN_ICON_H - pad * 2) / defs.h);
+    ictx.translate(GARDEN_ICON_W / 2, GARDEN_ICON_H / 2);
+    ictx.scale(k, k);
+    ictx.translate(-defs.w / 2, -defs.h / 2);
+    Renderer.renderElement(ictx, {
+      type, x: 0, y: 0, w: defs.w, h: defs.h,
+      color: state.color,
+      // Suelo de grosor, como el de variantIcon: a esta escala el trazo fino
+      // desaparecería.
+      lineWidth: Math.max(state.lineWidth, 0.9 / k),
+      seed: 5, variant: variantId,
+    });
     return canvas;
   }
 
@@ -11354,6 +11553,18 @@
     $('light-mast-hint').textContent =
       `Recomendado para ${sport.name.toLowerCase()}: ${sport.lo}–${sport.hi} m` +
       (off ? ' · la cota actual se sale de ese rango' : '');
+  }
+
+  function syncStairControls() {
+    $('stair-view').value = state.stairView;
+  }
+
+  function syncSymbolControls() {
+    $('symbol-level').value = String(state.symbolLevelM);
+  }
+
+  function syncDimControls() {
+    $('dim-scale').value = String(state.dimScale);
   }
 
   function syncFenceControls() {

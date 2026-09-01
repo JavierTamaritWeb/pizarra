@@ -21,6 +21,8 @@ require('./exporter.test.js');
 require('./sketchy-renderer.test.js');
 require('./eraser.test.js');
 require('./building.test.js');
+require('./building-plano.test.js');
 require('./garden.test.js');
 require('./solid.test.js');
+require('./ui-piezas.test.js');
 require('./app-interaction.test.js');

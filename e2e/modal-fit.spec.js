@@ -38,6 +38,17 @@ const MODALES = [
   // Iluminación creció en la v3.16.0 con los mandos de altura de montaje: son
   // dos campos, una pista y una fila más de catálogo por encima de «Cancelar».
   { tool: 'iluminacion', modal: '#modal-light' },
+  // Parte técnica del plano y piezas UI (v3.22.0)
+  { tool: 'stair',       modal: '#modal-stair' },
+  { tool: 'dimension',   modal: '#modal-dim' },
+  { tool: 'symbol',      modal: '#modal-symbol' },
+  { tool: 'column',      modal: '#modal-column' },
+  { tool: 'furniture',   modal: '#modal-furniture' },
+  { tool: 'porch',       modal: '#modal-porch' },
+  { tool: 'silhouette',  modal: '#modal-silhouette' },
+  { tool: 'formControl', modal: '#modal-form' },
+  { tool: 'uiTable',     modal: '#modal-uitable' },
+  { tool: 'chart',       modal: '#modal-chart' },
 ];
 
 for (const { tool, modal } of MODALES) {

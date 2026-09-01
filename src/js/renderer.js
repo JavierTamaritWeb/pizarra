@@ -618,6 +618,254 @@ const Renderer = (() => {
     Sketchy.line(ctx, x + 12, descY + 12, x + w * 0.7, descY + 12, 0.5);
   }
 
+  /* ── Piezas de formulario y datos (v3.22.0) ──
+     Mismo contrato que _button/_card: (ctx, x, y, w, h, color, lw, label) y,
+     en las tres con catálogo, `variant` al final — su ausencia es la primera
+     entrada del catálogo, que es lo que valida el import. El texto simulado
+     son trazos de Sketchy, como las líneas de descripción de la tarjeta. */
+
+  // Trazo que simula una línea de texto, con el alfa de la tarjeta.
+  function _fakeText(ctx, color, x1, y, x2) {
+    ctx.strokeStyle = _tint(color, '40');
+    ctx.lineWidth = 1;
+    Sketchy.line(ctx, x1, y, x2, y, 0.5);
+  }
+
+  function _formControl(ctx, x, y, w, h, color, lw, label, variant) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lw;
+    const v = variant || 'checkbox';
+    const s = Math.min(h * 0.85, w * 0.4);
+    const ty = y + h / 2;
+    const font = `${Math.min(14, h * 0.6)}px ${sketchFont()}`;
+    if (v === 'select') {
+      ctx.strokeStyle = _tint(color, '80');
+      Sketchy.roundedRect(ctx, x, y, w, h, 4);
+      ctx.font = font;
+      ctx.fillStyle = color;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label || 'Opción', x + 10, ty);
+      const cx = x + w - h * 0.65;             // chevrón del desplegable
+      ctx.strokeStyle = color;
+      Sketchy.line(ctx, cx - 5, ty - 3, cx, ty + 3, 0.5);
+      Sketchy.line(ctx, cx, ty + 3, cx + 5, ty - 3, 0.5);
+      return;
+    }
+    if (v === 'slider') {
+      const kx = x + w * 0.6, r = Math.min(h * 0.45, 9);
+      ctx.strokeStyle = _tint(color, '60');
+      Sketchy.line(ctx, x, ty, x + w, ty);
+      ctx.strokeStyle = color;
+      Sketchy.line(ctx, x, ty, kx, ty);        // tramo recorrido, más marcado
+      ctx.fillStyle = _tint(color, '15');
+      Sketchy.ellipse(ctx, kx, ty, r, r);
+      ctx.fill();
+      return;
+    }
+    // Casilla, radio e interruptor: el mando a la izquierda, el rótulo al lado.
+    if (v === 'radio') {
+      Sketchy.ellipse(ctx, x + s / 2, ty, s / 2, s / 2);
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x + s / 2, ty, s * 0.22, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (v === 'switch') {
+      const pw = s * 1.8;
+      ctx.fillStyle = _tint(color, '15');
+      Sketchy.roundedRect(ctx, x, ty - s / 2, pw, s, s / 2);
+      ctx.fill();
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x + pw - s / 2, ty, s * 0.32, 0, Math.PI * 2);
+      ctx.fill();
+    } else {                                   // 'checkbox'
+      Sketchy.roundedRect(ctx, x, ty - s / 2, s, s, 3);
+      Sketchy.line(ctx, x + s * 0.22, ty, x + s * 0.45, ty + s * 0.22, 0.5);
+      Sketchy.line(ctx, x + s * 0.45, ty + s * 0.22, x + s * 0.8, ty - s * 0.28, 0.5);
+    }
+    ctx.font = font;
+    ctx.fillStyle = color;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label || 'Opción', x + (v === 'switch' ? s * 1.8 : s) + 10, ty);
+  }
+
+  function _uiTable(ctx, x, y, w, h, color, lw, label, variant) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lw;
+    const v = variant || 'grid';
+    Sketchy.rect(ctx, x, y, w, h);
+    const rows = Math.max(3, Math.min(6, Math.round(h / 36)));
+    const rh = h / rows;
+    if (v === 'grid') {
+      ctx.fillStyle = _tint(color, '10');      // banda de cabecera
+      ctx.fillRect(x + 1, y + 1, w - 2, rh - 2);
+    }
+    for (let r = 1; r < rows; r++) {
+      ctx.strokeStyle = _tint(color, '60');
+      ctx.lineWidth = 1;
+      Sketchy.line(ctx, x, y + rh * r, x + w, y + rh * r, 0.5);
+    }
+    if (v === 'grid') {
+      for (const t of [0.4, 0.72]) {           // separadores de columna
+        ctx.strokeStyle = _tint(color, '60');
+        Sketchy.line(ctx, x + w * t, y, x + w * t, y + h, 0.5);
+      }
+      for (let r = 0; r < rows; r++) {
+        const cy = y + rh * (r + 0.5);
+        _fakeText(ctx, color, x + 8, cy, x + w * 0.4 - 10);
+        _fakeText(ctx, color, x + w * 0.4 + 8, cy, x + w * 0.72 - 10);
+        _fakeText(ctx, color, x + w * 0.72 + 8, cy, x + w - 10);
+      }
+    } else {
+      for (let r = 0; r < rows; r++) {
+        const cy = y + rh * (r + 0.5);
+        if (v === 'avatars') {
+          const ar = Math.min(rh * 0.32, 11);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1;
+          Sketchy.ellipse(ctx, x + 10 + ar, cy, ar, ar);
+          _fakeText(ctx, color, x + 10 + ar * 2 + 8, cy - 4, x + w * 0.7);
+          _fakeText(ctx, color, x + 10 + ar * 2 + 8, cy + 6, x + w * 0.5);
+        } else {
+          _fakeText(ctx, color, x + 10, cy, x + w * (r % 2 ? 0.6 : 0.8));
+        }
+      }
+    }
+  }
+
+  function _chart(ctx, x, y, w, h, color, lw, label, variant) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lw;
+    const v = variant || 'bars';
+    if (v === 'pie') {
+      const cx = x + w / 2, cy = y + h / 2, r = Math.min(w, h) / 2 - 2;
+      Sketchy.ellipse(ctx, cx, cy, r, r);
+      ctx.fillStyle = _tint(color, '15');      // un sector destacado
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, r, -Math.PI / 2, Math.PI * 0.1);
+      ctx.closePath();
+      ctx.fill();
+      Sketchy.line(ctx, cx, cy, cx, cy - r, 0.5);
+      Sketchy.line(ctx, cx, cy, cx + r * Math.cos(Math.PI * 0.1), cy + r * Math.sin(Math.PI * 0.1), 0.5);
+      Sketchy.line(ctx, cx, cy, cx - r * 0.85, cy + r * 0.5, 0.5);
+      return;
+    }
+    if (v === 'gauge') {
+      const cx = x + w / 2, cy = y + h * 0.92, r = Math.min(w / 2, h * 0.85) - 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, Math.PI, 0);          // el dial
+      ctx.stroke();
+      ctx.beginPath();                          // el arco recorrido, marcado
+      ctx.lineWidth = lw + 2;
+      ctx.strokeStyle = _tint(color, '60');
+      ctx.arc(cx, cy, r, Math.PI, Math.PI * 1.62);
+      ctx.stroke();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lw;
+      Sketchy.line(ctx, cx, cy, cx + r * 0.72 * Math.cos(Math.PI * 1.62),
+        cy + r * 0.72 * Math.sin(Math.PI * 1.62), 0.5);   // aguja
+      Sketchy.line(ctx, cx - r, cy, cx + r, cy, 0.5);
+      return;
+    }
+    // Barras y líneas comparten los ejes.
+    Sketchy.line(ctx, x, y, x, y + h);
+    Sketchy.line(ctx, x, y + h, x + w, y + h);
+    const vals = [0.45, 0.75, 0.35, 0.9, 0.6];
+    if (v === 'lines') {
+      ctx.strokeStyle = color;
+      for (let i = 1; i < vals.length; i++) {
+        Sketchy.line(ctx, x + w * (0.08 + (i - 1) * 0.21), y + h * (1 - vals[i - 1]),
+          x + w * (0.08 + i * 0.21), y + h * (1 - vals[i]), 0.5);
+      }
+      ctx.fillStyle = color;
+      vals.forEach((val, i) => {
+        ctx.beginPath();
+        ctx.arc(x + w * (0.08 + i * 0.21), y + h * (1 - val), 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    } else {                                   // 'bars'
+      ctx.fillStyle = _tint(color, '15');
+      const bw = w * 0.14;
+      vals.slice(0, 4).forEach((val, i) => {
+        const bx = x + w * (0.1 + i * 0.22), bh = h * val;
+        Sketchy.rect(ctx, bx, y + h - bh, bw, bh);
+        ctx.fillRect(bx + 1, y + h - bh + 1, bw - 2, bh - 2);
+      });
+    }
+  }
+
+  function _dialog(ctx, x, y, w, h, color, lw, label) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lw;
+    ctx.fillStyle = '#ffffff08';
+    Sketchy.roundedRect(ctx, x, y, w, h, 8);
+    ctx.fill();
+    const barH = Math.min(34, h * 0.2);
+    Sketchy.line(ctx, x, y + barH, x + w, y + barH);      // barra de título
+    ctx.font = `bold ${Math.min(14, barH * 0.5)}px ${sketchFont()}`;
+    ctx.fillStyle = color;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label || 'Diálogo', x + 12, y + barH / 2);
+    const cx = x + w - barH / 2, cy = y + barH / 2, cs = barH * 0.18; // aspa
+    Sketchy.line(ctx, cx - cs, cy - cs, cx + cs, cy + cs, 0.5);
+    Sketchy.line(ctx, cx + cs, cy - cs, cx - cs, cy + cs, 0.5);
+    _fakeText(ctx, color, x + 12, y + barH + 20, x + w - 20);
+    _fakeText(ctx, color, x + 12, y + barH + 34, x + w * 0.72);
+    // Fila de botones, alineada abajo a la derecha.
+    const bw = Math.min(86, w * 0.3), bh = Math.min(30, h * 0.16);
+    const by = y + h - bh - 10;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lw;
+    Sketchy.roundedRect(ctx, x + w - bw * 2 - 22, by, bw, bh, 6);
+    ctx.fillStyle = _tint(color, '15');
+    Sketchy.roundedRect(ctx, x + w - bw - 12, by, bw, bh, 6);   // el primario
+    ctx.fill();
+  }
+
+  function _tabs(ctx, x, y, w, h, color, lw) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lw;
+    const tw = Math.min(w / 3.4, 110);
+    // La activa: pestaña con relleno y sin borde inferior…
+    ctx.fillStyle = _tint(color, '15');
+    Sketchy.roundedRect(ctx, x, y, tw, h, 6);
+    ctx.fill();
+    // …y la línea base pasa por debajo de las demás.
+    Sketchy.line(ctx, x + tw, y + h, x + w, y + h);
+    for (let i = 1; i < 3; i++) {
+      const tx = x + (tw + 8) * i;
+      ctx.strokeStyle = _tint(color, '60');
+      Sketchy.line(ctx, tx, y + h, tx, y + h * 0.25, 0.5);
+      Sketchy.line(ctx, tx, y + h * 0.25, tx + tw, y + h * 0.25, 0.5);
+      Sketchy.line(ctx, tx + tw, y + h * 0.25, tx + tw, y + h, 0.5);
+      _fakeText(ctx, color, tx + 12, y + h * 0.62, tx + tw - 12);
+    }
+    _fakeText(ctx, color, x + 12, y + h * 0.55, x + tw - 12);
+  }
+
+  function _sidebar(ctx, x, y, w, h, color, lw) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lw;
+    ctx.fillStyle = _tint(color, '0a');
+    Sketchy.rect(ctx, x, y, w, h);
+    ctx.fill();
+    Sketchy.roundedRect(ctx, x + 12, y + 12, Math.min(w * 0.5, 70), 20, 4); // logo
+    Sketchy.line(ctx, x, y + 44, x + w, y + 44);
+    const items = 5, ih = Math.min(36, (h - 56) / items);
+    for (let i = 0; i < items; i++) {
+      const iy = y + 52 + ih * i;
+      if (i === 1) {                            // el ítem activo
+        ctx.fillStyle = _tint(color, '15');
+        ctx.fillRect(x + 6, iy, w - 12, ih - 6);
+      }
+      _fakeText(ctx, color, x + 16, iy + ih / 2 - 3, x + w * (i % 2 ? 0.62 : 0.78));
+    }
+  }
+
   function _polygonPath(ctx, vertices) {
     if (!vertices.length) return;
     ctx.beginPath();
@@ -910,6 +1158,12 @@ const Renderer = (() => {
       case 'image':            _image(ctx, el); break;
       case 'nav':              _nav(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth, el.label); break;
       case 'card':             _card(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth, el.label); break;
+      case 'formControl':      _formControl(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth, el.label, el.variant); break;
+      case 'uiTable':          _uiTable(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth, el.label, el.variant); break;
+      case 'chart':            _chart(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth, el.label, el.variant); break;
+      case 'dialog':           _dialog(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth, el.label); break;
+      case 'tabs':             _tabs(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth); break;
+      case 'sidebar':          _sidebar(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth); break;
     }
 
     Sketchy.setSeed(null);

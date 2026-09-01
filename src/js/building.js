@@ -66,6 +66,27 @@ const Building = (function () {
   // Los dos únicos modelos cuya altura sale de la cota y no del arrastre.
   const LIGHT_MAST_TOOLS   = Object.freeze(['mast', 'tower']);
 
+  // Escala 1:N (v3.22.0). A 96 ppp un metro real ocupa 96/25.4×1000 px sobre
+  // el papel; dividir por N da los píxeles de pantalla de un metro dibujado a
+  // esa escala: 75,6 px/m a 1:50. La MISMA escala la leen la Cota, la escala
+  // gráfica de Símbolos y las cajas por defecto de Siluetas — por eso vive
+  // aquí y no repartida por herramienta. Es un select de escalas normalizadas
+  // y no un deslizador libre: un arquitecto piensa en 1:50, no en px/m.
+  const DIM_PX_PER_M_1 = 96 / 25.4 * 1000;   // ≈ 3.779,5 px/m a escala 1:1
+  const DIM_SCALES     = Object.freeze([20, 50, 100, 200]);
+  const DIM_SCALE_DEF  = 50;
+  const DIM_TEXT_SIZE  = 13;
+  const dimPxPerM = n => DIM_PX_PER_M_1 /
+    (DIM_SCALES.includes(Number(n)) ? Number(n) : DIM_SCALE_DEF);
+  // Siluetas: medidas reales en metros (persona media, turismo medio). La
+  // caja del clic sin arrastre sale de aquí × la escala activa, no de un
+  // tamaño fijo: para eso existen las siluetas, para dar escala al alzado.
+  const SILHOUETTE_M = Object.freeze({
+    person:  { w: 0.5, h: 1.75 },
+    carSide: { w: 4.4, h: 1.45 },
+    carPlan: { w: 1.8, h: 4.4  },
+  });
+
   /* Tamaño al hacer clic sin arrastrar. Una puerta o una ventana miden lo mismo
      sea cual sea su tipo, así que les basta una caja por herramienta; el balcón
      no —un mirador es alto y un balcón corrido es una franja—, y por eso es el
@@ -110,6 +131,55 @@ const Building = (function () {
       // de 30 m con un cabezal de 76 px sería un poste rechoncho—. La resuelve
       // el bloque de abajo, que sí conoce la cota.
     } },
+    // Parte técnica del plano (v3.22.0). La Escalera usa clave sintética
+    // vista×tipo como el Muro: el icono del catálogo (arrastre nulo) debe
+    // nacer con la proporción de SU tipo en la vista activa.
+    [TOOLS.BUILD_STAIR]: { w: 90, h: 220, variantKey: 'stairSizeKey', byVariant: {
+      'p-straight': { w: 90,  h: 220 }, 'p-l':      { w: 170, h: 200 },
+      'p-u':        { w: 150, h: 220 }, 'p-spiral': { w: 150, h: 150 },
+      'p-ramp':     { w: 90,  h: 220 },
+      'e-straight': { w: 220, h: 150 }, 'e-l':      { w: 230, h: 150 },
+      'e-u':        { w: 230, h: 160 }, 'e-spiral': { w: 110, h: 220 },
+      'e-ramp':     { w: 220, h: 120 },
+    } },
+    [TOOLS.BUILD_DIM]: { w: 190, h: 24 },
+    [TOOLS.BUILD_SYMBOL]: { w: 70, h: 90, variantKey: 'symbolType', byVariant: {
+      scaleBar: { w: 190, h: 26 },
+      section:  { w: 150, h: 44 },
+      level:    { w: 96,  h: 36 },
+    } },
+    [TOOLS.BUILD_COLUMN]: { w: 36, h: 36, variantKey: 'columnType', byVariant: {
+      shaft: { w: 64, h: 220 },
+    } },
+    [TOOLS.BUILD_FURNITURE]: { w: 60, h: 60, variantKey: 'furnitureType', byVariant: {
+      wc:      { w: 42,  h: 58  }, sink:  { w: 50,  h: 38  },
+      bath:    { w: 80,  h: 170 }, shower:{ w: 84,  h: 84  },
+      kitchen: { w: 240, h: 62  }, bed:   { w: 150, h: 200 },
+      table:   { w: 150, h: 150 }, sofa:  { w: 190, h: 82  },
+    } },
+    [TOOLS.BUILD_PORCH]: { w: 260, h: 180, variantKey: 'porchType', byVariant: {
+      pergola: { w: 250, h: 160 },
+      canopy:  { w: 210, h: 120 },
+    } },
+    // Siluetas: la caja de verdad la pone el bloque de escala de elements(),
+    // que conoce state.dimScale; esto es solo el último recurso.
+    [TOOLS.BUILD_SILHOUETTE]: { w: 46, h: 175 },
+  };
+
+  /* Catálogo por herramienta nueva, con validación al estilo de js/garden.js
+     (su tabla CATALOGS): una variante desconocida cae en la PRIMERA entrada,
+     que es también lo que significa la ausencia del campo. */
+  const CATALOGS = {
+    [TOOLS.BUILD_STAIR]:      { list: STAIR_TYPES,      key: 'stairType' },
+    [TOOLS.BUILD_SYMBOL]:     { list: SYMBOL_TYPES,     key: 'symbolType' },
+    [TOOLS.BUILD_COLUMN]:     { list: COLUMN_TYPES,     key: 'columnType' },
+    [TOOLS.BUILD_FURNITURE]:  { list: FURNITURE_TYPES,  key: 'furnitureType' },
+    [TOOLS.BUILD_PORCH]:      { list: PORCH_TYPES,      key: 'porchType' },
+    [TOOLS.BUILD_SILHOUETTE]: { list: SILHOUETTE_TYPES, key: 'silhouetteType' },
+  };
+  const _variant = (tool, o) => {
+    const cat = CATALOGS[tool], v = o[cat.key];
+    return cat.list.some(e => e.id === v) ? v : cat.list[0].id;
   };
 
   const _wallHeightM = o => (Number(o.wallHeight) === 2 ? 2 : 1);
@@ -130,12 +200,22 @@ const Building = (function () {
     return Math.min(GATE_H_MAX_CM,
       Math.max(GATE_H_MIN_CM, Number.isFinite(v) ? v : GATE_H_DEF_CM));
   };
+  const _stairSizeKey = o =>
+    (o.stairView === 'elevation' ? 'e-' : 'p-') + _variant(TOOLS.BUILD_STAIR, o);
+  /** Formato español de metros: coma decimal, sin ceros de relleno. */
+  const _fmtM = m => Number(m.toFixed(2)).toLocaleString('es-ES');
+  /** Cota de nivel: signo SIEMPRE y dos decimales («+0,00», «-1,50»). */
+  const _fmtLevel = m => {
+    const v = Number(m) || 0;
+    return (v < 0 ? '-' : '+') + Math.abs(v).toFixed(2).replace('.', ',');
+  };
 
   function elements(tool, p1, p2, opts) {
     const o = { color: '#000000', lineWidth: 2, ...(opts || {}) };
     const base = DEFAULTS[tool];
     if (!base) return [];
     if (tool === TOOLS.BUILD_WALL) o.wallSizeKey = _wallSizeKey(o);
+    if (tool === TOOLS.BUILD_STAIR) o.stairSizeKey = _stairSizeKey(o);
     const def = (base.byVariant && base.byVariant[o[base.variantKey]]) || base;
     const rawW = Math.abs(p2.x - p1.x), rawH = Math.abs(p2.y - p1.y);
     let b = {
@@ -180,6 +260,16 @@ const Building = (function () {
       // la cota hundía la torre bajo la línea donde se había plantado.
       b = { ...b, y: Math.max(p1.y, p2.y) - h, w, h };
     }
+    // Siluetas: sin arrastre en un eje, ese eje sale de la medida real en
+    // metros × la escala 1:N activa — para eso existen, para dar escala.
+    // Arrastrada, la silueta obedece al gesto como cualquier otra pieza.
+    if (tool === TOOLS.BUILD_SILHOUETTE) {
+      const m = SILHOUETTE_M[_variant(tool, o)];
+      const px = dimPxPerM(o.dimScale);
+      b = { ...b,
+        w: rawW >= MIN_SPAN ? b.w : Math.max(8, m.w * px),
+        h: rawH >= MIN_SPAN ? b.h : Math.max(8, m.h * px) };
+    }
     switch (tool) {
       case TOOLS.BUILD_PLANTA: return _planta(b, o, o.plantaShape || 'rect');
       case TOOLS.BUILD_FACADE: return _facadeTool(b, o);
@@ -191,6 +281,13 @@ const Building = (function () {
       case TOOLS.BUILD_FENCE:  return _fenceTool(b, o);
       case TOOLS.BUILD_GATE:   return _gateTool(b, o);
       case TOOLS.BUILD_LIGHT:  return _lightTool(b, o);
+      case TOOLS.BUILD_STAIR:  return _stairTool(b, o);
+      case TOOLS.BUILD_DIM:    return _dimTool(p1, p2, b, o);
+      case TOOLS.BUILD_SYMBOL: return _symbolTool(b, o);
+      case TOOLS.BUILD_COLUMN: return _columnTool(b, o);
+      case TOOLS.BUILD_FURNITURE: return _furnitureTool(b, o);
+      case TOOLS.BUILD_PORCH:  return _porchTool(b, o);
+      case TOOLS.BUILD_SILHOUETTE: return _silhouetteTool(b, o);
       default: return [];
     }
   }
@@ -577,14 +674,61 @@ const Building = (function () {
   }
 
   /* ── tejados sueltos (con tejas) ── */
-  // Despacho del botón Tejado según o.roofShape (elegido en el modal).
+  // Despacho del botón Tejado según o.roofShape (elegido en el modal). El
+  // complemento (o.roofAddon, v3.22.0) se dibuja ENCIMA de cualquier forma:
+  // no es una variante del catálogo —eso multiplicaría 5 formas × 4 añadidos—
+  // sino un select del modal, el precedente de Verjas y Cancela. Con 'none'
+  // (o sin campo) las piezas son EXACTAMENTE las de siempre.
   function _roofTool(b, o) {
+    let base;
     switch (o.roofShape) {
-      case 'mono':    return _roofMono(b, o);
-      case 'flat':    return _rect(b, o);
-      case 'hip':     return _roofHip(b, o);
-      case 'mansard': return _roofMansard(b, o);
-      default:        return _roofGable(b, o);  // 'gable'
+      case 'mono':    base = _roofMono(b, o); break;
+      case 'flat':    base = _rect(b, o); break;
+      case 'hip':     base = _roofHip(b, o); break;
+      case 'mansard': base = _roofMansard(b, o); break;
+      default:        base = _roofGable(b, o);  // 'gable'
+    }
+    return [...base, ..._roofAddon(b, o)];
+  }
+
+  function _roofAddon(b, o) {
+    switch (o.roofAddon) {
+      case 'chimney': {
+        // Junto al tercio derecho, asomando por encima de la cumbrera.
+        const w = Math.max(8, Math.min(14, b.w * 0.08));
+        const x = b.x + b.w * 0.66, top = b.y - 6;
+        return [
+          _rectEl(x, top, w, b.h * 0.45 + 6, o),
+          _rectEl(x - 3, top - 5, w + 6, 5, o),                 // sombrerete
+        ];
+      }
+      case 'dormer': {
+        // Mini-hastial sobre el faldón izquierdo, con su ventanuco.
+        const ax = b.x + b.w * 0.33, half = b.w * 0.09;
+        const topY = b.y + b.h * 0.28, baseY = b.y + b.h * 0.62;
+        return [
+          _line(ax - half, baseY, ax, topY, o),
+          _line(ax, topY, ax + half, baseY, o),
+          _line(ax - half, baseY, ax + half, baseY, o),
+          _rectT(ax - half * 0.45, baseY - (baseY - topY) * 0.55,
+                 half * 0.9, (baseY - topY) * 0.45, o),
+        ];
+      }
+      case 'skylight': {
+        // Paralelogramo tumbado en el plano del faldón derecho.
+        const P = [
+          [b.x + b.w * 0.58, b.y + b.h * 0.5],
+          [b.x + b.w * 0.7,  b.y + b.h * 0.3],
+          [b.x + b.w * 0.8,  b.y + b.h * 0.38],
+          [b.x + b.w * 0.68, b.y + b.h * 0.58],
+        ];
+        return [
+          ..._poly(P, o),
+          _lineT((P[0][0] + P[1][0]) / 2, (P[0][1] + P[1][1]) / 2,
+                 (P[2][0] + P[3][0]) / 2, (P[2][1] + P[3][1]) / 2, o),
+        ];
+      }
+      default: return [];    // 'none' o ausencia: el tejado de siempre
     }
   }
   function _roofGable(b, o) {                // triángulo: 2 pendientes + base + tejas
@@ -2468,8 +2612,521 @@ const Building = (function () {
     return els;
   }
 
+  /* ══ Parte técnica del plano (v3.22.0) ══════════════════════════════
+     Texto: el render de `text` ancla arriba-izquierda, así que centrar la
+     cifra exige el ancho del texto — la dependencia se INYECTA como en
+     js/garden.js (`opts.measureText(value, size)`), con la misma estimación
+     de reserva y el MISMO invariante: measureText solo puede MOVER una
+     etiqueta, nunca cambiar el número de piezas ni ninguna otra coordenada. */
+  const _text = (value, x, y, size, o) =>
+    ({ type: 'text', x, y, value, color: o.color, fontSize: size, lineWidth: o.lineWidth });
+  const _textW = (value, size, o) => (typeof o.measureText === 'function'
+    ? o.measureText(value, size)
+    : value.length * size * 0.5);
+
+  /* ── Escalera ── */
+  function _stairTool(b, o) {
+    const type = _variant(TOOLS.BUILD_STAIR, o);
+    const elev = o.stairView === 'elevation';
+    if (type === 'ramp')   return elev ? _rampElev(b, o)   : _rampPlan(b, o);
+    if (type === 'spiral') return elev ? _spiralElev(b, o) : _spiralPlan(b, o);
+    return elev ? _flightElev(b, o, type) : _flightPlan(b, o, type);
+  }
+
+  // Peldañeado de un tramo rectangular en planta: huellas perpendiculares al
+  // eje largo del tramo. `vertical` = el tiro sube en Y (huellas horizontales).
+  function _treads(x, y, w, h, vertical, o) {
+    const out = [], span = vertical ? h : w;
+    const n = Math.max(3, Math.min(14, Math.round(span / 14)));
+    for (let i = 1; i < n; i++) {
+      const t = (span / n) * i;
+      out.push(vertical
+        ? _lineT(x, y + t, x + w, y + t, o)
+        : _lineT(x + t, y, x + t, y + h, o));
+    }
+    return out;
+  }
+
+  function _flightPlan(b, o, type) {
+    if (type === 'l') {
+      // Tiro vertical a la izquierda, meseta en la esquina y tiro horizontal.
+      const lw = b.w * 0.42, lh = b.h * 0.38;
+      return [
+        _rectEl(b.x, b.y, lw, b.h, o),
+        _rectEl(b.x + lw, b.y + b.h - lh, b.w - lw, lh, o),
+        ..._treads(b.x, b.y, lw, b.h - lh, true, o),
+        ..._treads(b.x + lw, b.y + b.h - lh, b.w - lw, lh, false, o),
+        { type: 'arrow', x1: b.x + lw / 2, y1: b.y + b.h - lh / 2,
+          x2: b.x + lw / 2, y2: b.y + 8, color: o.color, lineWidth: _thinW(o) },
+      ];
+    }
+    if (type === 'u') {
+      // Dos tiros paralelos con la meseta arriba; el hueco entre ambos es el ojo.
+      const fw = b.w * 0.46, lh = Math.min(b.h * 0.3, fw);
+      return [
+        _rectEl(b.x, b.y, b.w, lh, o),
+        _rectEl(b.x, b.y + lh, fw, b.h - lh, o),
+        _rectEl(b.x + b.w - fw, b.y + lh, fw, b.h - lh, o),
+        ..._treads(b.x, b.y + lh, fw, b.h - lh, true, o),
+        ..._treads(b.x + b.w - fw, b.y + lh, fw, b.h - lh, true, o),
+        { type: 'arrow', x1: b.x + fw / 2, y1: b.y + b.h - 6,
+          x2: b.x + fw / 2, y2: b.y + lh + 6, color: o.color, lineWidth: _thinW(o) },
+      ];
+    }
+    // Recta: caja + huellas + línea de rotura (convención de planta: el tramo
+    // por encima del plano de corte se interrumpe) + flecha de subida.
+    const by = b.y + b.h * 0.35;
+    return [
+      ..._rect(b, o),
+      ..._treads(b.x, b.y, b.w, b.h, true, o),
+      _lineT(b.x - 3, by + 5, b.x + b.w * 0.5, by - 5, o),
+      _lineT(b.x + b.w * 0.5, by - 5, b.x + b.w + 3, by + 3, o),
+      { type: 'arrow', x1: b.x + b.w / 2, y1: b.y + b.h - 6,
+        x2: b.x + b.w / 2, y2: b.y + 8, color: o.color, lineWidth: _thinW(o) },
+    ];
+  }
+
+  function _spiralPlan(b, o) {
+    const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+    const els = [
+      _circleEl(b.x, b.y, b.w, b.h, o),
+      _circleT(cx - b.w * 0.08, cy - b.h * 0.08, b.w * 0.16, b.h * 0.16, o),
+    ];
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      els.push(_lineT(cx + Math.cos(a) * b.w * 0.08, cy + Math.sin(a) * b.h * 0.08,
+                      cx + Math.cos(a) * b.w * 0.5,  cy + Math.sin(a) * b.h * 0.5, o));
+    }
+    els.push({ type: 'arrow', x1: b.x + b.w * 0.86, y1: cy + b.h * 0.18,
+      x2: b.x + b.w * 0.86, y2: cy - b.h * 0.18, color: o.color, lineWidth: _thinW(o) });
+    return els;
+  }
+
+  function _rampPlan(b, o) {
+    const els = [
+      ..._rect(b, o),
+      { type: 'arrow', x1: b.x + b.w / 2, y1: b.y + b.h - 6,
+        x2: b.x + b.w / 2, y2: b.y + 8, color: o.color, lineWidth: _thinW(o) },
+    ];
+    // Espigas de pendiente, apuntando hacia arriba como la flecha.
+    for (const t of [0.36, 0.64]) {
+      const y = b.y + b.h * t;
+      els.push(_lineT(b.x + b.w * 0.2, y + 8, b.x + b.w * 0.5, y - 4, o),
+               _lineT(b.x + b.w * 0.5, y - 4, b.x + b.w * 0.8, y + 8, o));
+    }
+    return els;
+  }
+
+  function _flightElev(b, o, type) {
+    // Peldaños en zigzag de abajo-izquierda a arriba-derecha. En L y en U hay
+    // meseta (huella doble) a media altura; en U se ve además el tiro de
+    // vuelta por detrás, con la zanca en contrapendiente.
+    const els = [];
+    const n = Math.max(4, Math.min(14, Math.round(b.h / 16)));
+    const landing = type !== 'straight' ? Math.floor(n / 2) : -1;
+    const stepH = b.h / n;
+    const total = n + (landing >= 0 ? 1 : 0);   // en huellas; la meseta vale dos
+    const stepW = b.w / total;
+    let x = b.x, y = b.y + b.h;
+    for (let i = 0; i < n; i++) {
+      const tread = (i === landing) ? stepW * 2 : stepW;
+      els.push(_line(x, y, x, y - stepH, o));               // contrahuella
+      els.push(_line(x, y - stepH, x + tread, y - stepH, o)); // huella
+      x += tread; y -= stepH;
+    }
+    els.push(_line(b.x, b.y + b.h, b.x + b.w, b.y + b.h, o)); // línea de suelo
+    if (type === 'u') {
+      els.push(_lineT(b.x + b.w, b.y + b.h * 0.45, b.x, b.y + b.h * 0.05, o));
+    }
+    return els;
+  }
+
+  function _spiralElev(b, o) {
+    const cx = b.x + b.w / 2;
+    const els = [_line(cx, b.y, cx, b.y + b.h, o)];          // eje
+    const n = Math.max(4, Math.min(10, Math.round(b.h / 26)));
+    const eh = Math.max(4, b.h * 0.03);                       // canto de la huella
+    for (let i = 0; i < n; i++) {
+      const y = b.y + b.h - (i + 1) * (b.h / (n + 0.5));
+      els.push(_circleT(b.x, y - eh / 2, b.w, eh, o));        // huella de canto
+    }
+    return els;
+  }
+
+  function _rampElev(b, o) {
+    return [
+      _line(b.x, b.y + b.h, b.x + b.w, b.y, o),               // plano inclinado
+      _line(b.x + b.w, b.y, b.x + b.w, b.y + b.h, o),         // frente
+      _line(b.x, b.y + b.h, b.x + b.w, b.y + b.h, o),         // suelo
+      _lineT(b.x, b.y + b.h - 14, b.x + b.w, b.y - 14, o),    // baranda
+      _lineT(b.x + b.w * 0.5, b.y + b.h * 0.5 - 14, b.x + b.w * 0.5, b.y + b.h * 0.5, o),
+    ];
+  }
+
+  /* ── Cota ── */
+  // La línea de cota ES el arrastre: direccional, como el mástil. Los remates
+  // son la punta «Barra» que ya existe (heads:'both' + headShape:'bar'), los
+  // testigos dos trazos finos perpendiculares, y la cifra sale de la longitud
+  // según la escala 1:N activa. Sin arrastre, una cota horizontal de fábrica.
+  function _dimTool(p1, p2, b, o) {
+    let A = p1, B = p2;
+    if (Math.hypot(p2.x - p1.x, p2.y - p1.y) < MIN_SPAN) {
+      const cy = b.y + b.h / 2;
+      A = { x: b.x, y: cy }; B = { x: b.x + b.w, y: cy };
+    }
+    const len = Math.hypot(B.x - A.x, B.y - A.y);
+    const nx = -(B.y - A.y) / len, ny = (B.x - A.x) / len;   // normal unitaria
+    const W = 7;                                              // medio testigo
+    const els = [
+      _lineT(A.x - nx * W, A.y - ny * W, A.x + nx * W, A.y + ny * W, o),
+      _lineT(B.x - nx * W, B.y - ny * W, B.x + nx * W, B.y + ny * W, o),
+      { type: 'arrow', x1: A.x, y1: A.y, x2: B.x, y2: B.y,
+        heads: 'both', headShape: 'bar', color: o.color, lineWidth: o.lineWidth },
+    ];
+    const value = _fmtM(len / dimPxPerM(o.dimScale)) + ' m';
+    const tw = _textW(value, DIM_TEXT_SIZE, o);
+    // La cifra va del lado de la normal que mira hacia arriba, como se rotula.
+    const sgn = ny <= 0 ? 1 : -1;
+    els.push(_text(value,
+      (A.x + B.x) / 2 + nx * sgn * 10 - tw / 2,
+      (A.y + B.y) / 2 + ny * sgn * 10 - DIM_TEXT_SIZE,
+      DIM_TEXT_SIZE, o));
+    return els;
+  }
+
+  /* ── Símbolos de plano ── */
+  function _symbolTool(b, o) {
+    switch (_variant(TOOLS.BUILD_SYMBOL, o)) {
+      case 'scaleBar': return _symbolScaleBar(b, o);
+      case 'section':  return _symbolSection(b, o);
+      case 'level':    return _symbolLevel(b, o);
+      default:         return _symbolNorth(b, o);
+    }
+  }
+
+  // La «N» con tres líneas y no con texto: mismo criterio que el norte del
+  // Jardín — Sketchy le da el aire manuscrito y no cuenta como etiqueta.
+  function _symbolNorth(b, o) {
+    const cx = b.x + b.w / 2;
+    const nH = Math.max(8, Math.min(20, b.h * 0.24)), nW = nH * 0.72;
+    return [
+      { type: 'arrow', x1: cx, y1: b.y + b.h, x2: cx, y2: b.y + nH + 4,
+        color: o.color, lineWidth: o.lineWidth },
+      _lineT(cx - nW / 2, b.y + nH, cx - nW / 2, b.y, o),
+      _lineT(cx - nW / 2, b.y, cx + nW / 2, b.y + nH, o),
+      _lineT(cx + nW / 2, b.y + nH, cx + nW / 2, b.y, o),
+    ];
+  }
+
+  // La barra mide metros EXACTOS según la escala activa, aunque salga más
+  // corta o más larga que el arrastre: una escala estirada al gesto mentiría
+  // (mismo principio que la del Jardín). Guarda la escala del momento.
+  function _symbolScaleBar(b, o) {
+    const px = dimPxPerM(o.dimScale);
+    const m = Math.max(1, Math.min(20, Math.floor(b.w / px)));
+    const L = m * px;
+    const H = Math.max(6, Math.min(12, b.h * 0.5));
+    const y = b.y + b.h - H;
+    const els = [_rectEl(b.x, y, L, H, o)];
+    for (let i = 1; i < m; i++) els.push(_lineT(b.x + i * px, y, b.x + i * px, y + H, o));
+    for (let i = 0; i < m; i += 2) {                 // tramos alternos «macizos»
+      const x0 = b.x + i * px;
+      els.push(_lineT(x0, y + H, x0 + px, y, o),
+               _lineT(x0 + px / 2, y + H, x0 + px, y + H / 2, o));
+    }
+    const fin = m + ' m';
+    els.push(_text('0', b.x - _textW('0', 10, o) / 2, y - 14, 10, o));
+    els.push(_text(fin, b.x + L - _textW(fin, 10, o) / 2, y - 14, 10, o));
+    return els;
+  }
+
+  function _symbolSection(b, o) {
+    const y = b.y + b.h * 0.4;
+    const a = Math.max(12, Math.min(22, b.h * 0.5));
+    const size = 12;
+    return [
+      _line(b.x, y, b.x + b.w, y, o),                          // traza del corte
+      { type: 'arrow', x1: b.x, y1: y, x2: b.x, y2: y + a,     // sentido de la mirada
+        color: o.color, lineWidth: o.lineWidth },
+      { type: 'arrow', x1: b.x + b.w, y1: y, x2: b.x + b.w, y2: y + a,
+        color: o.color, lineWidth: o.lineWidth },
+      _text('A', b.x - _textW('A', size, o) / 2, y - size - 4, size, o),
+      _text('A′', b.x + b.w - _textW('A′', size, o) / 2, y - size - 4, size, o),
+    ];
+  }
+
+  // El ▽ son tres líneas, sin relleno; la cifra lleva signo siempre.
+  function _symbolLevel(b, o) {
+    const s = Math.max(8, Math.min(16, b.h * 0.45));
+    const vx = b.x + s, vy = b.y + b.h * 0.6;
+    const size = 12;
+    return [
+      _line(vx - s, vy - s, vx + s, vy - s, o),
+      _line(vx - s, vy - s, vx, vy, o),
+      _line(vx + s, vy - s, vx, vy, o),
+      _line(vx, vy, b.x + b.w, vy, o),                         // línea de nivel
+      _text(_fmtLevel(o.symbolLevelM), vx + s + 6, vy - size - 4, size, o),
+    ];
+  }
+
+  /* ── Pilar ── */
+  function _columnTool(b, o) {
+    switch (_variant(TOOLS.BUILD_COLUMN, o)) {
+      case 'round':   return _columnRound(b, o);
+      case 'hatched': return _columnHatched(b, o);
+      case 'shaft':   return _columnShaft(b, o);
+      default:        return _columnSquare(b, o);
+    }
+  }
+
+  function _columnSquare(b, o) {
+    return [
+      ..._rect(b, o),
+      _lineT(b.x, b.y, b.x + b.w, b.y + b.h, o),
+      _lineT(b.x + b.w, b.y, b.x, b.y + b.h, o),
+    ];
+  }
+
+  function _columnRound(b, o) {
+    const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+    return [
+      _circleEl(b.x, b.y, b.w, b.h, o),
+      _lineT(b.x, cy, b.x + b.w, cy, o),
+      _lineT(cx, b.y, cx, b.y + b.h, o),
+    ];
+  }
+
+  // Achurado a 45° recortado a la caja, como el de la piedra en planta.
+  function _columnHatched(b, o) {
+    const els = _rect(b, o);
+    const step = Math.max(5, Math.min(b.w, b.h) / 4);
+    for (let d = step; d < b.w + b.h; d += step) {
+      els.push(_lineT(
+        b.x + Math.max(0, d - b.h), b.y + Math.min(b.h, d),
+        b.x + Math.min(b.w, d),     b.y + Math.max(0, d - b.w), o));
+    }
+    return els;
+  }
+
+  // Alzado clásico: basa de dos gradas, fuste con éntasis leve y capitel.
+  function _columnShaft(b, o) {
+    const baseH = Math.max(6, b.h * 0.08), capH = Math.max(5, b.h * 0.06);
+    const topY = b.y + capH * 2, botY = b.y + b.h - baseH * 2;
+    const inset = b.w * 0.14;
+    return [
+      _rectEl(b.x, b.y + b.h - baseH, b.w, baseH, o),                  // grada inferior
+      _rectEl(b.x + inset * 0.5, b.y + b.h - baseH * 2, b.w - inset, baseH, o),
+      _rectEl(b.x, b.y, b.w, capH, o),                                  // ábaco
+      _rectEl(b.x + inset * 0.5, b.y + capH, b.w - inset, capH, o),     // equino
+      _line(b.x + inset, topY, b.x + inset * 1.3, botY, o),             // fuste
+      _line(b.x + b.w - inset, topY, b.x + b.w - inset * 1.3, botY, o),
+      _lineT(b.x + b.w / 2, topY, b.x + b.w / 2, botY, o),              // estría
+    ];
+  }
+
+  /* ── Mobiliario (planta) ── */
+  function _furnitureTool(b, o) {
+    switch (_variant(TOOLS.BUILD_FURNITURE, o)) {
+      case 'sink':    return _furnSink(b, o);
+      case 'bath':    return _furnBath(b, o);
+      case 'shower':  return _furnShower(b, o);
+      case 'kitchen': return _furnKitchen(b, o);
+      case 'bed':     return _furnBed(b, o);
+      case 'table':   return _furnTable(b, o);
+      case 'sofa':    return _furnSofa(b, o);
+      default:        return _furnWc(b, o);
+    }
+  }
+
+  function _furnWc(b, o) {          // cisterna arriba, taza elíptica debajo
+    const cist = b.h * 0.3;
+    return [
+      _rectEl(b.x, b.y, b.w, cist, o),
+      _circleEl(b.x + b.w * 0.12, b.y + cist + 2, b.w * 0.76, b.h - cist - 4, o),
+    ];
+  }
+
+  function _furnSink(b, o) {
+    return [
+      _rectEl(b.x, b.y, b.w, b.h, o),
+      _circleT(b.x + b.w * 0.18, b.y + b.h * 0.25, b.w * 0.64, b.h * 0.6, o),
+      _lineT(b.x + b.w / 2, b.y, b.x + b.w / 2, b.y + b.h * 0.2, o),   // grifo
+    ];
+  }
+
+  function _furnBath(b, o) {
+    const i = Math.min(6, b.w * 0.12, b.h * 0.12);
+    const d = Math.min(10, b.w * 0.2);
+    return [
+      _rectEl(b.x, b.y, b.w, b.h, o),
+      _rectT(b.x + i, b.y + i, b.w - i * 2, b.h - i * 2, o),           // vaso
+      _circleT(b.x + b.w / 2 - d / 2, b.y + b.h * 0.1, d, d, o),        // desagüe
+    ];
+  }
+
+  function _furnShower(b, o) {
+    const d = Math.min(10, b.w * 0.16);
+    return [
+      _rectEl(b.x, b.y, b.w, b.h, o),
+      _lineT(b.x, b.y, b.x + b.w, b.y + b.h, o),
+      _lineT(b.x + b.w, b.y, b.x, b.y + b.h, o),
+      _circleT(b.x + (b.w - d) / 2, b.y + (b.h - d) / 2, d, d, o),      // sumidero
+    ];
+  }
+
+  function _furnKitchen(b, o) {     // bancada: fregadero a la izq, fogones a la der
+    const x35 = b.x + b.w * 0.35, x65 = b.x + b.w * 0.65, third = b.w * 0.35;
+    const els = [
+      ..._rect(b, o),
+      _lineT(x35, b.y, x35, b.y + b.h, o),                              // juntas de módulo
+      _lineT(x65, b.y, x65, b.y + b.h, o),
+      _rectT(b.x + b.w * 0.05, b.y + b.h * 0.18, b.w * 0.24, b.h * 0.64, o), // fregadero
+    ];
+    for (const [ix, iy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {          // 4 fogones
+      els.push(_circleT(x65 + third * (0.12 + ix * 0.44),
+        b.y + b.h * (0.12 + iy * 0.46), third * 0.3, b.h * 0.3, o));
+    }
+    return els;
+  }
+
+  function _furnBed(b, o) {         // doble por defecto: dos almohadas y embozo
+    return [
+      _rectEl(b.x, b.y, b.w, b.h, o),
+      _rectT(b.x + b.w * 0.08, b.y + b.h * 0.04, b.w * 0.36, b.h * 0.14, o),
+      _rectT(b.x + b.w * 0.56, b.y + b.h * 0.04, b.w * 0.36, b.h * 0.14, o),
+      _lineT(b.x, b.y + b.h * 0.28, b.x + b.w, b.y + b.h * 0.28, o),    // embozo
+    ];
+  }
+
+  function _furnTable(b, o) {       // mesa redonda con cuatro sillas
+    const t = { x: b.x + b.w * 0.22, y: b.y + b.h * 0.22, w: b.w * 0.56, h: b.h * 0.56 };
+    const cw = b.w * 0.2, ch = b.h * 0.14;
+    return [
+      _circleEl(t.x, t.y, t.w, t.h, o),
+      _rectT(b.x + (b.w - cw) / 2, b.y, cw, ch, o),                     // sillas N S E O
+      _rectT(b.x + (b.w - cw) / 2, b.y + b.h - ch, cw, ch, o),
+      _rectT(b.x, b.y + (b.h - cw) / 2, ch, cw, o),
+      _rectT(b.x + b.w - ch, b.y + (b.h - cw) / 2, ch, cw, o),
+    ];
+  }
+
+  function _furnSofa(b, o) {        // respaldo arriba, brazos y dos cojines
+    const back = b.y + b.h * 0.3, arm = b.w * 0.12;
+    return [
+      _rectEl(b.x, b.y, b.w, b.h, o),
+      _lineT(b.x, back, b.x + b.w, back, o),
+      _lineT(b.x + arm, back, b.x + arm, b.y + b.h, o),
+      _lineT(b.x + b.w - arm, back, b.x + b.w - arm, b.y + b.h, o),
+      _lineT(b.x + b.w / 2, back, b.x + b.w / 2, b.y + b.h, o),
+    ];
+  }
+
+  /* ── Porche, pérgola y marquesina (alzados) ── */
+  function _porchTool(b, o) {
+    switch (_variant(TOOLS.BUILD_PORCH, o)) {
+      case 'pergola': return _porchPergola(b, o);
+      case 'canopy':  return _porchCanopy(b, o);
+      default:        return _porchPorch(b, o);
+    }
+  }
+
+  // Poste como par de líneas, del canto inferior del faldón/viga al suelo.
+  function _posts(ts, topYAt, b, o) {
+    const out = [];
+    for (const t of ts) {
+      const px = b.x + b.w * t;
+      out.push(_line(px - 2, topYAt(px), px - 2, b.y + b.h, o),
+               _line(px + 2, topYAt(px), px + 2, b.y + b.h, o));
+    }
+    return out;
+  }
+
+  function _porchPorch(b, o) {      // un agua adosada sobre tres pies derechos
+    const eave = Math.min(10, b.w * 0.05);
+    const rH = Math.max(10, b.h * 0.24);
+    const uy = x => b.y + 5 + (1 - (x - (b.x - eave)) / (b.w + 2 * eave)) * rH;
+    return [
+      _line(b.x - eave, b.y + rH, b.x + b.w + eave, b.y, o),            // faldón
+      _lineT(b.x - eave, b.y + rH + 5, b.x + b.w + eave, b.y + 5, o),   // canto
+      ..._posts([0.06, 0.5, 0.94], uy, b, o),
+      _line(b.x - eave, b.y + b.h, b.x + b.w + eave, b.y + b.h, o),     // suelo
+    ];
+  }
+
+  function _porchPergola(b, o) {    // doble viga y viguetas vistas, sin faldón
+    const beamY = b.y + Math.max(6, b.h * 0.12);
+    const els = [
+      _line(b.x - 8, beamY, b.x + b.w + 8, beamY, o),
+      _line(b.x - 8, beamY + 5, b.x + b.w + 8, beamY + 5, o),
+      ..._posts([0.1, 0.9], () => beamY + 5, b, o),
+    ];
+    const n = Math.max(3, Math.min(9, Math.round(b.w / 34)));
+    for (let i = 0; i < n; i++) {                                       // viguetas
+      const x = b.x + (b.w / (n - 1 || 1)) * i;
+      els.push(_lineT(x, beamY - Math.max(4, b.h * 0.05), x, beamY, o));
+    }
+    return els;
+  }
+
+  function _porchCanopy(b, o) {     // visera colgada del muro con tirantes
+    const rH = Math.max(8, b.h * 0.35);
+    const tipY = b.y + rH * 0.35;
+    return [
+      _line(b.x, b.y + rH, b.x + b.w, tipY, o),                         // visera
+      _lineT(b.x, b.y + rH + 4, b.x + b.w, tipY + 4, o),                // canto
+      _line(b.x, b.y, b.x, b.y + b.h, o),                               // muro
+      _lineT(b.x, b.y, b.x + b.w * 0.55, b.y + rH * 0.62, o),           // tirantes
+      _lineT(b.x, b.y, b.x + b.w * 0.92, tipY + 1, o),
+      _lineT(b.x + b.w, tipY, b.x + b.w, tipY + 10, o),                 // goterón
+    ];
+  }
+
+  /* ── Siluetas de escala ── */
+  function _silhouetteTool(b, o) {
+    switch (_variant(TOOLS.BUILD_SILHOUETTE, o)) {
+      case 'carSide': return _silCarSide(b, o);
+      case 'carPlan': return _silCarPlan(b, o);
+      default:        return _silPerson(b, o);
+    }
+  }
+
+  function _silPerson(b, o) {
+    const cx = b.x + b.w / 2, hd = Math.min(b.w, b.h * 0.16);
+    return [
+      _circleEl(cx - hd / 2, b.y, hd, hd, o),                           // cabeza
+      _line(cx, b.y + hd, cx, b.y + b.h * 0.62, o),                     // tronco
+      _line(cx, b.y + b.h * 0.3, cx - b.w * 0.5, b.y + b.h * 0.48, o),  // brazos
+      _line(cx, b.y + b.h * 0.3, cx + b.w * 0.5, b.y + b.h * 0.44, o),
+      _line(cx, b.y + b.h * 0.62, cx - b.w * 0.42, b.y + b.h, o),       // piernas
+      _line(cx, b.y + b.h * 0.62, cx + b.w * 0.42, b.y + b.h, o),
+    ];
+  }
+
+  function _silCarSide(b, o) {
+    const wr = b.h * 0.22, wy = b.y + b.h - wr * 2;
+    return [
+      _rectEl(b.x, b.y + b.h * 0.35, b.w, b.h * 0.43, o),               // carrocería
+      _lineT(b.x + b.w * 0.22, b.y + b.h * 0.35, b.x + b.w * 0.32, b.y, o), // cabina
+      _lineT(b.x + b.w * 0.32, b.y, b.x + b.w * 0.68, b.y, o),
+      _lineT(b.x + b.w * 0.68, b.y, b.x + b.w * 0.78, b.y + b.h * 0.35, o),
+      _circleEl(b.x + b.w * 0.18 - wr, wy, wr * 2, wr * 2, o),          // ruedas
+      _circleEl(b.x + b.w * 0.82 - wr, wy, wr * 2, wr * 2, o),
+    ];
+  }
+
+  function _silCarPlan(b, o) {
+    return [
+      _rectEl(b.x, b.y, b.w, b.h, o),
+      _rectT(b.x + b.w * 0.12, b.y + b.h * 0.22, b.w * 0.76, b.h * 0.42, o), // habitáculo
+      _lineT(b.x + b.w * 0.12, b.y + b.h * 0.32, b.x + b.w * 0.88, b.y + b.h * 0.32, o), // parabrisas
+      _lineT(b.x, b.y + b.h * 0.14, b.x + b.w, b.y + b.h * 0.14, o),    // eje delantero
+      _lineT(b.x, b.y + b.h * 0.82, b.x + b.w, b.y + b.h * 0.82, o),    // eje trasero
+    ];
+  }
+
   return { elements, MIN_SPAN, ROOF_FRAC, FLOOR_H,
     WALL_GATE_H_MIN, WALL_GATE_H_MAX, WALL_RAIL_H_MIN, WALL_RAIL_H_MAX,
     FENCE_H_MIN_CM, FENCE_H_MAX_CM, GATE_H_MIN_CM, GATE_H_MAX_CM,
-    LIGHT_M_MIN, LIGHT_M_MAX, LIGHT_M_DEF, LIGHT_PX_PER_M };
+    LIGHT_M_MIN, LIGHT_M_MAX, LIGHT_M_DEF, LIGHT_PX_PER_M,
+    DIM_SCALES, DIM_SCALE_DEF, dimPxPerM };
 })();

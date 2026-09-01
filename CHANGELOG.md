@@ -4,6 +4,29 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.22.0] — 2026-09-01
+
+La mayor ampliación de herramientas del proyecto: **13 botones nuevos** (TOOLS pasa de 54 a 67), seis en UI y siete en Edificios, todos con catálogo de variantes y sin atajo (no quedan teclas libres).
+
+### Añadido
+
+- **UI · Formulario, Tabla y Gráfico**: tres tipos de elemento nuevos con catálogo de variantes (casilla/radio/interruptor/desplegable/deslizador; tabla con cabecera/lista simple/lista con avatar; barras/líneas/tarta/indicador). La variante se guarda en `variant` con la regla «la ausencia es el default» (el default explícito se rechaza al importar). Los iconos del catálogo los pinta el renderer real (`uiVariantIcon`).
+- **UI · Diálogo, Pestañas y Menú lateral**: tres piezas únicas sin catálogo, que comparten `#modal-ui` con el resto de componentes. El Diálogo lleva barra de título con rótulo editable, aspa y fila de botones.
+- **Edificios · Escalera**: recta, en L, en U, de caracol y rampa; en planta (huellas, línea de rotura y flecha de subida) o alzado, con select de vista que reconstruye los iconos del catálogo en caliente.
+- **Edificios · Cota**: línea de cota direccional con remates de barra (`heads:'both'` + `headShape:'bar'`), testigos y la cifra en metros con coma española, calculada según una **escala normalizada** (1:20, 1:50, 1:100 o 1:200) elegida en su modal de ajustes.
+- **Edificios · Símbolos**: flecha de norte (la N son tres líneas, como en Jardín), escala gráfica que mide metros exactos según la misma escala 1:N de la Cota, marca de corte A–A′ y cota de nivel (▽ con cifra con signo, ajustable en metros).
+- **Edificios · Pilar**: secciones de planta cuadrada, circular y con achurado a 45°, y columna clásica de alzado con basa, fuste con éntasis y capitel.
+- **Edificios · Mobiliario**: ocho piezas en planta — inodoro, lavabo, bañera, ducha, cocina con fregadero y fogones, cama doble, mesa con cuatro sillas y sofá.
+- **Edificios · Porche**: porche de un agua sobre pies derechos, pérgola de doble viga con viguetas y marquesina colgada con tirantes, en alzado.
+- **Edificios · Siluetas**: persona y coche (alzado y planta); un clic las planta a su **medida real** (1,75 m la persona, 4,4 m el coche) según la escala 1:N activa.
+- **Tejado · Complemento**: chimenea, buhardilla o lucernario, elegidos en un select del catálogo (no como variantes: 5 formas × 4 añadidos serían 20 iconos) y dibujados sobre el faldón de cualquier forma. Con «Ninguno» las piezas son idénticas a las de siempre (guardado por test).
+- `VARIANT_MODALS` admite un campo `icon` por fila, para catálogos cuyos iconos no pueden salir de `drawPiecesPreview`.
+- Tests: `tests/building-plano.test.js` (18) y `tests/ui-piezas.test.js` (9) nuevos, más `e2e/stair.spec.js` y `e2e/ui-form.spec.js`; el mapa de catálogos pineados de config-templates cubre ahora también los históricos que faltaban (puertas, ventanas, tejados, fachadas…). Suites: **983 unitarios + 201 e2e**.
+
+### Cambiado
+
+- Todo lo nuevo de Edificios emite tipos de elemento ya existentes (line/rect/circle/arrow/text): renderer, exportadores, borrador y validación funcionan sin código nuevo. `buildOpts()` inyecta ahora `measureText` (mismo invariante que en Jardín: solo puede mover una cifra).
+
 ## [3.21.0] — 2026-09-01
 
 ### Añadido

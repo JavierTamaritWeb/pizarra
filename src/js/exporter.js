@@ -194,6 +194,9 @@ const Exporter = (() => {
     // representación propia (un <div> con borde sería un rectángulo más), así
     // que va por el <svg> incrustado como el resto de vectores.
     'frame',
+    // Las piezas de formulario y datos (v3.22.0): en HTML serían divs con
+    // borde, o sea rectángulos — van por el <svg> incrustado, como el marco.
+    'formControl', 'uiTable', 'chart', 'dialog', 'tabs', 'sidebar',
   ];
 
   function _alphaHex(opacity) {
@@ -520,6 +523,124 @@ const Exporter = (() => {
           out += `<line x1="${el.x + 4}" y1="${el.y + el.h * 0.45 + 4}" x2="${el.x + el.w - 4}" y2="${el.y + el.h * 0.45 + 4}" ${s}/>\n`;
           out += `<text x="${el.x + 12}" y="${el.y + el.h * 0.45 + 24}" fill="${color}" font-family="${FONT_FALLBACK()}" font-size="14" font-weight="bold">${_escapeXml(el.label || 'Título')}</text>\n`;
           break;
+
+        // Piezas de formulario y datos (v3.22.0): mismas simplificaciones que
+        // el resto de UI (formas planas), con los MISMOS textos default que el
+        // canvas (renderer) — la duplicación es deliberada y debe mantenerse.
+        case 'formControl': {
+          const v = el.variant || 'checkbox';
+          const cy = el.y + el.h / 2, cs = Math.min(el.h * 0.85, el.w * 0.4);
+          const label = _escapeXml(el.label || 'Opción');
+          if (v === 'select') {
+            out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="4" stroke="${tint('80')}" stroke-width="${lw}" fill="none"/>\n`;
+            out += `<text x="${el.x + 10}" y="${cy + 4}" fill="${color}" font-family="${FONT_FALLBACK()}" font-size="13">${label}</text>\n`;
+            out += `<path d="M ${el.x + el.w - el.h * 0.65 - 5} ${cy - 3} l 5 6 l 5 -6" stroke="${color}" stroke-width="${lw}" fill="none"/>\n`;
+          } else if (v === 'slider') {
+            const kx = el.x + el.w * 0.6, r = Math.min(el.h * 0.45, 9);
+            out += `<line x1="${el.x}" y1="${cy}" x2="${el.x + el.w}" y2="${cy}" stroke="${tint('60')}" stroke-width="${lw}"/>\n`;
+            out += `<line x1="${el.x}" y1="${cy}" x2="${kx}" y2="${cy}" ${s}/>\n`;
+            out += `<circle cx="${kx}" cy="${cy}" r="${r}" stroke="${color}" stroke-width="${lw}" fill="${tint('15')}"/>\n`;
+          } else {
+            if (v === 'radio') {
+              out += `<circle cx="${el.x + cs / 2}" cy="${cy}" r="${cs / 2}" ${s} fill="none"/>\n`;
+              out += `<circle cx="${el.x + cs / 2}" cy="${cy}" r="${cs * 0.22}" fill="${color}"/>\n`;
+            } else if (v === 'switch') {
+              out += `<rect x="${el.x}" y="${cy - cs / 2}" width="${cs * 1.8}" height="${cs}" rx="${cs / 2}" ${s} fill="${tint('15')}"/>\n`;
+              out += `<circle cx="${el.x + cs * 1.8 - cs / 2}" cy="${cy}" r="${cs * 0.32}" fill="${color}"/>\n`;
+            } else {
+              out += `<rect x="${el.x}" y="${cy - cs / 2}" width="${cs}" height="${cs}" rx="3" ${s} fill="none"/>\n`;
+              out += `<path d="M ${el.x + cs * 0.22} ${cy} L ${el.x + cs * 0.45} ${cy + cs * 0.22} L ${el.x + cs * 0.8} ${cy - cs * 0.28}" stroke="${color}" stroke-width="${lw}" fill="none"/>\n`;
+            }
+            out += `<text x="${el.x + (v === 'switch' ? cs * 1.8 : cs) + 10}" y="${cy + 4}" fill="${color}" font-family="${FONT_FALLBACK()}" font-size="13">${label}</text>\n`;
+          }
+          break;
+        }
+
+        case 'uiTable': {
+          const v = el.variant || 'grid';
+          const rows = Math.max(3, Math.min(6, Math.round(el.h / 36))), rh = el.h / rows;
+          out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" ${s} fill="none"/>\n`;
+          if (v === 'grid') {
+            out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${rh}" fill="${tint('10')}"/>\n`;
+            for (const t of [0.4, 0.72]) {
+              out += `<line x1="${el.x + el.w * t}" y1="${el.y}" x2="${el.x + el.w * t}" y2="${el.y + el.h}" stroke="${tint('60')}" stroke-width="1"/>\n`;
+            }
+          }
+          for (let r = 1; r < rows; r++) {
+            out += `<line x1="${el.x}" y1="${el.y + rh * r}" x2="${el.x + el.w}" y2="${el.y + rh * r}" stroke="${tint('60')}" stroke-width="1"/>\n`;
+          }
+          if (v === 'avatars') {
+            for (let r = 0; r < rows; r++) {
+              const ar = Math.min(rh * 0.32, 11);
+              out += `<circle cx="${el.x + 10 + ar}" cy="${el.y + rh * (r + 0.5)}" r="${ar}" stroke="${color}" stroke-width="1" fill="none"/>\n`;
+            }
+          }
+          break;
+        }
+
+        case 'chart': {
+          const v = el.variant || 'bars';
+          if (v === 'pie') {
+            const cx = el.x + el.w / 2, cy = el.y + el.h / 2, r = Math.min(el.w, el.h) / 2 - 2;
+            out += `<circle cx="${cx}" cy="${cy}" r="${r}" ${s} fill="none"/>\n`;
+            out += `<line x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy - r}" ${s}/>\n`;
+            out += `<line x1="${cx}" y1="${cy}" x2="${cx + r * Math.cos(Math.PI * 0.1)}" y2="${cy + r * Math.sin(Math.PI * 0.1)}" ${s}/>\n`;
+            out += `<line x1="${cx}" y1="${cy}" x2="${cx - r * 0.85}" y2="${cy + r * 0.5}" ${s}/>\n`;
+          } else if (v === 'gauge') {
+            const cx = el.x + el.w / 2, cy = el.y + el.h * 0.92, r = Math.min(el.w / 2, el.h * 0.85) - 2;
+            out += `<path d="M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}" ${s} fill="none"/>\n`;
+            out += `<line x1="${cx - r}" y1="${cy}" x2="${cx + r}" y2="${cy}" ${s}/>\n`;
+            out += `<line x1="${cx}" y1="${cy}" x2="${cx + r * 0.72 * Math.cos(Math.PI * 1.62)}" y2="${cy + r * 0.72 * Math.sin(Math.PI * 1.62)}" ${s}/>\n`;
+          } else {
+            out += `<line x1="${el.x}" y1="${el.y}" x2="${el.x}" y2="${el.y + el.h}" ${s}/>\n`;
+            out += `<line x1="${el.x}" y1="${el.y + el.h}" x2="${el.x + el.w}" y2="${el.y + el.h}" ${s}/>\n`;
+            const vals = [0.45, 0.75, 0.35, 0.9, 0.6];
+            if (v === 'lines') {
+              const pts = vals.map((val, i) => `${el.x + el.w * (0.08 + i * 0.21)},${el.y + el.h * (1 - val)}`).join(' ');
+              out += `<polyline points="${pts}" ${s} fill="none"/>\n`;
+            } else {
+              vals.slice(0, 4).forEach((val, i) => {
+                const bh = el.h * val;
+                out += `<rect x="${el.x + el.w * (0.1 + i * 0.22)}" y="${el.y + el.h - bh}" width="${el.w * 0.14}" height="${bh}" ${s} fill="${tint('15')}"/>\n`;
+              });
+            }
+          }
+          break;
+        }
+
+        case 'dialog': {
+          const barH = Math.min(34, el.h * 0.2);
+          const bw = Math.min(86, el.w * 0.3), bh = Math.min(30, el.h * 0.16), by = el.y + el.h - bh - 10;
+          out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="8" ${s} fill="none"/>\n`;
+          out += `<line x1="${el.x}" y1="${el.y + barH}" x2="${el.x + el.w}" y2="${el.y + barH}" ${s}/>\n`;
+          out += `<text x="${el.x + 12}" y="${el.y + barH / 2 + 5}" fill="${color}" font-family="${FONT_FALLBACK()}" font-size="14" font-weight="bold">${_escapeXml(el.label || 'Diálogo')}</text>\n`;
+          out += `<rect x="${el.x + el.w - bw * 2 - 22}" y="${by}" width="${bw}" height="${bh}" rx="6" ${s} fill="none"/>\n`;
+          out += `<rect x="${el.x + el.w - bw - 12}" y="${by}" width="${bw}" height="${bh}" rx="6" ${s} fill="${tint('15')}"/>\n`;
+          break;
+        }
+
+        case 'tabs': {
+          const tw = Math.min(el.w / 3.4, 110);
+          out += `<rect x="${el.x}" y="${el.y}" width="${tw}" height="${el.h}" rx="6" ${s} fill="${tint('15')}"/>\n`;
+          out += `<line x1="${el.x + tw}" y1="${el.y + el.h}" x2="${el.x + el.w}" y2="${el.y + el.h}" ${s}/>\n`;
+          for (let i = 1; i < 3; i++) {
+            const tx = el.x + (tw + 8) * i;
+            out += `<path d="M ${tx} ${el.y + el.h} V ${el.y + el.h * 0.25} H ${tx + tw} V ${el.y + el.h}" stroke="${tint('60')}" stroke-width="${lw}" fill="none"/>\n`;
+          }
+          break;
+        }
+
+        case 'sidebar': {
+          out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" ${s} fill="${tint('0a')}"/>\n`;
+          out += `<rect x="${el.x + 12}" y="${el.y + 12}" width="${Math.min(el.w * 0.5, 70)}" height="20" rx="4" ${s} fill="none"/>\n`;
+          out += `<line x1="${el.x}" y1="${el.y + 44}" x2="${el.x + el.w}" y2="${el.y + 44}" ${s}/>\n`;
+          const ih = Math.min(36, (el.h - 56) / 5);
+          out += `<rect x="${el.x + 6}" y="${el.y + 52 + ih}" width="${el.w - 12}" height="${ih - 6}" fill="${tint('15')}"/>\n`;
+          for (let i = 0; i < 5; i++) {
+            out += `<line x1="${el.x + 16}" y1="${el.y + 52 + ih * i + ih / 2 - 3}" x2="${el.x + el.w * (i % 2 ? 0.62 : 0.78)}" y2="${el.y + 52 + ih * i + ih / 2 - 3}" stroke="${tint('40')}" stroke-width="1"/>\n`;
+          }
+          break;
+        }
     }
 
     // La trama va DELANTE del markup de la forma, no detrás: en el lienzo el
@@ -934,6 +1055,16 @@ body { font-family: ${FONT_CSS()};${options.transparent ? '' : ' background: #ff
     }
     // label (etiqueta de componentes y flechas)
     if (el.label !== undefined && typeof el.label !== 'string') return false;
+    // variant (piezas UI con catálogo, v3.22.0): lista cerrada atada a su
+    // tipo, y el default explícito —la primera entrada del catálogo— se
+    // rechaza: la ausencia ES el default (la lección de `bold: false`).
+    if (el.variant !== undefined) {
+      const lists = { formControl: FORM_VARIANTS, uiTable: TABLE_VARIANTS, chart: CHART_VARIANTS };
+      const list = lists[el.type];
+      if (!list || typeof el.variant !== 'string') return false;
+      if (el.variant === list[0].id) return false;
+      if (!list.some(v => v.id === el.variant)) return false;
+    }
     // labelT (posición de la etiqueta sobre el trazo): número en (0,1) abierto
     if (el.labelT !== undefined && !(_isNum(el.labelT) && el.labelT > 0 && el.labelT < 1)) return false;
     // id (destino de anclaje) y anchors de conector: no se interpolan en

@@ -18,7 +18,7 @@ test('config.js — TOOLS', async t => {
     assert.equal(Object.isFrozen(ctx.TOOLS), true);
   });
 
-  await t.test('TOOLS tiene exactamente los 54 ids esperados', () => {
+  await t.test('TOOLS tiene exactamente los 67 ids esperados', () => {
     const expected = [
       'pencil', 'airbrush', 'line', 'rect', 'roundedRect', 'circle', 'arrow',
       'curveArrow', 'arc',
@@ -28,6 +28,9 @@ test('config.js — TOOLS', async t => {
       'button', 'input', 'nav', 'card', 'image', 'emoji',
       // Marco (v3.12.0): contenedor de un wireframe, tipo de elemento real
       'frame',
+      // Piezas de formulario y datos (v3.22.0): tipos de elemento reales, las
+      // tres primeras con campo `variant` opcional
+      'formControl', 'uiTable', 'chart', 'dialog', 'tabs', 'sidebar',
       'square', 'trapezoid', 'triangle', 'pentagon', 'hexagon', 'star5', 'star6',
       // Triángulo irregular (v3.19.0): llena la caja y guarda su vértice en `apex`
       'freeTriangle',
@@ -39,17 +42,20 @@ test('config.js — TOOLS', async t => {
       // Edificios (creación): Fachada y Tejado unifican sus tipos en sendos modales
       'planta', 'fachada', 'tejado', 'puerta', 'ventana', 'balcon', 'muro', 'verja', 'cancela',
       'iluminacion',
+      // Parte técnica del plano (v3.22.0, creación): escalera, cota, símbolos,
+      // pilar, mobiliario, porche y siluetas de escala
+      'stair', 'dimension', 'symbol', 'column', 'furniture', 'porch', 'silhouette',
       // Jardín (creación): cada una elige su variante en su propio modal
       'jardin', 'arbol', 'arbusto', 'flor', 'decoracion', 'camino', 'aromatica', 'trepadora',
       // 3D (creación): el botón elige el remate y su catálogo la sección
       'prisma', 'piramide', 'tronco', 'esfera',
     ];
     const values = Object.values(ctx.TOOLS);
-    assert.equal(values.length, 54);
+    assert.equal(values.length, 67);
     assert.deepEqual([...values].sort(), [...expected].sort());
-    // Las claves también son 54 y únicas
-    assert.equal(Object.keys(ctx.TOOLS).length, 54);
-    assert.equal(new Set(values).size, 54);
+    // Las claves también son 67 y únicas
+    assert.equal(Object.keys(ctx.TOOLS).length, 67);
+    assert.equal(new Set(values).size, 67);
   });
 });
 
@@ -224,10 +230,11 @@ test('config.js — CANVAS_W/CANVAS_H', () => {
   assert.equal(ctx.CANVAS_H, 800);
 });
 
-test('config.js — UI_DEFAULTS tiene w/h positivos para los 5 componentes UI', () => {
+test('config.js — UI_DEFAULTS tiene w/h positivos para los 11 componentes UI', () => {
   const ctx = load('src/js/config.js');
   const { TOOLS, UI_DEFAULTS } = ctx;
-  const keys = [TOOLS.BUTTON, TOOLS.INPUT, TOOLS.IMAGE_PLACEHOLDER, TOOLS.NAV, TOOLS.CARD];
+  const keys = [TOOLS.BUTTON, TOOLS.INPUT, TOOLS.IMAGE_PLACEHOLDER, TOOLS.NAV, TOOLS.CARD,
+    TOOLS.FORM_CONTROL, TOOLS.UI_TABLE, TOOLS.CHART, TOOLS.DIALOG, TOOLS.TABS, TOOLS.SIDEBAR];
   for (const key of keys) {
     const def = UI_DEFAULTS[key];
     assert.ok(def, `UI_DEFAULTS no tiene entrada para "${key}"`);
@@ -398,18 +405,20 @@ test('config.js — el grupo Edición es Mover, «Select» y Borrador, y solo «
   assert.deepEqual([...ed.tools.filter(t => !t.key).map(t => t.id)], ['pick']);
 });
 
-test('config.js — el grupo UI cierra con el Marco, y es el único suyo sin atajo', () => {
+test('config.js — el grupo UI: componentes, Marco y las piezas de formulario y datos', () => {
   const ctx = load('src/js/config.js');
   const ui = ctx.TOOL_GROUPS.find(g => g.label === 'UI');
   assert.ok(ui, 'falta el grupo UI en el sidebar');
-  // El marco (v3.12.0) va el último: es el contenedor de todo lo demás del
-  // grupo, no un componente más.
+  // El marco (v3.12.0) separa los componentes clásicos de las seis piezas de
+  // formulario y datos (v3.22.0), que cierran el grupo.
   assert.deepEqual([...ui.tools.map(t => t.id)],
-    ['text', 'emoji', 'button', 'input', 'imagePlaceholder', 'nav', 'card', 'frame']);
-  // Entró sin tecla por lo de siempre: las 26 letras y los 10 dígitos están
-  // asignados. CLAUDE.md afirma que la lista exacta de herramientas sin atajo
-  // está pinneada, y esta es la parte de esa lista que faltaba.
-  assert.deepEqual([...ui.tools.filter(t => !t.key).map(t => t.id)], ['frame']);
+    ['text', 'emoji', 'button', 'input', 'imagePlaceholder', 'nav', 'card', 'frame',
+     'formControl', 'uiTable', 'chart', 'dialog', 'tabs', 'sidebar']);
+  // Todo lo posterior a Tarjeta entró sin tecla por lo de siempre: las 26
+  // letras y los 10 dígitos están asignados. CLAUDE.md afirma que la lista
+  // exacta de herramientas sin atajo está pinneada.
+  assert.deepEqual([...ui.tools.filter(t => !t.key).map(t => t.id)],
+    ['frame', 'formControl', 'uiTable', 'chart', 'dialog', 'tabs', 'sidebar']);
 });
 
 test('config.js — el sidebar de Edificios y BUILDING_TOOLS son la misma lista', () => {
@@ -425,7 +434,8 @@ test('config.js — el sidebar de Edificios y BUILDING_TOOLS son la misma lista'
   // las acciones de flecha curva. Se fija igual que en Jardín, para que el
   // hueco no crezca por descuido ni un botón pierda su tecla en una refactorización.
   assert.deepEqual([...build.tools.filter(t => !t.key).map(t => t.id)],
-    ['balcon', 'muro', 'verja', 'cancela', 'iluminacion']);
+    ['balcon', 'muro', 'verja', 'cancela', 'iluminacion',
+     'stair', 'dimension', 'symbol', 'column', 'furniture', 'porch', 'silhouette']);
 });
 
 test('config.js — el sidebar de Jardín y GARDEN_TOOLS son la misma lista', () => {
@@ -513,6 +523,17 @@ test('config.js — los catálogos de variante están congelados y bien formados
     LIGHT_SPORTS: ctx.LIGHT_SPORTS,
     WALL_VIEWS: ctx.WALL_VIEWS, FORGE_TYPES: ctx.FORGE_TYPES,
     FENCE_VIEWS: ctx.FENCE_VIEWS,
+    // Los históricos que faltaban en este mapa (hueco de cobertura, v3.22.0)
+    PLANTA_SHAPES: ctx.PLANTA_SHAPES, DOOR_TYPES: ctx.DOOR_TYPES,
+    WINDOW_TYPES: ctx.WINDOW_TYPES, ROOF_TYPES: ctx.ROOF_TYPES,
+    FACADE_TYPES: ctx.FACADE_TYPES, GARDEN_PLANT_VIEWS: ctx.GARDEN_PLANT_VIEWS,
+    // Parte técnica del plano y piezas UI (v3.22.0)
+    STAIR_TYPES: ctx.STAIR_TYPES, STAIR_VIEWS: ctx.STAIR_VIEWS,
+    SYMBOL_TYPES: ctx.SYMBOL_TYPES, COLUMN_TYPES: ctx.COLUMN_TYPES,
+    FURNITURE_TYPES: ctx.FURNITURE_TYPES, PORCH_TYPES: ctx.PORCH_TYPES,
+    SILHOUETTE_TYPES: ctx.SILHOUETTE_TYPES, ROOF_ADDONS: ctx.ROOF_ADDONS,
+    FORM_VARIANTS: ctx.FORM_VARIANTS, TABLE_VARIANTS: ctx.TABLE_VARIANTS,
+    CHART_VARIANTS: ctx.CHART_VARIANTS,
     PRISM_SECTIONS: ctx.PRISM_SECTIONS, PYRAMID_SECTIONS: ctx.PYRAMID_SECTIONS,
     FRUSTUM_SECTIONS: ctx.FRUSTUM_SECTIONS,
   };

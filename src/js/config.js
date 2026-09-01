@@ -57,6 +57,16 @@ const TOOLS = Object.freeze({
   // cualquier otro. Lo único propio es que al moverlo se lleva lo que tiene
   // dentro, y que su caja sirve de recorte al exportar.
   FRAME:            'frame',
+  // Piezas UI con variantes (v3.22.0): tipos de elemento REALES, como button
+  // o card, con un campo `variant` opcional cuya ausencia es la primera
+  // entrada de su catálogo (FORM_VARIANTS/TABLE_VARIANTS/CHART_VARIANTS).
+  FORM_CONTROL:     'formControl',
+  UI_TABLE:         'uiTable',
+  CHART:            'chart',
+  // Piezas UI únicas (v3.22.0): sin variantes, comparten #modal-ui.
+  DIALOG:           'dialog',
+  TABS:             'tabs',
+  SIDEBAR:          'sidebar',
   // Edificios — herramientas de creación (NO tipos de elemento): cada una
   // produce elementos de tipos ya existentes (rect/line). Ver js/building.js.
   BUILD_PLANTA: 'planta',         BUILD_FACADE: 'fachada',
@@ -64,6 +74,12 @@ const TOOLS = Object.freeze({
   BUILD_WINDOW: 'ventana',        BUILD_BALCONY:'balcon',
   BUILD_WALL:   'muro',           BUILD_FENCE:  'verja',
   BUILD_GATE:   'cancela',   BUILD_LIGHT:  'iluminacion',
+  // Parte técnica del plano (v3.22.0): mismas reglas que el resto del grupo —
+  // solo creación, producen line/rect/circle/arrow/polygon/text.
+  BUILD_STAIR:  'stair',          BUILD_DIM:    'dimension',
+  BUILD_SYMBOL: 'symbol',         BUILD_COLUMN: 'column',
+  BUILD_FURNITURE:'furniture',    BUILD_PORCH:  'porch',
+  BUILD_SILHOUETTE:'silhouette',
   // Jardín — herramientas de creación (NO tipos de elemento): producen
   // rect/line/circle/curveArrow/text. La vegetación admite planta y alzado.
   GARDEN_PLOT:   'jardin',        GARDEN_TREE:   'arbol',
@@ -85,6 +101,8 @@ const BUILDING_TOOLS = Object.freeze([
   TOOLS.BUILD_PLANTA, TOOLS.BUILD_FACADE, TOOLS.BUILD_ROOF,
   TOOLS.BUILD_DOOR, TOOLS.BUILD_WINDOW, TOOLS.BUILD_BALCONY, TOOLS.BUILD_WALL,
   TOOLS.BUILD_FENCE, TOOLS.BUILD_GATE, TOOLS.BUILD_LIGHT,
+  TOOLS.BUILD_STAIR, TOOLS.BUILD_DIM, TOOLS.BUILD_SYMBOL, TOOLS.BUILD_COLUMN,
+  TOOLS.BUILD_FURNITURE, TOOLS.BUILD_PORCH, TOOLS.BUILD_SILHOUETTE,
 ]);
 
 /** Formas de huella del botón Planta (catálogo del modal). Ampliable.
@@ -283,6 +301,108 @@ const GATE_TYPES = Object.freeze([
 const GATE_VIEWS = Object.freeze([
   { id: 'plan',      name: 'Vista de planta' },
   { id: 'elevation', name: 'Vista de alzado' },
+]);
+
+/** Tipos del botón Escalera (v3.22.0). El catálogo lleva el TIPO —a 56 px una
+    recta y una de caracol no se parecen— y la vista baja a un select
+    (STAIR_VIEWS): las 10 combinaciones existen, ninguna es un callejón. */
+const STAIR_TYPES = Object.freeze([
+  { id: 'straight', name: 'Recta' },
+  { id: 'l',        name: 'En L' },
+  { id: 'u',        name: 'En U' },
+  { id: 'spiral',   name: 'De caracol' },
+  { id: 'ramp',     name: 'Rampa' },
+]);
+
+const STAIR_VIEWS = Object.freeze([
+  { id: 'plan',      name: 'Planta' },
+  { id: 'elevation', name: 'Alzado' },
+]);
+
+/** Símbolos de plano (v3.22.0). Norte y escala gráfica existen también en
+    Jardín, y se duplican a propósito: quien dibuja una planta de edificio no
+    va a buscar el norte en Jardín, y la escala gráfica de AQUÍ lee la misma
+    escala 1:N que la Cota (state.dimScale), cosa que la botánica no puede. */
+const SYMBOL_TYPES = Object.freeze([
+  { id: 'north',    name: 'Flecha de norte' },
+  { id: 'scaleBar', name: 'Escala gráfica' },
+  { id: 'section',  name: 'Marca de corte A–A′' },
+  { id: 'level',    name: 'Cota de nivel' },
+]);
+
+/** Tipos del botón Pilar (v3.22.0). Sin select de vista: la vista es
+    intrínseca al tipo —los tres primeros son secciones de planta y la columna
+    es de alzado—, así no existen combinaciones inválidas. */
+const COLUMN_TYPES = Object.freeze([
+  { id: 'square',  name: 'Cuadrado (planta)' },
+  { id: 'round',   name: 'Circular (planta)' },
+  { id: 'hatched', name: 'Con achurado (planta)' },
+  { id: 'shaft',   name: 'Columna (alzado)' },
+]);
+
+/** Mobiliario en planta (v3.22.0), lo que se pide justo después de tener
+    Planta: sanitarios, cocina, dormitorio y estar. Todo vista de planta. */
+const FURNITURE_TYPES = Object.freeze([
+  { id: 'wc',      name: 'Inodoro' },
+  { id: 'sink',    name: 'Lavabo' },
+  { id: 'bath',    name: 'Bañera' },
+  { id: 'shower',  name: 'Ducha' },
+  { id: 'kitchen', name: 'Cocina' },
+  { id: 'bed',     name: 'Cama' },
+  { id: 'table',   name: 'Mesa y sillas' },
+  { id: 'sofa',    name: 'Sofá' },
+]);
+
+/** Porche, pérgola y marquesina (v3.22.0): la transición entre Fachada y
+    Jardín. Alzados, como la Fachada. */
+const PORCH_TYPES = Object.freeze([
+  { id: 'porch',   name: 'Porche' },
+  { id: 'pergola', name: 'Pérgola' },
+  { id: 'canopy',  name: 'Marquesina' },
+]);
+
+/** Siluetas de escala (v3.22.0): lo que hace legible el tamaño de un alzado.
+    La persona mide 1,75 m según la escala 1:N activa (state.dimScale). */
+const SILHOUETTE_TYPES = Object.freeze([
+  { id: 'person',  name: 'Persona' },
+  { id: 'carSide', name: 'Coche (alzado)' },
+  { id: 'carPlan', name: 'Coche (planta)' },
+]);
+
+/** Complementos del Tejado (v3.22.0): NO son variantes del catálogo — el
+    precedente de la casa (Verjas, Cancela) es que el catálogo lleva la forma
+    y los añadidos bajan a un select del modal. `none` deja el tejado como
+    siempre; los demás se dibujan encima del faldón. */
+const ROOF_ADDONS = Object.freeze([
+  { id: 'none',     name: 'Ninguno' },
+  { id: 'chimney',  name: 'Chimenea' },
+  { id: 'dormer',   name: 'Buhardilla' },
+  { id: 'skylight', name: 'Lucernario' },
+]);
+
+/** Variantes de las tres piezas UI con catálogo (v3.22.0). Son tipos de
+    elemento reales con campo `variant` opcional: la AUSENCIA es la primera
+    entrada de cada lista, y el default explícito se rechaza al importar
+    (misma regla que bold:false o fillPattern:'solid'). */
+const FORM_VARIANTS = Object.freeze([
+  { id: 'checkbox', name: 'Casilla' },
+  { id: 'radio',    name: 'Radio' },
+  { id: 'switch',   name: 'Interruptor' },
+  { id: 'select',   name: 'Desplegable' },
+  { id: 'slider',   name: 'Deslizador' },
+]);
+
+const TABLE_VARIANTS = Object.freeze([
+  { id: 'grid',    name: 'Tabla con cabecera' },
+  { id: 'list',    name: 'Lista simple' },
+  { id: 'avatars', name: 'Lista con avatar' },
+]);
+
+const CHART_VARIANTS = Object.freeze([
+  { id: 'bars',  name: 'Barras' },
+  { id: 'lines', name: 'Líneas' },
+  { id: 'pie',   name: 'Tarta' },
+  { id: 'gauge', name: 'Indicador' },
 ]);
 
 /** Herramientas de la sección "Jardín": como las de Edificios, todas son SOLO
@@ -600,6 +720,14 @@ const TOOL_GROUPS = [
       // Sin tecla: las 26 letras y los 10 dígitos están cogidos (misma
       // situación que Balcón, «Select» o el Aerógrafo).
       { id: TOOLS.FRAME,            icon: '⬚',  name: 'Marco' },
+      // El vocabulario de formulario y de datos (v3.22.0). Sin tecla, como
+      // Marco: las 26 letras y los 10 dígitos están cogidos.
+      { id: TOOLS.FORM_CONTROL,     icon: '☑',  name: 'Formulario' },
+      { id: TOOLS.UI_TABLE,         icon: '▦',  name: 'Tabla' },
+      { id: TOOLS.CHART,            icon: '📊', name: 'Gráfico' },
+      { id: TOOLS.DIALOG,           icon: '❐',  name: 'Diálogo' },
+      { id: TOOLS.TABS,             icon: '🗂', name: 'Pestañas' },
+      { id: TOOLS.SIDEBAR,          icon: '◫',  name: 'Menú lateral' },
     ],
   },
   {
@@ -619,6 +747,14 @@ const TOOL_GROUPS = [
       { id: TOOLS.BUILD_FENCE,   icon: '╫',  name: 'Verjas' },
       { id: TOOLS.BUILD_GATE,    icon: '⚜',  name: 'Cancela' },
       { id: TOOLS.BUILD_LIGHT,   icon: '💡', name: 'Iluminación' },
+      // La parte técnica del plano (v3.22.0). Sin tecla, como Balcón.
+      { id: TOOLS.BUILD_STAIR,      icon: '🪜', name: 'Escalera' },
+      { id: TOOLS.BUILD_DIM,        icon: '⟷',  name: 'Cota' },
+      { id: TOOLS.BUILD_SYMBOL,     icon: '🧭', name: 'Símbolos' },
+      { id: TOOLS.BUILD_COLUMN,     icon: '◎',  name: 'Pilar' },
+      { id: TOOLS.BUILD_FURNITURE,  icon: '🛋', name: 'Mobiliario' },
+      { id: TOOLS.BUILD_PORCH,      icon: '⛩',  name: 'Porche' },
+      { id: TOOLS.BUILD_SILHOUETTE, icon: '🚶', name: 'Siluetas' },
     ],
   },
   {
@@ -908,4 +1044,11 @@ const UI_DEFAULTS = {
   // El marco nace con la proporción de una pantalla de móvil: es la medida
   // que un clic sin arrastre tiene que dar por buena.
   [TOOLS.FRAME]:             { w: 390, h: 700 },
+  // Piezas de formulario y datos (v3.22.0)
+  [TOOLS.FORM_CONTROL]:      { w: 160, h: 28 },
+  [TOOLS.UI_TABLE]:          { w: 280, h: 180 },
+  [TOOLS.CHART]:             { w: 240, h: 160 },
+  [TOOLS.DIALOG]:            { w: 320, h: 200 },
+  [TOOLS.TABS]:              { w: 320, h: 40 },
+  [TOOLS.SIDEBAR]:           { w: 200, h: 360 },
 };

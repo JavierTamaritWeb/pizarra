@@ -104,7 +104,9 @@ const SETTINGS_MODALS = ['#modal-stroke', '#modal-shape', '#modal-eraser',
   '#modal-text', '#modal-ui', '#modal-select', '#modal-airbrush', '#modal-ink',
   // La Esfera abre ajustes al pulsarla, como el Borrador. Los otros tres
   // modales de 3D son catálogos y NO van aquí: sus specs eligen sección.
-  '#modal-sphere'];
+  '#modal-sphere',
+  // La Cota (v3.22.0): solo ajustes (la escala 1:N), como la Esfera.
+  '#modal-dim'];
 
 /** Elige una herramienta del sidebar por su id de TOOLS y deja el lienzo libre:
     si la herramienta abrió sus ajustes, los cierra, que es lo que hace cualquiera

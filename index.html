@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=3.21.0" />
+  <link rel="stylesheet" href="css/styles.css?v=3.22.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.21.0" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.22.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v3.21.0</span>
+        <span class="topbar__badge">v3.22.0</span>
         <!-- Aviso de autoguardado: visible SOLO mientras localStorage rechaza
              el guardado (cuota llena). Sin él, el fallo era un catch mudo y el
              trabajo posterior se perdía en silencio al recargar. -->
@@ -74,7 +74,7 @@
       </nav>
     </header>
 
-  <!-- Pestañas de documento (v3.21.0): varias pizarras abiertas a la vez.
+  <!-- Pestañas de documento (v3.22.0): varias pizarras abiertas a la vez.
        Es un <nav> con aria-current, no role=tablist: no hay tabpanel que
        conmutar (es el mismo lienzo con otro documento) — semánticamente es
        navegación entre documentos. Las pestañas las fabrica renderTabsBar(). -->
@@ -765,6 +765,9 @@
           <li>Un clic sin arrastrar los coloca a su <strong>tamaño natural</strong>, así que no hace falta acertar con la caja</li>
           <li>Comparten un modal de ajustes con color, grosor y el <strong>rótulo</strong> con el que nacerán: escribe «Enviar» y los tres botones siguientes ya lo dirán. Con uno seleccionado, ese mismo campo cambia el suyo</li>
           <li>Una <strong>imagen de verdad</strong> se pega con <kbd>Ctrl</kbd>+<kbd>V</kbd> o se suelta sobre el lienzo (PNG y JPG); viaja dentro del proyecto JSON, así que se recupera al abrirlo</li>
+          <li><strong>Formulario</strong>, <strong>Tabla</strong> y <strong>Gráfico</strong> abren un catálogo al pulsarlas: casilla, radio, interruptor, desplegable y deslizador; tabla con cabecera, lista simple y lista con avatar; barras, líneas, tarta e indicador. La variante elegida queda como default de creación. Sin atajo: no quedaban teclas sueltas libres</li>
+          <li><strong>Diálogo</strong>, <strong>Pestañas</strong> y <strong>Menú lateral</strong> son piezas únicas —modal con barra de título y botones, fila de pestañas con una activa, menú vertical con ítem activo— y comparten el modal de ajustes de los demás componentes. Tampoco llevan atajo</li>
+          <li>El <strong>rótulo</strong> vale también para Formulario (el texto junto al control), Tabla (su título) y Diálogo (el de su barra); Gráfico, Pestañas y Menú lateral simulan su texto con trazos, como la descripción de la Tarjeta</li>
         </ul>
       </section>
 
@@ -922,6 +925,13 @@
           <li>Con un edificio seleccionado, pulsar sobre algo dibujado <strong>encima</strong> lo selecciona a él; arrastrar desde un hueco del marco mueve el edificio entero</li>
           <li>Si <strong>cancelas</strong> el catálogo (botón Cerrar o <kbd>Esc</kbd>) sin elegir tipo, vuelve la herramienta anterior</li>
           <li>Cada edificio se crea como una <strong>unidad</strong>: un clic lo selecciona entero (mover/duplicar/borrar); doble clic sobre una pieza la aísla (<kbd>Alt</kbd>+clic es el atajo)</li>
+          <li><strong>Escalera</strong> ofrece 5 tipos —recta, en L, en U, de caracol y rampa— en planta (con línea de rotura y flecha de subida) o alzado, según el select <strong>Vista</strong> de su catálogo</li>
+          <li><strong>Cota</strong> acota lo que arrastres: línea con remates de barra, testigos y la <strong>cifra en metros</strong> calculada según la escala elegida (1:20, 1:50, 1:100 o 1:200). La misma escala la usan la <strong>escala gráfica</strong> de Símbolos y las <strong>Siluetas</strong></li>
+          <li><strong>Símbolos</strong> reúne la flecha de norte, la escala gráfica, la marca de corte A–A′ y la cota de nivel (el ▽ con su cifra en metros, ajustable en el modal)</li>
+          <li><strong>Pilar</strong> dibuja las secciones de planta —cuadrada, circular o con achurado— y la columna clásica de alzado, con basa y capitel</li>
+          <li><strong>Mobiliario</strong> trae 8 piezas en planta: inodoro, lavabo, bañera, ducha, cocina, cama, mesa con sillas y sofá</li>
+          <li><strong>Porche</strong> ofrece porche, pérgola y marquesina en alzado, y <strong>Siluetas</strong> planta una persona o un coche a su medida real según la escala — lo que hace legible el tamaño de un alzado</li>
+          <li>El <strong>Tejado</strong> admite un <strong>complemento</strong> —chimenea, buhardilla o lucernario— elegido en un select de su catálogo, que se dibuja sobre el faldón de cualquiera de las 5 formas</li>
         </ul>
       </section>
 
@@ -1247,7 +1257,7 @@
                contiene escondido sería un recuadro vacío con título. Y como
                .modal__group declara `display`, el [hidden] necesita su regla —la
                trampa documentada en _panel.scss. -->
-          <!-- Lados del triángulo irregular (v3.21.0): solo aparece con esa
+          <!-- Lados del triángulo irregular (v3.22.0): solo aparece con esa
                herramienta activa o con uno seleccionado. Misma semántica dual
                que el giro: sin selección fija cómo nace el próximo; con un
                triángulo irregular seleccionado, cambia el suyo. -->
@@ -1441,6 +1451,32 @@
         </div>
       </div>
       <button class="btn btn--ghost btn--block modal__cancel">Cerrar</button>
+  </dialog>
+
+  <!-- ===== MODALES: PIEZAS UI CON CATÁLOGO (v3.22.0) =====
+       Formulario, Tabla y Gráfico eligen su variante aquí al seleccionar la
+       herramienta; para EDITAR una pieza ya creada, el ⚙ abre #modal-ui como
+       con el resto de componentes. Los iconos los pinta el renderer real
+       (uiVariantIcon en src/js/app.js). -->
+  <dialog class="modal" id="modal-form" aria-labelledby="modal-form-title">
+      <h3 class="modal__heading" id="modal-form-title">Control de formulario</h3>
+      <p class="modal__sub">Casilla, radio, interruptor, desplegable o deslizador</p>
+      <div id="form-catalog"></div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
+  <dialog class="modal" id="modal-uitable" aria-labelledby="modal-uitable-title">
+      <h3 class="modal__heading" id="modal-uitable-title">Tabla</h3>
+      <p class="modal__sub">Tabla con cabecera, lista simple o lista con avatar</p>
+      <div id="uitable-catalog"></div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
+  <dialog class="modal" id="modal-chart" aria-labelledby="modal-chart-title">
+      <h3 class="modal__heading" id="modal-chart-title">Gráfico</h3>
+      <p class="modal__sub">Barras, líneas, tarta o indicador</p>
+      <div id="chart-catalog"></div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
   </dialog>
 
   <!-- ===== MODAL: AERÓGRAFO =====
@@ -2349,7 +2385,84 @@
   <dialog class="modal" id="modal-roof" aria-labelledby="modal-roof-title">
       <h3 class="modal__heading" id="modal-roof-title">Tipo de tejado</h3>
       <p class="modal__sub">Elige el tipo y arrástralo en el lienzo</p>
+      <!-- El complemento (v3.22.0) NO es una variante del catálogo: baja a un
+           select, como el diseño de la verja — 5 formas × 4 añadidos como
+           catálogo serían 20 iconos. Lo dibuja building.js sobre el faldón. -->
+      <label class="panel__field" for="roof-addon">
+        <span class="modal__field-label">Complemento</span>
+        <select class="panel__select" id="roof-addon"></select>
+      </label>
       <div id="roof-catalog"></div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
+  <!-- ===== MODALES: PARTE TÉCNICA DEL PLANO (v3.22.0) =====
+       Los seis con catálogo los rellena app.js (buildVariantCatalog) desde
+       VARIANT_MODALS, con la geometría real de src/js/building.js: el icono
+       enseña lo que va a crear. La Cota no tiene variantes: su modal es solo
+       de ajustes, como el de la Esfera. -->
+  <dialog class="modal" id="modal-stair" aria-labelledby="modal-stair-title">
+      <h3 class="modal__heading" id="modal-stair-title">Escalera</h3>
+      <p class="modal__sub">Elige el tipo y arrástralo; la flecha marca la subida.</p>
+      <label class="panel__field" for="stair-view">
+        <span class="modal__field-label">Vista</span>
+        <select class="panel__select" id="stair-view"></select>
+      </label>
+      <div id="stair-catalog"></div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
+  <dialog class="modal modal--settings" id="modal-dim" aria-labelledby="modal-dim-title">
+      <h3 class="modal__heading" id="modal-dim-title">Cota</h3>
+      <p class="modal__sub">Arrastra entre dos puntos: la cifra sale de la longitud
+        y de la escala. La misma escala usan la escala gráfica y las siluetas.</p>
+      <label class="panel__field" for="dim-scale">
+        <span class="modal__field-label">Escala</span>
+        <select class="panel__select" id="dim-scale"></select>
+      </label>
+      <button class="btn btn--ghost btn--block modal__cancel">Cerrar</button>
+  </dialog>
+
+  <dialog class="modal" id="modal-symbol" aria-labelledby="modal-symbol-title">
+      <h3 class="modal__heading" id="modal-symbol-title">Símbolos de plano</h3>
+      <p class="modal__sub">Norte, escala gráfica, corte y nivel. La escala gráfica
+        usa la escala 1:N elegida en Cota.</p>
+      <label class="panel__field" for="symbol-level">
+        <span class="modal__field-label">Cota de nivel (m)</span>
+        <input class="panel__select" type="number" id="symbol-level"
+               min="-99" max="99" step="0.05" value="0"
+               aria-label="Cota de nivel en metros, con signo" />
+      </label>
+      <div id="symbol-catalog"></div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
+  <dialog class="modal" id="modal-column" aria-labelledby="modal-column-title">
+      <h3 class="modal__heading" id="modal-column-title">Pilar</h3>
+      <p class="modal__sub">Secciones de planta y columna de alzado</p>
+      <div id="column-catalog"></div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
+  <dialog class="modal" id="modal-furniture" aria-labelledby="modal-furniture-title">
+      <h3 class="modal__heading" id="modal-furniture-title">Mobiliario</h3>
+      <p class="modal__sub">Piezas en planta: baño, cocina, dormitorio y estar</p>
+      <div id="furniture-catalog"></div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
+  <dialog class="modal" id="modal-porch" aria-labelledby="modal-porch-title">
+      <h3 class="modal__heading" id="modal-porch-title">Porche</h3>
+      <p class="modal__sub">Porche, pérgola y marquesina, en alzado</p>
+      <div id="porch-catalog"></div>
+      <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
+  </dialog>
+
+  <dialog class="modal" id="modal-silhouette" aria-labelledby="modal-silhouette-title">
+      <h3 class="modal__heading" id="modal-silhouette-title">Siluetas de escala</h3>
+      <p class="modal__sub">Un clic las planta a su medida real según la escala
+        1:N de Cota; arrastradas obedecen al gesto.</p>
+      <div id="silhouette-catalog"></div>
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
   </dialog>
 
@@ -2509,24 +2622,24 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=3.21.0"></script>
-  <script src="src/js/sketchy.js?v=3.21.0"></script>
-  <script src="src/js/freehand.js?v=3.21.0"></script>
-  <script src="src/js/arc.js?v=3.21.0"></script>
-  <script src="src/js/curve-path.js?v=3.21.0"></script>
-  <script src="src/js/shape-rotation.js?v=3.21.0"></script>
-  <script src="src/js/regular-polygon.js?v=3.21.0"></script>
-  <script src="src/js/trapezoid.js?v=3.21.0"></script>
-  <script src="src/js/hatch.js?v=3.21.0"></script>
-  <script src="src/js/airbrush.js?v=3.21.0"></script>
-  <script src="src/js/flood.js?v=3.21.0"></script>
-  <script src="src/js/eraser.js?v=3.21.0"></script>
-  <script src="src/js/building.js?v=3.21.0"></script>
-  <script src="src/js/garden.js?v=3.21.0"></script>
-  <script src="src/js/solid.js?v=3.21.0"></script>
-  <script src="src/js/renderer.js?v=3.21.0"></script>
-  <script src="src/js/exporter.js?v=3.21.0"></script>
-  <script src="src/js/templates.js?v=3.21.0"></script>
-  <script src="src/js/app.js?v=3.21.0"></script>
+  <script src="src/js/config.js?v=3.22.0"></script>
+  <script src="src/js/sketchy.js?v=3.22.0"></script>
+  <script src="src/js/freehand.js?v=3.22.0"></script>
+  <script src="src/js/arc.js?v=3.22.0"></script>
+  <script src="src/js/curve-path.js?v=3.22.0"></script>
+  <script src="src/js/shape-rotation.js?v=3.22.0"></script>
+  <script src="src/js/regular-polygon.js?v=3.22.0"></script>
+  <script src="src/js/trapezoid.js?v=3.22.0"></script>
+  <script src="src/js/hatch.js?v=3.22.0"></script>
+  <script src="src/js/airbrush.js?v=3.22.0"></script>
+  <script src="src/js/flood.js?v=3.22.0"></script>
+  <script src="src/js/eraser.js?v=3.22.0"></script>
+  <script src="src/js/building.js?v=3.22.0"></script>
+  <script src="src/js/garden.js?v=3.22.0"></script>
+  <script src="src/js/solid.js?v=3.22.0"></script>
+  <script src="src/js/renderer.js?v=3.22.0"></script>
+  <script src="src/js/exporter.js?v=3.22.0"></script>
+  <script src="src/js/templates.js?v=3.22.0"></script>
+  <script src="src/js/app.js?v=3.22.0"></script>
 </body>
 </html>
