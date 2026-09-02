@@ -197,6 +197,8 @@ const Exporter = (() => {
     // Las piezas de formulario y datos (v3.22.0): en HTML serían divs con
     // borde, o sea rectángulos — van por el <svg> incrustado, como el marco.
     'formControl', 'uiTable', 'chart', 'dialog', 'tabs', 'sidebar',
+    // «Piezas» (v3.23.0): mismas razones.
+    'uiPiece',
   ];
 
   function _alphaHex(opacity) {
@@ -493,16 +495,49 @@ const Exporter = (() => {
           break;
         }
 
-        // UI components → simple rects with labels in SVG
-        case 'button':
-          out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="8" stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="${tint('15')}"/>\n`;
+        // UI components → simple rects with labels in SVG. Desde la v3.23.0
+        // las veteranas llevan `variant` (la ausencia es la primera entrada de
+        // su catálogo), con los mismos dibujos simplificados que el canvas.
+        case 'button': {
+          const v = el.variant || 'primary';
+          if (v === 'icon') {
+            const cx = el.x + el.w / 2, cy = el.y + el.h / 2, gs = Math.min(el.w, el.h) * 0.22;
+            out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="8" stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="${tint('15')}"/>\n`;
+            out += `<line x1="${cx - gs}" y1="${cy}" x2="${cx + gs}" y2="${cy}" ${s}/>\n`;
+            out += `<line x1="${cx}" y1="${cy - gs}" x2="${cx}" y2="${cy + gs}" ${s}/>\n`;
+            break;
+          }
+          if (v !== 'ghost') {
+            out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="8" stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="${v === 'primary' ? tint('15') : 'none'}"/>\n`;
+          }
           out += `<text x="${el.x + el.w / 2}" y="${el.y + el.h / 2 + 5}" fill="${color}" font-family="${FONT_FALLBACK()}" font-size="14" text-anchor="middle">${_escapeXml(el.label || 'Botón')}</text>\n`;
           break;
+        }
 
-        case 'input':
-          out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="4" stroke="${tint('80')}" stroke-width="${lw}" fill="none"/>\n`;
+        case 'input': {
+          const v = el.variant || 'text';
+          // El rojo fijo de la variante 'error', el mismo del renderer.
+          const borde = v === 'error' ? '#d64545' : tint('80');
+          out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="4" stroke="${borde}" stroke-width="${lw}" fill="none"/>\n`;
+          if (v === 'search') {
+            const r = Math.min(5, el.h * 0.18), lx = el.x + 12 + r, ly = el.y + el.h / 2 - 1;
+            out += `<circle cx="${lx}" cy="${ly}" r="${r}" stroke="${tint('80')}" stroke-width="1" fill="none"/>\n`;
+            out += `<line x1="${lx + r * 0.7}" y1="${ly + r * 0.7}" x2="${lx + r * 1.8}" y2="${ly + r * 1.8}" stroke="${tint('80')}" stroke-width="1"/>\n`;
+            out += `<text x="${el.x + 12 + r * 3.2 + 6}" y="${el.y + el.h / 2 + 4}" fill="${tint('60')}" font-family="${FONT_FALLBACK()}" font-size="13">${_escapeXml(el.label || 'Buscar...')}</text>\n`;
+            break;
+          }
+          if (v === 'textarea') {
+            out += `<text x="${el.x + 10}" y="${el.y + Math.min(16, el.h * 0.3) + 4}" fill="${tint('60')}" font-family="${FONT_FALLBACK()}" font-size="13">${_escapeXml(el.label || 'Escribe aquí...')}</text>\n`;
+            out += `<line x1="${el.x + 10}" y1="${el.y + el.h * 0.55}" x2="${el.x + el.w * 0.8}" y2="${el.y + el.h * 0.55}" stroke="${tint('40')}" stroke-width="1"/>\n`;
+            out += `<line x1="${el.x + el.w - 10}" y1="${el.y + el.h - 4}" x2="${el.x + el.w - 4}" y2="${el.y + el.h - 10}" stroke="${tint('60')}" stroke-width="1"/>\n`;
+            break;
+          }
           out += `<text x="${el.x + 10}" y="${el.y + el.h / 2 + 4}" fill="${tint('60')}" font-family="${FONT_FALLBACK()}" font-size="13">${_escapeXml(el.label || 'Escribe aquí...')}</text>\n`;
+          if (v === 'error') {
+            out += `<line x1="${el.x + 2}" y1="${el.y + el.h + 9}" x2="${el.x + el.w * 0.55}" y2="${el.y + el.h + 9}" stroke="#d6454599" stroke-width="1"/>\n`;
+          }
           break;
+        }
 
         case 'imagePlaceholder':
           out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" ${s}/>\n`;
@@ -517,16 +552,41 @@ const Exporter = (() => {
           // export HTML, en las mismas posiciones (paso de 70px, hueco de 40
           // para la hamburguesa). El SVG simplifica FORMAS a propósito, pero un
           // texto que los otros dos formatos enseñan no puede faltar aquí.
-          ['Inicio', 'Nosotros', 'Contacto'].forEach((link, i) => {
-            out += `<text x="${el.x + el.w - 250 + i * 70}" y="${el.y + el.h / 2 + 4}" fill="${color}" font-family="${FONT_FALLBACK()}" font-size="12">${link}</text>\n`;
-          });
+          if ((el.variant || 'links') === 'search') {
+            // Con buscador (v3.23.0): la caja centrada en vez de los enlaces.
+            const bw2 = Math.min(el.w * 0.34, 220), bx = el.x + (el.w - bw2) / 2;
+            const bh2 = Math.min(24, el.h * 0.55);
+            out += `<rect x="${bx}" y="${el.y + (el.h - bh2) / 2}" width="${bw2}" height="${bh2}" rx="${bh2 / 2}" stroke="${tint('80')}" stroke-width="${lw}" fill="none"/>\n`;
+          } else {
+            ['Inicio', 'Nosotros', 'Contacto'].forEach((link, i) => {
+              out += `<text x="${el.x + el.w - 250 + i * 70}" y="${el.y + el.h / 2 + 4}" fill="${color}" font-family="${FONT_FALLBACK()}" font-size="12">${link}</text>\n`;
+            });
+          }
+          if ((el.variant || 'links') === 'avatar') {
+            // Con avatar (v3.23.0): el círculo en el sitio de la hamburguesa.
+            const ar = Math.min(11, el.h * 0.32);
+            out += `<circle cx="${el.x + el.w - 16 - ar}" cy="${el.y + el.h / 2}" r="${ar}" ${s} fill="none"/>\n`;
+          }
           break;
 
-        case 'card':
+        case 'card': {
+          const v = el.variant || 'image';
           out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="10" ${s}/>\n`;
-          out += `<line x1="${el.x + 4}" y1="${el.y + el.h * 0.45 + 4}" x2="${el.x + el.w - 4}" y2="${el.y + el.h * 0.45 + 4}" ${s}/>\n`;
-          out += `<text x="${el.x + 12}" y="${el.y + el.h * 0.45 + 24}" fill="${color}" font-family="${FONT_FALLBACK()}" font-size="14" font-weight="bold">${_escapeXml(el.label || 'Título')}</text>\n`;
+          if (v === 'horizontal') {
+            const imgW = el.w * 0.38;
+            out += `<rect x="${el.x + 4}" y="${el.y + 4}" width="${imgW}" height="${el.h - 8}" fill="${tint('10')}"/>\n`;
+            out += `<line x1="${el.x + imgW + 8}" y1="${el.y + 4}" x2="${el.x + imgW + 8}" y2="${el.y + el.h - 4}" ${s}/>\n`;
+            out += `<text x="${el.x + imgW + 16}" y="${el.y + 26}" fill="${color}" font-family="${FONT_FALLBACK()}" font-size="14" font-weight="bold">${_escapeXml(el.label || 'Título')}</text>\n`;
+          } else if (v === 'text') {
+            out += `<text x="${el.x + 12}" y="${el.y + 26}" fill="${color}" font-family="${FONT_FALLBACK()}" font-size="14" font-weight="bold">${_escapeXml(el.label || 'Título')}</text>\n`;
+            out += `<line x1="${el.x + 12}" y1="${el.y + 44}" x2="${el.x + el.w - 20}" y2="${el.y + 44}" stroke="${tint('40')}" stroke-width="1"/>\n`;
+            out += `<line x1="${el.x + 12}" y1="${el.y + 56}" x2="${el.x + el.w * 0.7}" y2="${el.y + 56}" stroke="${tint('40')}" stroke-width="1"/>\n`;
+          } else {
+            out += `<line x1="${el.x + 4}" y1="${el.y + el.h * 0.45 + 4}" x2="${el.x + el.w - 4}" y2="${el.y + el.h * 0.45 + 4}" ${s}/>\n`;
+            out += `<text x="${el.x + 12}" y="${el.y + el.h * 0.45 + 24}" fill="${color}" font-family="${FONT_FALLBACK()}" font-size="14" font-weight="bold">${_escapeXml(el.label || 'Título')}</text>\n`;
+          }
           break;
+        }
 
         // Piezas de formulario y datos (v3.22.0): mismas simplificaciones que
         // el resto de UI (formas planas), con los MISMOS textos default que el
@@ -562,7 +622,8 @@ const Exporter = (() => {
 
         case 'uiTable': {
           const v = el.variant || 'grid';
-          const rows = Math.max(3, Math.min(6, Math.round(el.h / 36))), rh = el.h / rows;
+          const ph = v === 'pager' ? Math.min(30, el.h * 0.2) : 0;
+          const rows = Math.max(3, Math.min(6, Math.round((el.h - ph) / 36))), rh = (el.h - ph) / rows;
           out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" ${s} fill="none"/>\n`;
           if (v === 'grid') {
             out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${rh}" fill="${tint('10')}"/>\n`;
@@ -578,6 +639,17 @@ const Exporter = (() => {
               const ar = Math.min(rh * 0.32, 11);
               out += `<circle cx="${el.x + 10 + ar}" cy="${el.y + rh * (r + 0.5)}" r="${ar}" stroke="${color}" stroke-width="1" fill="none"/>\n`;
             }
+          } else if (v === 'checks') {
+            for (let r = 0; r < rows; r++) {
+              const cs = Math.min(rh * 0.4, 12);
+              out += `<rect x="${el.x + 10}" y="${el.y + rh * (r + 0.5) - cs / 2}" width="${cs}" height="${cs}" rx="2" stroke="${color}" stroke-width="1" fill="none"/>\n`;
+            }
+          } else if (v === 'pager') {
+            out += `<line x1="${el.x}" y1="${el.y + el.h - ph}" x2="${el.x + el.w}" y2="${el.y + el.h - ph}" stroke="${tint('60')}" stroke-width="1"/>\n`;
+            const bs = Math.min(ph * 0.6, 16), by = el.y + el.h - ph / 2 - bs / 2;
+            for (let i = 0; i < 3; i++) {
+              out += `<rect x="${el.x + el.w / 2 - bs * 2.2 + i * bs * 1.5}" y="${by}" width="${bs}" height="${bs}" rx="3" stroke="${color}" stroke-width="1" fill="${i === 0 ? tint('15') : 'none'}"/>\n`;
+            }
           }
           break;
         }
@@ -590,6 +662,12 @@ const Exporter = (() => {
             out += `<line x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy - r}" ${s}/>\n`;
             out += `<line x1="${cx}" y1="${cy}" x2="${cx + r * Math.cos(Math.PI * 0.1)}" y2="${cy + r * Math.sin(Math.PI * 0.1)}" ${s}/>\n`;
             out += `<line x1="${cx}" y1="${cy}" x2="${cx - r * 0.85}" y2="${cy + r * 0.5}" ${s}/>\n`;
+          } else if (v === 'donut') {
+            const cx = el.x + el.w / 2, cy = el.y + el.h / 2, r = Math.min(el.w, el.h) / 2 - 2;
+            out += `<circle cx="${cx}" cy="${cy}" r="${r}" ${s} fill="none"/>\n`;
+            out += `<circle cx="${cx}" cy="${cy}" r="${r * 0.55}" ${s} fill="none"/>\n`;
+            const rm = r * 0.775;
+            out += `<path d="M ${cx} ${cy - rm} A ${rm} ${rm} 0 0 1 ${cx + rm * Math.cos(Math.PI * 0.1)} ${cy + rm * Math.sin(Math.PI * 0.1)}" stroke="${tint('60')}" stroke-width="${Math.max(2, r - r * 0.55 - 2)}" fill="none"/>\n`;
           } else if (v === 'gauge') {
             const cx = el.x + el.w / 2, cy = el.y + el.h * 0.92, r = Math.min(el.w / 2, el.h * 0.85) - 2;
             out += `<path d="M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}" ${s} fill="none"/>\n`;
@@ -599,8 +677,11 @@ const Exporter = (() => {
             out += `<line x1="${el.x}" y1="${el.y}" x2="${el.x}" y2="${el.y + el.h}" ${s}/>\n`;
             out += `<line x1="${el.x}" y1="${el.y + el.h}" x2="${el.x + el.w}" y2="${el.y + el.h}" ${s}/>\n`;
             const vals = [0.45, 0.75, 0.35, 0.9, 0.6];
-            if (v === 'lines') {
+            if (v === 'lines' || v === 'area') {
               const pts = vals.map((val, i) => `${el.x + el.w * (0.08 + i * 0.21)},${el.y + el.h * (1 - val)}`).join(' ');
+              if (v === 'area') {
+                out += `<polygon points="${el.x + el.w * 0.08},${el.y + el.h} ${pts} ${el.x + el.w * (0.08 + (vals.length - 1) * 0.21)},${el.y + el.h}" fill="${tint('15')}" stroke="none"/>\n`;
+              }
               out += `<polyline points="${pts}" ${s} fill="none"/>\n`;
             } else {
               vals.slice(0, 4).forEach((val, i) => {
@@ -618,8 +699,13 @@ const Exporter = (() => {
           out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="8" ${s} fill="none"/>\n`;
           out += `<line x1="${el.x}" y1="${el.y + barH}" x2="${el.x + el.w}" y2="${el.y + barH}" ${s}/>\n`;
           out += `<text x="${el.x + 12}" y="${el.y + barH / 2 + 5}" fill="${color}" font-family="${FONT_FALLBACK()}" font-size="14" font-weight="bold">${_escapeXml(el.label || 'Diálogo')}</text>\n`;
-          out += `<rect x="${el.x + el.w - bw * 2 - 22}" y="${by}" width="${bw}" height="${bh}" rx="6" ${s} fill="none"/>\n`;
-          out += `<rect x="${el.x + el.w - bw - 12}" y="${by}" width="${bw}" height="${bh}" rx="6" ${s} fill="${tint('15')}"/>\n`;
+          if ((el.variant || 'confirm') === 'alert') {
+            // Alerta (v3.23.0): un solo botón, centrado.
+            out += `<rect x="${el.x + (el.w - bw) / 2}" y="${by}" width="${bw}" height="${bh}" rx="6" ${s} fill="${tint('15')}"/>\n`;
+          } else {
+            out += `<rect x="${el.x + el.w - bw * 2 - 22}" y="${by}" width="${bw}" height="${bh}" rx="6" ${s} fill="none"/>\n`;
+            out += `<rect x="${el.x + el.w - bw - 12}" y="${by}" width="${bw}" height="${bh}" rx="6" ${s} fill="${tint('15')}"/>\n`;
+          }
           break;
         }
 
@@ -642,6 +728,49 @@ const Exporter = (() => {
           out += `<rect x="${el.x + 6}" y="${el.y + 52 + ih}" width="${el.w - 12}" height="${ih - 6}" fill="${tint('15')}"/>\n`;
           for (let i = 0; i < 5; i++) {
             out += `<line x1="${el.x + 16}" y1="${el.y + 52 + ih * i + ih / 2 - 3}" x2="${el.x + el.w * (i % 2 ? 0.62 : 0.78)}" y2="${el.y + 52 + ih * i + ih / 2 - 3}" stroke="${tint('40')}" stroke-width="1"/>\n`;
+          }
+          break;
+        }
+
+        // «Piezas» (v3.23.0): las menores de UI, un dibujo por variante.
+        case 'uiPiece': {
+          const v = el.variant || 'avatar';
+          if (v === 'progress') {
+            const r = Math.min(el.h / 2, 8);
+            out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="${r}" ${s} fill="none"/>\n`;
+            out += `<rect x="${el.x + 2}" y="${el.y + 2}" width="${(el.w - 4) * 0.6}" height="${el.h - 4}" rx="${Math.max(0, r - 2)}" fill="${tint('40')}" stroke="none"/>\n`;
+          } else if (v === 'breadcrumbs') {
+            const cy = el.y + el.h / 2, seg = el.w / 3.4;
+            for (const [a, b] of [[0, 0.8], [1.15, 1.95], [2.3, 2.85]]) {
+              out += `<line x1="${el.x + seg * a}" y1="${cy}" x2="${el.x + seg * b}" y2="${cy}" stroke="${tint('40')}" stroke-width="1"/>\n`;
+            }
+            for (const t of [0.95, 2.1]) {
+              out += `<line x1="${el.x + seg * t + 4}" y1="${cy - 6}" x2="${el.x + seg * t - 2}" y2="${cy + 6}" stroke="${tint('60')}" stroke-width="1"/>\n`;
+            }
+          } else if (v === 'tooltip') {
+            const tipH = Math.min(10, el.h * 0.2), bh2 = el.h - tipH, cx = el.x + el.w / 2;
+            out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${bh2}" rx="6" ${s} fill="none"/>\n`;
+            out += `<path d="M ${cx - 6} ${el.y + bh2} L ${cx} ${el.y + el.h} L ${cx + 6} ${el.y + bh2}" ${s} fill="none"/>\n`;
+            out += `<line x1="${el.x + 10}" y1="${el.y + bh2 * 0.4}" x2="${el.x + el.w - 12}" y2="${el.y + bh2 * 0.4}" stroke="${tint('40')}" stroke-width="1"/>\n`;
+            out += `<line x1="${el.x + 10}" y1="${el.y + bh2 * 0.68}" x2="${el.x + el.w * 0.7}" y2="${el.y + bh2 * 0.68}" stroke="${tint('40')}" stroke-width="1"/>\n`;
+          } else if (v === 'badge') {
+            out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="${el.h / 2}" ${s} fill="${tint('15')}"/>\n`;
+            out += `<line x1="${el.x + el.w * 0.25}" y1="${el.y + el.h / 2}" x2="${el.x + el.w * 0.75}" y2="${el.y + el.h / 2}" stroke="${tint('40')}" stroke-width="1"/>\n`;
+          } else if (v === 'pagination') {
+            const bs = Math.min(el.h * 0.8, 22), by = el.y + (el.h - bs) / 2, cy = el.y + el.h / 2;
+            const cx0 = el.x + el.w / 2 - bs * 2.2;
+            for (let i = 0; i < 3; i++) {
+              out += `<rect x="${cx0 + i * bs * 1.5}" y="${by}" width="${bs}" height="${bs}" rx="3" ${s} fill="${i === 0 ? tint('15') : 'none'}"/>\n`;
+            }
+            out += `<path d="M ${cx0 - bs} ${cy - 4} L ${cx0 - bs - 5} ${cy} L ${cx0 - bs} ${cy + 4}" ${s} fill="none"/>\n`;
+            const rx = cx0 + 3 * bs * 1.5 + bs * 0.4;
+            out += `<path d="M ${rx} ${cy - 4} L ${rx + 5} ${cy} L ${rx} ${cy + 4}" ${s} fill="none"/>\n`;
+          } else {
+            // 'avatar'
+            const r = Math.min(el.w, el.h) / 2 - 1, cx = el.x + el.w / 2, cy = el.y + el.h / 2;
+            out += `<circle cx="${cx}" cy="${cy}" r="${r}" ${s} fill="none"/>\n`;
+            out += `<circle cx="${cx}" cy="${cy - r * 0.32}" r="${r * 0.34}" ${s} fill="none"/>\n`;
+            out += `<path d="M ${cx + r * 0.65 * Math.cos(Math.PI * 1.15)} ${cy + r * 0.95 + r * 0.65 * Math.sin(Math.PI * 1.15)} A ${r * 0.65} ${r * 0.65} 0 0 1 ${cx + r * 0.65 * Math.cos(Math.PI * 1.85)} ${cy + r * 0.95 + r * 0.65 * Math.sin(Math.PI * 1.85)}" ${s} fill="none"/>\n`;
           }
           break;
         }
@@ -828,9 +957,19 @@ body { font-family: ${FONT_CSS()};${options.transparent ? '' : ' background: #ff
         case 'button':
           out += `  <button style="left:${_round(el.x - ox)}px;top:${_round(el.y - oy)}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};border-radius:8px;background:${tint('15')};color:${color};font-family:inherit;cursor:pointer;">${_escapeHtml(el.label || 'Botón')}</button>\n`;
           break;
-        case 'input':
-          out += `  <input placeholder="${_escapeHtml(el.label || 'Escribe aquí...')}" style="left:${_round(el.x - ox)}px;top:${_round(el.y - oy)}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${tint('80')};border-radius:4px;padding:0 10px;font-family:inherit;"/>\n`;
+        case 'input': {
+          // La variante solo se refleja donde el HTML la tiene gratis
+          // (v3.23.0): search cambia el type, textarea cambia la etiqueta.
+          // 'error' y el resto conservan el widget genérico a propósito.
+          const estilo = `left:${_round(el.x - ox)}px;top:${_round(el.y - oy)}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${tint('80')};border-radius:4px;padding:0 10px;font-family:inherit;`;
+          if (el.variant === 'textarea') {
+            out += `  <textarea placeholder="${_escapeHtml(el.label || 'Escribe aquí...')}" style="${estilo}resize:none;"></textarea>\n`;
+          } else {
+            const tipo = el.variant === 'search' ? 'search' : 'text';
+            out += `  <input type="${tipo}" placeholder="${_escapeHtml(el.label || (el.variant === 'search' ? 'Buscar...' : 'Escribe aquí...'))}" style="${estilo}"/>\n`;
+          }
           break;
+        }
         case 'imagePlaceholder':
           out += `  <div style="left:${_round(el.x - ox)}px;top:${_round(el.y - oy)}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};display:flex;align-items:center;justify-content:center;color:${tint('80')};font-size:14px;">Imagen</div>\n`;
           break;
@@ -1063,7 +1202,12 @@ body { font-family: ${FONT_CSS()};${options.transparent ? '' : ' background: #ff
     // tipo, y el default explícito —la primera entrada del catálogo— se
     // rechaza: la ausencia ES el default (la lección de `bold: false`).
     if (el.variant !== undefined) {
-      const lists = { formControl: FORM_VARIANTS, uiTable: TABLE_VARIANTS, chart: CHART_VARIANTS };
+      const lists = {
+        formControl: FORM_VARIANTS, uiTable: TABLE_VARIANTS, chart: CHART_VARIANTS,
+        // v3.23.0: las veteranas, el diálogo y «Piezas».
+        button: BUTTON_VARIANTS, input: INPUT_VARIANTS, card: CARD_VARIANTS,
+        nav: NAV_VARIANTS, dialog: DIALOG_VARIANTS, uiPiece: UI_PIECE_VARIANTS,
+      };
       const list = lists[el.type];
       if (!list || typeof el.variant !== 'string') return false;
       if (el.variant === list[0].id) return false;

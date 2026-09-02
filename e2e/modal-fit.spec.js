@@ -29,7 +29,8 @@ const MODALES = [
   { tool: 'text',   modal: '#modal-text' },
   { tool: 'rect',   modal: '#modal-shape' },
   { tool: 'pencil', modal: '#modal-stroke' },
-  { tool: 'button', modal: '#modal-ui' },
+  // Pestañas y no Botón: desde la v3.23.0 las veteranas abren su catálogo.
+  { tool: 'tabs', modal: '#modal-ui' },
   { tool: 'eraser', modal: '#modal-eraser' },
   { tool: 'pick',   modal: '#modal-select' },
   // El del aerógrafo es el más alto del grupo Dibujo (seis mandos más el
@@ -49,6 +50,14 @@ const MODALES = [
   { tool: 'formControl', modal: '#modal-form' },
   { tool: 'uiTable',     modal: '#modal-uitable' },
   { tool: 'chart',       modal: '#modal-chart' },
+  // Las veteranas, el Diálogo, «Piezas» y el Marco (v3.23.0)
+  { tool: 'button',      modal: '#modal-button' },
+  { tool: 'input',       modal: '#modal-input' },
+  { tool: 'card',        modal: '#modal-card' },
+  { tool: 'nav',         modal: '#modal-nav' },
+  { tool: 'dialog',      modal: '#modal-dialog' },
+  { tool: 'uiPiece',     modal: '#modal-uipiece' },
+  { tool: 'frame',       modal: '#modal-frame' },
 ];
 
 for (const { tool, modal } of MODALES) {

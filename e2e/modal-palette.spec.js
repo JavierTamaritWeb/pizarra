@@ -134,7 +134,9 @@ const GRUPOS = [
   // el bloque «Orientación» no está, y eso se comprueba justo debajo.
   ['pentagon', 'modal-shape', ['Trazo', 'Relleno', 'Orientación']],
   ['text', 'modal-text', ['Letra', 'Trazo', 'Sombra']],
-  ['button', 'modal-ui', ['Contenido', 'Trazo']],
+  // Pestañas y no Botón: desde la v3.23.0 las veteranas abren su catálogo al
+  // elegirlas, y #modal-ui queda para las piezas únicas y el ⚙ de la selección.
+  ['tabs', 'modal-ui', ['Contenido', 'Trazo']],
   ['airbrush', 'modal-airbrush', ['Boquilla', 'Pintura', 'Dónde pinta']],
   ['ink', 'modal-ink', ['Pintura', 'Cómo pinta', 'Herramientas']],
   ['fachada', 'modal-facade', ['Edificio', 'Cubierta', 'Huecos']],

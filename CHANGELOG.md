@@ -4,6 +4,38 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.23.0] — 2026-09-02
+
+### Añadido
+
+- **Variantes en las piezas UI veteranas**: Botón (primario, secundario,
+  fantasma, con icono), Input (texto, búsqueda, área de texto, con error),
+  Tarjeta (imagen arriba, horizontal, solo texto), Navbar (enlaces, con
+  buscador, con avatar) y Diálogo (confirmación, alerta) abren ahora su
+  catálogo al elegirlos, como Formulario; el ⚙ de la selección sigue editando
+  rótulo, trazo y color en el modal de ajustes. La primera entrada de cada
+  catálogo es el dibujo histórico: un elemento guardado sin `variant` pinta
+  idéntico.
+- **«Piezas»**: las menores de UI en una sola herramienta con catálogo —
+  avatar, barra de progreso, migas de pan, globo, insignia y paginación —,
+  cada una con su caja natural a un clic (`UI_PIECE_DEFAULTS`).
+- **Catálogos ampliados**: Gráfico gana **anillo** y **área**; Tabla gana
+  **con paginación** y **con casillas**.
+- **Preset de dispositivo del Marco**: al elegir la herramienta se abre su
+  modal (Móvil 390×700, Tablet 768×1024, Escritorio 1280×800); un clic coloca
+  el marco a esa medida y el arrastre sigue dibujando libre.
+
+### Cambiado
+
+- **El grupo UI del sidebar se reordena por flujo de maquetado**: contenido
+  básico (Texto, Emoji), contenedores (Marco, Tarjeta, Diálogo), navegación
+  (Navbar, Pestañas, Menú lateral), formulario (Input, Botón, Formulario),
+  datos (Tabla, Gráfico) y remates (Imagen, Piezas). Los atajos viajan con su
+  botón.
+- En el export HTML, el input con variante búsqueda emite `type="search"` y
+  el de área de texto emite `<textarea>`; el resto de variantes conserva el
+  widget genérico a propósito.
+
 ## [3.22.2] — 2026-09-01
 
 ### Corregido

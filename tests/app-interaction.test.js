@@ -1249,9 +1249,13 @@ test('empezar a dibujar suelta la selección conservada', () => {
 
 test('el modal de UI fija el rótulo de creación y edita el del seleccionado', () => {
   const app = loadApp();
+  // Desde la v3.23.0 Botón abre su CATÁLOGO al elegirlo (como Formulario); el
+  // rótulo y los ajustes viven en #modal-ui, que reabre el ⚙ de la selección.
   app.selectTool('button');
-  assert.equal(app.$('modal-ui').open, true, 'Botón abre sus ajustes al elegirlo');
-  assert.equal(app.$('modal-ui-title').textContent, 'Ajustes de Botón');
+  assert.equal(app.$('modal-button').open, true, 'Botón abre su catálogo al elegirlo');
+  // Elegir la variante (no cerrar): cancelar un catálogo devuelve a la
+  // herramienta anterior, que aquí no es lo que se prueba.
+  app.pickVariant('button-catalog', 'modal__button', 'primary', 'button');
 
   // Sin selección, el rótulo escrito es el default de creación…
   const lab = app.$('ui-modal-label');
@@ -1264,10 +1268,12 @@ test('el modal de UI fija el rótulo de creación y edita el del seleccionado', 
   const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
   assert.equal(prefs.uiLabels.button, 'Enviar', 'el default se recuerda entre sesiones');
 
-  // …y con un botón seleccionado, el mismo campo edita ESE botón.
+  // …y con un botón seleccionado, el ⚙ abre #modal-ui y edita ESE botón.
   app.selectTool('select');
   app.click(270, 225);
-  app.selectTool('button');          // conserva la selección y reabre el modal
+  pressGear(app, 'btn-element-settings');
+  assert.equal(app.$('modal-ui').open, true, 'el ⚙ abre los ajustes del botón');
+  assert.equal(app.$('modal-ui-title').textContent, 'Ajustes de Botón');
   assert.equal(app.$('ui-modal-label').value, 'Enviar', 'enseña el rótulo del elemento');
   lab.value = 'Comprar'; lab.__fire('change', { target: lab });
   app.flush();
@@ -1469,6 +1475,7 @@ test('un change rezagado no aplica la medida a la selección recién cambiada', 
 test('con multi-selección el rótulo ni edita el default ni se ofrece', () => {
   const app = loadApp();
   app.selectTool('button');
+  app.pickVariant('button-catalog', 'modal__button', 'primary', 'button');
   const lab = app.$('ui-modal-label');
   lab.value = 'Enviar'; lab.__fire('change', { target: lab });
   app.flush();
@@ -1477,7 +1484,8 @@ test('con multi-selección el rótulo ni edita el default ni se ofrece', () => {
   app.selectTool('select');
   app.click(160, 125);
   app.click(160, 225, { shiftKey: true });
-  app.selectTool('button');               // conserva la multi-selección
+  pressGear(app, 'btn-element-settings'); // el ⚙ abre #modal-ui con las dos
+  assert.equal(app.$('modal-ui').open, true, 'el ⚙ abre los ajustes con multi-selección');
   assert.equal(app.$('ui-modal-label-row').hidden, true,
     'la fila de rótulo no se ofrece con varias piezas');
   lab.value = 'Hola'; lab.__fire('change', { target: lab });
@@ -1490,6 +1498,7 @@ test('con multi-selección el rótulo ni edita el default ni se ofrece', () => {
   // él, un rótulo más largo encogía en silencio al recargar.
   const app2 = loadApp();
   app2.selectTool('button');
+  app2.pickVariant('button-catalog', 'modal__button', 'primary', 'button');
   const lab2 = app2.$('ui-modal-label');
   lab2.value = 'x'.repeat(150); lab2.__fire('change', { target: lab2 });
   app2.flush();

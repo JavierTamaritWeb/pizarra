@@ -226,7 +226,7 @@ test('Exporter.html: contiene button/input/nav/card según los elementos', () =>
   const out = blob.content;
   assert.ok(out.startsWith('<!DOCTYPE html>'));
   assert.match(out, /<button style="left:10px;top:10px;width:120px;height:40px;/);
-  assert.match(out, /<input placeholder="Escribe aquí\.\.\." style="left:10px;top:60px;/);
+  assert.match(out, /<input type="text" placeholder="Escribe aquí\.\.\." style="left:10px;top:60px;/);
   assert.match(out, /<nav style="left:0px;top:0px;width:1200px;height:60px;/);
   assert.ok(out.includes('Título'), 'card renderiza su título');
   assert.match(out, /<div style="left:400px;top:100px;width:260px;height:200px;[^"]*border-radius:10px/);

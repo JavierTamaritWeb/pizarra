@@ -106,7 +106,21 @@ const SETTINGS_MODALS = ['#modal-stroke', '#modal-shape', '#modal-eraser',
   // modales de 3D son catálogos y NO van aquí: sus specs eligen sección.
   '#modal-sphere',
   // La Cota (v3.22.0): solo ajustes (la escala 1:N), como la Esfera.
-  '#modal-dim'];
+  '#modal-dim',
+  // El Marco (v3.23.0): solo ajustes (el preset de dispositivo), como la Cota.
+  '#modal-frame'];
+
+/** Piezas UI cuyo botón abre un CATÁLOGO (v3.23.0): cerrarlo con «Cancelar»
+    devolvería a la herramienta anterior, así que selectTool elige la primera
+    variante (la default) — lo que hace cualquiera que solo quiere dibujar. */
+const UI_CATALOGS = {
+  button:  ['#modal-button',  '#button-catalog .modal__button'],
+  input:   ['#modal-input',   '#input-catalog .modal__input'],
+  card:    ['#modal-card',    '#card-catalog .modal__card'],
+  nav:     ['#modal-nav',     '#nav-catalog .modal__nav'],
+  dialog:  ['#modal-dialog',  '#dialog-catalog .modal__dialog'],
+  uiPiece: ['#modal-uipiece', '#uipiece-catalog .modal__uipiece'],
+};
 
 /** Elige una herramienta del sidebar por su id de TOOLS y deja el lienzo libre:
     si la herramienta abrió sus ajustes, los cierra, que es lo que hace cualquiera
@@ -119,6 +133,10 @@ async function selectTool(page, toolId) {
     if (await modal.evaluate(d => d.open)) {
       await modal.locator('.modal__cancel').click();
     }
+  }
+  const catalogo = UI_CATALOGS[toolId];
+  if (catalogo && await page.locator(catalogo[0]).evaluate(d => d.open)) {
+    await page.locator(catalogo[1]).first().click();
   }
   await settle(page);
 }

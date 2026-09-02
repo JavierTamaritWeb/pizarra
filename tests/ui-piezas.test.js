@@ -1,9 +1,11 @@
 'use strict';
 /* ============================================================
-   ui-piezas.test.js — Las piezas de formulario y datos (v3.22.0):
-   formControl, uiTable y chart (con `variant`), y dialog, tabs y sidebar
-   (piezas únicas). Son tipos de elemento REALES: aquí se fija su contrato de
-   validación (la ausencia de variant ES el default), su render y su SVG.
+   ui-piezas.test.js — Las piezas UI con `variant` (v3.22.0 y, desde la
+   v3.23.0, también las veteranas button/input/card/nav, el dialog y uiPiece),
+   más tabs y sidebar (piezas únicas). Son tipos de elemento REALES: aquí se
+   fija su contrato de validación (la ausencia de variant ES el default), su
+   render y su SVG. Las veteranas exportan a HTML como widget real (no SVG):
+   su bloque va aparte, al final.
    Ejecutar: node --test tests/ui-piezas.test.js
    ============================================================ */
 const test = require('node:test');
@@ -13,6 +15,8 @@ const { loadAll, createCtxStub } = require('./helpers/load.js');
 const ctx = loadAll();
 const {
   TOOLS, UI_DEFAULTS, FORM_VARIANTS, TABLE_VARIANTS, CHART_VARIANTS,
+  BUTTON_VARIANTS, INPUT_VARIANTS, CARD_VARIANTS, NAV_VARIANTS,
+  DIALOG_VARIANTS, UI_PIECE_VARIANTS,
   Renderer, Exporter,
 } = ctx;
 
@@ -20,8 +24,18 @@ const VARIANTED = [
   ['formControl', FORM_VARIANTS],
   ['uiTable',     TABLE_VARIANTS],
   ['chart',       CHART_VARIANTS],
+  // v3.23.0: las veteranas, el diálogo y «Piezas»
+  ['button',      BUTTON_VARIANTS],
+  ['input',       INPUT_VARIANTS],
+  ['card',        CARD_VARIANTS],
+  ['nav',         NAV_VARIANTS],
+  ['dialog',      DIALOG_VARIANTS],
+  ['uiPiece',     UI_PIECE_VARIANTS],
 ];
-const SINGLES = ['dialog', 'tabs', 'sidebar'];
+const SINGLES = ['tabs', 'sidebar'];
+// Las veteranas emiten widget HTML real (<button>, <input>…), no SVG: quedan
+// fuera del test de VECTOR_TYPES y tienen el suyo propio al final.
+const VETERANOS = ['button', 'input', 'nav', 'card'];
 
 const make = (type, extra = {}) => ({
   type, x: 20, y: 20,
@@ -31,7 +45,7 @@ const make = (type, extra = {}) => ({
 
 /* ---------------- validación (round-trip JSON) ---------------- */
 
-test('las seis piezas pasan isValidElement sin campos extra', () => {
+test('todas las piezas pasan isValidElement sin campos extra', () => {
   for (const type of [...VARIANTED.map(v => v[0]), ...SINGLES]) {
     assert.ok(Exporter.isValidElement(make(type)), `${type} básico no valida`);
   }
@@ -51,18 +65,20 @@ test('variant válido se acepta; el default explícito se RECHAZA (la ausencia e
 });
 
 test('variant es un campo atado a su tipo: ajeno o cruzado, se rechaza', () => {
-  // En un botón no significa nada
+  // En un rect no significa nada
   assert.equal(Exporter.isValidElement(
-    { type: 'button', x: 0, y: 0, w: 100, h: 40, color: '#123456', lineWidth: 2, variant: 'radio' }),
+    { type: 'rect', x: 0, y: 0, w: 100, h: 40, color: '#123456', lineWidth: 2, seed: 7, variant: 'radio' }),
   false);
+  // Y en un botón (con catálogo desde la v3.23.0) una variante ajena tampoco
+  assert.equal(Exporter.isValidElement(make('button', { variant: 'radio' })), false);
   // Y una variante de otro catálogo tampoco
   assert.equal(Exporter.isValidElement(make('formControl', { variant: 'bars' })), false);
   assert.equal(Exporter.isValidElement(make('chart', { variant: 'radio' })), false);
   assert.equal(Exporter.isValidElement(make('uiTable', { variant: 42 })), false);
 });
 
-test('el rótulo vale donde el renderer lo pinta (formControl, uiTable, dialog)', () => {
-  for (const type of ['formControl', 'uiTable', 'dialog']) {
+test('el rótulo vale donde el renderer lo pinta', () => {
+  for (const type of ['formControl', 'uiTable', 'dialog', 'button', 'input', 'nav', 'card']) {
     assert.ok(Exporter.isValidElement(make(type, { label: 'Enviar' })));
   }
 });
@@ -126,8 +142,28 @@ test('los textos default del SVG coinciden con los del renderer', () => {
   assert.ok(out.includes('Diálogo'), 'falta el default «Diálogo» del dialog');
 });
 
-test('en HTML las seis van por el <svg> incrustado (VECTOR_TYPES)', () => {
-  ctx.Exporter.html([make('tabs'), make('sidebar')]);
+test('en HTML las piezas de dibujo van por el <svg> incrustado (VECTOR_TYPES)', () => {
+  ctx.Exporter.html([make('tabs'), make('sidebar'), make('uiPiece')]);
   const out = ctx.URL.blobs[ctx.URL.blobs.length - 1].content;
   assert.ok(out.includes('<svg'), 'el HTML no incrusta el SVG de las piezas');
+});
+
+/* ---------------- las veteranas en HTML (v3.23.0) ---------------- */
+
+test('las veteranas siguen exportando widget HTML real, con o sin variante', () => {
+  // El export HTML no cambió de naturaleza al ganar catálogo: un botón sigue
+  // siendo <button>. La variante solo se refleja donde el HTML la tiene
+  // gratis: search cambia el type del input, textarea cambia la etiqueta.
+  for (const type of VETERANOS) {
+    ctx.Exporter.html([make(type)]);
+    const out = ctx.URL.blobs[ctx.URL.blobs.length - 1].content;
+    const tag = { button: '<button', input: '<input', nav: '<nav', card: '<div' }[type];
+    assert.ok(out.includes(tag), `${type} sin su widget HTML`);
+  }
+  ctx.Exporter.html([make('input', { variant: 'search' })]);
+  assert.ok(ctx.URL.blobs[ctx.URL.blobs.length - 1].content.includes('type="search"'),
+    'input/search no emite type="search"');
+  ctx.Exporter.html([make('input', { variant: 'textarea' })]);
+  assert.ok(ctx.URL.blobs[ctx.URL.blobs.length - 1].content.includes('<textarea'),
+    'input/textarea no emite <textarea>');
 });

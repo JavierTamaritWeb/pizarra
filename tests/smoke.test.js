@@ -39,14 +39,14 @@ test('loadAll carga todos los scripts en orden y expone los globals', () => {
   assert.equal(typeof ctx.Templates, 'object');
 });
 
-test('index publica v3.22.2 sin caché antigua y documenta el tamaño del borrador', () => {
+test('index publica v3.23.0 sin caché antigua y documenta el tamaño del borrador', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /class="topbar__badge">v3\.22\.2</);
-  assert.match(html, /css\/styles\.css\?v=3\.22\.2/);
-  assert.match(html, /src\/js\/app\.js\?v=3\.22\.2/);
-  assert.match(html, /src\/js\/building\.js\?v=3\.22\.2/);
-  assert.match(html, /src\/js\/garden\.js\?v=3\.22\.2/);
-  assert.match(html, /src\/js\/config\.js\?v=3\.22\.2/);
+  assert.match(html, /class="topbar__badge">v3\.23\.0</);
+  assert.match(html, /css\/styles\.css\?v=3\.23\.0/);
+  assert.match(html, /src\/js\/app\.js\?v=3\.23\.0/);
+  assert.match(html, /src\/js\/building\.js\?v=3\.23\.0/);
+  assert.match(html, /src\/js\/garden\.js\?v=3\.23\.0/);
+  assert.match(html, /src\/js\/config\.js\?v=3\.23\.0/);
   assert.match(html, /id="modal-planta"/);
   assert.match(html, /id="modal-balcony"/);
   assert.match(html, /id="modal-plot"/);
@@ -64,7 +64,7 @@ test('index publica v3.22.2 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="modal-pyramid"/);
   assert.match(html, /id="modal-frustum"/);
   assert.match(html, /id="modal-sphere"/);
-  // Parte técnica del plano y piezas UI (v3.22.2)
+  // Parte técnica del plano y piezas UI (v3.23.0)
   assert.match(html, /id="modal-stair"/);
   assert.match(html, /id="modal-dim"/);
   assert.match(html, /id="modal-symbol"/);
@@ -73,11 +73,19 @@ test('index publica v3.22.2 sin caché antigua y documenta el tamaño del borrad
   assert.match(html, /id="modal-porch"/);
   assert.match(html, /id="modal-silhouette"/);
   assert.match(html, /id="modal-form"/);
+  // Las veteranas, el Diálogo, «Piezas» y el Marco (v3.23.0)
+  assert.match(html, /id="modal-button"/);
+  assert.match(html, /id="modal-input"/);
+  assert.match(html, /id="modal-card"/);
+  assert.match(html, /id="modal-nav"/);
+  assert.match(html, /id="modal-dialog"/);
+  assert.match(html, /id="modal-uipiece"/);
+  assert.match(html, /id="modal-frame"/);
   assert.match(html, /id="modal-uitable"/);
   assert.match(html, /id="modal-chart"/);
-  assert.match(html, /src\/js\/solid\.js\?v=3\.22\.2/);
-  assert.match(html, /src\/js\/airbrush\.js\?v=3\.22\.2/);
-  assert.match(html, /src\/js\/hatch\.js\?v=3\.22\.2/);
+  assert.match(html, /src\/js\/solid\.js\?v=3\.23\.0/);
+  assert.match(html, /src\/js\/airbrush\.js\?v=3\.23\.0/);
+  assert.match(html, /src\/js\/hatch\.js\?v=3\.23\.0/);
   // «Los clics acumulan selección» dejó el panel en la v2.17.0 y es el ajuste
   // de «Select». Si volviera a existir la casilla vieja habría dos controles
   // para un mismo estado, y solo uno cableado: el arnés `node:vm` fabrica un

@@ -231,19 +231,15 @@ test('un componente de UI se recolorea, se mide y se rotula desde el panel', asy
   await field('color').toBe('#e94560');
 });
 
-test('pulsar Botón abre sus ajustes y el rótulo escrito sale en el elemento', async ({ page }) => {
+test('pulsar Botón abre su catálogo; el ⚙ edita el rótulo del seleccionado', async ({ page }) => {
   await openApp(page);
   // Click directo al sidebar: aquí se comprueba la APERTURA, sin el helper.
+  // Desde la v3.23.0 el Botón abre su catálogo de variantes (como Formulario);
+  // elegir una deja la herramienta puesta.
   await page.locator('.sidebar__tool[data-tool="button"]').click();
-  const modal = page.locator('#modal-ui');
-  await expect(modal).toHaveAttribute('open', '');
-  await expect(page.locator('#modal-ui-title')).toHaveText('Ajustes de Botón');
-
-  await page.locator('#ui-modal-label').fill('Enviar');
-  await page.locator('#ui-modal-label').blur();
-  await page.locator('#modal-ui .modal__cancel').click();
-  await expect(modal).not.toHaveAttribute('open', '');
-  // Cerrar deja la herramienta puesta, como el resto de ajustes.
+  await expect(page.locator('#modal-button')).toHaveAttribute('open', '');
+  await page.locator('#button-catalog .modal__button[data-button="primary"]').click();
+  await expect(page.locator('#modal-button')).not.toHaveAttribute('open', '');
   await expect(page.locator('.sidebar__tool--active')).toHaveAttribute('data-tool', 'button');
 
   await drag(page, 200, 200, 340, 250);
@@ -252,6 +248,17 @@ test('pulsar Botón abre sus ajustes y el rótulo escrito sale en el elemento', 
     return el && el[name];
   });
   await field('type').toBe('button');
+
+  // Con el botón seleccionado, el ⚙ de «Posición y tamaño» abre #modal-ui y
+  // el rótulo escrito edita ESE botón.
+  await selectTool(page, 'select');
+  await clickCanvas(page, 270, 225);
+  await page.locator('#btn-element-settings').click();
+  await expect(page.locator('#modal-ui')).toHaveAttribute('open', '');
+  await expect(page.locator('#modal-ui-title')).toHaveText('Ajustes de Botón');
+  await page.locator('#ui-modal-label').fill('Enviar');
+  await page.locator('#ui-modal-label').blur();
+  await page.locator('#modal-ui .modal__cancel').click();
   await field('label').toBe('Enviar');
 });
 

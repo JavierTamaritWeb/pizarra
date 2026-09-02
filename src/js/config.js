@@ -64,9 +64,14 @@ const TOOLS = Object.freeze({
   UI_TABLE:         'uiTable',
   CHART:            'chart',
   // Piezas UI únicas (v3.22.0): sin variantes, comparten #modal-ui.
+  // (El Diálogo ganó catálogo en la v3.23.0: DIALOG_VARIANTS.)
   DIALOG:           'dialog',
   TABS:             'tabs',
   SIDEBAR:          'sidebar',
+  // «Piezas» (v3.23.0): las menores de UI en UN solo tipo con variantes —
+  // avatar, progreso, migas, globo, insignia, paginación. Su caja por defecto
+  // depende de la variante: UI_PIECE_DEFAULTS.
+  UI_PIECE:         'uiPiece',
   // Edificios — herramientas de creación (NO tipos de elemento): cada una
   // produce elementos de tipos ya existentes (rect/line). Ver js/building.js.
   BUILD_PLANTA: 'planta',         BUILD_FACADE: 'fachada',
@@ -396,6 +401,9 @@ const TABLE_VARIANTS = Object.freeze([
   { id: 'grid',    name: 'Tabla con cabecera' },
   { id: 'list',    name: 'Lista simple' },
   { id: 'avatars', name: 'Lista con avatar' },
+  // v3.23.0
+  { id: 'pager',   name: 'Con paginación' },
+  { id: 'checks',  name: 'Con casillas' },
 ]);
 
 const CHART_VARIANTS = Object.freeze([
@@ -403,6 +411,74 @@ const CHART_VARIANTS = Object.freeze([
   { id: 'lines', name: 'Líneas' },
   { id: 'pie',   name: 'Tarta' },
   { id: 'gauge', name: 'Indicador' },
+  // v3.23.0
+  { id: 'donut', name: 'Anillo' },
+  { id: 'area',  name: 'Área' },
+]);
+
+/** Variantes de las piezas UI veteranas (v3.23.0). La primera entrada de cada
+    lista ES el dibujo que la pieza tenía hasta ahora: un elemento guardado sin
+    `variant` sigue pintando idéntico. */
+const BUTTON_VARIANTS = Object.freeze([
+  { id: 'primary',   name: 'Primario' },
+  { id: 'secondary', name: 'Secundario' },
+  { id: 'ghost',     name: 'Fantasma' },
+  { id: 'icon',      name: 'Con icono' },
+]);
+
+const INPUT_VARIANTS = Object.freeze([
+  { id: 'text',     name: 'Texto' },
+  { id: 'search',   name: 'Búsqueda' },
+  { id: 'textarea', name: 'Área de texto' },
+  { id: 'error',    name: 'Con error' },
+]);
+
+const CARD_VARIANTS = Object.freeze([
+  { id: 'image',      name: 'Imagen arriba' },
+  { id: 'horizontal', name: 'Horizontal' },
+  { id: 'text',       name: 'Solo texto' },
+]);
+
+const NAV_VARIANTS = Object.freeze([
+  { id: 'links',  name: 'Enlaces' },
+  { id: 'search', name: 'Con buscador' },
+  { id: 'avatar', name: 'Con avatar' },
+]);
+
+const DIALOG_VARIANTS = Object.freeze([
+  { id: 'confirm', name: 'Confirmación' },
+  { id: 'alert',   name: 'Alerta' },
+]);
+
+/** «Piezas» (v3.23.0): las menores de UI. Cada variante tiene su propia caja
+    por defecto en UI_PIECE_DEFAULTS — un avatar y una barra de progreso no
+    pueden nacer con la misma. */
+const UI_PIECE_VARIANTS = Object.freeze([
+  { id: 'avatar',      name: 'Avatar' },
+  { id: 'progress',    name: 'Barra de progreso' },
+  { id: 'breadcrumbs', name: 'Migas de pan' },
+  { id: 'tooltip',     name: 'Globo' },
+  { id: 'badge',       name: 'Insignia' },
+  { id: 'pagination',  name: 'Paginación' },
+]);
+
+/** Caja por variante de «Piezas»: la clave es el id de UI_PIECE_VARIANTS. */
+const UI_PIECE_DEFAULTS = Object.freeze({
+  avatar:      { w: 48,  h: 48 },
+  progress:    { w: 200, h: 16 },
+  breadcrumbs: { w: 260, h: 20 },
+  tooltip:     { w: 160, h: 60 },
+  badge:       { w: 60,  h: 24 },
+  pagination:  { w: 200, h: 32 },
+});
+
+/** Presets de dispositivo del Marco (v3.23.0): la caja que un CLIC sin
+    arrastre coloca. El drag sigue dibujando libre. La primera entrada es la
+    caja histórica de UI_DEFAULTS[FRAME]. */
+const FRAME_PRESETS = Object.freeze([
+  { id: 'movil',   name: 'Móvil',      w: 390,  h: 700 },
+  { id: 'tablet',  name: 'Tablet',     w: 768,  h: 1024 },
+  { id: 'desktop', name: 'Escritorio', w: 1280, h: 800 },
 ]);
 
 /** Herramientas de la sección "Jardín": como las de Edificios, todas son SOLO
@@ -709,25 +785,31 @@ const TOOL_GROUPS = [
   },
   {
     label: 'UI',
+    // Orden por flujo de maquetado (v3.23.0): contenido básico, contenedores,
+    // navegación, formulario, datos y remates. Los atajos viajan con su botón;
+    // los que no llevan tecla es porque las 26 letras y los 10 dígitos están
+    // cogidos (misma situación que Balcón, «Select» o el Aerógrafo).
     tools: [
-      { id: TOOLS.TEXT,              icon: 'T',  name: 'Texto',  key: 't' },
+      { id: TOOLS.TEXT,             icon: 'T',  name: 'Texto',  key: 't' },
       { id: TOOLS.EMOJI,            icon: '🙂', name: 'Emoji',  key: 'j' },
-      { id: TOOLS.BUTTON,           icon: '🔘', name: 'Botón',  key: 'b' },
-      { id: TOOLS.INPUT,            icon: '▭',  name: 'Input',  key: 'i' },
-      { id: TOOLS.IMAGE_PLACEHOLDER,icon: '🖼️', name: 'Imagen', key: 'm' },
-      { id: TOOLS.NAV,              icon: '☰',  name: 'Navbar', key: 'n' },
-      { id: TOOLS.CARD,             icon: '🃏', name: 'Tarjeta', key: 'k' },
-      // Sin tecla: las 26 letras y los 10 dígitos están cogidos (misma
-      // situación que Balcón, «Select» o el Aerógrafo).
+      // Contenedores
       { id: TOOLS.FRAME,            icon: '⬚',  name: 'Marco' },
-      // El vocabulario de formulario y de datos (v3.22.0). Sin tecla, como
-      // Marco: las 26 letras y los 10 dígitos están cogidos.
-      { id: TOOLS.FORM_CONTROL,     icon: '☑',  name: 'Formulario' },
-      { id: TOOLS.UI_TABLE,         icon: '▦',  name: 'Tabla' },
-      { id: TOOLS.CHART,            icon: '📊', name: 'Gráfico' },
+      { id: TOOLS.CARD,             icon: '🃏', name: 'Tarjeta', key: 'k' },
       { id: TOOLS.DIALOG,           icon: '❐',  name: 'Diálogo' },
+      // Navegación
+      { id: TOOLS.NAV,              icon: '☰',  name: 'Navbar', key: 'n' },
       { id: TOOLS.TABS,             icon: '🗂', name: 'Pestañas' },
       { id: TOOLS.SIDEBAR,          icon: '◫',  name: 'Menú lateral' },
+      // Formulario
+      { id: TOOLS.INPUT,            icon: '▭',  name: 'Input',  key: 'i' },
+      { id: TOOLS.BUTTON,           icon: '🔘', name: 'Botón',  key: 'b' },
+      { id: TOOLS.FORM_CONTROL,     icon: '☑',  name: 'Formulario' },
+      // Datos
+      { id: TOOLS.UI_TABLE,         icon: '▦',  name: 'Tabla' },
+      { id: TOOLS.CHART,            icon: '📊', name: 'Gráfico' },
+      // Contenido y remates
+      { id: TOOLS.IMAGE_PLACEHOLDER,icon: '🖼️', name: 'Imagen', key: 'm' },
+      { id: TOOLS.UI_PIECE,         icon: '🧩', name: 'Piezas' },
     ],
   },
   {
@@ -1055,4 +1137,8 @@ const UI_DEFAULTS = {
   [TOOLS.DIALOG]:            { w: 320, h: 200 },
   [TOOLS.TABS]:              { w: 320, h: 40 },
   [TOOLS.SIDEBAR]:           { w: 200, h: 360 },
+  // «Piezas» (v3.23.0): la caja del avatar (el default); las demás variantes
+  // nacen con la suya de UI_PIECE_DEFAULTS. Estar aquí es lo que hace que la
+  // herramienta entre por la rama de creación de piezas UI.
+  [TOOLS.UI_PIECE]:          { w: 48, h: 48 },
 };

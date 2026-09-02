@@ -516,12 +516,30 @@ const Renderer = (() => {
   // dígitos — inválido, y el fillStyle anterior del contexto se quedaría.
   const _tint = (color, alpha) => String(color).slice(0, 7) + alpha;
 
-  function _button(ctx, x, y, w, h, color, lw, label) {
+  // Variantes (v3.23.0): la rama default ('primary') es el dibujo histórico,
+  // porque un elemento guardado sin `variant` tiene que pintar idéntico.
+  function _button(ctx, x, y, w, h, color, lw, label, variant) {
+    const v = variant || 'primary';
     ctx.strokeStyle = color;
     ctx.lineWidth = lw;
-    ctx.fillStyle = _tint(color, '15');
-    Sketchy.roundedRect(ctx, x, y, w, h, 8);
-    ctx.fill();
+    if (v === 'icon') {
+      // Botón de icono: caja casi cuadrada con un «+», sin rótulo.
+      ctx.fillStyle = _tint(color, '15');
+      Sketchy.roundedRect(ctx, x, y, w, h, 8);
+      ctx.fill();
+      const cx = x + w / 2, cy = y + h / 2, s = Math.min(w, h) * 0.22;
+      Sketchy.line(ctx, cx - s, cy, cx + s, cy, 0.5);
+      Sketchy.line(ctx, cx, cy - s, cx, cy + s, 0.5);
+      return;
+    }
+    if (v === 'primary') {
+      ctx.fillStyle = _tint(color, '15');
+      Sketchy.roundedRect(ctx, x, y, w, h, 8);
+      ctx.fill();
+    } else if (v === 'secondary') {
+      Sketchy.roundedRect(ctx, x, y, w, h, 8);   // solo contorno
+    }
+    // 'ghost': ni caja ni borde — el rótulo es todo el botón.
     ctx.font = `${Math.min(16, h * 0.5)}px ${sketchFont()}`;
     ctx.fillStyle = color;
     ctx.textAlign = 'center';
@@ -529,15 +547,48 @@ const Renderer = (() => {
     ctx.fillText(label || 'Botón', x + w / 2, y + h / 2);
   }
 
-  function _input(ctx, x, y, w, h, color, lw, label) {
-    ctx.strokeStyle = _tint(color, '80');
+  // Rojo fijo de la variante 'error' del input, como los verdes de Jardín:
+  // el estado de validación no debe cambiar con el color del trazo.
+  const INPUT_ERROR_RED = '#d64545';
+
+  function _input(ctx, x, y, w, h, color, lw, label, variant) {
+    const v = variant || 'text';
+    ctx.strokeStyle = v === 'error' ? INPUT_ERROR_RED : _tint(color, '80');
     ctx.lineWidth = lw;
     Sketchy.roundedRect(ctx, x, y, w, h, 4);
     ctx.font = `${Math.min(13, h * 0.45)}px ${sketchFont()}`;
     ctx.fillStyle = _tint(color, '60');
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
+    if (v === 'textarea') {
+      // Área de texto: el placeholder arriba, líneas simuladas debajo y la
+      // esquina de redimensionado.
+      ctx.fillText(label || 'Escribe aquí...', x + 10, y + Math.min(16, h * 0.3));
+      _fakeText(ctx, color, x + 10, y + h * 0.55, x + w * 0.8);
+      _fakeText(ctx, color, x + 10, y + h * 0.75, x + w * 0.55);
+      ctx.strokeStyle = _tint(color, '60');
+      ctx.lineWidth = 1;
+      Sketchy.line(ctx, x + w - 10, y + h - 4, x + w - 4, y + h - 10, 0.5);
+      Sketchy.line(ctx, x + w - 7, y + h - 4, x + w - 4, y + h - 7, 0.5);
+      return;
+    }
+    if (v === 'search') {
+      // Lupa a la izquierda y el placeholder corrido tras ella.
+      const r = Math.min(5, h * 0.18), lx = x + 12 + r, ly = y + h / 2 - 1;
+      ctx.strokeStyle = _tint(color, '80');
+      ctx.lineWidth = 1;
+      Sketchy.ellipse(ctx, lx, ly, r, r);
+      Sketchy.line(ctx, lx + r * 0.7, ly + r * 0.7, lx + r * 1.8, ly + r * 1.8, 0.5);
+      ctx.fillText(label || 'Buscar...', x + 12 + r * 3.2 + 6, y + h / 2);
+      return;
+    }
     ctx.fillText(label || 'Escribe aquí...', x + 10, y + h / 2);
+    if (v === 'error') {
+      // La rayita del mensaje, en el mismo rojo del borde.
+      ctx.strokeStyle = INPUT_ERROR_RED + '99';
+      ctx.lineWidth = 1;
+      Sketchy.line(ctx, x + 2, y + h + 9, x + w * 0.55, y + h + 9, 0.5);
+    }
   }
 
   function _imagePlaceholder(ctx, x, y, w, h, color, lw) {
@@ -563,7 +614,8 @@ const Renderer = (() => {
     ctx.stroke();
   }
 
-  function _nav(ctx, x, y, w, h, color, lw, label) {
+  function _nav(ctx, x, y, w, h, color, lw, label, variant) {
+    const v = variant || 'links';
     ctx.strokeStyle = color;
     ctx.lineWidth = lw;
     ctx.fillStyle = _tint(color, '0a');
@@ -576,36 +628,87 @@ const Renderer = (() => {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText(label || 'Logo', x + 20, y + h / 2);
-    // Links
-    // En español desde la 2.10.0, como el resto de defaults («Botón», «Escribe
-    // aquí...», «Título»); el exportador HTML lleva los mismos tres enlaces.
-    const links = ['Inicio', 'Nosotros', 'Contacto'];
-    // 70px por link (mismo paso que el bucle) + 40 de hueco para la hamburguesa
-    const startX = x + w - 70 * links.length - 40;
-    links.forEach((link, i) => {
-      ctx.fillText(link, startX + i * 70, y + h / 2);
-    });
-    // Hamburger
-    const hx = x + w - 30;
-    const hy = y + h / 2 - 6;
-    for (let i = 0; i < 3; i++) {
-      Sketchy.line(ctx, hx, hy + i * 6, hx + 18, hy + i * 6, 0.5);
+    if (v === 'search') {
+      // Caja de búsqueda centrada, con su lupa, en vez de los enlaces.
+      const bw = Math.min(w * 0.34, 220), bx = x + (w - bw) / 2;
+      const bh = Math.min(24, h * 0.55), by = y + (h - bh) / 2;
+      ctx.strokeStyle = _tint(color, '80');
+      Sketchy.roundedRect(ctx, bx, by, bw, bh, bh / 2);
+      const r = 4, lx = bx + 12, ly = y + h / 2 - 1;
+      ctx.lineWidth = 1;
+      Sketchy.ellipse(ctx, lx, ly, r, r);
+      Sketchy.line(ctx, lx + r * 0.7, ly + r * 0.7, lx + r * 1.8, ly + r * 1.8, 0.5);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lw;
+    } else {
+      // Links
+      // En español desde la 2.10.0, como el resto de defaults («Botón», «Escribe
+      // aquí...», «Título»); el exportador HTML lleva los mismos tres enlaces.
+      const links = ['Inicio', 'Nosotros', 'Contacto'];
+      // 70px por link (mismo paso que el bucle) + 40 de hueco para el remate
+      const startX = x + w - 70 * links.length - 40;
+      links.forEach((link, i) => {
+        ctx.fillText(link, startX + i * 70, y + h / 2);
+      });
+    }
+    if (v === 'avatar') {
+      // Avatar en el sitio de la hamburguesa: círculo con cabeza y hombros.
+      const r = Math.min(11, h * 0.32), cx = x + w - 16 - r, cy = y + h / 2;
+      Sketchy.ellipse(ctx, cx, cy, r, r);
+      Sketchy.ellipse(ctx, cx, cy - r * 0.3, r * 0.34, r * 0.34);
+      ctx.beginPath();
+      ctx.arc(cx, cy + r * 0.9, r * 0.62, Math.PI * 1.15, Math.PI * 1.85);
+      ctx.stroke();
+    } else {
+      // Hamburger
+      const hx = x + w - 30;
+      const hy = y + h / 2 - 6;
+      for (let i = 0; i < 3; i++) {
+        Sketchy.line(ctx, hx, hy + i * 6, hx + 18, hy + i * 6, 0.5);
+      }
     }
   }
 
-  function _card(ctx, x, y, w, h, color, lw, label) {
+  function _card(ctx, x, y, w, h, color, lw, label, variant) {
+    const v = variant || 'image';
     ctx.strokeStyle = color;
     ctx.lineWidth = lw;
     ctx.fillStyle = '#ffffff08';
     Sketchy.roundedRect(ctx, x, y, w, h, 10);
     ctx.fill();
-    // Image area
+    ctx.font = `bold 14px ${sketchFont()}`;
+    if (v === 'horizontal') {
+      // Imagen a la izquierda, texto a la derecha.
+      const imgW = w * 0.38;
+      ctx.fillStyle = _tint(color, '10');
+      ctx.fillRect(x + 4, y + 4, imgW, h - 8);
+      Sketchy.line(ctx, x + imgW + 8, y + 4, x + imgW + 8, y + h - 4);
+      ctx.fillStyle = color;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(label || 'Título', x + imgW + 16, y + 14);
+      const tx = x + imgW + 16;
+      _fakeText(ctx, color, tx, y + 42, x + w - 14);
+      _fakeText(ctx, color, tx, y + 54, x + w * 0.85);
+      return;
+    }
+    if (v === 'text') {
+      // Solo texto: el título arriba y tres líneas de descripción.
+      ctx.fillStyle = color;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(label || 'Título', x + 12, y + 14);
+      _fakeText(ctx, color, x + 12, y + 44, x + w - 20);
+      _fakeText(ctx, color, x + 12, y + 56, x + w - 20);
+      _fakeText(ctx, color, x + 12, y + 68, x + w * 0.7);
+      return;
+    }
+    // Image area ('image', el dibujo histórico)
     const imgH = h * 0.45;
     ctx.fillStyle = _tint(color, '10');
     ctx.fillRect(x + 4, y + 4, w - 8, imgH);
     Sketchy.line(ctx, x + 4, y + imgH + 4, x + w - 4, y + imgH + 4);
     // Title
-    ctx.font = `bold 14px ${sketchFont()}`;
     ctx.fillStyle = color;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
@@ -696,8 +799,11 @@ const Renderer = (() => {
     ctx.lineWidth = lw;
     const v = variant || 'grid';
     Sketchy.rect(ctx, x, y, w, h);
-    const rows = Math.max(3, Math.min(6, Math.round(h / 36)));
-    const rh = h / rows;
+    // 'pager' reserva la banda inferior para la paginación; el resto de la
+    // caja se reparte en filas como siempre.
+    const ph = v === 'pager' ? Math.min(30, h * 0.2) : 0;
+    const rows = Math.max(3, Math.min(6, Math.round((h - ph) / 36)));
+    const rh = (h - ph) / rows;
     if (v === 'grid') {
       ctx.fillStyle = _tint(color, '10');      // banda de cabecera
       ctx.fillRect(x + 1, y + 1, w - 2, rh - 2);
@@ -728,10 +834,46 @@ const Renderer = (() => {
           Sketchy.ellipse(ctx, x + 10 + ar, cy, ar, ar);
           _fakeText(ctx, color, x + 10 + ar * 2 + 8, cy - 4, x + w * 0.7);
           _fakeText(ctx, color, x + 10 + ar * 2 + 8, cy + 6, x + w * 0.5);
+        } else if (v === 'checks') {
+          // Casilla por fila, con su línea de texto al lado.
+          const cs = Math.min(rh * 0.4, 12);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1;
+          Sketchy.roundedRect(ctx, x + 10, cy - cs / 2, cs, cs, 2);
+          if (r === 1) {                        // una marcada, para que se lea
+            Sketchy.line(ctx, x + 10 + cs * 0.22, cy, x + 10 + cs * 0.45, cy + cs * 0.22, 0.5);
+            Sketchy.line(ctx, x + 10 + cs * 0.45, cy + cs * 0.22, x + 10 + cs * 0.8, cy - cs * 0.28, 0.5);
+          }
+          _fakeText(ctx, color, x + 10 + cs + 10, cy, x + w * (r % 2 ? 0.6 : 0.8));
         } else {
           _fakeText(ctx, color, x + 10, cy, x + w * (r % 2 ? 0.6 : 0.8));
         }
       }
+    }
+    if (v === 'pager') {
+      // La banda: separador y «‹ 1 2 3 ›» con la página actual rellena.
+      ctx.strokeStyle = _tint(color, '60');
+      ctx.lineWidth = 1;
+      Sketchy.line(ctx, x, y + h - ph, x + w, y + h - ph, 0.5);
+      const bs = Math.min(ph * 0.6, 16), by = y + h - ph / 2 - bs / 2;
+      const cx0 = x + w / 2 - bs * 2.2;
+      for (let i = 0; i < 3; i++) {
+        const bx = cx0 + i * bs * 1.5;
+        ctx.strokeStyle = color;
+        if (i === 0) {
+          ctx.fillStyle = _tint(color, '15');
+          Sketchy.roundedRect(ctx, bx, by, bs, bs, 3);
+          ctx.fill();
+        } else {
+          Sketchy.roundedRect(ctx, bx, by, bs, bs, 3);
+        }
+      }
+      const my = y + h - ph / 2;                // chevrones ‹ ›
+      Sketchy.line(ctx, cx0 - bs, my - 3, cx0 - bs - 4, my, 0.5);
+      Sketchy.line(ctx, cx0 - bs - 4, my, cx0 - bs, my + 3, 0.5);
+      const rx = cx0 + 3 * bs * 1.5 + bs * 0.4;
+      Sketchy.line(ctx, rx, my - 3, rx + 4, my, 0.5);
+      Sketchy.line(ctx, rx + 4, my, rx, my + 3, 0.5);
     }
   }
 
@@ -753,6 +895,21 @@ const Renderer = (() => {
       Sketchy.line(ctx, cx, cy, cx - r * 0.85, cy + r * 0.5, 0.5);
       return;
     }
+    if (v === 'donut') {
+      // Anillo: la tarta con agujero — dos aros y el tramo destacado grueso.
+      const cx = x + w / 2, cy = y + h / 2, r = Math.min(w, h) / 2 - 2;
+      const ri = r * 0.55;
+      Sketchy.ellipse(ctx, cx, cy, r, r);
+      Sketchy.ellipse(ctx, cx, cy, ri, ri);
+      ctx.beginPath();
+      ctx.lineWidth = Math.max(2, r - ri - 2);
+      ctx.strokeStyle = _tint(color, '60');
+      ctx.arc(cx, cy, (r + ri) / 2, -Math.PI / 2, Math.PI * 0.1);
+      ctx.stroke();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lw;
+      return;
+    }
     if (v === 'gauge') {
       const cx = x + w / 2, cy = y + h * 0.92, r = Math.min(w / 2, h * 0.85) - 2;
       ctx.beginPath();
@@ -770,10 +927,28 @@ const Renderer = (() => {
       Sketchy.line(ctx, cx - r, cy, cx + r, cy, 0.5);
       return;
     }
-    // Barras y líneas comparten los ejes.
+    // Barras, líneas y área comparten los ejes.
     Sketchy.line(ctx, x, y, x, y + h);
     Sketchy.line(ctx, x, y + h, x + w, y + h);
     const vals = [0.45, 0.75, 0.35, 0.9, 0.6];
+    if (v === 'area') {
+      // Área: la poligonal de líneas con el suelo relleno.
+      ctx.fillStyle = _tint(color, '15');
+      ctx.beginPath();
+      ctx.moveTo(x + w * 0.08, y + h);
+      vals.forEach((val, i) => {
+        ctx.lineTo(x + w * (0.08 + i * 0.21), y + h * (1 - val));
+      });
+      ctx.lineTo(x + w * (0.08 + (vals.length - 1) * 0.21), y + h);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = color;
+      for (let i = 1; i < vals.length; i++) {
+        Sketchy.line(ctx, x + w * (0.08 + (i - 1) * 0.21), y + h * (1 - vals[i - 1]),
+          x + w * (0.08 + i * 0.21), y + h * (1 - vals[i]), 0.5);
+      }
+      return;
+    }
     if (v === 'lines') {
       ctx.strokeStyle = color;
       for (let i = 1; i < vals.length; i++) {
@@ -797,7 +972,7 @@ const Renderer = (() => {
     }
   }
 
-  function _dialog(ctx, x, y, w, h, color, lw, label) {
+  function _dialog(ctx, x, y, w, h, color, lw, label, variant) {
     ctx.strokeStyle = color;
     ctx.lineWidth = lw;
     ctx.fillStyle = '#ffffff08';
@@ -815,13 +990,19 @@ const Renderer = (() => {
     Sketchy.line(ctx, cx + cs, cy - cs, cx - cs, cy + cs, 0.5);
     _fakeText(ctx, color, x + 12, y + barH + 20, x + w - 20);
     _fakeText(ctx, color, x + 12, y + barH + 34, x + w * 0.72);
-    // Fila de botones, alineada abajo a la derecha.
+    // Fila de botones, alineada abajo a la derecha. La variante 'alert'
+    // (v3.23.0) lleva UN solo botón, centrado: no hay nada que cancelar.
     const bw = Math.min(86, w * 0.3), bh = Math.min(30, h * 0.16);
     const by = y + h - bh - 10;
     ctx.strokeStyle = color;
     ctx.lineWidth = lw;
-    Sketchy.roundedRect(ctx, x + w - bw * 2 - 22, by, bw, bh, 6);
     ctx.fillStyle = _tint(color, '15');
+    if ((variant || 'confirm') === 'alert') {
+      Sketchy.roundedRect(ctx, x + (w - bw) / 2, by, bw, bh, 6);
+      ctx.fill();
+      return;
+    }
+    Sketchy.roundedRect(ctx, x + w - bw * 2 - 22, by, bw, bh, 6);
     Sketchy.roundedRect(ctx, x + w - bw - 12, by, bw, bh, 6);   // el primario
     ctx.fill();
   }
@@ -864,6 +1045,86 @@ const Renderer = (() => {
       }
       _fakeText(ctx, color, x + 16, iy + ih / 2 - 3, x + w * (i % 2 ? 0.62 : 0.78));
     }
+  }
+
+  /** «Piezas» (v3.23.0): las menores de UI en un solo tipo. Cada variante es
+      un dibujo independiente; la caja por defecto de cada una vive en
+      UI_PIECE_DEFAULTS (config.js). Sin rótulo: todo el texto es simulado. */
+  function _uiPiece(ctx, x, y, w, h, color, lw, variant) {
+    const v = variant || 'avatar';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lw;
+    if (v === 'progress') {
+      const r = Math.min(h / 2, 8);
+      Sketchy.roundedRect(ctx, x, y, w, h, r);
+      ctx.fillStyle = _tint(color, '40');      // el 60% recorrido
+      ctx.fillRect(x + 2, y + 2, (w - 4) * 0.6, h - 4);
+      return;
+    }
+    if (v === 'breadcrumbs') {
+      // Tres migas separadas por barras. Con el grosor del elemento, no el de
+      // _fakeText: a escala de icono el trazo de 1px desaparecía.
+      const cy = y + h / 2;
+      const seg = w / 3.4;
+      ctx.strokeStyle = _tint(color, '60');
+      Sketchy.line(ctx, x, cy, x + seg * 0.8, cy, 0.5);
+      Sketchy.line(ctx, x + seg * 1.15, cy, x + seg * 1.95, cy, 0.5);
+      ctx.strokeStyle = color;                 // la actual, más marcada
+      Sketchy.line(ctx, x + seg * 2.3, cy, x + seg * 2.85, cy, 0.5);
+      ctx.strokeStyle = _tint(color, '60');
+      for (const t of [0.95, 2.1]) {           // las barras «/»
+        Sketchy.line(ctx, x + seg * t + 4, cy - 6, x + seg * t - 2, cy + 6, 0.5);
+      }
+      return;
+    }
+    if (v === 'tooltip') {
+      // Globo: caja redondeada con pico abajo y dos líneas de texto.
+      const tipH = Math.min(10, h * 0.2), bh = h - tipH;
+      Sketchy.roundedRect(ctx, x, y, w, bh, 6);
+      const cx = x + w / 2;
+      Sketchy.line(ctx, cx - 6, y + bh, cx, y + h, 0.5);
+      Sketchy.line(ctx, cx, y + h, cx + 6, y + bh, 0.5);
+      _fakeText(ctx, color, x + 10, y + bh * 0.4, x + w - 12);
+      _fakeText(ctx, color, x + 10, y + bh * 0.68, x + w * 0.7);
+      return;
+    }
+    if (v === 'badge') {
+      // Insignia: píldora rellena con su rayita dentro.
+      ctx.fillStyle = _tint(color, '15');
+      Sketchy.roundedRect(ctx, x, y, w, h, h / 2);
+      ctx.fill();
+      _fakeText(ctx, color, x + w * 0.25, y + h / 2, x + w * 0.75);
+      return;
+    }
+    if (v === 'pagination') {
+      // «‹ 1 2 3 ›» con la página actual rellena, como la banda de la tabla.
+      const bs = Math.min(h * 0.8, 22), by = y + (h - bs) / 2, cy = y + h / 2;
+      const cx0 = x + w / 2 - bs * 2.2;
+      for (let i = 0; i < 3; i++) {
+        const bx = cx0 + i * bs * 1.5;
+        ctx.strokeStyle = color;
+        if (i === 0) {
+          ctx.fillStyle = _tint(color, '15');
+          Sketchy.roundedRect(ctx, bx, by, bs, bs, 3);
+          ctx.fill();
+        } else {
+          Sketchy.roundedRect(ctx, bx, by, bs, bs, 3);
+        }
+      }
+      Sketchy.line(ctx, cx0 - bs, cy - 4, cx0 - bs - 5, cy, 0.5);
+      Sketchy.line(ctx, cx0 - bs - 5, cy, cx0 - bs, cy + 4, 0.5);
+      const rx = cx0 + 3 * bs * 1.5 + bs * 0.4;
+      Sketchy.line(ctx, rx, cy - 4, rx + 5, cy, 0.5);
+      Sketchy.line(ctx, rx + 5, cy, rx, cy + 4, 0.5);
+      return;
+    }
+    // 'avatar': círculo con cabeza y hombros.
+    const r = Math.min(w, h) / 2 - 1, cx = x + w / 2, cy = y + h / 2;
+    Sketchy.ellipse(ctx, cx, cy, r, r);
+    Sketchy.ellipse(ctx, cx, cy - r * 0.32, r * 0.34, r * 0.34);
+    ctx.beginPath();
+    ctx.arc(cx, cy + r * 0.95, r * 0.65, Math.PI * 1.15, Math.PI * 1.85);
+    ctx.stroke();
   }
 
   function _polygonPath(ctx, vertices) {
@@ -1155,18 +1416,19 @@ const Renderer = (() => {
         break;
       }
 
-      case 'button':           _button(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth, el.label); break;
-      case 'input':            _input(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth, el.label); break;
+      case 'button':           _button(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth, el.label, el.variant); break;
+      case 'input':            _input(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth, el.label, el.variant); break;
       case 'imagePlaceholder': _imagePlaceholder(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth); break;
       case 'image':            _image(ctx, el); break;
-      case 'nav':              _nav(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth, el.label); break;
-      case 'card':             _card(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth, el.label); break;
+      case 'nav':              _nav(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth, el.label, el.variant); break;
+      case 'card':             _card(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth, el.label, el.variant); break;
       case 'formControl':      _formControl(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth, el.label, el.variant); break;
       case 'uiTable':          _uiTable(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth, el.label, el.variant); break;
       case 'chart':            _chart(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth, el.label, el.variant); break;
-      case 'dialog':           _dialog(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth, el.label); break;
+      case 'dialog':           _dialog(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth, el.label, el.variant); break;
       case 'tabs':             _tabs(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth); break;
       case 'sidebar':          _sidebar(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth); break;
+      case 'uiPiece':          _uiPiece(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth, el.variant); break;
     }
 
     Sketchy.setSeed(null);

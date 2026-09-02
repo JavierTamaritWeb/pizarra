@@ -18,7 +18,7 @@ test('config.js — TOOLS', async t => {
     assert.equal(Object.isFrozen(ctx.TOOLS), true);
   });
 
-  await t.test('TOOLS tiene exactamente los 67 ids esperados', () => {
+  await t.test('TOOLS tiene exactamente los 68 ids esperados', () => {
     const expected = [
       'pencil', 'airbrush', 'line', 'rect', 'roundedRect', 'circle', 'arrow',
       'curveArrow', 'arc',
@@ -31,6 +31,8 @@ test('config.js — TOOLS', async t => {
       // Piezas de formulario y datos (v3.22.0): tipos de elemento reales, las
       // tres primeras con campo `variant` opcional
       'formControl', 'uiTable', 'chart', 'dialog', 'tabs', 'sidebar',
+      // «Piezas» (v3.23.0): las menores de UI en un solo tipo con variantes
+      'uiPiece',
       'square', 'trapezoid', 'triangle', 'pentagon', 'hexagon', 'star5', 'star6',
       // Triángulo irregular (v3.19.0): llena la caja y guarda su vértice en `apex`
       'freeTriangle',
@@ -51,11 +53,11 @@ test('config.js — TOOLS', async t => {
       'prisma', 'piramide', 'tronco', 'esfera',
     ];
     const values = Object.values(ctx.TOOLS);
-    assert.equal(values.length, 67);
+    assert.equal(values.length, 68);
     assert.deepEqual([...values].sort(), [...expected].sort());
-    // Las claves también son 67 y únicas
-    assert.equal(Object.keys(ctx.TOOLS).length, 67);
-    assert.equal(new Set(values).size, 67);
+    // Las claves también son 68 y únicas
+    assert.equal(Object.keys(ctx.TOOLS).length, 68);
+    assert.equal(new Set(values).size, 68);
   });
 });
 
@@ -230,11 +232,12 @@ test('config.js — CANVAS_W/CANVAS_H', () => {
   assert.equal(ctx.CANVAS_H, 800);
 });
 
-test('config.js — UI_DEFAULTS tiene w/h positivos para los 11 componentes UI', () => {
+test('config.js — UI_DEFAULTS tiene w/h positivos para los 12 componentes UI', () => {
   const ctx = load('src/js/config.js');
   const { TOOLS, UI_DEFAULTS } = ctx;
   const keys = [TOOLS.BUTTON, TOOLS.INPUT, TOOLS.IMAGE_PLACEHOLDER, TOOLS.NAV, TOOLS.CARD,
-    TOOLS.FORM_CONTROL, TOOLS.UI_TABLE, TOOLS.CHART, TOOLS.DIALOG, TOOLS.TABS, TOOLS.SIDEBAR];
+    TOOLS.FORM_CONTROL, TOOLS.UI_TABLE, TOOLS.CHART, TOOLS.DIALOG, TOOLS.TABS, TOOLS.SIDEBAR,
+    TOOLS.UI_PIECE];
   for (const key of keys) {
     const def = UI_DEFAULTS[key];
     assert.ok(def, `UI_DEFAULTS no tiene entrada para "${key}"`);
@@ -409,16 +412,17 @@ test('config.js — el grupo UI: componentes, Marco y las piezas de formulario y
   const ctx = load('src/js/config.js');
   const ui = ctx.TOOL_GROUPS.find(g => g.label === 'UI');
   assert.ok(ui, 'falta el grupo UI en el sidebar');
-  // El marco (v3.12.0) separa los componentes clásicos de las seis piezas de
-  // formulario y datos (v3.22.0), que cierran el grupo.
+  // Orden por flujo de maquetado (v3.23.0): contenido básico, contenedores,
+  // navegación, formulario, datos y remates. Los atajos viajaron con su botón.
   assert.deepEqual([...ui.tools.map(t => t.id)],
-    ['text', 'emoji', 'button', 'input', 'imagePlaceholder', 'nav', 'card', 'frame',
-     'formControl', 'uiTable', 'chart', 'dialog', 'tabs', 'sidebar']);
-  // Todo lo posterior a Tarjeta entró sin tecla por lo de siempre: las 26
-  // letras y los 10 dígitos están asignados. CLAUDE.md afirma que la lista
-  // exacta de herramientas sin atajo está pinneada.
+    ['text', 'emoji', 'frame', 'card', 'dialog', 'nav', 'tabs', 'sidebar',
+     'input', 'button', 'formControl', 'uiTable', 'chart',
+     'imagePlaceholder', 'uiPiece']);
+  // Los sin tecla entraron así por lo de siempre: las 26 letras y los 10
+  // dígitos están asignados. CLAUDE.md afirma que la lista exacta de
+  // herramientas sin atajo está pinneada.
   assert.deepEqual([...ui.tools.filter(t => !t.key).map(t => t.id)],
-    ['frame', 'formControl', 'uiTable', 'chart', 'dialog', 'tabs', 'sidebar']);
+    ['frame', 'dialog', 'tabs', 'sidebar', 'formControl', 'uiTable', 'chart', 'uiPiece']);
 });
 
 test('config.js — el sidebar de Edificios y BUILDING_TOOLS son la misma lista', () => {
@@ -536,6 +540,11 @@ test('config.js — los catálogos de variante están congelados y bien formados
     SILHOUETTE_TYPES: ctx.SILHOUETTE_TYPES, ROOF_ADDONS: ctx.ROOF_ADDONS,
     FORM_VARIANTS: ctx.FORM_VARIANTS, TABLE_VARIANTS: ctx.TABLE_VARIANTS,
     CHART_VARIANTS: ctx.CHART_VARIANTS,
+    // Las veteranas, el Diálogo, «Piezas» y los presets del Marco (v3.23.0)
+    BUTTON_VARIANTS: ctx.BUTTON_VARIANTS, INPUT_VARIANTS: ctx.INPUT_VARIANTS,
+    CARD_VARIANTS: ctx.CARD_VARIANTS, NAV_VARIANTS: ctx.NAV_VARIANTS,
+    DIALOG_VARIANTS: ctx.DIALOG_VARIANTS, UI_PIECE_VARIANTS: ctx.UI_PIECE_VARIANTS,
+    FRAME_PRESETS: ctx.FRAME_PRESETS,
     PRISM_SECTIONS: ctx.PRISM_SECTIONS, PYRAMID_SECTIONS: ctx.PYRAMID_SECTIONS,
     FRUSTUM_SECTIONS: ctx.FRUSTUM_SECTIONS,
   };
@@ -549,6 +558,34 @@ test('config.js — los catálogos de variante están congelados y bien formados
       assert.ok(v.name && typeof v.name === 'string', `${name}/${v.id} sin nombre`);
     }
   }
+});
+
+/* ---------------- Marco y «Piezas» (v3.23.0) ---------------- */
+
+test('config.js — FRAME_PRESETS: cajas válidas y la primera es la histórica', () => {
+  const ctx = load('src/js/config.js');
+  for (const preset of ctx.FRAME_PRESETS) {
+    assert.ok(preset.w > 0 && preset.h > 0, `preset ${preset.id} degenerado`);
+  }
+  // El primer preset ES la caja que UI_DEFAULTS[frame] daba a un clic hasta la
+  // 3.22.x: cambiarla cambiaría el gesto más común sin que nadie lo pida.
+  assert.equal(ctx.FRAME_PRESETS[0].id, 'movil');
+  assert.equal(ctx.FRAME_PRESETS[0].w, ctx.UI_DEFAULTS[ctx.TOOLS.FRAME].w);
+  assert.equal(ctx.FRAME_PRESETS[0].h, ctx.UI_DEFAULTS[ctx.TOOLS.FRAME].h);
+});
+
+test('config.js — UI_PIECE_DEFAULTS: una caja válida por cada variante de «Piezas»', () => {
+  const ctx = load('src/js/config.js');
+  const ids = ctx.UI_PIECE_VARIANTS.map(v => v.id);
+  assert.deepEqual([...Object.keys(ctx.UI_PIECE_DEFAULTS)].sort(), [...ids].sort(),
+    'las claves de UI_PIECE_DEFAULTS deben ser exactamente los ids del catálogo');
+  for (const id of ids) {
+    const caja = ctx.UI_PIECE_DEFAULTS[id];
+    assert.ok(caja.w > 0 && caja.h > 0, `caja de ${id} degenerada`);
+  }
+  // Y la caja genérica de UI_DEFAULTS es la del default (avatar), para que la
+  // vista previa de #modal-ui y la creación cuenten la misma historia.
+  assert.deepEqual(ctx.UI_DEFAULTS[ctx.TOOLS.UI_PIECE], ctx.UI_PIECE_DEFAULTS.avatar);
 });
 
 /* ---------------- Aspectos de lienzo (v2.31.0) ---------------- */

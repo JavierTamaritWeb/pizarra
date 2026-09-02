@@ -73,6 +73,15 @@
     formVariant: 'checkbox',
     tableVariant: 'grid',
     chartVariant: 'bars',
+    // Las veteranas, el Diálogo y «Piezas» ganaron catálogo en la v3.23.0.
+    buttonVariant: 'primary',
+    inputVariant: 'text',
+    cardVariant: 'image',
+    navVariant: 'links',
+    dialogVariant: 'confirm',
+    uiPieceVariant: 'avatar',
+    // Preset de dispositivo del Marco (v3.23.0): la caja que coloca un CLIC.
+    framePreset: 'movil',
     buildFloors: 'auto', // nº de plantas de Fachada/Alzado/Perfil ('auto' = según la altura)
     buildBays: 'auto',   // ventanas por planta ('auto' = según el ancho)
     roofPitch: 0.36,     // fracción de altura del tejado en Alzado/Perfil (0.20–0.50)
@@ -1853,6 +1862,13 @@
         formVariant: state.formVariant,
         tableVariant: state.tableVariant,
         chartVariant: state.chartVariant,
+        buttonVariant: state.buttonVariant,
+        inputVariant: state.inputVariant,
+        cardVariant: state.cardVariant,
+        navVariant: state.navVariant,
+        dialogVariant: state.dialogVariant,
+        uiPieceVariant: state.uiPieceVariant,
+        framePreset: state.framePreset,
         // Variantes de Jardín, por el mismo motivo.
         plotShape: state.plotShape,
         treeType: state.treeType,
@@ -2050,6 +2066,13 @@
       restoreVariant(prefs.formVariant, FORM_VARIANTS, 'formVariant');
       restoreVariant(prefs.tableVariant, TABLE_VARIANTS, 'tableVariant');
       restoreVariant(prefs.chartVariant, CHART_VARIANTS, 'chartVariant');
+      restoreVariant(prefs.buttonVariant, BUTTON_VARIANTS, 'buttonVariant');
+      restoreVariant(prefs.inputVariant, INPUT_VARIANTS, 'inputVariant');
+      restoreVariant(prefs.cardVariant, CARD_VARIANTS, 'cardVariant');
+      restoreVariant(prefs.navVariant, NAV_VARIANTS, 'navVariant');
+      restoreVariant(prefs.dialogVariant, DIALOG_VARIANTS, 'dialogVariant');
+      restoreVariant(prefs.uiPieceVariant, UI_PIECE_VARIANTS, 'uiPieceVariant');
+      restoreVariant(prefs.framePreset, FRAME_PRESETS, 'framePreset');
       restoreVariant(prefs.plotShape,   PLOT_SHAPES,   'plotShape');
       restoreVariant(prefs.treeType,    TREE_TYPES,    'treeType');
       restoreVariant(prefs.shrubType,   SHRUB_TYPES,   'shrubType');
@@ -4659,11 +4682,29 @@
         [TOOLS.FORM_CONTROL]: ['formVariant', FORM_VARIANTS],
         [TOOLS.UI_TABLE]:     ['tableVariant', TABLE_VARIANTS],
         [TOOLS.CHART]:        ['chartVariant', CHART_VARIANTS],
+        [TOOLS.BUTTON]:       ['buttonVariant', BUTTON_VARIANTS],
+        [TOOLS.INPUT]:        ['inputVariant', INPUT_VARIANTS],
+        [TOOLS.CARD]:         ['cardVariant', CARD_VARIANTS],
+        [TOOLS.NAV]:          ['navVariant', NAV_VARIANTS],
+        [TOOLS.DIALOG]:       ['dialogVariant', DIALOG_VARIANTS],
+        [TOOLS.UI_PIECE]:     ['uiPieceVariant', UI_PIECE_VARIANTS],
       }[state.tool];
       if (variantField) {
         const v = state[variantField[0]];
         if (variantField[1].some(it => it.id === v) &&
             v !== variantField[1][0].id) el.variant = v;
+      }
+      // «Piezas» (v3.23.0): la caja de un clic depende de la variante — un
+      // avatar y una barra de progreso no pueden nacer con la misma.
+      if (state.tool === TOOLS.UI_PIECE && !(w > 20 || h > 20)) {
+        const caja = UI_PIECE_DEFAULTS[state.uiPieceVariant];
+        if (caja) { el.w = caja.w; el.h = caja.h; }
+      }
+      // Marco (v3.23.0): un CLIC coloca la caja del preset de dispositivo; el
+      // drag sigue dibujando libre (decisión de diseño, no un descuido).
+      if (state.tool === TOOLS.FRAME && !(w > 20 || h > 20)) {
+        const preset = FRAME_PRESETS.find(f => f.id === state.framePreset);
+        if (preset) { el.w = preset.w; el.h = preset.h; }
       }
       // Un marco nace numerado, como las capas de cualquier editor: «Marco 2»
       // dice algo, y tres «Marco» no dicen nada. El rótulo se cambia en
@@ -5185,6 +5226,14 @@
     { tool: TOOLS.FORM_CONTROL, modal: 'modal-form', root: 'form-catalog', cls: 'modal__form', data: 'form', catalog: FORM_VARIANTS, key: 'formVariant', icon: v => uiVariantIcon(TOOLS.FORM_CONTROL, v) },
     { tool: TOOLS.UI_TABLE, modal: 'modal-uitable', root: 'uitable-catalog', cls: 'modal__uitable', data: 'uitable', catalog: TABLE_VARIANTS, key: 'tableVariant', icon: v => uiVariantIcon(TOOLS.UI_TABLE, v) },
     { tool: TOOLS.CHART, modal: 'modal-chart', root: 'chart-catalog', cls: 'modal__chart', data: 'chart', catalog: CHART_VARIANTS, key: 'chartVariant', icon: v => uiVariantIcon(TOOLS.CHART, v) },
+    // Las veteranas, el Diálogo y «Piezas» (v3.23.0): mismo flujo — elegir la
+    // herramienta abre el catálogo; el ⚙ sigue editando en #modal-ui.
+    { tool: TOOLS.BUTTON, modal: 'modal-button', root: 'button-catalog', cls: 'modal__button', data: 'button', catalog: BUTTON_VARIANTS, key: 'buttonVariant', icon: v => uiVariantIcon(TOOLS.BUTTON, v) },
+    { tool: TOOLS.INPUT, modal: 'modal-input', root: 'input-catalog', cls: 'modal__input', data: 'input', catalog: INPUT_VARIANTS, key: 'inputVariant', icon: v => uiVariantIcon(TOOLS.INPUT, v) },
+    { tool: TOOLS.CARD, modal: 'modal-card', root: 'card-catalog', cls: 'modal__card', data: 'card', catalog: CARD_VARIANTS, key: 'cardVariant', icon: v => uiVariantIcon(TOOLS.CARD, v) },
+    { tool: TOOLS.NAV, modal: 'modal-nav', root: 'nav-catalog', cls: 'modal__nav', data: 'nav', catalog: NAV_VARIANTS, key: 'navVariant', icon: v => uiVariantIcon(TOOLS.NAV, v) },
+    { tool: TOOLS.DIALOG, modal: 'modal-dialog', root: 'dialog-catalog', cls: 'modal__dialog', data: 'dialog', catalog: DIALOG_VARIANTS, key: 'dialogVariant', icon: v => uiVariantIcon(TOOLS.DIALOG, v) },
+    { tool: TOOLS.UI_PIECE, modal: 'modal-uipiece', root: 'uipiece-catalog', cls: 'modal__uipiece', data: 'uipiece', catalog: UI_PIECE_VARIANTS, key: 'uiPieceVariant', icon: v => uiVariantIcon(TOOLS.UI_PIECE, v) },
     { tool: TOOLS.GARDEN_PLOT,   modal: 'modal-plot',   root: 'plot-catalog',   cls: 'modal__plot',   data: 'plot',   catalog: PLOT_SHAPES,   key: 'plotShape'  },
     { tool: TOOLS.GARDEN_TREE,   modal: 'modal-tree',   root: 'tree-catalog',   cls: 'modal__tree',   data: 'tree',   catalog: TREE_TYPES,    key: 'treeType', plant: true },
     { tool: TOOLS.GARDEN_SHRUB,  modal: 'modal-shrub',  root: 'shrub-catalog',  cls: 'modal__shrub',  data: 'shrub',  catalog: SHRUB_TYPES,   key: 'shrubType', plant: true },
@@ -5484,6 +5533,9 @@
     // La Cota tampoco tiene variante que elegir: su modal es sólo de ajustes
     // (la escala 1:N), se abre como el de la Esfera y cerrarlo no cancela nada.
     if (id === TOOLS.BUILD_DIM) { syncDimControls(); $('modal-dim').showModal(); }
+    // El Marco (v3.23.0) tampoco: su modal es sólo de ajustes (el preset de
+    // dispositivo que coloca un clic), como la Esfera y la Cota.
+    if (id === TOOLS.FRAME) { syncFrameControls(); $('modal-frame').showModal(); }
   }
 
   function deleteSelection() {
@@ -7643,8 +7695,7 @@
       únicas, sin catálogo — Formulario, Tabla y Gráfico abren su catálogo al
       elegirlos, pero se EDITAN también en #modal-ui (ver TYPE_SETTINGS_MODAL). */
   const UI_MODAL_TOOLS = [
-    TOOLS.BUTTON, TOOLS.INPUT, TOOLS.IMAGE_PLACEHOLDER, TOOLS.NAV, TOOLS.CARD,
-    TOOLS.DIALOG, TOOLS.TABS, TOOLS.SIDEBAR,
+    TOOLS.IMAGE_PLACEHOLDER, TOOLS.TABS, TOOLS.SIDEBAR,
   ];
   /** Tipo de elemento que el modal de ajustes de cada herramienta sabe editar.
       Es la tabla de «pulsar la herramienta del elemento seleccionado lo edita»
@@ -7682,9 +7733,12 @@
   };
   SHAPE_TOOLS.forEach(t => { TYPE_SETTINGS_MODAL[t] = openShapeModal; });
   UI_MODAL_TOOLS.forEach(t => { TYPE_SETTINGS_MODAL[t] = openUiModal; });
-  // Las tres piezas UI con catálogo también se EDITAN en #modal-ui (rótulo,
-  // trazo, color); su variante solo se elige al crear, en su catálogo.
-  [TOOLS.FORM_CONTROL, TOOLS.UI_TABLE, TOOLS.CHART]
+  // Las piezas UI con catálogo también se EDITAN en #modal-ui (rótulo,
+  // trazo, color); su variante solo se elige al crear, en su catálogo. Desde
+  // la v3.23.0 las veteranas, el Diálogo y «Piezas» van por aquí.
+  [TOOLS.FORM_CONTROL, TOOLS.UI_TABLE, TOOLS.CHART,
+    TOOLS.BUTTON, TOOLS.INPUT, TOOLS.CARD, TOOLS.NAV,
+    TOOLS.DIALOG, TOOLS.UI_PIECE]
     .forEach(t => { TYPE_SETTINGS_MODAL[t] = openUiModal; });
 
   /** Los ajustes que gobiernan la selección ENTERA, o null si no hay unos
@@ -8429,11 +8483,13 @@
     [TOOLS.FORM_CONTROL]: 'Formulario', [TOOLS.UI_TABLE]: 'Tabla',
     [TOOLS.CHART]: 'Gráfico', [TOOLS.DIALOG]: 'Diálogo',
     [TOOLS.TABS]: 'Pestañas', [TOOLS.SIDEBAR]: 'Menú lateral',
+    [TOOLS.UI_PIECE]: 'Piezas',
   };
 
   /** Piezas UI sin rótulo: su texto es simulado (trazos), como el de la
       tarjeta — un campo de rótulo que no pinta nada sería un engaño. */
-  const UNLABELED_UI = [TOOLS.IMAGE_PLACEHOLDER, TOOLS.CHART, TOOLS.TABS, TOOLS.SIDEBAR];
+  const UNLABELED_UI = [TOOLS.IMAGE_PLACEHOLDER, TOOLS.CHART, TOOLS.TABS,
+    TOOLS.SIDEBAR, TOOLS.UI_PIECE];
 
   /** Punto único de sincronía de los ajustes de componente. El tipo mostrado
       es el del componente seleccionado si lo hay (⚙ con selección) y el de la
@@ -9578,6 +9634,14 @@
       savePrefs();
     });
     syncDimControls();
+    // Marco: el preset de dispositivo que coloca un clic (v3.23.0).
+    fillVariantSelect('frame-preset', FRAME_PRESETS);
+    $('frame-preset').addEventListener('change', e => {
+      state.framePreset = FRAME_PRESETS.some(f => f.id === e.target.value)
+        ? e.target.value : 'movil';
+      savePrefs();
+    });
+    syncFrameControls();
     // Tejado: el complemento baja a un select del modal (ver ROOF_ADDONS).
     fillVariantSelect('roof-addon', ROOF_ADDONS);
     $('roof-addon').value = state.roofAddon;
@@ -10539,6 +10603,11 @@
     dimModal.querySelector('.modal__cancel').addEventListener('click', () => dimModal.close());
     closeOnBackdrop(dimModal);
 
+    // Marco: como la Cota, solo ajustes (el preset) — misma pareja.
+    const frameModal = $('modal-frame');
+    frameModal.querySelector('.modal__cancel').addEventListener('click', () => frameModal.close());
+    closeOnBackdrop(frameModal);
+
     // Ajustes de «Select»: mismo contrato de cierre que el del borrador. Cada
     // modal cablea el suyo, así que un diálogo nuevo sin esta pareja de líneas
     // no se puede cerrar — y un <dialog showModal> abierto deja inerte el
@@ -10803,7 +10872,8 @@
     ictx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ictx.fillStyle = state.canvasBg;
     ictx.fillRect(0, 0, GARDEN_ICON_W, GARDEN_ICON_H);
-    const defs = UI_DEFAULTS[type];
+    const defs = (type === TOOLS.UI_PIECE && UI_PIECE_DEFAULTS[variantId]) ||
+      UI_DEFAULTS[type];
     const pad = 5;
     const k = Math.min((GARDEN_ICON_W - pad * 2) / defs.w,
                        (GARDEN_ICON_H - pad * 2) / defs.h);
@@ -11565,6 +11635,10 @@
 
   function syncDimControls() {
     $('dim-scale').value = String(state.dimScale);
+  }
+
+  function syncFrameControls() {
+    $('frame-preset').value = state.framePreset;
   }
 
   function syncFenceControls() {
