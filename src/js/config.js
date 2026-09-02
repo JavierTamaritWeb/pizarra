@@ -472,6 +472,24 @@ const UI_PIECE_DEFAULTS = Object.freeze({
   pagination:  { w: 200, h: 32 },
 });
 
+/** El globo de «Piezas» (v3.24.0): forma del cuerpo y lado del pico, elegidos
+    en dos selects de su modal (patrón de la vista de la Escalera). La pareja
+    redondeado+abajo ES la variante 'tooltip' a secas — el dibujo histórico —
+    y cualquier otra se serializa compuesta: `tooltip-<forma>-<pico>`
+    ('tooltip-round-down' explícito se rechaza: la regla del default). */
+const TOOLTIP_SHAPES = Object.freeze([
+  { id: 'round',   name: 'Redondeado' },
+  { id: 'oval',    name: 'Bocadillo' },
+  { id: 'thought', name: 'Pensamiento' },
+]);
+
+const TOOLTIP_TAILS = Object.freeze([
+  { id: 'down',  name: 'Abajo' },
+  { id: 'up',    name: 'Arriba' },
+  { id: 'left',  name: 'Izquierda' },
+  { id: 'right', name: 'Derecha' },
+]);
+
 /** Presets de dispositivo del Marco (v3.23.0): la caja que un CLIC sin
     arrastre coloca. El drag sigue dibujando libre. La primera entrada es la
     caja histórica de UI_DEFAULTS[FRAME]. */

@@ -1077,15 +1077,48 @@ const Renderer = (() => {
       }
       return;
     }
-    if (v === 'tooltip') {
-      // Globo: caja redondeada con pico abajo y dos líneas de texto.
-      const tipH = Math.min(10, h * 0.2), bh = h - tipH;
-      Sketchy.roundedRect(ctx, x, y, w, bh, 6);
-      const cx = x + w / 2;
-      Sketchy.line(ctx, cx - 6, y + bh, cx, y + h, 0.5);
-      Sketchy.line(ctx, cx, y + h, cx + 6, y + bh, 0.5);
-      _fakeText(ctx, color, x + 10, y + bh * 0.4, x + w - 12);
-      _fakeText(ctx, color, x + 10, y + bh * 0.68, x + w * 0.7);
+    if (v === 'tooltip' || v.startsWith('tooltip-')) {
+      // Globo (v3.24.0): forma del cuerpo (redondeado, bocadillo ovalado o
+      // nube de pensamiento) y pico en cualquiera de los cuatro lados. La
+      // variante 'tooltip' a secas es redondeado+abajo, el dibujo histórico
+      // — la rama general reproduce sus llamadas una a una.
+      const [, forma = 'round', pico = 'down'] = v.split('-');
+      const lateral = pico === 'left' || pico === 'right';
+      // El pensamiento necesita más recorrido: sus burbujas menguantes se
+      // aplastaban contra el cuerpo con el hueco del triángulo.
+      const tip = forma === 'thought'
+        ? Math.min(16, (lateral ? w : h) * 0.28)
+        : Math.min(10, (lateral ? w : h) * 0.2);
+      // El cuerpo cede al pico el hueco de su lado.
+      const bx = x + (pico === 'left' ? tip : 0);
+      const by = y + (pico === 'up' ? tip : 0);
+      const bw = w - (lateral ? tip : 0);
+      const bh = h - (lateral ? 0 : tip);
+      if (forma === 'oval' || forma === 'thought') {
+        Sketchy.ellipse(ctx, bx + bw / 2, by + bh / 2, bw / 2, bh / 2);
+      } else {
+        Sketchy.roundedRect(ctx, bx, by, bw, bh, 6);
+      }
+      const cx = bx + bw / 2, cy = by + bh / 2;
+      // Base del pico sobre el borde del cuerpo y punta hacia fuera.
+      let b1, b2, punta;
+      if (pico === 'up')        { b1 = [cx - 6, by]; b2 = [cx + 6, by]; punta = [cx, y]; }
+      else if (pico === 'left') { b1 = [bx, cy - 6]; b2 = [bx, cy + 6]; punta = [x, cy]; }
+      else if (pico === 'right'){ b1 = [bx + bw, cy - 6]; b2 = [bx + bw, cy + 6]; punta = [x + w, cy]; }
+      else                      { b1 = [cx - 6, by + bh]; b2 = [cx + 6, by + bh]; punta = [cx, y + h]; }
+      if (forma === 'thought') {
+        // El pensamiento no lleva pico: dos burbujas menguantes hacia fuera.
+        const ex = (b1[0] + b2[0]) / 2, ey = (b1[1] + b2[1]) / 2;
+        Sketchy.ellipse(ctx, ex + (punta[0] - ex) * 0.35, ey + (punta[1] - ey) * 0.35, 3.2, 3.2);
+        Sketchy.ellipse(ctx, ex + (punta[0] - ex) * 0.85, ey + (punta[1] - ey) * 0.85, 1.8, 1.8);
+      } else {
+        Sketchy.line(ctx, b1[0], b1[1], punta[0], punta[1], 0.5);
+        Sketchy.line(ctx, punta[0], punta[1], b2[0], b2[1], 0.5);
+      }
+      // El texto simulado, con más margen dentro de las formas ovales.
+      const inx = forma === 'round' ? 10 : bw * 0.18;
+      _fakeText(ctx, color, bx + inx, by + bh * 0.4, bx + bw - inx - 2);
+      _fakeText(ctx, color, bx + inx, by + bh * 0.68, bx + bw * 0.7);
       return;
     }
     if (v === 'badge') {

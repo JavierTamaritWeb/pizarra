@@ -747,12 +747,38 @@ const Exporter = (() => {
             for (const t of [0.95, 2.1]) {
               out += `<line x1="${el.x + seg * t + 4}" y1="${cy - 6}" x2="${el.x + seg * t - 2}" y2="${cy + 6}" stroke="${tint('60')}" stroke-width="1"/>\n`;
             }
-          } else if (v === 'tooltip') {
-            const tipH = Math.min(10, el.h * 0.2), bh2 = el.h - tipH, cx = el.x + el.w / 2;
-            out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${bh2}" rx="6" ${s} fill="none"/>\n`;
-            out += `<path d="M ${cx - 6} ${el.y + bh2} L ${cx} ${el.y + el.h} L ${cx + 6} ${el.y + bh2}" ${s} fill="none"/>\n`;
-            out += `<line x1="${el.x + 10}" y1="${el.y + bh2 * 0.4}" x2="${el.x + el.w - 12}" y2="${el.y + bh2 * 0.4}" stroke="${tint('40')}" stroke-width="1"/>\n`;
-            out += `<line x1="${el.x + 10}" y1="${el.y + bh2 * 0.68}" x2="${el.x + el.w * 0.7}" y2="${el.y + bh2 * 0.68}" stroke="${tint('40')}" stroke-width="1"/>\n`;
+          } else if (v === 'tooltip' || v.startsWith('tooltip-')) {
+            // Globo (v3.24.0): forma × lado del pico, como en el renderer.
+            const [, forma = 'round', pico = 'down'] = v.split('-');
+            const lateral = pico === 'left' || pico === 'right';
+            const tip = forma === 'thought'
+              ? Math.min(16, (lateral ? el.w : el.h) * 0.28)
+              : Math.min(10, (lateral ? el.w : el.h) * 0.2);
+            const bx = el.x + (pico === 'left' ? tip : 0);
+            const by = el.y + (pico === 'up' ? tip : 0);
+            const bw = el.w - (lateral ? tip : 0);
+            const bh2 = el.h - (lateral ? 0 : tip);
+            if (forma === 'oval' || forma === 'thought') {
+              out += `<ellipse cx="${bx + bw / 2}" cy="${by + bh2 / 2}" rx="${bw / 2}" ry="${bh2 / 2}" ${s} fill="none"/>\n`;
+            } else {
+              out += `<rect x="${bx}" y="${by}" width="${bw}" height="${bh2}" rx="6" ${s} fill="none"/>\n`;
+            }
+            const cx = bx + bw / 2, cy = by + bh2 / 2;
+            let b1, b2, punta;
+            if (pico === 'up')        { b1 = [cx - 6, by]; b2 = [cx + 6, by]; punta = [cx, el.y]; }
+            else if (pico === 'left') { b1 = [bx, cy - 6]; b2 = [bx, cy + 6]; punta = [el.x, cy]; }
+            else if (pico === 'right'){ b1 = [bx + bw, cy - 6]; b2 = [bx + bw, cy + 6]; punta = [el.x + el.w, cy]; }
+            else                      { b1 = [cx - 6, by + bh2]; b2 = [cx + 6, by + bh2]; punta = [cx, el.y + el.h]; }
+            if (forma === 'thought') {
+              const ex = (b1[0] + b2[0]) / 2, ey = (b1[1] + b2[1]) / 2;
+              out += `<circle cx="${ex + (punta[0] - ex) * 0.35}" cy="${ey + (punta[1] - ey) * 0.35}" r="3.2" ${s} fill="none"/>\n`;
+              out += `<circle cx="${ex + (punta[0] - ex) * 0.85}" cy="${ey + (punta[1] - ey) * 0.85}" r="1.8" ${s} fill="none"/>\n`;
+            } else {
+              out += `<path d="M ${b1[0]} ${b1[1]} L ${punta[0]} ${punta[1]} L ${b2[0]} ${b2[1]}" ${s} fill="none"/>\n`;
+            }
+            const inx = forma === 'round' ? 10 : bw * 0.18;
+            out += `<line x1="${bx + inx}" y1="${by + bh2 * 0.4}" x2="${bx + bw - inx - 2}" y2="${by + bh2 * 0.4}" stroke="${tint('40')}" stroke-width="1"/>\n`;
+            out += `<line x1="${bx + inx}" y1="${by + bh2 * 0.68}" x2="${bx + bw * 0.7}" y2="${by + bh2 * 0.68}" stroke="${tint('40')}" stroke-width="1"/>\n`;
           } else if (v === 'badge') {
             out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="${el.h / 2}" ${s} fill="${tint('15')}"/>\n`;
             out += `<line x1="${el.x + el.w * 0.25}" y1="${el.y + el.h / 2}" x2="${el.x + el.w * 0.75}" y2="${el.y + el.h / 2}" stroke="${tint('40')}" stroke-width="1"/>\n`;
@@ -1210,8 +1236,19 @@ body { font-family: ${FONT_CSS()};${options.transparent ? '' : ' background: #ff
       };
       const list = lists[el.type];
       if (!list || typeof el.variant !== 'string') return false;
-      if (el.variant === list[0].id) return false;
-      if (!list.some(v => v.id === el.variant)) return false;
+      if (el.type === 'uiPiece' && el.variant.startsWith('tooltip-')) {
+        // El globo compuesto (v3.24.0): `tooltip-<forma>-<pico>`, con la
+        // pareja redondeado+abajo escrita como 'tooltip' a secas — el combo
+        // explícito equivalente se rechaza, la regla del default de siempre.
+        const partes = el.variant.split('-');
+        if (partes.length !== 3) return false;
+        if (partes[1] === 'round' && partes[2] === 'down') return false;
+        if (!TOOLTIP_SHAPES.some(f => f.id === partes[1])) return false;
+        if (!TOOLTIP_TAILS.some(t => t.id === partes[2])) return false;
+      } else {
+        if (el.variant === list[0].id) return false;
+        if (!list.some(v => v.id === el.variant)) return false;
+      }
     }
     // labelT (posición de la etiqueta sobre el trazo): número en (0,1) abierto
     if (el.labelT !== undefined && !(_isNum(el.labelT) && el.labelT > 0 && el.labelT < 1)) return false;

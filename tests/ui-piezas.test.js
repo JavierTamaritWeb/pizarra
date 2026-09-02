@@ -148,6 +148,64 @@ test('en HTML las piezas de dibujo van por el <svg> incrustado (VECTOR_TYPES)', 
   assert.ok(out.includes('<svg'), 'el HTML no incrusta el SVG de las piezas');
 });
 
+/* ---------------- el globo con formas y picos (v3.24.0) ---------------- */
+
+const { TOOLTIP_SHAPES, TOOLTIP_TAILS } = ctx;
+const combosGlobo = [];
+for (const f of TOOLTIP_SHAPES) {
+  for (const t of TOOLTIP_TAILS) {
+    combosGlobo.push(f.id === 'round' && t.id === 'down'
+      ? 'tooltip' : `tooltip-${f.id}-${t.id}`);
+  }
+}
+
+test('el globo: los 12 combos forma×pico validan; el default explícito y los malformados no', () => {
+  for (const v of combosGlobo) {
+    assert.ok(Exporter.isValidElement(make('uiPiece', { variant: v })),
+      `${v} no valida`);
+  }
+  // redondeado+abajo escrito compuesto es 'tooltip' dos veces: se rechaza.
+  assert.equal(Exporter.isValidElement(make('uiPiece', { variant: 'tooltip-round-down' })), false);
+  for (const malo of ['tooltip-oval', 'tooltip-oval-x', 'tooltip-x-up', 'tooltip-oval-up-x']) {
+    assert.equal(Exporter.isValidElement(make('uiPiece', { variant: malo })), false,
+      `${malo} valida y no debería`);
+  }
+});
+
+test('el globo: los 12 combos pintan distinto entre sí (huella de llamadas)', () => {
+  const huellas = combosGlobo.map(v => {
+    const stub = createCtxStub();
+    const calls = [];
+    const grabado = new Proxy(stub, {
+      get(target, prop) {
+        const val = target[prop];
+        if (typeof val === 'function') {
+          return (...args) => { calls.push(prop + ':' + JSON.stringify(args)); return val.apply(target, args); };
+        }
+        return val;
+      },
+      set(target, prop, value) { calls.push('set:' + String(prop) + '=' + String(value)); target[prop] = value; return true; },
+    });
+    Renderer.renderElement(grabado, make('uiPiece', { variant: v }));
+    return calls.join('|');
+  });
+  assert.equal(new Set(huellas).size, huellas.length, 'dos combos del globo pintan idéntico');
+});
+
+test('el globo: el SVG emite formas para cada combo, con elipse en las ovales', () => {
+  for (const v of combosGlobo) {
+    ctx.Exporter.svg([make('uiPiece', { variant: v })]);
+    const out = ctx.URL.blobs[ctx.URL.blobs.length - 1].content;
+    assert.ok(/(<rect|<ellipse)/.test(out), `SVG sin cuerpo para ${v}`);
+    if (v.includes('oval') || v.includes('thought')) {
+      assert.ok(out.includes('<ellipse'), `${v} debería llevar cuerpo de elipse`);
+    }
+    if (v.includes('thought')) {
+      assert.ok(out.includes('<circle'), `${v} debería llevar burbujas`);
+    }
+  }
+});
+
 /* ---------------- las veteranas en HTML (v3.23.0) ---------------- */
 
 test('las veteranas siguen exportando widget HTML real, con o sin variante', () => {

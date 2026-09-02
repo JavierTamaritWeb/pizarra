@@ -80,6 +80,9 @@
     navVariant: 'links',
     dialogVariant: 'confirm',
     uiPieceVariant: 'avatar',
+    // El globo de «Piezas» (v3.24.0): forma del cuerpo y lado del pico.
+    tooltipShape: 'round',
+    tooltipTail: 'down',
     // Preset de dispositivo del Marco (v3.23.0): la caja que coloca un CLIC.
     framePreset: 'movil',
     buildFloors: 'auto', // nº de plantas de Fachada/Alzado/Perfil ('auto' = según la altura)
@@ -1868,6 +1871,8 @@
         navVariant: state.navVariant,
         dialogVariant: state.dialogVariant,
         uiPieceVariant: state.uiPieceVariant,
+        tooltipShape: state.tooltipShape,
+        tooltipTail: state.tooltipTail,
         framePreset: state.framePreset,
         // Variantes de Jardín, por el mismo motivo.
         plotShape: state.plotShape,
@@ -2072,6 +2077,8 @@
       restoreVariant(prefs.navVariant, NAV_VARIANTS, 'navVariant');
       restoreVariant(prefs.dialogVariant, DIALOG_VARIANTS, 'dialogVariant');
       restoreVariant(prefs.uiPieceVariant, UI_PIECE_VARIANTS, 'uiPieceVariant');
+      restoreVariant(prefs.tooltipShape, TOOLTIP_SHAPES, 'tooltipShape');
+      restoreVariant(prefs.tooltipTail, TOOLTIP_TAILS, 'tooltipTail');
       restoreVariant(prefs.framePreset, FRAME_PRESETS, 'framePreset');
       restoreVariant(prefs.plotShape,   PLOT_SHAPES,   'plotShape');
       restoreVariant(prefs.treeType,    TREE_TYPES,    'treeType');
@@ -4694,6 +4701,13 @@
         if (variantField[1].some(it => it.id === v) &&
             v !== variantField[1][0].id) el.variant = v;
       }
+      // El globo (v3.24.0): si forma o pico no son los del default, la
+      // variante viaja compuesta — `tooltip-<forma>-<pico>` — para que el
+      // elemento recuerde su dibujo exacto.
+      if (state.tool === TOOLS.UI_PIECE && state.uiPieceVariant === 'tooltip' &&
+          !(state.tooltipShape === 'round' && state.tooltipTail === 'down')) {
+        el.variant = `tooltip-${state.tooltipShape}-${state.tooltipTail}`;
+      }
       // «Piezas» (v3.23.0): la caja de un clic depende de la variante — un
       // avatar y una barra de progreso no pueden nacer con la misma.
       if (state.tool === TOOLS.UI_PIECE && !(w > 20 || h > 20)) {
@@ -5233,7 +5247,11 @@
     { tool: TOOLS.CARD, modal: 'modal-card', root: 'card-catalog', cls: 'modal__card', data: 'card', catalog: CARD_VARIANTS, key: 'cardVariant', icon: v => uiVariantIcon(TOOLS.CARD, v) },
     { tool: TOOLS.NAV, modal: 'modal-nav', root: 'nav-catalog', cls: 'modal__nav', data: 'nav', catalog: NAV_VARIANTS, key: 'navVariant', icon: v => uiVariantIcon(TOOLS.NAV, v) },
     { tool: TOOLS.DIALOG, modal: 'modal-dialog', root: 'dialog-catalog', cls: 'modal__dialog', data: 'dialog', catalog: DIALOG_VARIANTS, key: 'dialogVariant', icon: v => uiVariantIcon(TOOLS.DIALOG, v) },
-    { tool: TOOLS.UI_PIECE, modal: 'modal-uipiece', root: 'uipiece-catalog', cls: 'modal__uipiece', data: 'uipiece', catalog: UI_PIECE_VARIANTS, key: 'uiPieceVariant', icon: v => uiVariantIcon(TOOLS.UI_PIECE, v) },
+    // El icono del globo compone forma y pico elegidos en sus selects, para
+    // que el catálogo enseñe lo que saldrá de verdad (v3.24.0).
+    { tool: TOOLS.UI_PIECE, modal: 'modal-uipiece', root: 'uipiece-catalog', cls: 'modal__uipiece', data: 'uipiece', catalog: UI_PIECE_VARIANTS, key: 'uiPieceVariant', icon: v => uiVariantIcon(TOOLS.UI_PIECE,
+      v === 'tooltip' && !(state.tooltipShape === 'round' && state.tooltipTail === 'down')
+        ? `tooltip-${state.tooltipShape}-${state.tooltipTail}` : v) },
     { tool: TOOLS.GARDEN_PLOT,   modal: 'modal-plot',   root: 'plot-catalog',   cls: 'modal__plot',   data: 'plot',   catalog: PLOT_SHAPES,   key: 'plotShape'  },
     { tool: TOOLS.GARDEN_TREE,   modal: 'modal-tree',   root: 'tree-catalog',   cls: 'modal__tree',   data: 'tree',   catalog: TREE_TYPES,    key: 'treeType', plant: true },
     { tool: TOOLS.GARDEN_SHRUB,  modal: 'modal-shrub',  root: 'shrub-catalog',  cls: 'modal__shrub',  data: 'shrub',  catalog: SHRUB_TYPES,   key: 'shrubType', plant: true },
@@ -5520,6 +5538,8 @@
       // mismo motivo que Camino y Muro.
       if (id === TOOLS.BUILD_STAIR) syncStairControls();
       if (id === TOOLS.BUILD_SYMBOL) syncSymbolControls();
+      // «Piezas» lleva los dos selects del globo (v3.24.0), mismo motivo.
+      if (id === TOOLS.UI_PIECE) syncUiPieceControls();
       // Prisma, Pirámide y Tronco llevan sus deslizadores de proyección además
       // del catálogo, mismo motivo que Camino y Muro.
       if (SOLID_TOOLS.includes(id)) syncSolidControls();
@@ -9610,6 +9630,23 @@
       savePrefs();
     });
     syncStairControls();
+    // El globo de «Piezas»: forma y pico; cambiar cualquiera repinta el icono
+    // del globo en el catálogo, como la vista de la Escalera.
+    fillVariantSelect('tooltip-shape', TOOLTIP_SHAPES);
+    fillVariantSelect('tooltip-tail', TOOLTIP_TAILS);
+    $('tooltip-shape').addEventListener('change', e => {
+      state.tooltipShape = TOOLTIP_SHAPES.some(f => f.id === e.target.value)
+        ? e.target.value : 'round';
+      buildVariantCatalog(variantModalOf(TOOLS.UI_PIECE));
+      savePrefs();
+    });
+    $('tooltip-tail').addEventListener('change', e => {
+      state.tooltipTail = TOOLTIP_TAILS.some(t => t.id === e.target.value)
+        ? e.target.value : 'down';
+      buildVariantCatalog(variantModalOf(TOOLS.UI_PIECE));
+      savePrefs();
+    });
+    syncUiPieceControls();
     // Símbolos: la cota de nivel del ▽, en metros con signo.
     $('symbol-level').addEventListener('input', e => {
       const v = Number(e.target.value);
@@ -10872,7 +10909,9 @@
     ictx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ictx.fillStyle = state.canvasBg;
     ictx.fillRect(0, 0, GARDEN_ICON_W, GARDEN_ICON_H);
-    const defs = (type === TOOLS.UI_PIECE && UI_PIECE_DEFAULTS[variantId]) ||
+    // La caja del combo del globo es la de 'tooltip' (la variante base).
+    const base = String(variantId).split('-')[0];
+    const defs = (type === TOOLS.UI_PIECE && UI_PIECE_DEFAULTS[base]) ||
       UI_DEFAULTS[type];
     const pad = 5;
     const k = Math.min((GARDEN_ICON_W - pad * 2) / defs.w,
@@ -11631,6 +11670,11 @@
 
   function syncSymbolControls() {
     $('symbol-level').value = String(state.symbolLevelM);
+  }
+
+  function syncUiPieceControls() {
+    $('tooltip-shape').value = state.tooltipShape;
+    $('tooltip-tail').value = state.tooltipTail;
   }
 
   function syncDimControls() {

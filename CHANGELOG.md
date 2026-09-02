@@ -4,6 +4,19 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.24.0] — 2026-09-02
+
+### Añadido
+
+- **El globo de «Piezas» con formas y picos**: forma del cuerpo —redondeado,
+  bocadillo ovalado o nube de pensamiento (con burbujas en vez de pico)— y
+  pico en cualquiera de los cuatro lados, elegidos en dos selects de su modal
+  (patrón de la vista de la Escalera); el icono del catálogo repinta en vivo
+  la combinación elegida. La pareja redondeado+abajo sigue siendo la variante
+  `tooltip` a secas —el dibujo histórico, llamada a llamada— y cualquier otra
+  viaja compuesta (`tooltip-<forma>-<pico>`); el combo default explícito se
+  rechaza al importar, la regla de siempre.
+
 ## [3.23.0] — 2026-09-02
 
 ### Añadido

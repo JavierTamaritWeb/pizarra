@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=3.23.0" />
+  <link rel="stylesheet" href="css/styles.css?v=3.24.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.23.0" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.24.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v3.23.0</span>
+        <span class="topbar__badge">v3.24.0</span>
         <!-- Aviso de autoguardado: visible SOLO mientras localStorage rechaza
              el guardado (cuota llena). Sin él, el fallo era un catch mudo y el
              trabajo posterior se perdía en silencio al recargar. -->
@@ -74,7 +74,7 @@
       </nav>
     </header>
 
-  <!-- Pestañas de documento (v3.23.0): varias pizarras abiertas a la vez.
+  <!-- Pestañas de documento (v3.24.0): varias pizarras abiertas a la vez.
        Es un <nav> con aria-current, no role=tablist: no hay tabpanel que
        conmutar (es el mismo lienzo con otro documento) — semánticamente es
        navegación entre documentos. Las pestañas las fabrica renderTabsBar(). -->
@@ -768,7 +768,7 @@
           <li>Una <strong>imagen de verdad</strong> se pega con <kbd>Ctrl</kbd>+<kbd>V</kbd> o se suelta sobre el lienzo (PNG y JPG); viaja dentro del proyecto JSON, así que se recupera al abrirlo</li>
           <li><strong>Formulario</strong>, <strong>Tabla</strong> y <strong>Gráfico</strong> abren un catálogo al pulsarlas: casilla, radio, interruptor, desplegable y deslizador; tabla con cabecera, lista, con avatar, con paginación o con casillas; barras, líneas, tarta, indicador, anillo o área. La variante elegida queda como default de creación. Sin atajo: no quedaban teclas sueltas libres</li>
           <li><strong>Diálogo</strong> elige entre confirmación (dos botones) y alerta (uno); <strong>Pestañas</strong> y <strong>Menú lateral</strong> son piezas únicas —fila de pestañas con una activa, menú vertical con ítem activo— y comparten el modal de ajustes de los demás componentes. Tampoco llevan atajo</li>
-          <li><strong>Piezas</strong> reúne las menores: avatar, barra de progreso, migas de pan, globo, insignia y paginación. Cada una nace con su caja natural a un clic</li>
+          <li><strong>Piezas</strong> reúne las menores: avatar, barra de progreso, migas de pan, globo, insignia y paginación. Cada una nace con su caja natural a un clic. El <strong>globo</strong> elige además su forma —redondeado, bocadillo o nube de pensamiento— y el lado del <strong>pico</strong> (abajo, arriba, izquierda o derecha) en dos selects de su modal; el icono del catálogo enseña la combinación elegida</li>
           <li>El <strong>rótulo</strong> vale también para Formulario (el texto junto al control), Tabla (su título) y Diálogo (el de su barra); Gráfico, Pestañas y Menú lateral simulan su texto con trazos, como la descripción de la Tarjeta</li>
         </ul>
       </section>
@@ -1259,7 +1259,7 @@
                contiene escondido sería un recuadro vacío con título. Y como
                .modal__group declara `display`, el [hidden] necesita su regla —la
                trampa documentada en _panel.scss. -->
-          <!-- Lados del triángulo irregular (v3.23.0): solo aparece con esa
+          <!-- Lados del triángulo irregular (v3.24.0): solo aparece con esa
                herramienta activa o con uno seleccionado. Misma semántica dual
                que el giro: sin selección fija cómo nace el próximo; con un
                triángulo irregular seleccionado, cambia el suyo. -->
@@ -1455,7 +1455,7 @@
       <button class="btn btn--ghost btn--block modal__cancel">Cerrar</button>
   </dialog>
 
-  <!-- ===== MODALES: PIEZAS UI CON CATÁLOGO (v3.23.0) =====
+  <!-- ===== MODALES: PIEZAS UI CON CATÁLOGO (v3.24.0) =====
        Formulario, Tabla y Gráfico eligen su variante aquí al seleccionar la
        herramienta; para EDITAR una pieza ya creada, el ⚙ abre #modal-ui como
        con el resto de componentes. Los iconos los pinta el renderer real
@@ -1481,7 +1481,7 @@
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
   </dialog>
 
-  <!-- Las veteranas, el Diálogo y «Piezas» ganaron catálogo en la v3.23.0:
+  <!-- Las veteranas, el Diálogo y «Piezas» ganaron catálogo en la v3.24.0:
        mismo molde y mismo flujo que Formulario. -->
   <dialog class="modal" id="modal-button" aria-labelledby="modal-button-title">
       <h3 class="modal__heading" id="modal-button-title">Botón</h3>
@@ -1520,12 +1520,21 @@
 
   <dialog class="modal" id="modal-uipiece" aria-labelledby="modal-uipiece-title">
       <h3 class="modal__heading" id="modal-uipiece-title">Piezas</h3>
-      <p class="modal__sub">Avatar, progreso, migas, globo, insignia o paginación</p>
+      <p class="modal__sub">Avatar, progreso, migas, globo, insignia o paginación.
+        Los dos selects solo cambian el globo.</p>
+      <label class="panel__field" for="tooltip-shape">
+        <span class="modal__field-label">Forma del globo</span>
+        <select class="panel__select" id="tooltip-shape"></select>
+      </label>
+      <label class="panel__field" for="tooltip-tail">
+        <span class="modal__field-label">Pico del globo</span>
+        <select class="panel__select" id="tooltip-tail"></select>
+      </label>
       <div id="uipiece-catalog"></div>
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
   </dialog>
 
-  <!-- El Marco (v3.23.0): solo ajustes, como la Cota — un clic coloca la caja
+  <!-- El Marco (v3.24.0): solo ajustes, como la Cota — un clic coloca la caja
        del preset elegido; el arrastre sigue dibujando libre. -->
   <dialog class="modal modal--settings" id="modal-frame" aria-labelledby="modal-frame-title">
       <h3 class="modal__heading" id="modal-frame-title">Marco</h3>
@@ -2444,7 +2453,7 @@
   <dialog class="modal" id="modal-roof" aria-labelledby="modal-roof-title">
       <h3 class="modal__heading" id="modal-roof-title">Tipo de tejado</h3>
       <p class="modal__sub">Elige el tipo y arrástralo en el lienzo</p>
-      <!-- El complemento (v3.23.0) NO es una variante del catálogo: baja a un
+      <!-- El complemento (v3.24.0) NO es una variante del catálogo: baja a un
            select, como el diseño de la verja — 5 formas × 4 añadidos como
            catálogo serían 20 iconos. Lo dibuja building.js sobre el faldón. -->
       <label class="panel__field" for="roof-addon">
@@ -2455,7 +2464,7 @@
       <button class="btn btn--ghost btn--block modal__cancel">Cancelar</button>
   </dialog>
 
-  <!-- ===== MODALES: PARTE TÉCNICA DEL PLANO (v3.23.0) =====
+  <!-- ===== MODALES: PARTE TÉCNICA DEL PLANO (v3.24.0) =====
        Los seis con catálogo los rellena app.js (buildVariantCatalog) desde
        VARIANT_MODALS, con la geometría real de src/js/building.js: el icono
        enseña lo que va a crear. La Cota no tiene variantes: su modal es solo
@@ -2681,24 +2690,24 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=3.23.0"></script>
-  <script src="src/js/sketchy.js?v=3.23.0"></script>
-  <script src="src/js/freehand.js?v=3.23.0"></script>
-  <script src="src/js/arc.js?v=3.23.0"></script>
-  <script src="src/js/curve-path.js?v=3.23.0"></script>
-  <script src="src/js/shape-rotation.js?v=3.23.0"></script>
-  <script src="src/js/regular-polygon.js?v=3.23.0"></script>
-  <script src="src/js/trapezoid.js?v=3.23.0"></script>
-  <script src="src/js/hatch.js?v=3.23.0"></script>
-  <script src="src/js/airbrush.js?v=3.23.0"></script>
-  <script src="src/js/flood.js?v=3.23.0"></script>
-  <script src="src/js/eraser.js?v=3.23.0"></script>
-  <script src="src/js/building.js?v=3.23.0"></script>
-  <script src="src/js/garden.js?v=3.23.0"></script>
-  <script src="src/js/solid.js?v=3.23.0"></script>
-  <script src="src/js/renderer.js?v=3.23.0"></script>
-  <script src="src/js/exporter.js?v=3.23.0"></script>
-  <script src="src/js/templates.js?v=3.23.0"></script>
-  <script src="src/js/app.js?v=3.23.0"></script>
+  <script src="src/js/config.js?v=3.24.0"></script>
+  <script src="src/js/sketchy.js?v=3.24.0"></script>
+  <script src="src/js/freehand.js?v=3.24.0"></script>
+  <script src="src/js/arc.js?v=3.24.0"></script>
+  <script src="src/js/curve-path.js?v=3.24.0"></script>
+  <script src="src/js/shape-rotation.js?v=3.24.0"></script>
+  <script src="src/js/regular-polygon.js?v=3.24.0"></script>
+  <script src="src/js/trapezoid.js?v=3.24.0"></script>
+  <script src="src/js/hatch.js?v=3.24.0"></script>
+  <script src="src/js/airbrush.js?v=3.24.0"></script>
+  <script src="src/js/flood.js?v=3.24.0"></script>
+  <script src="src/js/eraser.js?v=3.24.0"></script>
+  <script src="src/js/building.js?v=3.24.0"></script>
+  <script src="src/js/garden.js?v=3.24.0"></script>
+  <script src="src/js/solid.js?v=3.24.0"></script>
+  <script src="src/js/renderer.js?v=3.24.0"></script>
+  <script src="src/js/exporter.js?v=3.24.0"></script>
+  <script src="src/js/templates.js?v=3.24.0"></script>
+  <script src="src/js/app.js?v=3.24.0"></script>
 </body>
 </html>

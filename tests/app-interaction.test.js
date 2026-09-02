@@ -1506,6 +1506,36 @@ test('con multi-selección el rótulo ni edita el default ni se ofrece', () => {
   assert.equal(prefs2.uiLabels.button.length, 120, 'recortado al guardar, no al recargar');
 });
 
+// El globo de «Piezas» (v3.24.0): forma y pico elegidos en los selects del
+// modal viajan compuestos en `variant` — y el default (redondeado+abajo)
+// sigue serializándose como 'tooltip' a secas.
+test('el globo estampa `tooltip-<forma>-<pico>` según los selects, y el default queda simple', () => {
+  const app = loadApp();
+  app.selectTool('uiPiece');
+  const forma = app.$('tooltip-shape');
+  const pico = app.$('tooltip-tail');
+  forma.value = 'thought'; forma.__fire('change', { target: forma });
+  pico.value = 'left'; pico.__fire('change', { target: pico });
+  app.flush();
+  app.pickVariant('uipiece-catalog', 'modal__uipiece', 'tooltip', 'uipiece');
+  app.drag(200, 200, 360, 260);
+  assert.equal(app.elements()[0].variant, 'tooltip-thought-left');
+
+  // Los selects se recuerdan entre sesiones…
+  const prefs = JSON.parse(app.dom.localStorage.getItem('sketchwire.prefs'));
+  assert.equal(prefs.tooltipShape, 'thought');
+  assert.equal(prefs.tooltipTail, 'left');
+
+  // …y con el default el campo vuelve a ser el id simple.
+  app.selectTool('uiPiece');
+  forma.value = 'round'; forma.__fire('change', { target: forma });
+  pico.value = 'down'; pico.__fire('change', { target: pico });
+  app.flush();
+  app.pickVariant('uipiece-catalog', 'modal__uipiece', 'tooltip', 'uipiece');
+  app.drag(200, 300, 360, 360);
+  assert.equal(app.elements()[1].variant, 'tooltip');
+});
+
 // Vaciar el contenido de un `text` desde el panel dejaba un elemento invisible
 // de caja cero; el editor de doble clic (commitText) en el mismo caso borra.
 // Las dos vías deben decir lo mismo.
