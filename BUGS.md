@@ -3034,3 +3034,26 @@ confirmados con sonda ejecutada, siete corregidos.
 - **Nota:** las flechas ya guardadas con el salto tienen sus coordenadas
   materializadas en el borde; el arreglo evita crear nuevas, pero no las repara
   (quitarles el ancla las dejaría igual de desplazadas). Hay que rehacerlas.
+
+## v3.24.1
+
+### El borrador fulminaba «Piezas» enteras
+
+- **Síntoma:** en la sección UI, un avatar, una barra de progreso, unas migas,
+  un globo, una insignia o una paginación desaparecían **completas** al
+  tocarlas con el borrador, y bastaba con cruzar su caja: rozar la esquina
+  vacía de un avatar (el aro es un círculo inscrito) se lo llevaba entero. El
+  resto de componentes de UI se muerde por trama desde la v2.34.0.
+- **Causa:** «Piezas» (`uiPiece`, v3.23.0) nació fuera de `RASTER_ERASE_TYPES`
+  (`src/js/app.js`), la lista que decide qué entra por `deps.rasterErase`. Sin
+  esa rama, `Eraser.erase` cae al borrado íntegro y el alcance, a
+  `_touchesBox`: la caja entera cuenta como tinta.
+- **Fix:** `'uiPiece'` en `RASTER_ERASE_TYPES`. Nada más: el renderer ya pinta
+  todas las variantes y `rasterPad` (16 px + grosor) cubre el pico del globo,
+  cuya punta termina justo en el borde de la caja.
+- **Guardia:** `tests/ui-piezas.test.js` › *"el borrador muerde por trama todos
+  los tipos de la sección UI, «Piezas» incluida"* (pinea la lista en el fuente
+  contra VARIANTED y SINGLES: el arnés vm no tiene píxeles), y en
+  `e2e/eraser.spec.js` › *"morder el borde de un avatar le abre un hueco y
+  conserva el resto"* y *"rozar la esquina vacía de un avatar no se lo lleva"*.
+  Las tres verificadas fallando sin el arreglo.

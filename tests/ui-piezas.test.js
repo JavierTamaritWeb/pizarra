@@ -225,3 +225,24 @@ test('las veteranas siguen exportando widget HTML real, con o sin variante', () 
   assert.ok(ctx.URL.blobs[ctx.URL.blobs.length - 1].content.includes('<textarea'),
     'input/textarea no emite <textarea>');
 });
+
+// v3.24.1: «Piezas» nació fuera de RASTER_ERASE_TYPES y el borrador la
+// fulminaba entera con solo cruzar su caja, mientras el resto de la sección
+// UI se muerde por trama. El arnés vm no tiene píxeles que leer (sin
+// `deps.rasterErase` real cae al borrado íntegro), así que la guarda pinea la
+// lista en el fuente: todo tipo de UI con variantes o único debe estar en ella.
+test('el borrador muerde por trama todos los tipos de la sección UI, «Piezas» incluida', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const app = fs.readFileSync(path.resolve(__dirname, '..', 'src/js/app.js'), 'utf8');
+  const m = app.match(/const RASTER_ERASE_TYPES = \[([^\]]*)\]/);
+  assert.ok(m, 'no se encuentra RASTER_ERASE_TYPES en app.js');
+  const lista = [...m[1].matchAll(/'([a-zA-Z]+)'/g)].map(x => x[1]);
+  for (const [type] of VARIANTED) {
+    assert.ok(lista.includes(type), `${type} debe morderse por trama`);
+  }
+  for (const type of SINGLES) {
+    assert.ok(lista.includes(type), `${type} debe morderse por trama`);
+  }
+  assert.ok(lista.includes(TOOLS.UI_PIECE), '«Piezas» se borraba entera (v3.24.1)');
+});

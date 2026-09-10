@@ -4,6 +4,18 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.24.1] — 2026-09-10
+
+### Arreglado
+
+- **El borrador fulminaba «Piezas» enteras**: avatar, barra de progreso,
+  migas, globo, insignia y paginación desaparecían completas con solo cruzar
+  su caja —incluso por el papel vacío de una esquina—, mientras el resto de
+  la sección UI se muerde por trama desde la v2.34.0. Nacieron en la v3.23.0
+  fuera de la lista de tipos rasterizables. Ahora se muerden como cualquier
+  componente: lo que queda pasa a ser imagen, y un roce sin tinta no hace
+  nada.
+
 ## [3.24.0] — 2026-09-02
 
 ### Añadido

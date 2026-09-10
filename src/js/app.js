@@ -2380,7 +2380,10 @@
      íntegro. */
   const RASTER_ERASE_TYPES = ['text', 'image', 'imagePlaceholder',
     'button', 'input', 'nav', 'card',
-    'formControl', 'uiTable', 'chart', 'dialog', 'tabs', 'sidebar'];
+    'formControl', 'uiTable', 'chart', 'dialog', 'tabs', 'sidebar',
+    // «Piezas» (v3.23.0) nacieron fuera de la lista y el borrador las
+    // fulminaba enteras con solo cruzar su caja (v3.24.1).
+    'uiPiece'];
   const RASTER_MAX_SIDE = 4096;   // salvaguarda: nunca rasterizar un lienzo absurdo
 
   /** Margen alrededor de la caja: el dibujo se sale de ella por el temblor de

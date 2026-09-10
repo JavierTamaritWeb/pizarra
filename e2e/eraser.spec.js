@@ -190,6 +190,47 @@ test('morder el borde de un botón le abre un hueco y conserva el resto', async 
   expect(await inkIn(page, 492, 320, 14, 40)).toBeGreaterThan(5);
 });
 
+/* «Piezas» (v3.24.1): nació fuera de RASTER_ERASE_TYPES y el borrador la
+   fulminaba entera con solo cruzar su caja. Un avatar dibujado a 200×200:
+   el aro es un círculo inscrito, así que hay esquina vacía que rozar. */
+test('morder el borde de un avatar le abre un hueco y conserva el resto', async ({ page }) => {
+  await openApp(page);
+  await sinCuadricula(page);
+  await selectTool(page, 'uiPiece');           // la primera variante: avatar
+  await drag(page, 300, 200, 500, 400);
+  const antes = await elements(page);
+  expect(antes[0].type).toBe('uiPiece');
+
+  await selectTool(page, 'eraser');
+  await drag(page, 400, 185, 400, 215);        // muerde el borde de arriba
+  await settle(page);
+
+  await expect.poll(async () => (await elements(page))[0].type).toBe('image');
+  const tras = await elements(page);
+  expect(tras.length, 'la pieza no desaparece entera').toBe(1);
+  expect(await inkIn(page, 392, 192, 16, 16)).toBe(0);
+  // Los dos lados del aro siguen dibujados.
+  expect(await inkIn(page, 294, 280, 14, 40)).toBeGreaterThan(5);
+  expect(await inkIn(page, 492, 280, 14, 40)).toBeGreaterThan(5);
+});
+
+test('rozar la esquina vacía de un avatar no se lo lleva', async ({ page }) => {
+  await openApp(page);
+  await sinCuadricula(page);
+  await selectTool(page, 'uiPiece');
+  await drag(page, 300, 200, 500, 400);
+  expect((await elements(page))[0].type).toBe('uiPiece');
+
+  await selectTool(page, 'eraser');
+  await drag(page, 306, 206, 316, 216);        // dentro de la caja, fuera del aro
+  await settle(page);
+
+  const tras = await elements(page);
+  expect(tras.length).toBe(1);
+  expect(tras[0].type, 'sin quitar un solo píxel, la pieza sigue siendo pieza')
+    .toBe('uiPiece');
+});
+
 test('el borrador no toca una forma por la que solo pasa cerca', async ({ page }) => {
   await openApp(page);
   await sinCuadricula(page);
