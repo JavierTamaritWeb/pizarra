@@ -3088,3 +3088,27 @@ botón, tarjeta, diálogo, menú lateral y tabla eran su **tinte** de relleno
   espía comprueba que la rellena entra por la dependencia) y
   `e2e/eraser.spec.js` › *"morder el borde de un círculo relleno le abre un
   hueco y conserva el resto"*, verificada fallando sin el arreglo.
+
+## v3.25.1
+
+### La paginación de «Piezas» no cambiaba de tamaño
+
+- **Síntoma:** al agrandar la pieza Paginación con los handles o desde
+  «Posición y tamaño», el marco de selección crecía pero el dibujo seguía
+  midiendo lo mismo, perdido en medio de la caja: «no se puede cambiar de
+  tamaño». Reproducido en Chromium: de 200×32 a 500×132 con el handle SE, la
+  caja cambia y los botones siguen en 22 px.
+- **Causa:** `_uiPiece` (renderer) y el SVG (exporter) calculaban el botón
+  como `min(h·0.8, 22)`: un tope absoluto, y el ancho ni se miraba. Las demás
+  variantes escalan con `w`/`h`; la paginación era la única con un tamaño
+  fijo.
+- **Fix:** `src/js/renderer.js` y `src/js/exporter.js` — `bs = min(h·0.6875,
+  w/6.5)`, que en la caja por defecto (200×32) da exactamente los 22 px de
+  antes (dibujo histórico intacto) y crece con la caja acotado por las dos
+  dimensiones, para que los tres botones y las dos flechas quepan siempre;
+  las flechas escalan con el botón (5/22 y 4/22, exactas en el default).
+- **Guardia:** `tests/ui-piezas.test.js` › *"paginación: el SVG dibuja
+  botones de 22 px en la caja por defecto y del doble en una caja doble"* y
+  *"paginación: el renderer pinta el doble de alto en una caja doble"*, más
+  `e2e/piezas.spec.js` › *"agrandar la paginación con el handle agranda sus
+  botones"* sobre píxeles. Las tres verificadas fallando sin el arreglo.

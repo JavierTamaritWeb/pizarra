@@ -4,6 +4,17 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.25.1] — 2026-09-10
+
+### Arreglado
+
+- **La paginación de «Piezas» no cambiaba de tamaño.** La caja sí se
+  agrandaba con los handles o desde «Posición y tamaño», pero sus botones
+  tenían un tope fijo de 22 px y el dibujo se quedaba igual en medio de una
+  caja vacía. Ahora el botón escala con la caja —acotado por la altura y por
+  el ancho, para que «‹ 1 2 3 ›» quepa siempre dentro—, en el lienzo y en el
+  SVG. La caja por defecto (200×32) sigue pintando exactamente igual.
+
 ## [3.25.0] — 2026-09-10
 
 Auditoría del borrador sobre los 34 tipos de elemento, con un barrido en

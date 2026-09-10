@@ -1131,8 +1131,13 @@ const Renderer = (() => {
     }
     if (v === 'pagination') {
       // «‹ 1 2 3 ›» con la página actual rellena, como la banda de la tabla.
-      const bs = Math.min(h * 0.8, 22), by = y + (h - bs) / 2, cy = y + h / 2;
+      // El botón escala con la CAJA (v3.25.1): antes tenía un tope de 22 px y
+      // agrandar la pieza no cambiaba nada a la vista. Con la caja por defecto
+      // (200×32) sigue midiendo exactamente 22; el ancho acota para que los
+      // tres botones y las dos flechas quepan siempre dentro.
+      const bs = Math.min(h * 0.6875, w / 6.5), by = y + (h - bs) / 2, cy = y + h / 2;
       const cx0 = x + w / 2 - bs * 2.2;
+      const fx = bs * (5 / 22), fy = bs * (4 / 22);   // la flecha, a escala del botón
       for (let i = 0; i < 3; i++) {
         const bx = cx0 + i * bs * 1.5;
         ctx.strokeStyle = color;
@@ -1144,11 +1149,11 @@ const Renderer = (() => {
           Sketchy.roundedRect(ctx, bx, by, bs, bs, 3);
         }
       }
-      Sketchy.line(ctx, cx0 - bs, cy - 4, cx0 - bs - 5, cy, 0.5);
-      Sketchy.line(ctx, cx0 - bs - 5, cy, cx0 - bs, cy + 4, 0.5);
+      Sketchy.line(ctx, cx0 - bs, cy - fy, cx0 - bs - fx, cy, 0.5);
+      Sketchy.line(ctx, cx0 - bs - fx, cy, cx0 - bs, cy + fy, 0.5);
       const rx = cx0 + 3 * bs * 1.5 + bs * 0.4;
-      Sketchy.line(ctx, rx, cy - 4, rx + 5, cy, 0.5);
-      Sketchy.line(ctx, rx + 5, cy, rx, cy + 4, 0.5);
+      Sketchy.line(ctx, rx, cy - fy, rx + fx, cy, 0.5);
+      Sketchy.line(ctx, rx + fx, cy, rx, cy + fy, 0.5);
       return;
     }
     // 'avatar': círculo con cabeza y hombros.

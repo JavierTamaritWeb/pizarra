@@ -783,14 +783,16 @@ const Exporter = (() => {
             out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="${el.h / 2}" ${s} fill="${tint('15')}"/>\n`;
             out += `<line x1="${el.x + el.w * 0.25}" y1="${el.y + el.h / 2}" x2="${el.x + el.w * 0.75}" y2="${el.y + el.h / 2}" stroke="${tint('40')}" stroke-width="1"/>\n`;
           } else if (v === 'pagination') {
-            const bs = Math.min(el.h * 0.8, 22), by = el.y + (el.h - bs) / 2, cy = el.y + el.h / 2;
+            // Misma fórmula que el renderer (v3.25.1): el botón escala con la caja.
+            const bs = Math.min(el.h * 0.6875, el.w / 6.5), by = el.y + (el.h - bs) / 2, cy = el.y + el.h / 2;
             const cx0 = el.x + el.w / 2 - bs * 2.2;
+            const fx = bs * (5 / 22), fy = bs * (4 / 22);
             for (let i = 0; i < 3; i++) {
               out += `<rect x="${cx0 + i * bs * 1.5}" y="${by}" width="${bs}" height="${bs}" rx="3" ${s} fill="${i === 0 ? tint('15') : 'none'}"/>\n`;
             }
-            out += `<path d="M ${cx0 - bs} ${cy - 4} L ${cx0 - bs - 5} ${cy} L ${cx0 - bs} ${cy + 4}" ${s} fill="none"/>\n`;
+            out += `<path d="M ${cx0 - bs} ${cy - fy} L ${cx0 - bs - fx} ${cy} L ${cx0 - bs} ${cy + fy}" ${s} fill="none"/>\n`;
             const rx = cx0 + 3 * bs * 1.5 + bs * 0.4;
-            out += `<path d="M ${rx} ${cy - 4} L ${rx + 5} ${cy} L ${rx} ${cy + 4}" ${s} fill="none"/>\n`;
+            out += `<path d="M ${rx} ${cy - fy} L ${rx + fx} ${cy} L ${rx} ${cy + fy}" ${s} fill="none"/>\n`;
           } else {
             // 'avatar'
             const r = Math.min(el.w, el.h) / 2 - 1, cx = el.x + el.w / 2, cy = el.y + el.h / 2;

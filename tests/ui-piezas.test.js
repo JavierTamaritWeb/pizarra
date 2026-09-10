@@ -246,3 +246,41 @@ test('el borrador muerde por trama todos los tipos de la sección UI, «Piezas»
   }
   assert.ok(lista.includes(TOOLS.UI_PIECE), '«Piezas» se borraba entera (v3.24.1)');
 });
+
+/* ---------------- la paginación escala con su caja (v3.25.1) ---------------- */
+// Los botones tenían un tope fijo de 22 px: agrandar la pieza con los handles
+// o desde «Posición y tamaño» no cambiaba nada a la vista. La caja por defecto
+// (200×32) debe seguir pintando el botón de 22 px, y una caja doble, el doble.
+const pagina = (w, h) => make('uiPiece', { variant: 'pagination', x: 0, y: 0, w, h });
+
+test('paginación: el SVG dibuja botones de 22 px en la caja por defecto y del doble en una caja doble', () => {
+  const anchos = (w, h) => {
+    ctx.Exporter.svg([pagina(w, h)]);
+    const out = ctx.URL.blobs[ctx.URL.blobs.length - 1].content;
+    return [...out.matchAll(/<rect [^>]*width="([\d.]+)" height="([\d.]+)" rx="3"/g)].map(m => Number(m[1]));
+  };
+  assert.deepEqual(anchos(200, 32), [22, 22, 22], 'la caja por defecto no cambia de dibujo');
+  assert.deepEqual(anchos(400, 64), [44, 44, 44], 'una caja doble pinta botones dobles');
+  // Y una caja muy ancha pero baja sigue acotada por la altura; una alta
+  // pero estrecha, por el ancho: nunca se sale de la caja.
+  assert.deepEqual(anchos(1000, 32), [22, 22, 22]);
+  assert.ok(anchos(130, 400)[0] <= 20, 'estrecha: acota el ancho');
+});
+
+test('paginación: el renderer pinta el doble de alto en una caja doble (mismo escalado que el SVG)', () => {
+  const alto = (w, h) => {
+    const stub = createCtxStub();
+    Renderer.renderElement(stub, pagina(w, h));
+    const ys = [];
+    for (const c of stub.calls) {
+      if (['moveTo', 'lineTo', 'quadraticCurveTo', 'bezierCurveTo'].includes(c.name)) {
+        // el último par de argumentos es siempre el punto final
+        ys.push(c.args[c.args.length - 1]);
+      }
+    }
+    return Math.max(...ys) - Math.min(...ys);
+  };
+  const base = alto(200, 32), doble = alto(400, 64);
+  assert.ok(base >= 18 && base <= 26, `dibujo por defecto de ~22 px de alto (${base})`);
+  assert.ok(doble >= 40 && doble <= 50, `caja doble → ~44 px de alto (${doble})`);
+});
