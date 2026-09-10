@@ -741,19 +741,21 @@ const Exporter = (() => {
             out += `<rect x="${el.x + 2}" y="${el.y + 2}" width="${(el.w - 4) * 0.6}" height="${el.h - 4}" rx="${Math.max(0, r - 2)}" fill="${tint('40')}" stroke="none"/>\n`;
           } else if (v === 'breadcrumbs') {
             const cy = el.y + el.h / 2, seg = el.w / 3.4;
+            const k = Math.min(el.w / 260, el.h / 20);   // como el renderer (v3.25.2)
             for (const [a, b] of [[0, 0.8], [1.15, 1.95], [2.3, 2.85]]) {
               out += `<line x1="${el.x + seg * a}" y1="${cy}" x2="${el.x + seg * b}" y2="${cy}" stroke="${tint('40')}" stroke-width="1"/>\n`;
             }
             for (const t of [0.95, 2.1]) {
-              out += `<line x1="${el.x + seg * t + 4}" y1="${cy - 6}" x2="${el.x + seg * t - 2}" y2="${cy + 6}" stroke="${tint('60')}" stroke-width="1"/>\n`;
+              out += `<line x1="${el.x + seg * t + 4 * k}" y1="${cy - 6 * k}" x2="${el.x + seg * t - 2 * k}" y2="${cy + 6 * k}" stroke="${tint('60')}" stroke-width="1"/>\n`;
             }
           } else if (v === 'tooltip' || v.startsWith('tooltip-')) {
             // Globo (v3.24.0): forma × lado del pico, como en el renderer.
             const [, forma = 'round', pico = 'down'] = v.split('-');
             const lateral = pico === 'left' || pico === 'right';
+            const k = Math.min(el.w / 160, el.h / 60);   // como el renderer (v3.25.2)
             const tip = forma === 'thought'
-              ? Math.min(16, (lateral ? el.w : el.h) * 0.28)
-              : Math.min(10, (lateral ? el.w : el.h) * 0.2);
+              ? Math.min(16 * k, (lateral ? el.w : el.h) * 0.28)
+              : Math.min(10 * k, (lateral ? el.w : el.h) * 0.2);
             const bx = el.x + (pico === 'left' ? tip : 0);
             const by = el.y + (pico === 'up' ? tip : 0);
             const bw = el.w - (lateral ? tip : 0);
@@ -761,23 +763,23 @@ const Exporter = (() => {
             if (forma === 'oval' || forma === 'thought') {
               out += `<ellipse cx="${bx + bw / 2}" cy="${by + bh2 / 2}" rx="${bw / 2}" ry="${bh2 / 2}" ${s} fill="none"/>\n`;
             } else {
-              out += `<rect x="${bx}" y="${by}" width="${bw}" height="${bh2}" rx="6" ${s} fill="none"/>\n`;
+              out += `<rect x="${bx}" y="${by}" width="${bw}" height="${bh2}" rx="${6 * k}" ${s} fill="none"/>\n`;
             }
-            const cx = bx + bw / 2, cy = by + bh2 / 2;
+            const cx = bx + bw / 2, cy = by + bh2 / 2, hb = 6 * k;
             let b1, b2, punta;
-            if (pico === 'up')        { b1 = [cx - 6, by]; b2 = [cx + 6, by]; punta = [cx, el.y]; }
-            else if (pico === 'left') { b1 = [bx, cy - 6]; b2 = [bx, cy + 6]; punta = [el.x, cy]; }
-            else if (pico === 'right'){ b1 = [bx + bw, cy - 6]; b2 = [bx + bw, cy + 6]; punta = [el.x + el.w, cy]; }
-            else                      { b1 = [cx - 6, by + bh2]; b2 = [cx + 6, by + bh2]; punta = [cx, el.y + el.h]; }
+            if (pico === 'up')        { b1 = [cx - hb, by]; b2 = [cx + hb, by]; punta = [cx, el.y]; }
+            else if (pico === 'left') { b1 = [bx, cy - hb]; b2 = [bx, cy + hb]; punta = [el.x, cy]; }
+            else if (pico === 'right'){ b1 = [bx + bw, cy - hb]; b2 = [bx + bw, cy + hb]; punta = [el.x + el.w, cy]; }
+            else                      { b1 = [cx - hb, by + bh2]; b2 = [cx + hb, by + bh2]; punta = [cx, el.y + el.h]; }
             if (forma === 'thought') {
               const ex = (b1[0] + b2[0]) / 2, ey = (b1[1] + b2[1]) / 2;
-              out += `<circle cx="${ex + (punta[0] - ex) * 0.35}" cy="${ey + (punta[1] - ey) * 0.35}" r="3.2" ${s} fill="none"/>\n`;
-              out += `<circle cx="${ex + (punta[0] - ex) * 0.85}" cy="${ey + (punta[1] - ey) * 0.85}" r="1.8" ${s} fill="none"/>\n`;
+              out += `<circle cx="${ex + (punta[0] - ex) * 0.35}" cy="${ey + (punta[1] - ey) * 0.35}" r="${3.2 * k}" ${s} fill="none"/>\n`;
+              out += `<circle cx="${ex + (punta[0] - ex) * 0.85}" cy="${ey + (punta[1] - ey) * 0.85}" r="${1.8 * k}" ${s} fill="none"/>\n`;
             } else {
               out += `<path d="M ${b1[0]} ${b1[1]} L ${punta[0]} ${punta[1]} L ${b2[0]} ${b2[1]}" ${s} fill="none"/>\n`;
             }
-            const inx = forma === 'round' ? 10 : bw * 0.18;
-            out += `<line x1="${bx + inx}" y1="${by + bh2 * 0.4}" x2="${bx + bw - inx - 2}" y2="${by + bh2 * 0.4}" stroke="${tint('40')}" stroke-width="1"/>\n`;
+            const inx = forma === 'round' ? 10 * k : bw * 0.18;
+            out += `<line x1="${bx + inx}" y1="${by + bh2 * 0.4}" x2="${bx + bw - inx - 2 * k}" y2="${by + bh2 * 0.4}" stroke="${tint('40')}" stroke-width="1"/>\n`;
             out += `<line x1="${bx + inx}" y1="${by + bh2 * 0.68}" x2="${bx + bw * 0.7}" y2="${by + bh2 * 0.68}" stroke="${tint('40')}" stroke-width="1"/>\n`;
           } else if (v === 'badge') {
             out += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="${el.h / 2}" ${s} fill="${tint('15')}"/>\n`;

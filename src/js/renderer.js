@@ -1066,6 +1066,9 @@ const Renderer = (() => {
       // _fakeText: a escala de icono el trazo de 1px desaparecía.
       const cy = y + h / 2;
       const seg = w / 3.4;
+      // Las barras «/» escalan con la caja (v3.25.2): k = 1 en la caja por
+      // defecto (260×20), el dibujo histórico.
+      const k = Math.min(w / 260, h / 20);
       ctx.strokeStyle = _tint(color, '60');
       Sketchy.line(ctx, x, cy, x + seg * 0.8, cy, 0.5);
       Sketchy.line(ctx, x + seg * 1.15, cy, x + seg * 1.95, cy, 0.5);
@@ -1073,7 +1076,7 @@ const Renderer = (() => {
       Sketchy.line(ctx, x + seg * 2.3, cy, x + seg * 2.85, cy, 0.5);
       ctx.strokeStyle = _tint(color, '60');
       for (const t of [0.95, 2.1]) {           // las barras «/»
-        Sketchy.line(ctx, x + seg * t + 4, cy - 6, x + seg * t - 2, cy + 6, 0.5);
+        Sketchy.line(ctx, x + seg * t + 4 * k, cy - 6 * k, x + seg * t - 2 * k, cy + 6 * k, 0.5);
       }
       return;
     }
@@ -1084,11 +1087,14 @@ const Renderer = (() => {
       // — la rama general reproduce sus llamadas una a una.
       const [, forma = 'round', pico = 'down'] = v.split('-');
       const lateral = pico === 'left' || pico === 'right';
+      // Pico, esquinas, burbujas y márgenes escalan con la caja (v3.25.2):
+      // k = 1 en la caja por defecto (160×60), el dibujo histórico intacto.
+      const k = Math.min(w / 160, h / 60);
       // El pensamiento necesita más recorrido: sus burbujas menguantes se
       // aplastaban contra el cuerpo con el hueco del triángulo.
       const tip = forma === 'thought'
-        ? Math.min(16, (lateral ? w : h) * 0.28)
-        : Math.min(10, (lateral ? w : h) * 0.2);
+        ? Math.min(16 * k, (lateral ? w : h) * 0.28)
+        : Math.min(10 * k, (lateral ? w : h) * 0.2);
       // El cuerpo cede al pico el hueco de su lado.
       const bx = x + (pico === 'left' ? tip : 0);
       const by = y + (pico === 'up' ? tip : 0);
@@ -1097,27 +1103,27 @@ const Renderer = (() => {
       if (forma === 'oval' || forma === 'thought') {
         Sketchy.ellipse(ctx, bx + bw / 2, by + bh / 2, bw / 2, bh / 2);
       } else {
-        Sketchy.roundedRect(ctx, bx, by, bw, bh, 6);
+        Sketchy.roundedRect(ctx, bx, by, bw, bh, 6 * k);
       }
-      const cx = bx + bw / 2, cy = by + bh / 2;
+      const cx = bx + bw / 2, cy = by + bh / 2, hb = 6 * k;   // media base del pico
       // Base del pico sobre el borde del cuerpo y punta hacia fuera.
       let b1, b2, punta;
-      if (pico === 'up')        { b1 = [cx - 6, by]; b2 = [cx + 6, by]; punta = [cx, y]; }
-      else if (pico === 'left') { b1 = [bx, cy - 6]; b2 = [bx, cy + 6]; punta = [x, cy]; }
-      else if (pico === 'right'){ b1 = [bx + bw, cy - 6]; b2 = [bx + bw, cy + 6]; punta = [x + w, cy]; }
-      else                      { b1 = [cx - 6, by + bh]; b2 = [cx + 6, by + bh]; punta = [cx, y + h]; }
+      if (pico === 'up')        { b1 = [cx - hb, by]; b2 = [cx + hb, by]; punta = [cx, y]; }
+      else if (pico === 'left') { b1 = [bx, cy - hb]; b2 = [bx, cy + hb]; punta = [x, cy]; }
+      else if (pico === 'right'){ b1 = [bx + bw, cy - hb]; b2 = [bx + bw, cy + hb]; punta = [x + w, cy]; }
+      else                      { b1 = [cx - hb, by + bh]; b2 = [cx + hb, by + bh]; punta = [cx, y + h]; }
       if (forma === 'thought') {
         // El pensamiento no lleva pico: dos burbujas menguantes hacia fuera.
         const ex = (b1[0] + b2[0]) / 2, ey = (b1[1] + b2[1]) / 2;
-        Sketchy.ellipse(ctx, ex + (punta[0] - ex) * 0.35, ey + (punta[1] - ey) * 0.35, 3.2, 3.2);
-        Sketchy.ellipse(ctx, ex + (punta[0] - ex) * 0.85, ey + (punta[1] - ey) * 0.85, 1.8, 1.8);
+        Sketchy.ellipse(ctx, ex + (punta[0] - ex) * 0.35, ey + (punta[1] - ey) * 0.35, 3.2 * k, 3.2 * k);
+        Sketchy.ellipse(ctx, ex + (punta[0] - ex) * 0.85, ey + (punta[1] - ey) * 0.85, 1.8 * k, 1.8 * k);
       } else {
         Sketchy.line(ctx, b1[0], b1[1], punta[0], punta[1], 0.5);
         Sketchy.line(ctx, punta[0], punta[1], b2[0], b2[1], 0.5);
       }
       // El texto simulado, con más margen dentro de las formas ovales.
-      const inx = forma === 'round' ? 10 : bw * 0.18;
-      _fakeText(ctx, color, bx + inx, by + bh * 0.4, bx + bw - inx - 2);
+      const inx = forma === 'round' ? 10 * k : bw * 0.18;
+      _fakeText(ctx, color, bx + inx, by + bh * 0.4, bx + bw - inx - 2 * k);
       _fakeText(ctx, color, bx + inx, by + bh * 0.68, bx + bw * 0.7);
       return;
     }

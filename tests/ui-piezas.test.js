@@ -284,3 +284,56 @@ test('paginación: el renderer pinta el doble de alto en una caja doble (mismo e
   assert.ok(base >= 18 && base <= 26, `dibujo por defecto de ~22 px de alto (${base})`);
   assert.ok(doble >= 40 && doble <= 50, `caja doble → ~44 px de alto (${doble})`);
 });
+
+/* ---------------- globo y migas escalan con su caja (v3.25.2) ---------------- */
+// Mismo defecto que la paginación: pico, esquinas, burbujas y barras «/» eran
+// medidas fijas en píxeles. k = 1 en la caja por defecto de cada una.
+const svgDe = el => {
+  ctx.Exporter.svg([el]);
+  return ctx.URL.blobs[ctx.URL.blobs.length - 1].content;
+};
+
+test('migas: las barras «/» miden 12 px de alto en la caja por defecto y 24 en una doble', () => {
+  const altoBarras = (w, h) => {
+    const out = svgDe(make('uiPiece', { variant: 'breadcrumbs', x: 0, y: 0, w, h }));
+    const barras = [...out.matchAll(/<line x1="[\d.-]+" y1="([\d.-]+)" x2="[\d.-]+" y2="([\d.-]+)" stroke="#[0-9a-f]{6}60"/g)];
+    assert.equal(barras.length, 2, 'dos barras');
+    return barras.map(m => Number(m[2]) - Number(m[1]));
+  };
+  assert.deepEqual(altoBarras(260, 20), [12, 12], 'la caja por defecto no cambia de dibujo');
+  assert.deepEqual(altoBarras(520, 40), [24, 24], 'una caja doble pinta barras dobles');
+});
+
+test('globo: base del pico y esquinas miden lo de siempre en la caja por defecto y el doble en una doble', () => {
+  const medidas = (w, h) => {
+    const out = svgDe(make('uiPiece', { variant: 'tooltip', x: 0, y: 0, w, h }));
+    const rx = Number(out.match(/<rect [^>]*rx="([\d.]+)"/)[1]);
+    const pico = out.match(/<path d="M ([\d.]+) [\d.]+ L [\d.]+ [\d.]+ L ([\d.]+) [\d.]+"/);
+    return { rx, base: Number(pico[2]) - Number(pico[1]) };
+  };
+  assert.deepEqual(medidas(160, 60), { rx: 6, base: 12 }, 'la caja por defecto no cambia de dibujo');
+  assert.deepEqual(medidas(320, 120), { rx: 12, base: 24 }, 'una caja doble, el doble');
+  // Pensamiento: las burbujas también.
+  const out = svgDe(make('uiPiece', { variant: 'tooltip-thought-down', x: 0, y: 0, w: 320, h: 120 }));
+  const radios = [...out.matchAll(/<circle [^>]*r="([\d.]+)"/g)].map(m => Number(m[1]));
+  assert.deepEqual(radios, [6.4, 3.6], 'burbujas dobles en caja doble');
+});
+
+test('migas y globo: el renderer escala igual que el SVG (extensión vertical de las llamadas)', () => {
+  const extY = (variant, w, h, filtro) => {
+    const stub = createCtxStub();
+    Renderer.renderElement(stub, make('uiPiece', { variant, x: 0, y: 0, w, h }));
+    const ys = [];
+    for (const c of stub.calls) {
+      if (['moveTo', 'lineTo'].includes(c.name)) ys.push(c.args[1]);
+    }
+    return filtro(ys);
+  };
+  // Migas: todo lo que no está en cy = h/2 son las barras «/» (±6k).
+  const barras = (w, h) => extY('breadcrumbs', w, h, ys => {
+    const fuera = ys.filter(y => Math.abs(y - h / 2) > 1);
+    return Math.max(...fuera) - Math.min(...fuera);
+  });
+  assert.ok(Math.abs(barras(260, 20) - 12) < 3, `barras de ~12 px (${barras(260, 20)})`);
+  assert.ok(Math.abs(barras(520, 40) - 24) < 3, `barras de ~24 px en caja doble (${barras(520, 40)})`);
+});

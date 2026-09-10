@@ -3112,3 +3112,27 @@ botón, tarjeta, diálogo, menú lateral y tabla eran su **tinte** de relleno
   *"paginación: el renderer pinta el doble de alto en una caja doble"*, más
   `e2e/piezas.spec.js` › *"agrandar la paginación con el handle agranda sus
   botones"* sobre píxeles. Las tres verificadas fallando sin el arreglo.
+
+## v3.25.2
+
+### El globo y las migas no escalaban del todo con su caja
+
+- **Síntoma:** al agrandar el globo, el cuerpo crecía pero el pico seguía
+  midiendo 10 px, las esquinas 6 px y las burbujas del pensamiento 3,2 px:
+  un bocadillo grande con un pico de miniatura. En las migas, las barras «/»
+  se quedaban en 12 px de alto en una caja del doble. Mismo defecto que la
+  paginación (v3.25.1), en menor grado.
+- **Causa:** `_uiPiece` (renderer) y el SVG (exporter) tenían esas medidas
+  como constantes en píxeles, pensadas para la caja por defecto de cada
+  variante.
+- **Fix:** `src/js/renderer.js` y `src/js/exporter.js` — un factor
+  `k = min(w/W0, h/H0)` con la caja por defecto de cada variante (160×60 el
+  globo, 260×20 las migas), que vale 1 en el default (dibujo histórico
+  intacto) y escala pico, esquinas, burbujas, márgenes y barras. El tope del
+  pico por proporción de la caja (`0.2·h`, `0.28·h`) se mantiene.
+- **Guardia:** `tests/ui-piezas.test.js` › *"migas: las barras «/» miden 12
+  px de alto en la caja por defecto y 24 en una doble"*, *"globo: base del
+  pico y esquinas miden lo de siempre en la caja por defecto y el doble en
+  una doble"* (incluye las burbujas del pensamiento) y *"migas y globo: el
+  renderer escala igual que el SVG"*. Las tres verificadas fallando sin el
+  arreglo.

@@ -4,6 +4,18 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.25.2] — 2026-09-10
+
+### Arreglado
+
+- **El globo y las migas de «Piezas» también escalan con su caja.** Como
+  la paginación en la 3.25.1: el pico, las esquinas, las burbujas del
+  pensamiento y los márgenes del globo, y las barras «/» de las migas, eran
+  medidas fijas en píxeles, así que al agrandar la pieza crecía el cuerpo
+  pero esos detalles se quedaban en miniatura. Ahora todo escala con la
+  caja, en el lienzo y en el SVG; las cajas por defecto (160×60 y 260×20)
+  pintan exactamente igual que antes.
+
 ## [3.25.1] — 2026-09-10
 
 ### Arreglado
