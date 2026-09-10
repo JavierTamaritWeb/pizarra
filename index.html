@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=3.24.1" />
+  <link rel="stylesheet" href="css/styles.css?v=3.25.0" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.24.1" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.25.0" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v3.24.1</span>
+        <span class="topbar__badge">v3.25.0</span>
         <!-- Aviso de autoguardado: visible SOLO mientras localStorage rechaza
              el guardado (cuota llena). Sin él, el fallo era un catch mudo y el
              trabajo posterior se perdía en silencio al recargar. -->
@@ -726,8 +726,8 @@
         <ul class="modal__help-list">
           <li><kbd>E</kbd>: activa el <strong>Borrador</strong>; arrastra sobre trazos, rellenos o formas para <strong>eliminarlos</strong> — no los tapa, así que lo borrado no reaparece al mover el dibujo</li>
           <li>Recta, flecha, lápiz, <strong>flecha curva</strong>, <strong>aerógrafo</strong> y el <strong>contorno de las formas sin relleno</strong> se <strong>recortan</strong> por donde pasa el círculo, en vez de desaparecer enteros: pasar por el cruce de dos trazos solo borra ese tramo, y una mancha de espray se parte en dos</li>
-          <li><strong>Texto, emojis, imágenes y componentes</strong> no tienen trazo que recortar, así que lo que queda se convierte en <strong>imagen</strong>: se ve igual y conserva el mordisco, pero deja de editarse como texto o como componente</li>
-          <li>Si el barrido no quita un solo píxel no pasa nada — cruzar el hueco vacío de una tarjeta ya no se la lleva—. Solo desaparecen enteras las <strong>formas rellenas</strong>: su dibujo es una superficie</li>
+          <li><strong>Texto, emojis, imágenes, componentes y formas rellenas</strong> no tienen trazo que recortar, así que lo que queda se convierte en <strong>imagen</strong>: se ve igual y conserva el mordisco, pero deja de editarse como texto, como componente o como forma</li>
+          <li>Si el barrido no quita un solo píxel no pasa nada — cruzar el hueco vacío de una tarjeta ya no se la lleva—. Nada desaparece entero por un roce</li>
           <li>Al elegirlo se abre un modal para ajustar el tamaño, con previsualización; <strong>volver a pulsar la herramienta</strong> lo reabre sin soltarla</li>
           <li>El tamaño se ajusta solo ahí: el regulador <strong>«Trazo»</strong> del panel, que antes cambiaba a <strong>«Tamaño del borrador»</strong> mientras el borrador estaba activo, se retiró en la v2.21.0 junto con el ⚙ de esa sección</li>
           <li>El tamaño se ajusta entre 4 y 100 px (16 px por defecto) y es independiente del lápiz y de las formas</li>
@@ -2690,24 +2690,24 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=3.24.1"></script>
-  <script src="src/js/sketchy.js?v=3.24.1"></script>
-  <script src="src/js/freehand.js?v=3.24.1"></script>
-  <script src="src/js/arc.js?v=3.24.1"></script>
-  <script src="src/js/curve-path.js?v=3.24.1"></script>
-  <script src="src/js/shape-rotation.js?v=3.24.1"></script>
-  <script src="src/js/regular-polygon.js?v=3.24.1"></script>
-  <script src="src/js/trapezoid.js?v=3.24.1"></script>
-  <script src="src/js/hatch.js?v=3.24.1"></script>
-  <script src="src/js/airbrush.js?v=3.24.1"></script>
-  <script src="src/js/flood.js?v=3.24.1"></script>
-  <script src="src/js/eraser.js?v=3.24.1"></script>
-  <script src="src/js/building.js?v=3.24.1"></script>
-  <script src="src/js/garden.js?v=3.24.1"></script>
-  <script src="src/js/solid.js?v=3.24.1"></script>
-  <script src="src/js/renderer.js?v=3.24.1"></script>
-  <script src="src/js/exporter.js?v=3.24.1"></script>
-  <script src="src/js/templates.js?v=3.24.1"></script>
-  <script src="src/js/app.js?v=3.24.1"></script>
+  <script src="src/js/config.js?v=3.25.0"></script>
+  <script src="src/js/sketchy.js?v=3.25.0"></script>
+  <script src="src/js/freehand.js?v=3.25.0"></script>
+  <script src="src/js/arc.js?v=3.25.0"></script>
+  <script src="src/js/curve-path.js?v=3.25.0"></script>
+  <script src="src/js/shape-rotation.js?v=3.25.0"></script>
+  <script src="src/js/regular-polygon.js?v=3.25.0"></script>
+  <script src="src/js/trapezoid.js?v=3.25.0"></script>
+  <script src="src/js/hatch.js?v=3.25.0"></script>
+  <script src="src/js/airbrush.js?v=3.25.0"></script>
+  <script src="src/js/flood.js?v=3.25.0"></script>
+  <script src="src/js/eraser.js?v=3.25.0"></script>
+  <script src="src/js/building.js?v=3.25.0"></script>
+  <script src="src/js/garden.js?v=3.25.0"></script>
+  <script src="src/js/solid.js?v=3.25.0"></script>
+  <script src="src/js/renderer.js?v=3.25.0"></script>
+  <script src="src/js/exporter.js?v=3.25.0"></script>
+  <script src="src/js/templates.js?v=3.25.0"></script>
+  <script src="src/js/app.js?v=3.25.0"></script>
 </body>
 </html>

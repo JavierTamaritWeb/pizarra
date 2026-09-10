@@ -249,10 +249,10 @@ const Eraser = (function () {
      desde la v2.33.0 también para la flecha curva, el contorno de las formas
      sin relleno y el eje del aerógrafo — antes bastaba rozarlos para que
      desaparecieran completos, que es justo lo que un borrador no hace.
-     Siguen yéndose enteros, y por el mismo motivo en los tres casos (su
-     dibujo es una superficie, no una línea, y no hay tipo que represente esa
-     superficie mordida): el texto, las imágenes, los componentes de UI y
-     cualquier forma RELLENA. */
+     Lo que es SUPERFICIE y no línea —texto, imágenes, componentes de UI y,
+     desde la v3.25.0, cualquier forma RELLENA— no tiene geometría que partir:
+     entra por `deps.rasterErase` (app.js) y lo que queda pasa a ser imagen.
+     Sin esa dependencia (arnés vm, exportaciones) se va entero. */
   const LINE_SAMPLE_STEP = 4; // px: resolución con la que se recorta una recta/flecha
 
   /**
@@ -658,14 +658,14 @@ const Eraser = (function () {
       else if (el.type === 'line' || el.type === 'arrow') pieces = _splitLine(el, segs, r, memo);
       else if (el.type === 'curveArrow') pieces = _splitCurve(el, segs, r, deps, memo);
       else if (el.type === 'airbrush') pieces = _splitAirbrush(el, segs, r, deps, memo);
-      // Una forma RELLENA se va entera: su dibujo es la superficie, y no hay
-      // ningún tipo que represente una superficie mordida. Sin relleno, lo
-      // dibujado es el contorno y el contorno sí se recorta.
+      // Sin relleno, lo dibujado es el contorno y el contorno se recorta.
+      // Una forma RELLENA es superficie: cae a `deps.rasterErase` más abajo,
+      // como los componentes (v3.25.0), y sin esa dependencia se va entera.
       else if (OUTLINE_TYPES.includes(el.type) && !el.fill) {
         pieces = _splitOutline(el, segs, r, deps, memo);
       }
-      // Texto, emoji, imágenes y componentes de UI: no hay geometría que
-      // partir, así que quien tenga un canvas (app.js, vía `deps.rasterErase`)
+      // Texto, emoji, imágenes, componentes de UI y formas rellenas: no hay
+      // geometría que partir, así que quien tenga un canvas (app.js, vía `deps.rasterErase`)
       // devuelve el dibujo con el hueco abierto. Sin esa dependencia —arnés
       // vm, exportaciones— se cae al borrado íntegro de siempre.
       else if (deps.rasterErase) pieces = deps.rasterErase(el, pts, r);

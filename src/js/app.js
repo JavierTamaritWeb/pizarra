@@ -2360,8 +2360,8 @@
     });
   }
 
-  /* ── Borrado por trama: texto, emoji, imágenes y componentes de UI ──
-     (v2.34.0)
+  /* ── Borrado por trama: texto, emoji, imágenes, componentes de UI ──
+     (v2.34.0) y formas RELLENAS (v3.25.0)
 
      Lo demás se recorta por geometría: una recta partida sigue siendo rectas,
      un contorno mordido sigue siendo trazo. Aquí no hay geometría que partir
@@ -2571,7 +2571,10 @@
     isEmpty: el => (el.type === 'airbrush' ? Airbrush.isEmpty(el) : false),
     session: opts.preview ? eraserSession.geo : null,
     rasterErase: (el, pts, r) => {
-      if (!RASTER_ERASE_TYPES.includes(el.type)) return null;
+      // Una forma RELLENA (v3.25.0) va por trama como un componente: su
+      // dibujo es la superficie y la superficie mordida se representa como
+      // imagen. Sin relleno, el contorno se recorta por geometría (eraser.js).
+      if (!RASTER_ERASE_TYPES.includes(el.type) && el.fill !== true) return null;
       return opts.preview
         ? rasterErasePreview(el, pts, r, eraserSession.raster)
         : rasterErase(el, pts, r);

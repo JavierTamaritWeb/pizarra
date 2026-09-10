@@ -512,10 +512,19 @@ test('dos pasadas por lados opuestos parten el contorno en dos tiras', () => {
   assert.ok(final.every(p => p.type === 'pencil' && p.points.length >= 2));
 });
 
-test('una forma RELLENA sigue yéndose entera: su dibujo es la superficie', () => {
+// Con canvas (app.js) la rellena se muerde por trama desde la v3.25.0 —guarda
+// en e2e/eraser.spec.js—; aquí, sin `deps.rasterErase`, se va entera y NO se
+// recorta como contorno: el contorno recortado dejaría la superficie sin borde.
+test('sin deps.rasterErase una forma RELLENA se va entera, nunca partida como contorno', () => {
   const el = Object.assign(rect(100, 100, 200, 200), { fill: true, fillColor: '#e74c3c' });
   const tras = Eraser.erase([el], stroke([140, 100], [260, 100]), 10, DEPS);
-  assert.equal(tras.length, 0, 'no hay tipo que represente una superficie mordida');
+  assert.equal(tras.length, 0, 'sin trama no hay forma de representar la superficie mordida');
+  // Y con la dependencia, es ELLA quien decide: recibe el elemento intacto.
+  const visto = [];
+  const conTrama = { ...DEPS, rasterErase: (e) => { visto.push(e); return [{ ...e, type: 'image' }]; } };
+  const out = Eraser.erase([el], stroke([140, 100], [260, 100]), 10, conTrama);
+  assert.equal(visto[0], el, 'la rellena entra por deps.rasterErase');
+  assert.equal(out[0].type, 'image');
 });
 
 test('el círculo se recorta por su elipse, no por su caja', () => {

@@ -231,6 +231,41 @@ test('rozar la esquina vacía de un avatar no se lo lleva', async ({ page }) => 
     .toBe('uiPiece');
 });
 
+/* Formas RELLENAS (v3.25.0): hasta aquí se iban enteras al rozarlas —«su
+   dibujo es una superficie»—, la única excepción que quedaba al borrador que
+   muerde. Ahora van por trama como los componentes. */
+async function marcarRelleno(page) {
+  await page.evaluate(() => {
+    const c = document.getElementById('check-fill');
+    c.checked = true;
+    c.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await settle(page);
+}
+
+test('morder el borde de un círculo relleno le abre un hueco y conserva el resto', async ({ page }) => {
+  await openApp(page);
+  await sinCuadricula(page);
+  await selectTool(page, 'circle');
+  await marcarRelleno(page);
+  await drag(page, 300, 200, 500, 400);
+  const antes = await elements(page);
+  expect(antes[0].type).toBe('circle');
+  expect(antes[0].fill, 'el círculo nace relleno').toBe(true);
+
+  await selectTool(page, 'eraser');
+  await drag(page, 400, 185, 400, 215);        // muerde el borde de arriba
+  await settle(page);
+
+  await expect.poll(async () => (await elements(page))[0].type).toBe('image');
+  const tras = await elements(page);
+  expect(tras.length, 'la forma no desaparece entera').toBe(1);
+  expect(await inkIn(page, 392, 192, 16, 16)).toBe(0);
+  // Los dos lados del aro siguen dibujados.
+  expect(await inkIn(page, 294, 280, 14, 40)).toBeGreaterThan(5);
+  expect(await inkIn(page, 492, 280, 14, 40)).toBeGreaterThan(5);
+});
+
 test('el borrador no toca una forma por la que solo pasa cerca', async ({ page }) => {
   await openApp(page);
   await sinCuadricula(page);

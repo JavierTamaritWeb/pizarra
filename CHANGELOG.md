@@ -4,6 +4,29 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.25.0] — 2026-09-10
+
+Auditoría del borrador sobre los 34 tipos de elemento, con un barrido en
+Chromium sobre píxeles reales: para cada herramienta, una pasada que toca
+tinta (debe morder) y otra por el hueco más vacío de su caja (no debe tocar
+nada). Ningún tipo cae fuera de sus ramas; un solo comportamiento
+incorrecto, corregido.
+
+### Arreglado
+
+- **Las formas rellenas ya no desaparecen enteras al rozarlas.** Era la
+  última excepción del borrador que muerde: un círculo, una estrella o un
+  polígono relleno —y la Tinta, que es un polígono relleno— se iban
+  completos con un toque en el borde, «porque su dibujo es una superficie».
+  Ahora van por trama como texto y componentes: lo que queda pasa a ser
+  imagen con el hueco abierto, se ve igual, y un roce sin tinta no hace nada.
+
+### Notas
+
+- Sin canvas (arnés vm, exportaciones) la rellena sigue yéndose entera,
+  nunca partida como contorno. Guardas: unitaria en `eraser.test.js` y e2e
+  del círculo relleno sobre píxeles. Ayuda y README actualizados.
+
 ## [3.24.1] — 2026-09-10
 
 ### Arreglado

@@ -3057,3 +3057,34 @@ confirmados con sonda ejecutada, siete corregidos.
   `e2e/eraser.spec.js` › *"morder el borde de un avatar le abre un hueco y
   conserva el resto"* y *"rozar la esquina vacía de un avatar no se lo lleva"*.
   Las tres verificadas fallando sin el arreglo.
+
+## v3.25.0 — Auditoría del borrador tipo por tipo
+
+Barrido en Chromium sobre los 34 tipos de elemento que pinta el renderer:
+por herramienta, una pasada del borrador sobre el píxel de tinta más alto (debe
+morder) y otra por el punto de su caja más lejano a cualquier tinta (no debe
+tocar nada), comparando la escena serializada antes y después. Los 34 caen en
+una rama de `Eraser.erase` (recorte geométrico, trama o contorno); ninguna
+pasada tocó sin tinta ni dejó de morder con tinta. Los «toques» aparentes sobre
+botón, tarjeta, diálogo, menú lateral y tabla eran su **tinte** de relleno
+(alfa bajo, invisible para el umbral del barrido): tinta real, mordida bien.
+
+### Las formas rellenas desaparecían enteras al rozarlas
+
+- **Síntoma:** un círculo, una estrella, un trapecio o un polígono con relleno
+  —y la Tinta, que emite un `polygon` relleno— se iban **completos** con un
+  toque del borrador en el borde. Era la única excepción que quedaba, y estaba
+  documentada como diseño en Ayuda, README y `eraser.js` («su dibujo es una
+  superficie y no hay tipo que represente una superficie mordida»).
+- **Causa:** `eraser.js` deja pasar la rellena a `deps.rasterErase`, pero la
+  puerta de `app.js` (`eraserDeps`) solo aceptaba `RASTER_ERASE_TYPES`; con
+  `null` de vuelta, `erase` la eliminaba entera. Desde la v2.34.0 SÍ existe el
+  tipo que representa la superficie mordida: la imagen del borrado por trama.
+- **Fix:** `src/js/app.js` — la puerta acepta además cualquier elemento con
+  `fill: true`. Nada más cambia: el renderer ya pinta relleno, trama y tinte, y
+  la comparación de tinta antes/después da el alcance exacto.
+- **Guardia:** `tests/eraser.test.js` › *"sin deps.rasterErase una forma
+  RELLENA se va entera, nunca partida como contorno"* (con un `rasterErase`
+  espía comprueba que la rellena entra por la dependencia) y
+  `e2e/eraser.spec.js` › *"morder el borde de un círculo relleno le abre un
+  hueco y conserva el resto"*, verificada fallando sin el arreglo.
