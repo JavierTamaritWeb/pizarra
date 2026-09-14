@@ -5,33 +5,7 @@
    imágenes; aquí se suelta un PNG real sobre el lienzo, como un arrastre desde
    el Finder, que es el gesto que destapó el fallo. */
 const { test, expect } = require('@playwright/test');
-const { openApp, selectTool, drag, elements, WIDE } = require('./helpers.js');
-
-/** Suelta un PNG generado al vuelo sobre el lienzo y devuelve su caja.
-    `addImage` lo escala al 80 % del lienzo y lo centra: 960×640 sobre 1200×800,
-    de sobra para que quepan dentro los dos extremos de una flecha. */
-async function soltarImagen(page, ancho = 1500, alto = 1000) {
-  await page.evaluate(async ([w, h]) => {
-    const c = document.createElement('canvas');
-    c.width = w; c.height = h;
-    const g = c.getContext('2d');
-    g.fillStyle = '#1b4332'; g.fillRect(0, 0, w, h);
-    const blob = await new Promise(r => c.toBlob(r, 'image/png'));
-    const dt = new DataTransfer();
-    dt.items.add(new File([blob], 'foto.png', { type: 'image/png' }));
-    const canvas = document.getElementById('main-canvas');
-    const r = canvas.getBoundingClientRect();
-    canvas.dispatchEvent(new DragEvent('drop', {
-      bubbles: true, cancelable: true, dataTransfer: dt,
-      clientX: r.left + r.width / 2, clientY: r.top + r.height / 2,
-    }));
-  }, [ancho, alto]);
-  // Entra tras FileReader + Image.onload, no en el mismo turno del evento
-  await expect.poll(async () => (await elements(page)).length).toBe(1);
-  const img = (await elements(page))[0];
-  expect(img.type).toBe('image');
-  return img;
-}
+const { openApp, selectTool, drag, elements, soltarImagen, WIDE } = require('./helpers.js');
 
 test('una flecha trazada entera sobre la imagen se queda donde se dibuja', async ({ page }) => {
   await openApp(page, { viewport: WIDE });

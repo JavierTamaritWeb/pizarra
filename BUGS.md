@@ -35,6 +35,27 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### v3.26.0 — Enmarcar con «Select» una parte de una imagen seleccionaba la imagen entera
+
+- **Síntoma:** con una foto en el lienzo, «Select» y un marco dentro de ella:
+  la selección era la foto completa, no la región. No había forma de quedarse
+  con un trozo.
+- **Causa:** no era un fallo sino una ausencia. Una imagen es un elemento
+  (`{type:'image', x,y,w,h,src}`) y el commit de la marquesina (`onMouseUp`)
+  selecciona **elementos por intersección de cajas**, nunca píxeles: cualquier
+  rectángulo que toque la caja de la imagen la marca entera.
+- **Arreglo:** en el commit del marquee, si es «Select» (`state.pickDown`), el
+  rectángulo cae entero dentro de una única imagen y no toca otro elemento
+  seleccionable, `splitImageRegion` rasteriza la imagen (la misma base del
+  borrador, `_rasterBase`) y produce dos `image`: el trozo y el resto con el
+  hueco, ambos recortados a su tinta vía `_rasterPieza` (extraído de
+  `rasterErase`). El trozo queda seleccionado. Imagen sin decodificar, región
+  transparente o lienzo irrasterizable → marquesina de siempre.
+- **Guardia:** `tests/app-interaction.test.js` («Select» dentro de una imagen
+  sin decodificar no la parte; Mover la arrastra entera) y
+  `e2e/select-region-imagen.spec.js` (corte real con un PNG: trozo + resto,
+  marco que se sale, marco que toca otro elemento, Deshacer, Mover).
+
 ### v3.13.3 — La «posición de fábrica» de las barras flotantes se calculó dos veces con coordenadas, y las dos veces salió una disposición que no era la pedida
 
 - **Síntoma:** el usuario pidió que al pulsar «Barras» las paletas aparecieran

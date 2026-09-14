@@ -2489,8 +2489,17 @@
     if (!queda.n) return [];                     // se lo ha llevado entero
     if (queda.n === antes.n) return [el];        // ni un píxel: intacto por referencia
 
-    // Se recorta a la tinta que queda: sin esto la imagen arrastraría todo el
-    // margen vacío y su marco de selección mentiría.
+    return [_rasterPieza(el, cv, queda, x0, y0)];
+  }
+
+  /**
+   * Convierte lo que queda en un canvas rasterizado en un elemento `image`:
+   * recortado a la caja de tinta `queda` (sin esto la imagen arrastraría todo
+   * el margen vacío y su marco de selección mentiría), con los atributos del
+   * elemento de origen y su misma política de encode. Compartido por el
+   * mordisco del borrador y por «Select» sobre una imagen (v3.26.0).
+   */
+  function _rasterPieza(el, cv, queda, x0, y0) {
     const bw = queda.maxX - queda.minX + 1, bh = queda.maxY - queda.minY + 1;
     const crop = _rasterCanvas(bw, bh);
     crop.getContext('2d').drawImage(cv, queda.minX, queda.minY, bw, bh, 0, 0, bw, bh);
@@ -2516,7 +2525,39 @@
       if (webp.startsWith('data:image/webp')) src = webp;
     }
     pieza.src = src || crop.toDataURL('image/png');
-    return [pieza];
+    return pieza;
+  }
+
+  /**
+   * «Select» sobre una imagen (v3.26.0): separa la región `rect` (coords de
+   * lienzo) como pieza independiente y deja la imagen con ese hueco
+   * transparente. Antes, enmarcar media foto seleccionaba la foto entera:
+   * una imagen es un elemento y la marquesina elige elementos por caja, no
+   * píxeles. Se reutiliza el rasterizado del borrador: el trozo y el resto
+   * son dos `image` nuevos, recortados cada uno a su tinta. Devuelve
+   * `{ trozo, resto }` (`resto` null si el marco se lo lleva todo) o null si
+   * no procede: imagen sin decodificar aún, región sin un solo píxel con
+   * tinta, o lienzo que no se puede rasterizar.
+   */
+  function splitImageRegion(el, rect) {
+    if (el.type !== 'image' || !Renderer.imageReady(el.src)) return null;
+    const base = _rasterBase(el);
+    if (!base) return null;
+    const { cv, c, x0, y0, w, h } = base;
+    const rx = Math.round(rect.x), ry = Math.round(rect.y);
+    const rw = Math.max(1, Math.round(rect.w)), rh = Math.max(1, Math.round(rect.h));
+
+    const trozoCv = _rasterCanvas(rw, rh);
+    const tc = trozoCv.getContext('2d', { willReadFrequently: true });
+    tc.drawImage(cv, rx - x0, ry - y0, rw, rh, 0, 0, rw, rh);
+    const tinta = _inkStats(tc.getImageData(0, 0, rw, rh).data, rw, rh);
+    if (!tinta.n) return null;
+    const trozo = _rasterPieza(el, trozoCv, tinta, rx, ry);
+
+    c.clearRect(rx, ry, rw, rh);
+    const queda = _inkStats(c.getImageData(0, 0, w, h).data, w, h);
+    const resto = queda.n ? _rasterPieza(el, cv, queda, x0, y0) : null;
+    return { trozo, resto };
   }
 
   /**
@@ -4372,6 +4413,28 @@
           const b = getElementBounds(el);
           if (b.x < rx + rw && b.x + b.w > rx && b.y < ry + rh && b.y + b.h > ry) sel.push(i);
         });
+        // «Select» dentro de UNA imagen (v3.26.0): el marco no elige la foto
+        // entera sino que separa esa región como pieza. Solo con «Select»
+        // (`down`: Mover nunca dibuja marco encima de algo), solo si el
+        // rectángulo cae entero dentro de la imagen y no toca ningún otro
+        // elemento seleccionable; si no, la marquesina de siempre.
+        if (down && sel.length === 1) {
+          const el = state.elements[sel[0]];
+          const b = getElementBounds(el);
+          const dentro = rx >= b.x && ry >= b.y && rx + rw <= b.x + b.w && ry + rh <= b.y + b.h;
+          const parte = el.type === 'image' && dentro
+            ? splitImageRegion(el, { x: rx, y: ry, w: rw, h: rh }) : null;
+          if (parte) {
+            saveUndo();
+            if (parte.resto) state.elements[sel[0]] = parte.resto;
+            else state.elements.splice(sel[0], 1);
+            state.elements.push(parte.trozo);
+            setSelection([state.elements.length - 1]);
+            showToast('✂️ Trozo separado de la imagen');
+            redraw();
+            return;
+          }
+        }
         setSelection(sel);
       } else if (down) {
         // Clic sin arrastre con «Select»: la misma semántica de clic que

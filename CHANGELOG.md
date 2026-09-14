@@ -4,6 +4,21 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.26.0] — 2026-09-14
+
+### Añadido
+
+- **«Select» dentro de una imagen separa esa región como pieza.** Al
+  enmarcar con «Select» una parte de una foto se seleccionaba la foto entera:
+  una imagen es un elemento y la marquesina elige elementos por caja, no
+  píxeles. Ahora, si el marco cae entero dentro de una única imagen y no toca
+  nada más, la región se convierte en un `image` independiente (moverla,
+  borrarla, copiarla) y la original queda con ese hueco transparente; Deshacer
+  lo revierte en un paso. Reutiliza el rasterizado del borrador (mismo encode:
+  WebP para fotos, PNG para dibujo). Con «Mover» arrastrar la imagen la sigue
+  moviendo entera, y un marco que se sale de la imagen o toca otros elementos
+  se comporta como siempre.
+
 ## [3.25.2] — 2026-09-10
 
 ### Arreglado

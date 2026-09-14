@@ -2902,6 +2902,36 @@ test('«Select»: arrastrar desde ENCIMA de un elemento no lo mueve — dibuja m
   assert.equal(app.elements().length, 0, 'la marquesina seleccionó los dos');
 });
 
+/* «Select» dentro de una imagen (v3.26.0): el marco separa la región como
+   pieza. El arnés vm NO decodifica imágenes (Renderer.imageReady es false),
+   así que aquí se guarda el camino contrario: con la foto a medio cargar el
+   gesto no parte nada —ni un elemento de más, ni de menos— y selecciona la
+   imagen entera como siempre. El corte real se comprueba en
+   e2e/select-region-imagen.spec.js con un PNG de verdad. */
+test('«Select» dentro de una imagen sin decodificar no la parte: la selecciona entera', () => {
+  const app = loadApp({ autosave: [
+    { type: 'image', x: 100, y: 100, w: 400, h: 300, src: 'data:image/png;base64,AAAA', color: '#1a1a2e', lineWidth: 2, seed: 1 },
+  ] });
+  app.selectTool('pick');
+  app.drag(200, 200, 300, 250);
+  app.flush();
+  assert.equal(app.elements().length, 1, 'sin trama no hay trozo ni resto');
+  app.key('Delete');
+  assert.equal(app.elements().length, 0, 'la marquesina seleccionó la imagen entera');
+});
+
+test('Mover sobre una imagen la arrastra entera (el corte es solo de «Select»)', () => {
+  const app = loadApp({ autosave: [
+    { type: 'image', x: 100, y: 100, w: 400, h: 300, src: 'data:image/png;base64,AAAA', color: '#1a1a2e', lineWidth: 2, seed: 1 },
+  ] });
+  app.selectTool('select');
+  app.drag(200, 200, 250, 200);
+  app.flush();
+  const els = app.elements();
+  assert.equal(els.length, 1);
+  assert.equal(els[0].x, 150, 'la imagen se ha movido 50 px');
+});
+
 test('«Select»: el clic selecciona el grupo completo y el doble clic desciende a la pieza', () => {
   const { app, count } = withFacade();
   app.selectTool('pick');

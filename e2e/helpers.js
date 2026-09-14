@@ -225,7 +225,35 @@ function paintedPixels(page) {
   });
 }
 
+/** Suelta un PNG generado al vuelo sobre el lienzo (como un arrastre desde el
+    Finder) y devuelve su caja. `addImage` lo escala al 80 % del lienzo y lo
+    centra: 1500×1000 acaba en 960×640 sobre 1200×800. `color` es el relleno
+    del PNG: opaco entero, para que cualquier región tenga tinta. */
+async function soltarImagen(page, ancho = 1500, alto = 1000, color = '#1b4332') {
+  await page.evaluate(async ([w, h, fill]) => {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const g = c.getContext('2d');
+    g.fillStyle = fill; g.fillRect(0, 0, w, h);
+    const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+    const dt = new DataTransfer();
+    dt.items.add(new File([blob], 'foto.png', { type: 'image/png' }));
+    const canvas = document.getElementById('main-canvas');
+    const r = canvas.getBoundingClientRect();
+    canvas.dispatchEvent(new DragEvent('drop', {
+      bubbles: true, cancelable: true, dataTransfer: dt,
+      clientX: r.left + r.width / 2, clientY: r.top + r.height / 2,
+    }));
+  }, [ancho, alto, color]);
+  // Entra tras FileReader + Image.onload, no en el mismo turno del evento
+  await expect.poll(async () => (await elements(page)).length).toBe(1);
+  const img = (await elements(page))[0];
+  expect(img.type).toBe('image');
+  return img;
+}
+
 module.exports = {
   WIDE, NARROW, openApp, settle, zoomPct, elements, readAutosave, canvasPoint,
   selectTool, activeTool, drag, clickCanvas, setSlider, setZoom, paintedPixels,
+  soltarImagen,
 };
