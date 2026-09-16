@@ -428,7 +428,7 @@ Al arrastrar una selección con **Mover**, sus bordes y centros se **imantan** (
 
 - **La guía es overlay puro** (precedente exacto: `drawPathAngle` y el marco del aerógrafo): `state.alignGuideLines` se pinta al principio de `paintOverlay` y se limpia con él cada fotograma — jamás elemento, ni undo, ni autosave, ni export. El `scheduleOverlay()` del mouseup es lo que evita que la última guía quede colgada tras soltar.
 - **`free` acumula el delta CRUDO del puntero** (la sesión `state.alignSession`, nacida en el primer fotograma del gesto y muerta al soltar, como `eraserSession`): el imán corrige respecto a esa posición libre, así que al salir de la tolerancia el objeto vuelve con el puntero **sin zona muerta** — la misma razón por la que `dragLast` guarda la posición real y no la recortada.
-- **Los candidatos se calculan una vez por gesto**, no por fotograma: los bordes/centros de lo no seleccionado no cambian mientras se arrastra. La excepción que lo haría mentira se excluye: una flecha **anclada** a lo seleccionado viaja con ello (`resolveAnchors`), así que no es candidata — sin eso el imán pegaba a su posición del primer fotograma, una coordenada ya vacía (auditoría v2.39.1).
+- **Los candidatos se calculan una vez por gesto**, no por fotograma: los bordes/centros de lo no seleccionado no cambian mientras se arrastra. Desde la v3.27.0 no hay flechas ancladas que viajen con la selección, así que ya no hace falta excluir nada (hasta entonces se excluían: sus bordes del primer fotograma eran candidatos fantasma, auditoría v2.39.1).
 - **El mando es «Guías de alineación» en `#modal-select`** (`state.alignGuides`, en prefs, **activa de fábrica**), y **Alt la suspende en caliente como acelerador, nunca única vía** (regla de una mano, mismo convenio que el snap a cuadrícula). Al contrario que «Los clics acumulan», sí persiste: es un modo de trabajo. **`free` acumula también en los fotogramas con Alt** — la salida temprana pre-acumulación hacía que al soltar Alt la selección saltara hacia atrás justo lo recorrido suspendido (auditoría v2.39.1).
 - **Si el imán acaba de pegar, la cuadrícula NO re-snapea al soltar — pero solo EN SU EJE** (`alignSession.snappedX`/`snappedY` en el bloque de mouseup): gana la guía, que es más específica, y el eje donde no pegó nada sigue siendo de la rejilla — con un flag único, imantar la X dejaba la Y sin imán y sin cuadrícula a la vez (auditoría v2.39.1). Guardado en `tests/app-interaction.test.js` (imantado exacto con la casilla puesta, posición libre con ella quitada, y los tres casos de la auditoría).
 
@@ -507,33 +507,29 @@ Zoom is applied as a CSS `transform: scale()` on the canvas wrapper; `getPos()` 
 - **`dragLast` stores the pointer's real position, not the clamped one**, so when the pointer comes back the object follows from the first pixel instead of having to re-cross the distance it overshot.
 - **`applyGeometry` clamps before its no-op guard**, so a typed X of 9000 resyncs the field to where the element actually ended up rather than promising a position it doesn't have.
 
-### Conectores anclados: la flecha de dentro NO es un conector (v3.14.2)
+### Conectores anclados: RETIRADOS en la v3.27.0
 
-Soltar un extremo de flecha sobre un anclable (`ANCHORABLE_TYPES`, que incluye
-`image`) lo conecta, y `resolveAnchors` lo materializa en cada repintado sobre
-el **perímetro** del bbox con `rectEdgePoint` — que prolonga el rayo hasta el
-borde aunque el punto venga de dentro. Con un elemento que cubre el lienzo (una
-imagen encuadrada, y `rasterErase` fabrica `type:'image'` a partir de cualquier
-cosa que el borrador parta) eso mandaba el origen de la flecha al borde del
-lienzo mientras el cuerpo se quedaba donde se trazó: el bug de la v3.14.2.
+Hasta la 3.26, soltar un extremo de flecha sobre un anclable (`ANCHORABLE_TYPES`:
+formas, componentes UI e imágenes) lo conectaba, y `resolveAnchors` lo
+materializaba en cada repintado sobre el perímetro del bbox con `rectEdgePoint`.
+La v3.14.2 parcheó el caso de la flecha ENTERA dentro de un elemento (saltaba al
+borde del lienzo sobre una imagen a pantalla completa), pero el mecanismo seguía
+mordiendo en cuanto un gesto cruzaba el borde: dentro de un óvalo la punta
+saltaba a la caja, fuera de la elipse, y el usuario no podía meter una flecha en
+la figura (solo la Línea, que nunca anclaba). El usuario pidió quitarlo del todo.
 
-**La regla:** `connectorAnchorTarget(p, other, excludeIdx)` es el único camino a
-`findAnchorTarget` en creación y en resize, y devuelve -1 cuando los **dos**
-extremos caen sobre el mismo anclable. Una flecha dibujada entera encima de
-algo es una anotación, no un conector. Dos cosas que no se deducen del código:
-
-- **La guarda de «no anclar los dos extremos al mismo elemento» no bastaba**:
-  al aplicarse solo al segundo extremo dejaba `startAnchor` sin `endAnchor`, y
-  esa asimetría esquiva justo la comprobación equivalente de `resolveAnchors`.
-- **La decisión va en `resizeTo`, no en el `onMouseUp`**, porque `anchorCandidate`
-  es además lo que pinta el resaltado turquesa: decidir al soltar dejaba el
-  feedback prometiendo un anclaje que ya no iba a ocurrir.
-
-Guardas en `tests/app-interaction.test.js` (tres que fallan sin el arreglo, más
-una que ata el conector de siempre, el que sale del elemento hacia fuera) y en
-`e2e/imagen-flecha.spec.js`, que lo repite con un PNG real soltado en el lienzo
-— excepción razonada a la regla de reparto: son coordenadas, pero el arnés
-`node:vm` no decodifica imágenes y el fallo se destapó justo con una.
+**La regla, desde la v3.27.0: ningún código mueve un extremo de flecha al
+soltarlo.** Ni al crear, ni al arrastrar su handle, ni en el redraw. Lo único que
+queda del anclaje es `dropLegacyAnchors()` en `redrawNow`: quita
+`startAnchor`/`endAnchor` a lo que los traiga (escenas guardadas antes, JSON
+importado, pegado) sin tocar coordenadas —ya estaban materializadas— y sin
+`saveUndo` (era estado derivado). Vive en el redraw porque es el embudo por el
+que entra cualquier escena. `Exporter.isValidElement` no valida esos campos (un
+ancla rota no debe costar la flecha entera) y `Eraser` no los propaga a los
+trozos. Si alguien vuelve a plantear conectores, que sea opt-in y con feedback
+antes de soltar; guardado en `tests/app-interaction.test.js` («Las flechas no
+se anclan»), `tests/eraser.test.js`, `tests/exporter.test.js`,
+`e2e/imagen-flecha.spec.js` y `e2e/ovalo-flecha.spec.js`.
 
 ### «Limpiar todo» y los valores de fábrica
 

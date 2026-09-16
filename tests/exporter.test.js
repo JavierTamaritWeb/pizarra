@@ -871,7 +871,8 @@ test('round-trip JSON conserva cx2/cy2', async () => {
 });
 
 /* ============================================================
-   Conectores anclados (id + startAnchor/endAnchor)
+   id de elemento, y los anchors heredados del anclaje de conectores
+   (retirado en la v3.27.0)
    ============================================================ */
 
 test('Exporter.isValidElement: id opcional string corto; rechaza malformados', () => {
@@ -885,24 +886,24 @@ test('Exporter.isValidElement: id opcional string corto; rechaza malformados', (
   assert.equal(ctx.Exporter.isValidElement({ ...elRectFill, id: {} }), false);
 });
 
-test('Exporter.isValidElement: startAnchor/endAnchor requieren {id: string válido}', () => {
+test('Exporter.isValidElement: los anchors heredados no cuestan la flecha, bien o mal formados', () => {
+  // El anclaje se retiró en la 3.27.0: la app descarta los campos al cargar,
+  // así que un JSON antiguo —incluso con un ancla rota— tiene que entrar entero.
   const ctx = freshCtx();
-  assert.ok(ctx.Exporter.isValidElement({ ...elArrow, endAnchor: { id: 'abc123' } }));
-  assert.ok(ctx.Exporter.isValidElement({ ...elCurve, startAnchor: { id: 'x1' }, endAnchor: { id: 'y2' } }));
-  const bad = [
+  const legacy = [
+    { ...elArrow, endAnchor: { id: 'abc123' } },
+    { ...elCurve, startAnchor: { id: 'x1' }, endAnchor: { id: 'y2' } },
     { ...elArrow, endAnchor: 'abc' },
     { ...elArrow, endAnchor: { id: 3 } },
     { ...elArrow, endAnchor: {} },
-    { ...elArrow, endAnchor: [] },
-    { ...elArrow, startAnchor: { id: '' } },
     { ...elArrow, startAnchor: null },
   ];
-  for (const el of bad) {
-    assert.equal(ctx.Exporter.isValidElement(el), false, JSON.stringify(el.endAnchor || el.startAnchor));
+  for (const el of legacy) {
+    assert.ok(ctx.Exporter.isValidElement(el), JSON.stringify(el.endAnchor || el.startAnchor));
   }
 });
 
-test('round-trip JSON conserva id y anchors de una flecha anclada', async () => {
+test('importar un JSON anterior a la 3.27.0 con una flecha anclada carga la escena entera', async () => {
   const ctx = freshCtx();
   const card = { ...elCard, id: 'tgt1' };
   const arrow = { ...elArrow, endAnchor: { id: 'tgt1' } };
@@ -914,10 +915,11 @@ test('round-trip JSON conserva id y anchors de una flecha anclada', async () => 
   const back = JSON.parse(JSON.stringify(await p));
   assert.equal(back.length, 2, 'ambos sobreviven a la validación');
   assert.equal(back[0].id, 'tgt1');
-  assert.deepEqual(back[1].endAnchor, { id: 'tgt1' });
+  assert.deepEqual([back[1].x1, back[1].y1, back[1].x2, back[1].y2],
+    [elArrow.x1, elArrow.y1, elArrow.x2, elArrow.y2], 'la flecha conserva sus coordenadas');
 });
 
-test('Exporter.svg: los anchors no alteran el markup (coordenadas materializadas)', () => {
+test('Exporter.svg: los anchors heredados no alteran el markup', () => {
   const ctx = freshCtx();
   const plain = { ...elArrow };
   const anchored = { ...elArrow, endAnchor: { id: 'abc' } };

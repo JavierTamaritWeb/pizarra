@@ -1256,8 +1256,10 @@ body { font-family: ${FONT_CSS()};${options.transparent ? '' : ' background: #ff
     }
     // labelT (posición de la etiqueta sobre el trazo): número en (0,1) abierto
     if (el.labelT !== undefined && !(_isNum(el.labelT) && el.labelT > 0 && el.labelT < 1)) return false;
-    // id (destino de anclaje) y anchors de conector: no se interpolan en
-    // exports, pero se validan igualmente
+    // id: no se interpola en exports, pero se valida igualmente. Los
+    // `startAnchor`/`endAnchor` de escenas anteriores a la 3.27.0 (anclaje de
+    // conectores, retirado) no se validan: la app los descarta al cargar, y un
+    // ancla malformada no debe costar la flecha entera.
     const ID_RE = /^[a-z0-9]{1,32}$/i;
     if (el.id !== undefined && !(typeof el.id === 'string' && ID_RE.test(el.id))) return false;
     // buildingGroupId: id compartido por las piezas de un mismo edificio (agrupación)
@@ -1347,10 +1349,6 @@ body { font-family: ${FONT_CSS()};${options.transparent ? '' : ' background: #ff
             GARDEN_LABEL_MODES.some(v => v.id === m.gardenLabelMode) &&
             typeof m.labels === 'boolean')) return false;
     }
-    const validAnchor = a => a === undefined ||
-      (a !== null && typeof a === 'object' && !Array.isArray(a) &&
-       typeof a.id === 'string' && ID_RE.test(a.id));
-    if (!validAnchor(el.startAnchor) || !validAnchor(el.endAnchor)) return false;
     // Polígono libre: la lista de puntos ES la geometría. Se exige un triángulo
     // como mínimo —con menos no hay cara— y `stroke` sólo se serializa en
     // `false`, porque la ausencia del campo es el aspecto normal (con

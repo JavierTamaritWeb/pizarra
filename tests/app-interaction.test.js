@@ -4939,34 +4939,6 @@ test('imán solo en X con snapGrid: la Y libre sí vuelve a la cuadrícula al so
     `la Y debía volver a la cuadrícula y quedó en ${B.y}`);
 });
 
-test('el imán ignora la posición vieja de una flecha anclada que viaja con la selección', () => {
-  // Los candidatos se congelan al primer fotograma, pero una flecha anclada a
-  // lo arrastrado se mueve con ello (resolveAnchors): sus líneas iniciales
-  // eran candidatas fantasma y el imán clavaba la selección sobre aire vacío.
-  const app = loadApp();
-  app.selectTool('rect');
-  app.drag(100, 100, 180, 160);   // rect A
-  app.selectTool('arrow');
-  app.drag(600, 400, 500, 300);   // flecha suelta
-  app.selectTool('select');
-  app.click(550, 350);            // selecciona la flecha
-  app.drag(500, 300, 140, 130);   // ancla su punta dentro de A
-  let els = app.elements();
-  assert.ok(els[1].endAnchor, 'prerrequisito: la punta quedó anclada a A');
-
-  app.click(120, 115);            // selecciona solo A
-  els = app.elements();
-  const a1 = els[1];
-  const oldCenterX = (Math.min(a1.x1, a1.x2) + Math.max(a1.x1, a1.x2)) / 2;
-  // Arrastra A hasta dejar su borde izquierdo a 3 px del centro-x VIEJO de la
-  // flecha: sin candidatos fantasma, A se queda en la posición libre.
-  const dx = (oldCenterX - 3) - 100;
-  app.drag(120, 115, 120 + dx, 115);
-  els = app.elements();
-  assert.equal(els[0].x, oldCenterX - 3,
-    `A debía quedarse libre en ${oldCenterX - 3} y quedó en ${els[0].x}`);
-});
-
 /* ── Orden Z: traer al frente / enviar al fondo (v2.39.0) ──────── */
 
 test('el orden Z se cambia por pasos y a los extremos, sin undo fantasma en el tope', () => {
@@ -6387,80 +6359,102 @@ test('«Limpiar todo» devuelve el modo flotante a fábrica', () => {
     'y queda guardado en el acto, como el resto de lo que resetea el botón');
 });
 
-/* ── Flechas sobre un elemento que cubre el lienzo (v4.x) ──
-   Una imagen a pantalla completa es un ANCHORABLE_TYPES como cualquier otro,
-   así que la guarda se escribe con un `rect` grande: es el mismo camino de
-   código y el arnés no decodifica imágenes. */
+/* ── Las flechas no se anclan (v3.27.0) ──
+   El anclaje de conectores se retiró: un extremo de flecha se queda
+   exactamente donde se suelta, caiga donde caiga. Hasta la 3.26 un extremo
+   soltado en la caja de un elemento se proyectaba a su perímetro, y dentro
+   de un óvalo eso lo mandaba fuera de la figura (BUGS.md v3.27.0). Las
+   guardas cubren la creación de cada herramienta de flecha, el arrastre de
+   un extremo y la migración de las escenas antiguas. */
 
-/** Rect que cubre casi todo el lienzo, como una imagen encuadrada. */
-function conFondoGrande() {
+const sinAnclas = (el, msg) => {
+  assert.equal(el.startAnchor, undefined, `${msg}: sin startAnchor`);
+  assert.equal(el.endAnchor, undefined, `${msg}: sin endAnchor`);
+};
+
+test('una flecha que sale de un óvalo hacia fuera se queda donde se dibuja', () => {
+  // El gesto de la captura: óvalo (400,250)-(800,550) y una flecha desde su
+  // centro hasta bien fuera de la caja. Antes el origen saltaba a x=800.
   const app = loadApp();
-  app.selectTool('rect');
-  app.drag(20, 20, 1180, 780);
-  assert.equal(app.elements().length, 1, 'prerrequisito: el fondo se creó');
-  return app;
-}
-
-test('una flecha dibujada entera sobre un elemento grande no se ancla a él', () => {
-  // El bug: anclaba el origen (al segundo extremo lo rechazaba la guarda de
-  // "mismo elemento") y resolveAnchors lo proyectaba al perímetro del bbox
-  // —con una imagen a pantalla completa, al borde del lienzo—, así que la
-  // flecha saltaba al soltar mientras la línea, que no ancla, se veía bien.
-  const app = conFondoGrande();
+  app.selectTool('circle');
+  app.drag(400, 250, 800, 550);
   app.selectTool('arrow');
-  app.drag(300, 250, 900, 600);
-  const flecha = app.elements()[1];
-  assert.equal(flecha.type, 'arrow');
-  assert.equal(flecha.startAnchor, undefined, 'el origen no debe anclarse');
-  assert.equal(flecha.endAnchor, undefined, 'ni la punta');
-  assert.deepEqual(
-    [flecha.x1, flecha.y1, flecha.x2, flecha.y2], [300, 250, 900, 600],
-    'la flecha se queda exactamente donde se dibujó');
+  app.drag(600, 400, 1000, 400);
+  const [ovalo, flecha] = app.elements();
+  assert.deepEqual([flecha.x1, flecha.y1, flecha.x2, flecha.y2], [600, 400, 1000, 400]);
+  sinAnclas(flecha, 'la flecha');
+  assert.equal(ovalo.id, undefined, 'el óvalo no recibe un id de destino');
 });
 
-test('la flecha curva entera sobre un elemento grande tampoco se ancla', () => {
-  const app = conFondoGrande();
-  app.selectTool('curveArrow');
-  app.drag(300, 250, 900, 600);
-  const flecha = app.elements()[1];
-  assert.equal(flecha.type, 'curveArrow');
-  assert.equal(flecha.startAnchor, undefined);
-  assert.equal(flecha.endAnchor, undefined);
-  assert.deepEqual([flecha.x1, flecha.y1, flecha.x2, flecha.y2],
-    [300, 250, 900, 600]);
-});
-
-test('una flecha que sale del elemento hacia fuera sigue anclándose', () => {
-  // La otra mitad de la regla: el conector de siempre no se toca.
+test('la flecha curva y la flecha semicírculo tampoco se anclan al entrar en un óvalo', () => {
   const app = loadApp();
-  app.selectTool('rect');
+  app.selectTool('circle');
+  app.drag(400, 250, 800, 550);
+  app.selectTool('curveArrow');
+  app.drag(200, 400, 600, 400);    // entra desde fuera hasta el centro
+  app.selectTool('arcArrow');
+  app.drag(1000, 400, 700, 400);   // ídem, semicírculo con punta
+  const [, curva, arco] = app.elements();
+  assert.deepEqual([curva.x1, curva.y1, curva.x2, curva.y2], [200, 400, 600, 400]);
+  assert.deepEqual([arco.x1, arco.y1, arco.x2, arco.y2], [1000, 400, 700, 400]);
+  sinAnclas(curva, 'la curva');
+  sinAnclas(arco, 'el semicírculo');
+});
+
+test('una flecha que sale de un componente UI ya no se ancla a él', () => {
+  // El conector clásico (origen dentro de un botón, punta fuera) era el caso
+  // que SÍ anclaba: ahora el origen se queda donde se soltó.
+  const app = loadApp();
+  app.selectTool('button');
   app.drag(100, 100, 300, 250);
   app.selectTool('arrow');
   app.drag(200, 180, 800, 600);
-  const flecha = app.elements()[1];
-  assert.ok(flecha.startAnchor, 'el origen, dentro del rect, sí ancla');
-  assert.equal(flecha.endAnchor, undefined, 'la punta queda libre, fuera');
-  // Materializado sobre el perímetro del rect (100,100)-(300,250)
-  const enElBorde = flecha.x1 === 100 || flecha.x1 === 300 ||
-                    flecha.y1 === 100 || flecha.y1 === 250;
-  assert.ok(enElBorde,
-    `el origen debía caer en el perímetro y quedó en ${flecha.x1},${flecha.y1}`);
+  const [boton, flecha] = app.elements();
+  assert.deepEqual([flecha.x1, flecha.y1], [200, 180],
+    `el origen debía quedarse en 200,180 y quedó en ${flecha.x1},${flecha.y1}`);
+  sinAnclas(flecha, 'la flecha');
+  assert.equal(boton.id, undefined);
 });
 
-test('arrastrar un extremo dentro del mismo elemento grande no lo ancla', () => {
-  // Misma regla por la vía del resize: sin ella, mover un extremo de la
-  // flecha sobre la imagen reproducía el salto.
-  const app = conFondoGrande();
+test('arrastrar un extremo hasta dentro de un componente lo deja donde lo suelta el puntero', () => {
+  // La otra vía de anclaje era el handle de extremo: soltar sobre un
+  // anclable lo enganchaba y resaltaba en turquesa al candidato.
+  const app = loadApp();
+  app.selectTool('button');
+  app.drag(100, 100, 300, 250);
   app.selectTool('arrow');
-  app.drag(300, 250, 900, 600);
+  app.drag(600, 400, 900, 600);
   app.selectTool('select');
-  app.click(600, 425);            // el punto medio de la flecha
-  app.drag(300, 250, 400, 700);   // arrastra el handle del origen
-  const flecha = app.elements()[1];
-  assert.equal(flecha.startAnchor, undefined,
-    'sigue sin conector: los dos extremos están sobre el mismo elemento');
-  assert.deepEqual([flecha.x1, flecha.y1], [400, 700],
-    'y el origen se queda donde lo dejó el puntero');
+  app.click(750, 500);            // el punto medio de la flecha
+  app.drag(600, 400, 150, 130);   // arrastra el handle del origen al botón
+  const [boton, flecha] = app.elements();
+  assert.deepEqual([flecha.x1, flecha.y1], [150, 130]);
+  sinAnclas(flecha, 'la flecha');
+  assert.equal(boton.id, undefined);
+});
+
+test('una escena anterior a la 3.27.0 con flechas ancladas carga en el mismo sitio y ya libres', () => {
+  // Los anchors guardados venían con las coordenadas materializadas: se
+  // quitan los campos y no se mueve nada.
+  const app = loadApp({ autosave: [
+    { type: 'rect', x: 100, y: 100, w: 200, h: 150, color: '#1a1a2e', lineWidth: 2, fill: false, id: 'r8aegs' },
+    { type: 'arrow', x1: 300, y1: 180, x2: 800, y2: 600, color: '#1a1a2e', lineWidth: 2,
+      startAnchor: { id: 'r8aegs' } },
+    { type: 'curveArrow', x1: 900, y1: 100, x2: 300, y2: 120, cx: 600, cy: 40, color: '#1a1a2e', lineWidth: 2,
+      endAnchor: { id: 'r8aegs' } },
+  ] });
+  const [, flecha, curva] = app.elements();
+  assert.deepEqual([flecha.x1, flecha.y1, flecha.x2, flecha.y2], [300, 180, 800, 600]);
+  assert.deepEqual([curva.x1, curva.y1, curva.x2, curva.y2], [900, 100, 300, 120]);
+  sinAnclas(flecha, 'la flecha heredada');
+  sinAnclas(curva, 'la curva heredada');
+  // Y mover el antiguo destino ya no arrastra a nadie
+  app.selectTool('select');
+  app.click(200, 175);
+  app.drag(200, 175, 400, 375);
+  const [rect, f2] = app.elements();
+  assert.equal(rect.x, 300);
+  assert.deepEqual([f2.x1, f2.y1], [300, 180], 'la flecha no sigue al rectángulo');
 });
 
 /* ── Triángulo irregular (v3.19.0) ─────────────────────────── */

@@ -301,7 +301,7 @@ test('erase() no borra las máscaras heredadas', () => {
 });
 
 /* Guardias de BUGS.md (v2.2.0): el recorte usaba solo `r` donde `touches`
-   usa `r + grosor/2`, y todo trozo perdía id/anclas incondicionalmente. */
+   usa `r + grosor/2`. */
 
 test('el roce que toca la tinta gruesa pero no el eje también muerde (mismo umbral que touches)', () => {
   // lineWidth 12: la tinta llega hasta ±6 del eje. El borrador (r=8) pasa a
@@ -312,18 +312,22 @@ test('el roce que toca la tinta gruesa pero no el eje también muerde (mismo umb
   assert.equal(out.length, 2, 'el mordisco se ve: la recta queda partida');
 });
 
-test('mordisco en la cola de una flecha anclada: la punta no se desconecta', () => {
+test('los trozos de una flecha con anchors heredados nacen sin ellos ni id (v3.27.0)', () => {
+  // Una escena anterior a la 3.27.0 puede traer anclas: el anclaje se retiró
+  // y ningún trozo debe arrastrarlas, ni siquiera el de la punta, que no se
+  // ha movido.
   const els = [arrow(0, 100, 200, 100, {
     id: 'a1', startAnchor: { id: 'n3' }, endAnchor: { id: 'n7' },
   })];
   const out = Eraser.erase(els, stroke([30, 100]), 8, DEPS);
   assert.equal(out.length, 2);
+  for (const e of out) {
+    assert.equal(e.startAnchor, undefined);
+    assert.equal(e.endAnchor, undefined);
+    assert.equal(e.id, undefined, 'ningún trozo hereda el id');
+  }
   const tip = out.find(e => e.type === 'arrow');
-  assert.equal(tip.endAnchor && tip.endAnchor.id, 'n7', 'la punta, que no se ha movido, sigue anclada');
-  assert.equal(tip.startAnchor, undefined, 'el extremo recortado sí pierde su ancla');
-  const tail = out.find(e => e.type === 'line');
-  assert.equal(tail.startAnchor, undefined, 'el trozo degradado a línea no arrastra anclas muertas');
-  assert.ok(out.every(e => e.id === undefined), 'ningún trozo hereda el id');
+  assert.deepEqual([tip.x2, tip.y2], [200, 100], 'la punta se queda donde estaba');
 });
 
 test('roce que toca sin que ninguna muestra caiga dentro: intacto por referencia (sin undo fantasma)', () => {

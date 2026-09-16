@@ -95,7 +95,7 @@ Para *usar* la app no hay nada que instalar ni compilar: el CSS ya viene compila
 
 - **Curvatura con handle**: `Shift` al trazar comba hacia el otro lado, `F` invierte el giro, `+`/`−` ajustan la intensidad y el doble clic en el handle la resetea.
 - **Curvas encadenadas**: cada clic añade un tramo continuo y `Ctrl`/`Cmd`+clic termina la cadena con la punta; `Retroceso` deshace el último tramo y `Esc` cancela.
-- **Conectores anclados**: suelta un extremo sobre un elemento y la flecha se pega a su borde — al moverlo o redimensionarlo, la flecha lo sigue conservando su curvatura.
+- **Las flechas se quedan donde las sueltas**: desde la v3.27.0 no hay anclaje de conectores — cada extremo cae exactamente donde lo dejas, también dentro de un óvalo o de un componente, y mover un elemento no arrastra a ninguna flecha.
 - **Etiquetas sobre el trazo**, desplazables a lo largo de la curva, más doble punta, trazo discontinuo, grosor por elemento y dirección invertible (`D`).
 
 ### Edificios y Jardín
@@ -144,7 +144,7 @@ Cada pieza de jardín nace con una **etiqueta** dentro del mismo grupo (se mueve
 
 - **Selección múltiple** con marquee, `Ctrl/Cmd+A` o la casilla **«Los clics acumulan selección»**, que aparece al pulsar **Mover** o **«Select»** — las dos herramientas cuyo clic gobierna — y se reabre con el ⚙ de la cabecera «Elementos» sin soltarlas, con cualquier herramienta puesta. Cada clic añade, y un clic sobre lo ya seleccionado lo quita (`Shift`+clic es el atajo); el grupo se arrastra desde cualquier punto de su marco combinado, incluido el espacio vacío entre elementos.
 - **Rotación por pasos** (`Shift+R`): cuadrados 45°, trapecios/triángulos/rectángulos 90°, pentágonos y estrellas de 5 puntas 36°, hexágonos y estrellas de 6 puntas 30°. En una selección múltiple cada forma usa su propio paso. Con las formas que guardan su orientación como ángulo —polígonos regulares, estrellas y trapecio— basta con **`←` y `→`**, que pasan de una orientación válida a la siguiente en cada sentido; ahí `↑`/`↓` siguen moviendo.
-- **Copiar y pegar** (`Ctrl/Cmd+C` / `V`), también entre pestañas: lo pegado aparece desplazado, queda seleccionado y las flechas ancladas se re-vinculan a sus clones.
+- **Copiar y pegar** (`Ctrl/Cmd+C` / `V`), también entre pestañas: lo pegado aparece desplazado y queda seleccionado.
 - **Posición y tamaño exactos**: con algo seleccionado, el panel deja escribir X, Y, ancho y alto —y el **texto** del elemento cuando lo tiene: el contenido de un texto o el rótulo de un botón, un input, una navbar o una tarjeta—. Antes solo se podía arrastrar y estirar a ojo.
 - **Todo lo dibujado se puede recolorear**: elegir un color con algo seleccionado lo aplica a la selección, igual que el grosor o el relleno.
 - **Varios elementos se editan a la vez**: con más de uno seleccionado, la caja combinada trae **tiradores** —arrastrar una esquina escala el conjunto en proporción, arrastrar por dentro lo mueve— y los controles del panel enseñan el valor que **todos** comparten, dejándose como están cuando discrepan. Cambiar color, grosor o relleno afecta a toda la selección de una vez.
@@ -259,7 +259,7 @@ src/
     ├── renderer.js      Render por tipo de elemento + cuadrícula + selección
     ├── exporter.js      Export PNG/JPG/SVG/HTML/JSON + import validado
     ├── templates.js     Plantillas predefinidas
-    └── app.js           Controlador: estado, eventos, undo/redo, conectores
+    └── app.js           Controlador: estado, eventos, undo/redo
 gulpfile.js              Gulp 5: compila src/scss/ y ensambla dist/
 dist/                    Publicable minificado (generado con `npm run build`, sin versionar)
 tests/                   Suite unitaria (runner nativo de Node)

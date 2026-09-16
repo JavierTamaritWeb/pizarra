@@ -1,9 +1,9 @@
 'use strict';
-/* Comprobación end-to-end del arreglo v3.14.2 con una IMAGEN de verdad: una
-   flecha trazada ENTERA encima de ella debe quedarse donde se dibuja. La
-   guarda de `tests/` usa un rect grande porque el arnés node:vm no decodifica
-   imágenes; aquí se suelta un PNG real sobre el lienzo, como un arrastre desde
-   el Finder, que es el gesto que destapó el fallo. */
+/* Comprobación end-to-end con una IMAGEN de verdad: una flecha trazada sobre
+   ella —entera encima (arreglo v3.14.2) o saliendo hacia fuera (desde la
+   v3.27.0, sin anclaje de conectores)— se queda donde se dibuja. El arnés
+   node:vm no decodifica imágenes; aquí se suelta un PNG real sobre el lienzo,
+   como un arrastre desde el Finder, que es el gesto que destapó el fallo. */
 const { test, expect } = require('@playwright/test');
 const { openApp, selectTool, drag, elements, soltarImagen, WIDE } = require('./helpers.js');
 
@@ -38,20 +38,20 @@ test('la flecha curva entera sobre la imagen tampoco se ancla', async ({ page })
   expect([curva.x1, curva.y1, curva.x2, curva.y2].map(Math.round)).toEqual(P);
 });
 
-test('una flecha que sale de la imagen hacia fuera sigue anclándose a ella', async ({ page }) => {
-  // La otra mitad de la regla: el conector de siempre no se toca. La imagen se
-  // suelta pequeña (300×200 cabe sin escalar) para que quede sitio fuera.
+test('una flecha que sale de la imagen hacia fuera se queda donde se dibuja (v3.27.0)', async ({ page }) => {
+  // Hasta la 3.26 este era el conector clásico: el origen, dentro de la
+  // imagen, se anclaba y se proyectaba a su borde. Ya no hay anclaje. La
+  // imagen se suelta pequeña (300×200 cabe sin escalar) para que quede sitio fuera.
   await openApp(page, { viewport: WIDE });
   const img = await soltarImagen(page, 300, 200);
 
+  const x1 = img.x + img.w / 2, y1 = img.y + img.h / 2;
   await selectTool(page, 'arrow');
-  await drag(page, img.x + img.w / 2, img.y + img.h / 2, 1150, 760);
+  await drag(page, x1, y1, 1150, 760);
 
   const flecha = (await elements(page)).find(e => e.type === 'arrow');
-  expect(flecha.startAnchor, 'el origen, dentro de la imagen, sí ancla').toBeTruthy();
-  expect(flecha.endAnchor, 'la punta queda libre, fuera').toBeUndefined();
-  // Materializado sobre el perímetro de la imagen
-  const x1 = Math.round(flecha.x1), y1 = Math.round(flecha.y1);
-  const enElBorde = [img.x, img.x + img.w].includes(x1) || [img.y, img.y + img.h].includes(y1);
-  expect(enElBorde, `el origen debía caer en el borde y quedó en ${x1},${y1}`).toBe(true);
+  expect(flecha.startAnchor).toBeUndefined();
+  expect(flecha.endAnchor).toBeUndefined();
+  expect([Math.round(flecha.x1), Math.round(flecha.y1)]).toEqual([Math.round(x1), Math.round(y1)]);
+  expect([Math.round(flecha.x2), Math.round(flecha.y2)]).toEqual([1150, 760]);
 });

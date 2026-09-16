@@ -4,6 +4,25 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.27.0] — 2026-09-16
+
+### Eliminado
+
+- **El anclaje de conectores.** Hasta ahora, soltar un extremo de Flecha,
+  Flecha curva o Flecha semicírculo dentro de la caja de un elemento (una
+  forma, un componente UI, una imagen) lo «anclaba» y lo proyectaba a su
+  perímetro en cada repintado. Con un óvalo eso mandaba la punta fuera de la
+  figura, al borde de su caja, y no había forma de meter una flecha dentro:
+  solo la Línea, que nunca anclaba, entraba. La regla de la v3.14.2 (la flecha
+  entera dentro no es un conector) no bastaba: cualquier gesto que cruzase el
+  borde seguía saltando. Se retira entero: **un extremo se queda exactamente
+  donde se suelta**, al crear y al arrastrar su handle, y desaparece el
+  resaltado turquesa del candidato. Las escenas guardadas antes cargan con sus
+  flechas en el mismo sitio (las coordenadas ya estaban materializadas) y
+  pierden los campos `startAnchor`/`endAnchor`; un JSON antiguo con un ancla
+  malformada ya no pierde la flecha. Mover un elemento ya no arrastra a
+  ninguna flecha.
+
 ## [3.26.0] — 2026-09-14
 
 ### Añadido

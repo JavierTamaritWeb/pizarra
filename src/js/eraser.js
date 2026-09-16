@@ -389,6 +389,9 @@ const Eraser = (function () {
     return runs.map(run => {
       const a = run[0], b = run[run.length - 1];
       const piece = { ...el, x1: a.x, y1: a.y, x2: b.x, y2: b.y };
+      // Sin id (solo vale para el original) ni anchors: los conectores se
+      // retiraron en la v3.27.0 y los que traiga una escena vieja no deben
+      // propagarse a los trozos.
       delete piece.id; delete piece.startAnchor; delete piece.endAnchor;
       if (el.type === 'arrow') {
         const hasP2 = b === p2;
@@ -400,13 +403,6 @@ const Eraser = (function () {
         } else {
           delete piece.heads;
         }
-      }
-      // Un extremo que no se ha movido conserva su ancla — solo mientras el
-      // trozo siga siendo flecha (resolveAnchors ignora las líneas): morder
-      // la cola no debe desconectar la punta anclada, que está donde estaba.
-      if (piece.type === 'arrow') {
-        if (a === p1 && el.startAnchor !== undefined) piece.startAnchor = el.startAnchor;
-        if (b === p2 && el.endAnchor !== undefined) piece.endAnchor = el.endAnchor;
       }
       return piece;
     });

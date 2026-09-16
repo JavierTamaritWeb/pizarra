@@ -659,21 +659,12 @@
     let s = state.alignSession;
     if (!s) {
       const selSet = new Set(state.selection);
-      // Una flecha anclada a lo seleccionado viaja CON la selección
-      // (resolveAnchors la recoloca en cada repintado), así que sus bordes
-      // del primer fotograma serían candidatos fantasma: el imán clavaría
-      // la selección sobre una coordenada donde ya no queda nada.
-      const selIds = new Set();
-      state.selection.forEach(i => {
-        const id = state.elements[i] && state.elements[i].id;
-        if (id) selIds.add(id);
-      });
-      const anchored = el =>
-        (el.startAnchor && selIds.has(el.startAnchor.id)) ||
-        (el.endAnchor && selIds.has(el.endAnchor.id));
+      // Nada de lo no seleccionado se mueve durante el gesto (desde la
+      // v3.27.0 no hay flechas ancladas que viajen con la selección), así que
+      // sus bordes y centros valen para todo el arrastre.
       const xs = [], ys = [];
       state.elements.forEach((el, i) => {
-        if (selSet.has(i) || anchored(el)) return;
+        if (selSet.has(i)) return;
         const b = getElementBounds(el);
         if (!Number.isFinite(b.x) || !Number.isFinite(b.w)) return;
         xs.push(b.x, b.x + b.w / 2, b.x + b.w);
@@ -941,11 +932,6 @@
     if (el.type === 'curveArrow' && CurvePath.isChain(el)) {
       let m = CurvePath.reverse(el);
       if (el.labelT !== undefined) m = { ...m, labelT: 1 - el.labelT };
-      if (el.startAnchor !== undefined || el.endAnchor !== undefined) {
-        m = { ...m, startAnchor: el.endAnchor, endAnchor: el.startAnchor };
-        if (m.startAnchor === undefined) delete m.startAnchor;
-        if (m.endAnchor === undefined) delete m.endAnchor;
-      }
       return m;
     }
     const m = { ...el, x1: el.x2, y1: el.y2, x2: el.x1, y2: el.y1 };
@@ -955,12 +941,6 @@
     }
     // La etiqueta se queda en el mismo punto físico del trazo
     if (el.labelT !== undefined) m.labelT = 1 - el.labelT;
-    if (el.startAnchor !== undefined || el.endAnchor !== undefined) {
-      m.startAnchor = el.endAnchor;
-      m.endAnchor = el.startAnchor;
-      if (m.startAnchor === undefined) delete m.startAnchor;
-      if (m.endAnchor === undefined) delete m.endAnchor;
-    }
     return m;
   }
 
@@ -1052,19 +1032,6 @@
     return handles;
   }
 
-  /* ── Conectores anclados ── */
-
-  const ANCHORABLE_TYPES = [
-    TOOLS.RECT, TOOLS.ROUNDED_RECT, TOOLS.CIRCLE,
-    TOOLS.SQUARE, TOOLS.TRAPEZOID, TOOLS.FREE_TRIANGLE,
-    TOOLS.TRIANGLE, TOOLS.PENTAGON, TOOLS.HEXAGON,
-    TOOLS.BUTTON, TOOLS.INPUT,
-    TOOLS.IMAGE_PLACEHOLDER, TOOLS.IMAGE, TOOLS.NAV, TOOLS.CARD,
-    TOOLS.FORM_CONTROL, TOOLS.UI_TABLE, TOOLS.CHART,
-    TOOLS.DIALOG, TOOLS.TABS, TOOLS.SIDEBAR,
-  ];
-  const ANCHOR_THRESHOLD = 12;
-
   // Formas geométricas: las únicas que admiten relleno (los componentes UI
   // traen el suyo propio como parte de su diseño)
   // Las estrellas entran aquí porque RegularPolygon las trata como un polígono
@@ -1097,132 +1064,27 @@
     return id;
   }
 
-  /** Índice del elemento anclable bajo el punto (bbox ± umbral), o -1. */
-  function findAnchorTarget(p, excludeIdx) {
-    for (let i = state.elements.length - 1; i >= 0; i--) {
-      if (i === excludeIdx) continue;
-      const el = state.elements[i];
-      if (!ANCHORABLE_TYPES.includes(el.type)) continue;
-      if (p.x >= el.x - ANCHOR_THRESHOLD && p.x <= el.x + el.w + ANCHOR_THRESHOLD &&
-          p.y >= el.y - ANCHOR_THRESHOLD && p.y <= el.y + el.h + ANCHOR_THRESHOLD) {
-        return i;
-      }
-    }
-    return -1;
-  }
-
-  /**
-   * Candidato de anclaje para un extremo, descartando la flecha dibujada
-   * ENTERA dentro del mismo anclable: eso es una anotación encima, no un
-   * conector. Anclar ahí solo un extremo (al otro lo rechaza la guarda de
-   * "mismo elemento") lo proyectaría al perímetro del bbox — con una imagen
-   * que cubre el lienzo, al borde del lienzo, y la flecha salta al soltar.
-   * Devuelve -1 en ese caso.
-   */
-  function connectorAnchorTarget(p, other, excludeIdx) {
-    const idx = findAnchorTarget(p, excludeIdx);
-    if (idx >= 0 && idx === findAnchorTarget(other, excludeIdx)) return -1;
-    return idx;
-  }
-
-  /**
-   * Punto del perímetro del bbox en la dirección centro → from (también
-   * cuando `from` cae dentro: se prolonga el rayo hasta el borde).
-   */
-  function rectEdgePoint(b, from) {
-    const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
-    const dx = from.x - cx, dy = from.y - cy;
-    if (!dx && !dy) return { x: cx, y: b.y };
-    const t = Math.min(
-      dx ? (b.w / 2) / Math.abs(dx) : Infinity,
-      dy ? (b.h / 2) / Math.abs(dy) : Infinity
-    );
-    return { x: cx + dx * t, y: cy + dy * t };
-  }
-
-  /**
-   * Materializa las coordenadas de los extremos anclados (estado derivado,
-   * SIN saveUndo: los snapshots capturan lo materializado y el redraw
-   * posterior a un undo re-resuelve). Si el ancla ya no existe, se quita el
-   * anchor conservando las últimas coordenadas ("desanclar congelado").
-   * En curveArrow, cuando la cuerda cambia los controles se re-proyectan con
-   * transformControlsToChord para que la curva conserve su forma.
-   * Reemplaza siempre por copias, nunca muta elementos.
-   */
-  function resolveAnchors() {
-    let byId = null;
+  /* ── Anclaje de conectores: RETIRADO en la v3.27.0 ──
+     Hasta la 3.26 un extremo de flecha soltado en la caja de un elemento se
+     «anclaba» y se proyectaba a su perímetro en cada repintado. Cualquier
+     extremo que cayera dentro de un óvalo saltaba a su borde (fuera de la
+     elipse), y el usuario lo sufría como «no puedo meter una flecha en la
+     figura». Se retiró entero: un extremo se queda donde se suelta, siempre.
+     Lo único que queda es esta migración: las escenas guardadas antes (y el
+     JSON importado o pegado) traen `startAnchor`/`endAnchor` con las
+     coordenadas ya materializadas, así que basta con quitar los campos sin
+     tocar nada más. Vive en el redraw porque es el embudo por el que entra
+     cualquier escena; reemplaza por copias y no pasa por saveUndo (era
+     estado derivado). */
+  function dropLegacyAnchors() {
     for (let i = 0; i < state.elements.length; i++) {
       const el = state.elements[i];
-      if ((el.type !== 'arrow' && el.type !== 'curveArrow') ||
-          (!el.startAnchor && !el.endAnchor)) continue;
-      // Defensa ante un JSON importado con ambos extremos al mismo elemento:
-      // resolver los dos los colapsaría; se deja tal cual (la UI ya no lo crea).
-      if (el.startAnchor && el.endAnchor && el.startAnchor.id === el.endAnchor.id) continue;
-      if (!byId) {
-        byId = new Map();
-        state.elements.forEach(t => {
-          if (t.id && ANCHORABLE_TYPES.includes(t.type) && !byId.has(t.id)) {
-            byId.set(t.id, { x: t.x, y: t.y, w: t.w, h: t.h });
-          }
-        });
-      }
-      let m = state.elements[i];
-      const old = { x1: m.x1, y1: m.y1, x2: m.x2, y2: m.y2 };
-      const apply = (key, xKey, yKey, oxKey, oyKey) => {
-        const a = m[key];
-        if (!a) return;
-        const b = byId.get(a.id);
-        if (!b) {
-          m = { ...m };
-          delete m[key];
-          return;
-        }
-        const pt = rectEdgePoint(b, { x: m[oxKey], y: m[oyKey] });
-        if (Math.abs(pt.x - m[xKey]) > 0.5 || Math.abs(pt.y - m[yKey]) > 0.5) {
-          m = { ...m, [xKey]: pt.x, [yKey]: pt.y };
-        }
-      };
-      apply('startAnchor', 'x1', 'y1', 'x2', 'y2');
-      apply('endAnchor', 'x2', 'y2', 'x1', 'y1');
-      if (m !== state.elements[i]) {
-        // La cuerda cambió: re-proyectar los controles para conservar la forma
-        if (m.type === 'curveArrow' && CurvePath.isChain(m)) {
-          let chained = state.elements[i];
-          if (m.x1 !== old.x1 || m.y1 !== old.y1) {
-            chained = CurvePath.withEndpoint(chained, 'start', { x: m.x1, y: m.y1 });
-          }
-          if (m.x2 !== old.x2 || m.y2 !== old.y2) {
-            chained = CurvePath.withEndpoint(chained, 'end', { x: m.x2, y: m.y2 });
-          }
-          m = { ...chained, startAnchor: m.startAnchor, endAnchor: m.endAnchor };
-          if (m.startAnchor === undefined) delete m.startAnchor;
-          if (m.endAnchor === undefined) delete m.endAnchor;
-        } else if (m.type === 'curveArrow') {
-          m = transformControlsToChord(m, old);
-        }
-        state.elements[i] = m;
-      }
+      if (el.startAnchor === undefined && el.endAnchor === undefined) continue;
+      const m = { ...el };
+      delete m.startAnchor;
+      delete m.endAnchor;
+      state.elements[i] = m;
     }
-  }
-
-  /**
-   * Ancla el extremo dado de una flecha recién creada si cae sobre un
-   * anclable. `otherP` es el extremo contrario: si ambos caen sobre el mismo
-   * elemento, connectorAnchorTarget lo descarta y la flecha nace libre.
-   */
-  function attachAnchorOnCreate(el, key, p, otherP) {
-    const idx = connectorAnchorTarget(p, otherP);
-    if (idx < 0) return;
-    let target = state.elements[idx];
-    // No anclar los dos extremos al mismo elemento (colapsaría la flecha)
-    const otherKey = key === 'startAnchor' ? 'endAnchor' : 'startAnchor';
-    const other = el[otherKey];
-    if (other && target.id && other.id === target.id) return;
-    if (!target.id) {
-      target = { ...target, id: newId() };
-      state.elements[idx] = target;
-    }
-    el[key] = { id: target.id };
   }
 
   /**
@@ -2623,7 +2485,7 @@
   });
 
   function redrawNow() {
-    resolveAnchors();
+    dropLegacyAnchors();
     // Previsualización del borrador: lo que la pasada va a eliminar o recortar
     // ya cambia mientras se arrastra, así que lo que se ve durante el gesto es
     // exactamente el resultado. El estado no se toca hasta soltar (undo sigue
@@ -2727,17 +2589,6 @@
           ctx.arc(h.x, h.y, 5, 0, Math.PI * 2);
           ctx.fill();
         });
-        ctx.restore();
-      }
-    }
-    // Feedback de anclaje: resaltar el candidato bajo el extremo arrastrado
-    if (state.resizing && state.resizing.anchorCandidate >= 0) {
-      const t = state.elements[state.resizing.anchorCandidate];
-      if (t) {
-        ctx.save();
-        ctx.strokeStyle = '#4ecdc4';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(t.x - 2, t.y - 2, t.w + 4, t.h + 4);
         ctx.restore();
       }
     }
@@ -3130,10 +2981,6 @@
     if (draft.dash) el.dash = true;
     saveUndo();
     state.elements.push(el);
-    const chainStart = { x: first.x1, y: first.y1 };
-    const chainEnd = { x: last.x2, y: last.y2 };
-    attachAnchorOnCreate(el, 'startAnchor', chainStart, chainEnd);
-    attachAnchorOnCreate(el, 'endAnchor', chainEnd, chainStart);
     cancelCurveChain();
     redraw();
     return true;
@@ -3276,40 +3123,26 @@
     const p = (state.snapGrid && !e.altKey) ? { x: snapVal(pos.x), y: snapVal(pos.y) } : pos;
     // Grupo seleccionado como unidad: escala todas sus piezas a la vez.
     if (r.group) { resizeGroupTo(p, r); return; }
-    // Handles de extremo (p1/p2): mueven ese extremo; durante el arrastre se
-    // suelta el anclaje de ese lado (para que siga al puntero) y se registra
-    // el candidato bajo el cursor para re-anclar al soltar
+    // Handles de extremo (p1/p2): mueven ese extremo y nada más — el
+    // extremo se queda exactamente donde lo deja el puntero (v3.27.0).
     if (r.corner === 'p1' || r.corner === 'p2') {
       let copy = { ...r.original };
       if (copy.type === 'curveArrow' && CurvePath.isChain(copy)) {
         const which = r.corner === 'p1' ? 'start' : 'end';
         copy = CurvePath.withEndpoint(copy, which, p);
-        delete copy[which === 'start' ? 'startAnchor' : 'endAnchor'];
         state.elements[state.selection[0]] = copy;
-        // El extremo contrario decide igual que al crear: si los dos caen
-        // sobre el mismo anclable no hay conector que valga (y el resaltado
-        // turquesa tampoco debe prometerlo).
-        r.anchorCandidate = connectorAnchorTarget(
-          p, which === 'start' ? CurvePath.end(copy) : CurvePath.start(copy),
-          state.selection[0]);
         r.did = true;
         return;
       }
       if (r.corner === 'p1') {
-        delete copy.startAnchor;
         copy.x1 = p.x;
         copy.y1 = p.y;
       } else {
-        delete copy.endAnchor;
         copy.x2 = p.x;
         copy.y2 = p.y;
       }
       if (copy.type === 'curveArrow') copy = transformControlsToChord(copy, r.original);
       state.elements[state.selection[0]] = copy;
-      r.anchorCandidate = connectorAnchorTarget(
-        p,
-        r.corner === 'p1' ? { x: copy.x2, y: copy.y2 } : { x: copy.x1, y: copy.y1 },
-        state.selection[0]);
       r.did = true;
       return;
     }
@@ -3335,8 +3168,7 @@
       // Semicírculo (siempre 180°): el arrastre de cualquiera de los dos
       // controles cambia el RADIO — distancia del puntero al centro del
       // diámetro — y el lado; los extremos se reubican sobre la dirección
-      // de la cuerda, así que se sueltan los anclajes como al arrastrar
-      // un extremo
+      // de la cuerda
       if (r.original.arc === true) {
         const fr = chordFrame(r.original);
         if (fr) {
@@ -3344,8 +3176,6 @@
           const side = Math.sign((p.x - fr.mx) * fr.ux + (p.y - fr.my) * fr.uy) || 1;
           const copy = resizeArc(r.original, R, side);
           if (copy !== r.original) {
-            delete copy.startAnchor;
-            delete copy.endAnchor;
             state.elements[state.selection[0]] = copy;
             r.did = true;
           }
@@ -4373,24 +4203,6 @@
       const r = state.resizing;
       if (r.did) {
         pushUndo(r.snapshot);
-        // Soltar un extremo sobre un anclable lo ancla (asignando id si falta)
-        if ((r.corner === 'p1' || r.corner === 'p2') && r.anchorCandidate >= 0) {
-          const key = r.corner === 'p1' ? 'startAnchor' : 'endAnchor';
-          const otherKey = key === 'startAnchor' ? 'endAnchor' : 'startAnchor';
-          const selIdx = state.selection[0];
-          const other = state.elements[selIdx][otherKey];
-          let target = state.elements[r.anchorCandidate];
-          // No anclar los DOS extremos al mismo elemento: resolveAnchors los
-          // proyectaría uno hacia el otro sobre el mismo borde y la flecha
-          // colapsaría a longitud ~0. Si colisiona, este extremo queda libre.
-          if (!(other && target.id && other.id === target.id)) {
-            if (!target.id) {
-              target = { ...target, id: newId() };
-              state.elements[r.anchorCandidate] = target;
-            }
-            state.elements[selIdx] = { ...state.elements[selIdx], [key]: { id: target.id } };
-          }
-        }
       }
       state.resizing = null;
       redraw();
@@ -4667,11 +4479,6 @@
         }
         if (state.dashed) el.dash = true;
         state.elements.push(el);
-        // Extremos sobre un elemento anclable: la flecha nace conectada
-        if (state.tool !== TOOLS.LINE) {
-          attachAnchorOnCreate(el, 'startAnchor', p1, p2);
-          attachAnchorOnCreate(el, 'endAnchor', p2, p1);
-        }
       } else if (state.tool === TOOLS.CURVE_ARROW) {
         // Un clic sin arrastre inicia el modo encadenado; el elemento no entra
         // en state.elements hasta Ctrl/Cmd+clic, así que undo/autosave reciben
@@ -5638,38 +5445,23 @@
 
   /**
    * Inserta copias de `sources` desplazadas (dx,dy): re-siembra el jitter,
-   * regenera el id de los anclables re-vinculando los anchors cuyo destino
-   * también se clona (los externos conservan su anchor original), y deja
-   * los clones seleccionados. El saveUndo es del llamador.
+   * regenera los ids (y el buildingGroupId, cada edificio clonado es
+   * independiente) y deja los clones seleccionados. El saveUndo es del
+   * llamador.
    */
   function insertClones(sources, dx, dy) {
     const start = state.elements.length;
-    const idMap = new Map();
     const groupMap = new Map();   // buildingGroupId viejo → nuevo (cada edificio clonado es independiente)
     sources.forEach(src => {
       const copy = moveElement(src, dx, dy);
       copy.seed = newSeed();
-      if (src.id) {
-        copy.id = newId();
-        idMap.set(src.id, copy.id);
-      }
+      if (src.id) copy.id = newId();
       if (src.buildingGroupId) {
         if (!groupMap.has(src.buildingGroupId)) groupMap.set(src.buildingGroupId, newId());
         copy.buildingGroupId = groupMap.get(src.buildingGroupId);
       }
       state.elements.push(copy);
     });
-    // Flechas clonadas: si su ancla también se clonó, apuntan al clon;
-    // si no, conservan el anchor al original
-    for (let i = start; i < state.elements.length; i++) {
-      const el = state.elements[i];
-      if (el.startAnchor || el.endAnchor) {
-        const copy = { ...el };
-        if (copy.startAnchor && idMap.has(copy.startAnchor.id)) copy.startAnchor = { id: idMap.get(copy.startAnchor.id) };
-        if (copy.endAnchor && idMap.has(copy.endAnchor.id)) copy.endAnchor = { id: idMap.get(copy.endAnchor.id) };
-        state.elements[i] = copy;
-      }
-    }
     setSelection(Array.from({ length: state.elements.length - start }, (_, k) => start + k));
   }
 
@@ -5851,10 +5643,9 @@
     const elements = state.selection
       .map(i => moveElement(state.elements[i], -box.x, -box.y))
       .map(el => {
-        // La pieza es un dibujo, no un trozo de ESTA escena: se le quitan las
-        // referencias que solo valen aquí —el id de anclaje y los anchors que
-        // apuntan a él— o al insertarla las flechas seguirían enganchadas a
-        // elementos de otro dibujo.
+        // La pieza es un dibujo, no un trozo de ESTA escena: se le quita el
+        // id, que solo vale aquí (y los anchors heredados de escenas
+        // anteriores a la 3.27.0, si los trajera).
         const copia = { ...el };
         delete copia.id;
         delete copia.startAnchor;

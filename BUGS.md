@@ -35,6 +35,42 @@ el código es testable, el test que lo prueba (regla completa en `CLAUDE.md`).
 
 ## Cubiertos por tests automáticos
 
+### v3.27.0 — Una flecha con un extremo dentro de un óvalo saltaba al borde de su caja
+
+- **Síntoma:** con un óvalo en el lienzo, una Línea entra en él sin problema,
+  pero una Flecha, Flecha curva o Flecha semicírculo que cruce su borde
+  «se sale de la figura»: el extremo que cae dentro salta al soltar hasta el
+  borde de la caja del óvalo, fuera de la elipse. Confirmado en el autosave de
+  la app: las flechas llevaban `endAnchor: {id}` del óvalo y `x2 === circle.x`.
+- **Causa:** el anclaje de conectores. `attachAnchorOnCreate` anclaba todo
+  extremo de `arrow`/`curveArrow` (Semicírculo y Flecha semicírculo son
+  `curveArrow` con `arc:true`) que cayera en el bbox ±12 px de un
+  `ANCHORABLE_TYPES` —las formas, los componentes UI y las imágenes— y
+  `resolveAnchors` lo proyectaba al perímetro del **bbox** con `rectEdgePoint`
+  en cada repintado. La Línea estaba excluida, por eso sí entraba. La guarda
+  de la v3.14.2 (`connectorAnchorTarget`) solo cubría la flecha ENTERA dentro
+  del mismo anclable; cualquier gesto que cruzara el borde seguía saltando, y
+  en una figura no rectangular el punto proyectado ni siquiera tocaba el trazo.
+- **Arreglo:** el usuario lo decidió («el ancla es muy molesta»): el anclaje se
+  retira del todo. Fuera `ANCHORABLE_TYPES`, `findAnchorTarget`,
+  `connectorAnchorTarget`, `rectEdgePoint`, `resolveAnchors`,
+  `attachAnchorOnCreate`, el `anchorCandidate` de `resizeTo`/`onMouseUp`, el
+  resaltado turquesa, el intercambio de anchors al invertir y el re-vínculo al
+  pegar. Queda solo `dropLegacyAnchors()` en `redrawNow`: quita
+  `startAnchor`/`endAnchor` a lo que los traiga (escenas guardadas, JSON
+  importado, pegado) sin tocar coordenadas, que ya estaban materializadas.
+  `Exporter.isValidElement` deja de validar esos campos (un ancla rota no debe
+  costar la flecha) y `Eraser` ya no los propaga a los trozos.
+- **Guardia:** `tests/app-interaction.test.js` (flecha desde el centro del
+  óvalo hacia fuera; curva y semicírculo entrando; flecha saliendo de un
+  botón; arrastre de un extremo hasta dentro de un botón; escena anterior a la
+  3.27.0 que carga en el mismo sitio y sin anclas, y cuyo antiguo destino ya no
+  arrastra a nadie), `tests/eraser.test.js` (trozos sin anclas heredadas),
+  `tests/exporter.test.js` (anclas heredadas, bien o mal formadas, no cuestan
+  la flecha) y `e2e/ovalo-flecha.spec.js` (el gesto real con las tres
+  herramientas, en las dos direcciones, y un botón). Siete de ellas fallan sin
+  el cambio.
+
 ### v3.26.0 — Enmarcar con «Select» una parte de una imagen seleccionaba la imagen entera
 
 - **Síntoma:** con una foto en el lienzo, «Select» y un marco dentro de ella:
