@@ -73,7 +73,7 @@ const Renderer = (() => {
       } catch (e) { _measureCtx = null; }
     }
     if (_measureCtx && _measureCtx.measureText) return _measurerOf(_measureCtx);
-    return (text, font) => String(text).length * parseFloat(font) * 0.55;
+    return (text, font) => String(text).length * parseFloat((String(font).match(/(\d+(?:\.\d+)?)px/) || [0, 16])[1]) * 0.55;
   }
 
   /** El texto de una forma, centrado en su caja inscrita y ya encajado. */
@@ -82,8 +82,8 @@ const Renderer = (() => {
     if (!lay) return;
     ctx.save();
     ctx.font = lay.font;
-    ctx.fillStyle = el.color;
-    ctx.textAlign = 'center';
+    ctx.fillStyle = lay.color;
+    ctx.textAlign = lay.align;
     ctx.textBaseline = 'middle';
     lay.lines.forEach(ln => { if (ln.text) ctx.fillText(ln.text, ln.x, ln.y); });
     ctx.restore();

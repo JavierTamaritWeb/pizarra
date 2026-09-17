@@ -1875,3 +1875,31 @@ test('Exporter.isValidElement: labelSize solo en formas y mayor que cero', () =>
   assert.equal(ctx.Exporter.isValidElement({ ...elRectNoFill, labelSize: 'a' }), false);
   assert.equal(ctx.Exporter.isValidElement({ ...elArrow, labelSize: 12 }), false, 'una flecha no lleva labelSize');
 });
+
+test('Exporter.svg: el estilo del texto de la forma sale en el SVG, y su letra se importa junto a la del lienzo', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.svg([{ ...elRectNoFill, label: 'Hola', labelSize: 20, labelBold: true,
+    labelColor: '#ff0000', labelAlign: 'left', labelFont: 'caveat' }]);
+  const svg = lastBlob(ctx).content;
+  assert.ok(svg.includes('fill="#ff0000"'), 'color propio');
+  assert.ok(svg.includes('font-weight="bold"'), 'negrita');
+  assert.ok(svg.includes('text-anchor="start"'), 'alineado a la izquierda');
+  assert.ok(svg.includes('font-family="Caveat'), svg.match(/<text[^>]*>/)[0]);
+  const imp = svg.match(/@import url\('([^']+)'\)/)[1];
+  assert.ok(imp.includes('family=Caveat'), `la letra del texto va en el @import: ${imp}`);
+  assert.ok(imp.includes('family=Architects+Daughter'), 'y la del lienzo también');
+  assert.equal((imp.match(/family=/g) || []).length, 2, 'sin repetir');
+});
+
+test('Exporter.isValidElement: el estilo del texto de la forma se valida campo a campo y solo en formas', () => {
+  const ctx = freshCtx();
+  const ok = { ...elRectNoFill, label: 'x', labelColor: '#ff0000', labelBold: true, labelFont: 'caveat',
+    labelAlign: 'right', labelValign: 'top' };
+  assert.ok(ctx.Exporter.isValidElement(ok));
+  assert.equal(ctx.Exporter.isValidElement({ ...ok, labelColor: 'rojo' }), false);
+  assert.equal(ctx.Exporter.isValidElement({ ...ok, labelBold: 'sí' }), false);
+  assert.equal(ctx.Exporter.isValidElement({ ...ok, labelFont: 'comic' }), false);
+  assert.equal(ctx.Exporter.isValidElement({ ...ok, labelAlign: 'justify' }), false);
+  assert.equal(ctx.Exporter.isValidElement({ ...ok, labelValign: 'center' }), false);
+  assert.equal(ctx.Exporter.isValidElement({ ...elArrow, labelBold: true }), false, 'una flecha no');
+});

@@ -545,6 +545,21 @@ JSON. Reglas que no se deducen del código:
   `options.shapeFill !== false` (la pasada de solo contorno de bordes ocultos y
   del borrador no lo repite). Sin `label` no hay ninguna llamada nueva: el
   dibujo de siempre es byte-idéntico (guardado en `tests/shape-text.test.js`).
+- **Estilo propio (v3.29.0):** `labelColor`, `labelBold`, `labelFont` (id de
+  `SKETCH_FONTS`), `labelAlign` y `labelValign`, todos opcionales y con la
+  ausencia como valor de siempre (`ShapeText.FIELDS` los enumera; `withLabel`
+  los borra todos al vaciar). Los edita la sección «Texto» del panel, que se
+  muestra también con una forma con texto seleccionada: `font-slider` y
+  `check-bold` valen para ambos (texto suelto → `fontSize`/`bold`, forma →
+  `labelSize`/`labelBold`), la sombra se oculta (es del texto suelto) y las
+  filas `row-label-color/font/align` solo aparecen con formas con texto. No
+  hay default de creación para estos campos. `family(el)` resuelve la letra
+  (`sketchFontById(labelFont).stack` o `sketchFont()`); `ensureLabelFontsLoaded`
+  en `redrawNow` pide al navegador cada familia una vez (un canvas no descarga
+  webfonts), y `FONT_URL(elements)` del exporter importa todas las familias de
+  Google usadas, sin repetir. El medidor de respaldo de `Renderer.textMeasurer`
+  y la medida sintética de los tests parsean el `px` del font, no `parseFloat`:
+  con `bold ` delante daba NaN y reducía todo al mínimo.
 - **Módulo nuevo = cuatro listas:** `index.html` (script tras `hatch.js`),
   `tests/helpers/load.js` (`ALL_FILES`, `KNOWN_GLOBALS` y el splice de
   dependencia para renderer/exporter), y en pyzarra su `index.html` propio y

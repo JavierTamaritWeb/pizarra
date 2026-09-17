@@ -4,6 +4,25 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.29.0] — 2026-09-17
+
+### Añadido
+
+- **El texto de las formas tiene estilo propio.** Con una forma con texto
+  seleccionada, la sección «Texto» del panel la gobierna: el deslizador de
+  **tamaño** edita el tamaño pedido (si no cabe, el dibujo lo reduce; lo pedido
+  se conserva), **Negrita**, y tres mandos nuevos solo para ella: **color del
+  texto** (por defecto, el del trazo), **letra del texto** («La del lienzo» o
+  cualquiera de las siete familias, cada forma con la suya) y **alineación**
+  horizontal (izquierda, centro, derecha) y vertical (arriba, medio, abajo)
+  dentro de su caja de texto. Se guardan como `labelColor`, `labelBold`,
+  `labelFont`, `labelAlign` y `labelValign`, todos opcionales: su ausencia es
+  el aspecto de la 3.28.0, así que nada cambia en lo ya dibujado. El editor
+  del doble clic escribe ya con esa letra, negrita, color y alineación; el SVG
+  y el HTML exportados los llevan, y el `@import` de fuentes del exportado
+  incluye las letras que los textos de las formas usen aparte de la del
+  lienzo. Vaciar el texto se lleva también su estilo.
+
 ## [3.28.0] — 2026-09-17
 
 ### Añadido

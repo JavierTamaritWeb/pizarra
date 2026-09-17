@@ -17,7 +17,8 @@ const { createCtxStub } = require('./helpers/ctx-stub.js');
 const { ShapeText, RegularPolygon, Renderer } = loadAll();
 
 /** Ancho sintético: medio «em» por carácter. */
-const measure = (t, font) => String(t).length * parseFloat(font) * 0.5;
+const pxOf = font => parseFloat((String(font).match(/(\d+(?:\.\d+)?)px/) || [0, 0])[1]);
+const measure = (t, font) => String(t).length * pxOf(font) * 0.5;
 
 const forma = (type, extra = {}) => ({
   type, x: 100, y: 100, w: 200, h: 140, color: '#333344', lineWidth: 2, fill: false, ...extra,
@@ -131,4 +132,40 @@ test('el renderer pinta el texto centrado solo cuando la forma lo tiene', () => 
   const contorno = createCtxStub();
   Renderer.renderElement(contorno, forma('circle', { seed: 1, label: 'Hola' }), { shapeFill: false });
   assert.equal(contorno.callsTo('fillText').length, 0);
+});
+
+/* ── Estilo propio del texto (v3.29.0) ── */
+
+test('alineación, negrita, color y letra propios entran en el layout; su ausencia es lo de siempre', () => {
+  const base = forma('rect', { label: 'Hola', labelSize: 20 });
+  const def = ShapeText.layout(base, measure);
+  assert.equal(def.align, 'center');
+  assert.equal(def.valign, 'middle');
+  assert.equal(def.bold, false);
+  assert.equal(def.color, '#333344', 'sin color propio, el del trazo');
+  assert.equal(def.family, ShapeText.family(base));
+
+  const izq = ShapeText.layout({ ...base, labelAlign: 'left', labelValign: 'top' }, measure);
+  cerca(izq.lines[0].x, def.box.x, 0.5, 'a la izquierda arranca en el borde de la caja');
+  cerca(izq.lines[0].y, def.box.y + (20 + ShapeText.LEADING) / 2, 0.5, 'arriba: primera línea pegada al techo');
+  const der = ShapeText.layout({ ...base, labelAlign: 'right', labelValign: 'bottom' }, measure);
+  cerca(der.lines[0].x, def.box.x + def.box.w, 0.5, 'a la derecha acaba en el borde');
+  cerca(der.lines[0].y, def.box.y + def.box.h - (20 + ShapeText.LEADING) / 2, 0.5, 'abajo: pegada al suelo');
+
+  const neg = ShapeText.layout({ ...base, labelBold: true, labelColor: '#ff0000', labelFont: 'caveat' }, measure);
+  assert.equal(neg.bold, true);
+  assert.match(neg.font, /^bold 20px /);
+  assert.equal(neg.color, '#ff0000');
+  assert.notEqual(neg.family, def.family, 'la letra pedida no es la del lienzo');
+  assert.ok(neg.font.includes(neg.family));
+  // Un valor desconocido cae al de siempre, no rompe
+  assert.equal(ShapeText.layout({ ...base, labelAlign: 'justify' }, measure).align, 'center');
+});
+
+test('el renderer respeta alineación y color propios', () => {
+  const ctx = createCtxStub();
+  Renderer.renderElement(ctx, forma('rect', { seed: 1, label: 'Hola', labelAlign: 'right', labelColor: '#00ff00', labelBold: true }));
+  assert.equal(ctx.callsTo('set textAlign').pop().args[0], 'right');
+  assert.equal(ctx.callsTo('set fillStyle').pop().args[0], '#00ff00');
+  assert.match(ctx.callsTo('set font').pop().args[0], /^bold /);
 });

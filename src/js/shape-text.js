@@ -37,6 +37,25 @@ const ShapeText = (() => {
   const MIN_SIZE = 8;      // por debajo ya no se lee: ahí se para la reducción
   const LEADING = 4;       // interlineado = tamaño + 4, la constante de todo el proyecto
   const EDGE_SAMPLES = 8;  // puntos por lado al comprobar que la caja cabe
+  // Estilo propio del texto (v3.29.0), todo opcional y con la ausencia como
+  // valor de siempre: `labelColor` (el del trazo), `labelBold`, `labelFont`
+  // (id de SKETCH_FONTS; sin él, la letra del lienzo), `labelAlign`
+  // ('left'|'center'|'right', centrado) y `labelValign` ('top'|'middle'|
+  // 'bottom', en medio).
+  const ALIGNS = Object.freeze(['left', 'center', 'right']);
+  const VALIGNS = Object.freeze(['top', 'middle', 'bottom']);
+
+  /** La familia con la que se escribe el texto de la forma. */
+  function family(el) {
+    if (el && el.labelFont && typeof sketchFontById === 'function') {
+      return sketchFontById(el.labelFont).stack;
+    }
+    return typeof sketchFont === 'function' ? sketchFont() : 'sans-serif';
+  }
+
+  /** Los campos del texto de una forma: para borrarlos todos a la vez. */
+  const FIELDS = Object.freeze(['label', 'labelSize', 'labelColor', 'labelBold',
+    'labelFont', 'labelAlign', 'labelValign']);
 
   function isType(t) {
     return TYPES.includes(t);
@@ -217,15 +236,18 @@ const ShapeText = (() => {
    * (textBaseline middle). `family` es la letra del lienzo; por defecto la
    * de `sketchFont()` si el módulo está cargado.
    */
-  function layout(el, measure, family) {
+  function layout(el, measure, fam) {
     if (!hasLabel(el)) return null;
     const box = innerBox(el);
     if (!box) return null;
-    const fam = family || (typeof sketchFont === 'function' ? sketchFont() : 'sans-serif');
+    fam = fam || family(el);
+    const bold = el.labelBold === true;
+    const align = ALIGNS.includes(el.labelAlign) ? el.labelAlign : 'center';
+    const valign = VALIGNS.includes(el.labelValign) ? el.labelValign : 'middle';
     const start = Math.max(MIN_SIZE, Math.round(el.labelSize || DEFAULT_SIZE));
     let size = start, font = '', lines = [];
     for (size = start; size >= MIN_SIZE; size--) {
-      font = `${size}px ${fam}`;
+      font = `${bold ? 'bold ' : ''}${size}px ${fam}`;
       const width = t => measure(t, font);
       lines = wrap(el.label, box.w, width);
       const cabeAncho = lines.every(ln => width(ln) <= box.w);
@@ -234,13 +256,19 @@ const ShapeText = (() => {
     }
     if (size < MIN_SIZE) size = MIN_SIZE; // no cabe ni al mínimo: se queda al mínimo
     const step = size + LEADING;
-    const y0 = box.y + box.h / 2 - (lines.length * step) / 2 + step / 2;
-    const cx = box.x + box.w / 2;
+    const total = lines.length * step;
+    const y0 = (valign === 'top' ? box.y
+      : valign === 'bottom' ? box.y + box.h - total
+      : box.y + box.h / 2 - total / 2) + step / 2;
+    const x = align === 'left' ? box.x : align === 'right' ? box.x + box.w : box.x + box.w / 2;
     return {
-      size, font, box,
-      lines: lines.map((text, i) => ({ text, x: cx, y: y0 + i * step })),
+      size, font, box, bold, align, valign,
+      family: fam,
+      color: el.labelColor || el.color,
+      lines: lines.map((text, i) => ({ text, x, y: y0 + i * step })),
     };
   }
 
-  return { TYPES, PAD, DEFAULT_SIZE, MIN_SIZE, LEADING, isType, hasLabel, innerBox, wrap, layout };
+  return { TYPES, FIELDS, ALIGNS, VALIGNS, PAD, DEFAULT_SIZE, MIN_SIZE, LEADING,
+    isType, hasLabel, family, innerBox, wrap, layout };
 })();

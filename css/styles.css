@@ -1050,6 +1050,14 @@ input[type=range]::-moz-range-thumb {
   cursor: not-allowed;
   opacity: 0.35;
 }
+.panel__row-2 {
+  display: flex;
+  gap: 0.5rem;
+}
+.panel__row-2 > * {
+  flex: 1;
+  min-width: 0;
+}
 .panel__nums {
   display: grid;
   grid-template-columns: 1fr 1fr;

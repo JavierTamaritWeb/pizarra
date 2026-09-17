@@ -144,7 +144,7 @@ const Exporter = (() => {
     if (!options.transparent) {
       out += `<rect class="paper" x="${_round(box.x)}" y="${_round(box.y)}" width="${_round(box.w)}" height="${_round(box.h)}" fill="white"/>\n`;
     }
-    const fontUrl = FONT_URL();
+    const fontUrl = FONT_URL(elements);
     if (fontUrl) out += `<style>@import url('${fontUrl.replace(/&/g, '&amp;')}');</style>\n`;
 
     out += _svgScene(elements, options.overlapMode);
@@ -175,12 +175,26 @@ const Exporter = (() => {
      es la de la propia app—: pedirla por esa URL daría un 404 mudo, y el
      exportado se queda mejor con sus resguardos que con un enlace roto. Los
      dos exportadores omiten el <link>/@import cuando es null. */
-  const FONT_URL = () => {
-    const family = sketchFont().split(',')[0].replace(/['"]/g, '').trim();
-    const entry = SKETCH_FONTS.find(f => f.name === family);
-    if (entry && !entry.google) return null;
-    return 'https://fonts.googleapis.com/css2?family=' +
-      encodeURIComponent(family).replace(/%20/g, '+') + '&display=swap';
+  const FONT_URL = (elements = []) => {
+    // La del lienzo y, desde la v3.29.0, las que los textos de las formas
+    // pidan aparte (`labelFont`): una sola URL con todas las familias de
+    // Google, sin repetir y sin las que no están allí.
+    const nombres = [];
+    const anota = family => {
+      const entry = SKETCH_FONTS.find(f => f.name === family);
+      if ((entry && !entry.google) || nombres.includes(family)) return;
+      nombres.push(family);
+    };
+    anota(sketchFont().split(',')[0].replace(/['"]/g, '').trim());
+    elements.forEach(el => {
+      if (el && el.labelFont && typeof ShapeText !== 'undefined' && ShapeText.hasLabel(el)) {
+        anota(sketchFontById(el.labelFont).name);
+      }
+    });
+    if (!nombres.length) return null;
+    return 'https://fonts.googleapis.com/css2?' +
+      nombres.map(n => 'family=' + encodeURIComponent(n).replace(/%20/g, '+')).join('&') +
+      '&display=swap';
   };
   const DEFAULT_FILL_OPACITY = 0.4;
 
@@ -825,12 +839,14 @@ const Exporter = (() => {
     if (typeof ShapeText === 'undefined' || !ShapeText.hasLabel(el)) return '';
     const lay = ShapeText.layout(el, Renderer.textMeasurer());
     if (!lay) return '';
-    const color = _escapeXml(String(el.color));
+    const color = _escapeXml(String(lay.color));
+    const familia = _escapeXml(lay.family.replace(/["'<>&]/g, ''));
+    const anchor = lay.align === 'left' ? 'start' : lay.align === 'right' ? 'end' : 'middle';
     const spans = lay.lines
       .filter(ln => ln.text)
       .map(ln => `<tspan x="${ln.x}" y="${ln.y}">${_escapeXml(ln.text)}</tspan>`)
       .join('');
-    return `<text fill="${color}" font-family="${FONT_FALLBACK()}" font-size="${lay.size}" text-anchor="middle" dominant-baseline="middle">${spans}</text>\n`;
+    return `<text fill="${color}" font-family="${familia}" font-size="${lay.size}"${lay.bold ? ' font-weight="bold"' : ''} text-anchor="${anchor}" dominant-baseline="middle">${spans}</text>\n`;
   }
 
   /**
@@ -944,7 +960,10 @@ const Exporter = (() => {
     if (!lay) return '';
     const b = lay.box;
     const texto = lay.lines.map(ln => _escapeHtml(ln.text)).join('\n');
-    return `  <div style="left:${_round(b.x - ox)}px;top:${_round(b.y - oy)}px;width:${_round(b.w)}px;height:${_round(b.h)}px;display:flex;align-items:center;justify-content:center;text-align:center;white-space:pre;color:${color};font-size:${lay.size}px;line-height:${lay.size + ShapeText.LEADING}px;">${texto}</div>\n`;
+    const just = lay.align === 'left' ? 'flex-start' : lay.align === 'right' ? 'flex-end' : 'center';
+    const items = lay.valign === 'top' ? 'flex-start' : lay.valign === 'bottom' ? 'flex-end' : 'center';
+    const familia = el.labelFont ? `font-family:${_escapeHtml(lay.family.replace(/[<>{};]/g, ''))};` : '';
+    return `  <div style="left:${_round(b.x - ox)}px;top:${_round(b.y - oy)}px;width:${_round(b.w)}px;height:${_round(b.h)}px;display:flex;align-items:${items};justify-content:${just};text-align:${lay.align};white-space:pre;color:${_escapeHtml(String(lay.color))};font-size:${lay.size}px;line-height:${lay.size + ShapeText.LEADING}px;${lay.bold ? 'font-weight:bold;' : ''}${familia}">${texto}</div>\n`;
   }
 
   function html(elements, options = {}) {
@@ -958,7 +977,7 @@ const Exporter = (() => {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Wireframe Export</title>
-${FONT_URL() ? `<link href="${FONT_URL()}" rel="stylesheet">` : '<!-- letra propia de la app: sin fuente web que pedir -->'}
+${FONT_URL(elements) ? `<link href="${FONT_URL(elements)}" rel="stylesheet">` : '<!-- letra propia de la app: sin fuente web que pedir -->'}
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: ${FONT_CSS()};${options.transparent ? '' : ' background: #fff;'} }
@@ -1262,10 +1281,21 @@ body { font-family: ${FONT_CSS()};${options.transparent ? '' : ' background: #ff
     }
     // label (etiqueta de componentes y flechas, y texto de las formas v3.28.0)
     if (el.label !== undefined && typeof el.label !== 'string') return false;
-    // labelSize: el tamaño de letra pedido para el texto de una forma
+    // labelSize: el tamaño de letra pedido para el texto de una forma, y el
+    // resto de su estilo (v3.29.0): solo en formas, y cada uno con su forma
     if (el.labelSize !== undefined) {
       if (!(ShapeText.isType(el.type) && _isNum(el.labelSize) && el.labelSize > 0)) return false;
     }
+    if (el.labelColor !== undefined &&
+        !(ShapeText.isType(el.type) && HEX_COLOR.test(String(el.labelColor)))) return false;
+    if (el.labelBold !== undefined &&
+        !(ShapeText.isType(el.type) && typeof el.labelBold === 'boolean')) return false;
+    if (el.labelFont !== undefined &&
+        !(ShapeText.isType(el.type) && SKETCH_FONTS.some(f => f.id === el.labelFont))) return false;
+    if (el.labelAlign !== undefined &&
+        !(ShapeText.isType(el.type) && ShapeText.ALIGNS.includes(el.labelAlign))) return false;
+    if (el.labelValign !== undefined &&
+        !(ShapeText.isType(el.type) && ShapeText.VALIGNS.includes(el.labelValign))) return false;
     // variant (piezas UI con catálogo, v3.22.0): lista cerrada atada a su
     // tipo, y el default explícito —la primera entrada del catálogo— se
     // rechaza: la ausencia ES el default (la lección de `bold: false`).

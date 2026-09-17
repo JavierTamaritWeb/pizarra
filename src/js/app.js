@@ -2486,8 +2486,22 @@
     },
   });
 
+  /** Pide al navegador las letras que los textos de las formas usan aparte
+      de la del lienzo (v3.29.0), una vez por familia: un <canvas> no dispara
+      la descarga de una webfont, y sin esto una escena cargada se mediría y
+      pintaría con el resguardo hasta que algo más la pidiera. */
+  const _labelFontsPedidas = new Set();
+  function ensureLabelFontsLoaded() {
+    state.elements.forEach(el => {
+      if (!el.labelFont || _labelFontsPedidas.has(el.labelFont)) return;
+      _labelFontsPedidas.add(el.labelFont);
+      ensureSketchFontLoaded(sketchFontById(el.labelFont));
+    });
+  }
+
   function redrawNow() {
     dropLegacyAnchors();
+    ensureLabelFontsLoaded();
     // Previsualización del borrador: lo que la pasada va a eliminar o recortar
     // ya cambia mientras se arrastra, así que lo que se ve durante el gesto es
     // exactamente el resultado. El estado no se toca hasta soltar (undo sigue
@@ -2659,14 +2673,28 @@
       if (doubleHead !== undefined) $('check-double-head').checked = doubleHead;
       const dash = commonOf(dashables, el => el.dash === true);
       if (dash !== undefined) $('check-dash').checked = dash;
-      if (texts.length) {
+      const labeled = sel.filter(ShapeText.hasLabel);
+      if (texts.length || labeled.length) {
         $('font-label').textContent = 'Texto';
         $('font-slider').min = '10';
-        const fontSize = commonOf(texts, el => el.fontSize);
+        const fontSize = commonOf([...texts, ...labeled],
+          el => (el.type === 'text' ? el.fontSize : el.labelSize || ShapeText.DEFAULT_SIZE));
         if (fontSize !== undefined) {
           $('font-slider').value = String(fontSize);
           $('font-val').textContent = String(fontSize);
         }
+      }
+      if (labeled.length) {
+        const bold = commonOf(labeled, el => el.labelBold === true);
+        if (bold !== undefined) $('check-bold').checked = bold;
+        const lc = commonOf(labeled, el => hex6(el.labelColor || el.color));
+        if (lc !== undefined) $('label-color').value = lc;
+        const lf = commonOf(labeled, el => el.labelFont || '');
+        if (lf !== undefined) $('label-font').value = lf;
+        const la = commonOf(labeled, el => el.labelAlign || 'center');
+        if (la !== undefined) $('label-align').value = la;
+        const lv = commonOf(labeled, el => el.labelValign || 'middle');
+        if (lv !== undefined) $('label-valign').value = lv;
       }
       if (fillables.length) {
         const fill = commonOf(fillables, el => el.fill === true);
@@ -2733,8 +2761,7 @@
         copy.label = v;
         if (copy.labelSize === undefined) copy.labelSize = state.fontSize;
       } else {
-        delete copy.label;
-        delete copy.labelSize;
+        ShapeText.FIELDS.forEach(k => { delete copy[k]; });
       }
       return copy;
     }
@@ -2906,7 +2933,12 @@
     const fill = FILLABLE_TYPES.includes(tool) ||
       selHas(el => FILLABLE_TYPES.includes(el.type));
     const text = tool === TOOLS.TEXT || tool === TOOLS.EMOJI ||
-      selHas(el => el.type === 'text');
+      selHas(el => el.type === 'text') || selHas(ShapeText.hasLabel);
+    // Texto de una forma (v3.29.0): la sección «Texto» le sirve, con sus
+    // propios mandos (color, letra, alineación) y sin la sombra, que es del
+    // texto suelto.
+    const labeled = selHas(ShapeText.hasLabel);
+    const sueltos = tool === TOOLS.TEXT || tool === TOOLS.EMOJI || selHas(el => el.type === 'text');
     const dashable = DASHABLE_TYPES.includes(tool) || tool === TOOLS.ARC ||
       tool === TOOLS.ARC_ARROW || selHas(el => DASHABLE_TYPES.includes(el.type));
     const headed = tool === TOOLS.ARROW || tool === TOOLS.CURVE_ARROW ||
@@ -2926,8 +2958,11 @@
     // 2.10.1 tuvo que arreglar.
     const styling = !(tool === TOOLS.EMOJI && !state.selection.length);
     $('row-text-bold').hidden = !styling;
-    $('row-text-shadow').hidden = !styling;
-    $('row-text-shadow-color').hidden = !styling;
+    $('row-text-shadow').hidden = !styling || !sueltos;
+    $('row-text-shadow-color').hidden = !styling || !sueltos;
+    $('row-label-color').hidden = !labeled;
+    $('row-label-font').hidden = !labeled;
+    $('row-label-align').hidden = !labeled;
     // Un ⚙ FIJO por sección (v2.21.0): cada uno abre SIEMPRE los ajustes de la
     // suya. Antes había uno solo, en la cabecera «Trazo», que se re-apuntaba a
     // cinco modales según state.tool y aparecía y desaparecía con una condición
@@ -4682,6 +4717,9 @@
     // inscrita, para escribir «dentro»; sin ella, el tamaño de siempre.
     textInput.style.width    = box ? box.w + 'px' : '';
     textInput.style.height   = box ? box.h + 'px' : '';
+    textInput.style.fontFamily = '';
+    textInput.style.color    = '';
+    textInput.style.textAlign = box ? 'center' : '';
     textInput.value  = initial;
     // El foco se aplaza un tick: cuando esto se llama desde el pointerdown del
     // lienzo, la acción por defecto del evento mueve el foco al body JUSTO
@@ -4894,6 +4932,12 @@
       if (!box) return;
       state.editingIdx = idx;
       showTextInput({ x: box.x, y: box.y }, el.label || '', el.labelSize || state.fontSize, box);
+      // Se escribe como se va a ver: su letra, su negrita, su color y su
+      // alineación (v3.29.0); showTextInput los deja en blanco para el resto.
+      textInput.style.fontFamily = el.labelFont ? sketchFontById(el.labelFont).stack : '';
+      textInput.style.fontWeight = el.labelBold ? 'bold' : 'normal';
+      textInput.style.color = el.labelColor || '';
+      textInput.style.textAlign = el.labelAlign || 'center';
     }
   });
 
@@ -8895,10 +8939,16 @@
       $('text-modal-size-val').textContent = String(v);
       const texts = state.selection.filter(i =>
         state.elements[i] && state.elements[i].type === 'text');
-      if (texts.length) {
+      const labeled = state.selection.filter(i => ShapeText.hasLabel(state.elements[i]));
+      if (texts.length || labeled.length) {
         if (!fontGestureSnap) fontGestureSnap = snapshot();
         texts.forEach(i => {
           state.elements[i] = { ...state.elements[i], fontSize: v };
+        });
+        // El texto de una forma (v3.29.0): el tamaño PEDIDO; si no cabe, el
+        // dibujo lo reduce, pero lo pedido se conserva.
+        labeled.forEach(i => {
+          state.elements[i] = { ...state.elements[i], labelSize: v };
         });
         redraw();
       } else if (!state.selection.length) {
@@ -8912,7 +8962,8 @@
       fontGestureSnap = null;
       const unchanged = snap.length === state.elements.length &&
         snap.every((el, i) => el === state.elements[i] ||
-          el.fontSize === state.elements[i].fontSize);
+          (el.fontSize === state.elements[i].fontSize &&
+           el.labelSize === state.elements[i].labelSize));
       if (unchanged) state.elements = snap;
       else pushUndo(snap);
     }
@@ -8939,10 +8990,21 @@
       state.elements[i] && state.elements[i].type === 'text');
 
     /** Aplica `patch` a los textos seleccionados (un undo), o al default. */
+    const selLabeled = () => state.selection.filter(i => ShapeText.hasLabel(state.elements[i]));
+
     function applyTextStyle(patch, setDefault) {
       const texts = selTexts();
-      if (texts.length) {
+      // Formas con texto (v3.29.0): solo la negrita les alcanza (como
+      // `labelBold`); la sombra es del texto suelto.
+      const labeled = 'bold' in patch ? selLabeled() : [];
+      if (texts.length || labeled.length) {
         saveUndo();
+        labeled.forEach(i => {
+          const copy = { ...state.elements[i] };
+          if (patch.bold) copy.labelBold = true;
+          else delete copy.labelBold;
+          state.elements[i] = copy;
+        });
         texts.forEach(i => {
           const copy = { ...state.elements[i], ...patch };
           // Los campos que no dicen nada se BORRAN en vez de guardarse en
@@ -9034,6 +9096,67 @@
     ['check-bold', 'text-modal-bold'].forEach(id => {
       $(id).addEventListener('change', e => applyBold(e.target.checked));
     });
+
+    /* ── Texto de las formas (v3.29.0): color, letra y alineación ──
+       Solo editan las formas con texto seleccionadas; no hay default de
+       creación (el texto nace con el color del trazo, la letra del lienzo y
+       centrado). La ausencia del campo es ese valor de siempre. */
+    function applyLabelField(key, value, defecto) {
+      const labeled = selLabeled();
+      if (!labeled.length) return;
+      saveUndo();
+      labeled.forEach(i => {
+        const copy = { ...state.elements[i] };
+        if (value === defecto || value === '' || value === undefined) delete copy[key];
+        else copy[key] = value;
+        state.elements[i] = copy;
+      });
+      redraw();
+    }
+    // El color arrastra un gesto (input en vivo, un solo undo al soltar),
+    // como el de la sombra.
+    let labelColorSnap = null;
+    $('label-color').addEventListener('input', e => {
+      const labeled = selLabeled();
+      if (!labeled.length) return;
+      if (!labelColorSnap) labelColorSnap = snapshot();
+      labeled.forEach(i => {
+        state.elements[i] = { ...state.elements[i], labelColor: e.target.value };
+      });
+      redraw();
+    });
+    $('label-color').addEventListener('change', () => {
+      if (!labelColorSnap) return;
+      const snap = labelColorSnap;
+      labelColorSnap = null;
+      const unchanged = snap.length === state.elements.length &&
+        snap.every((el, i) => el === state.elements[i] ||
+          el.labelColor === state.elements[i].labelColor);
+      if (unchanged) state.elements = snap;
+      else pushUndo(snap);
+    });
+    $('label-font').addEventListener('change', e => {
+      applyLabelField('labelFont', e.target.value, '');
+      if (e.target.value) ensureSketchFontLoaded(sketchFontById(e.target.value));
+    });
+    $('label-align').addEventListener('change', e => applyLabelField('labelAlign', e.target.value, 'center'));
+    $('label-valign').addEventListener('change', e => applyLabelField('labelValign', e.target.value, 'middle'));
+    // El selector de letra del texto de las formas: «la del lienzo» y el
+    // catálogo, cada entrada con su propia familia.
+    {
+      const sel = $('label-font');
+      const propia = document.createElement('option');
+      propia.value = '';
+      propia.textContent = 'La del lienzo';
+      sel.appendChild(propia);
+      SKETCH_FONTS.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.id;
+        opt.textContent = f.name;
+        opt.style.fontFamily = f.stack;
+        sel.appendChild(opt);
+      });
+    }
     ['text-shadow-color', 'text-modal-shadow-color'].forEach(id => {
       $(id).addEventListener('input', e => applyTextShadowColor(e.target.value));
       $(id).addEventListener('change', commitTextShadowColorGesture);

@@ -6539,6 +6539,102 @@ test('el doble clic con «Select» no abre el editor de la forma', () => {
   assert.equal(app.$('text-input').hidden, true);
 });
 
+/* ── Estilo del texto de las formas desde el panel (v3.29.0) ── */
+
+function conFormaConTexto(label = 'Hola') {
+  const app = loadApp({ autosave: [
+    { type: 'rect', x: 100, y: 100, w: 300, h: 200, color: '#1a1a2e', lineWidth: 2, fill: false,
+      label, labelSize: 18 },
+  ] });
+  app.selectTool('select');
+  app.click(250, 200);
+  return app;
+}
+
+test('con una forma con texto seleccionada, la sección «Texto» aparece con sus mandos propios y sin la sombra', () => {
+  const app = conFormaConTexto();
+  assert.equal(app.$('panel-sec-text').hidden, false, 'la sección Texto le sirve');
+  assert.equal(app.$('row-label-color').hidden, false);
+  assert.equal(app.$('row-label-font').hidden, false);
+  assert.equal(app.$('row-label-align').hidden, false);
+  assert.equal(app.$('row-text-shadow').hidden, true, 'la sombra es del texto suelto');
+  assert.equal(app.$('font-val').textContent, '18', 'el deslizador enseña el tamaño pedido');
+  assert.equal(app.$('label-font').value, '', 'letra: la del lienzo');
+  assert.equal(app.$('label-align').value, 'center');
+  assert.equal(app.$('label-valign').value, 'middle');
+
+  // Sin texto en la forma, nada de esto
+  const sin = loadApp();
+  sin.selectTool('rect');
+  sin.drag(100, 100, 300, 240);
+  sin.selectTool('select');
+  sin.click(200, 170);
+  assert.equal(sin.$('row-label-color').hidden, true);
+  assert.equal(sin.$('panel-sec-text').hidden, true);
+});
+
+test('el deslizador de tamaño edita el tamaño pedido del texto de la forma, un gesto un undo', () => {
+  const app = conFormaConTexto();
+  const slider = app.$('font-slider');
+  for (const v of ['24', '30']) {
+    slider.value = v;
+    slider.__fire('input', { target: slider });
+  }
+  slider.__fire('change', { target: slider });
+  app.flush();
+  assert.equal(app.elements()[0].labelSize, 30);
+  app.key('z', { ctrlKey: true });
+  assert.equal(app.elements()[0].labelSize, 18, 'un gesto, un undo');
+});
+
+test('negrita, color, letra y alineación del texto de la forma se editan desde el panel y su ausencia es el default', () => {
+  const app = conFormaConTexto();
+  const bold = app.$('check-bold');
+  bold.checked = true; bold.__fire('change', { target: bold }); app.flush();
+  assert.equal(app.elements()[0].labelBold, true);
+  bold.checked = false; bold.__fire('change', { target: bold }); app.flush();
+  assert.equal(app.elements()[0].labelBold, undefined, 'sin negrita, sin campo');
+
+  const color = app.$('label-color');
+  color.value = '#ff0000'; color.__fire('input', { target: color });
+  color.value = '#00ff00'; color.__fire('input', { target: color });
+  color.__fire('change', { target: color }); app.flush();
+  assert.equal(app.elements()[0].labelColor, '#00ff00');
+  app.key('z', { ctrlKey: true });
+  assert.equal(app.elements()[0].labelColor, undefined, 'el color es un gesto: un undo');
+  app.click(250, 200);   // deshacer suelta la selección: se vuelve a coger
+
+  const font = app.$('label-font');
+  font.value = 'caveat'; font.__fire('change', { target: font }); app.flush();
+  assert.equal(app.elements()[0].labelFont, 'caveat');
+  font.value = ''; font.__fire('change', { target: font }); app.flush();
+  assert.equal(app.elements()[0].labelFont, undefined, '«la del lienzo» borra el campo');
+
+  const align = app.$('label-align'), valign = app.$('label-valign');
+  align.value = 'left'; align.__fire('change', { target: align });
+  valign.value = 'bottom'; valign.__fire('change', { target: valign }); app.flush();
+  assert.equal(app.elements()[0].labelAlign, 'left');
+  assert.equal(app.elements()[0].labelValign, 'bottom');
+  align.value = 'center'; align.__fire('change', { target: align }); app.flush();
+  assert.equal(app.elements()[0].labelAlign, undefined, 'centrado es la ausencia');
+});
+
+test('vaciar el texto de una forma se lleva también su estilo', () => {
+  const app = loadApp({ autosave: [
+    { type: 'circle', x: 100, y: 100, w: 300, h: 200, color: '#1a1a2e', lineWidth: 2, fill: false,
+      label: 'Hola', labelSize: 18, labelColor: '#ff0000', labelBold: true, labelFont: 'caveat',
+      labelAlign: 'left', labelValign: 'top' },
+  ] });
+  app.selectTool('select');
+  app.click(250, 200);
+  const campo = app.$('el-label');
+  campo.value = ''; campo.__fire('change', { target: campo }); app.flush();
+  const [c] = app.elements();
+  for (const k of ['label', 'labelSize', 'labelColor', 'labelBold', 'labelFont', 'labelAlign', 'labelValign']) {
+    assert.equal(c[k], undefined, `${k} borrado`);
+  }
+});
+
 /* ── Triángulo irregular (v3.19.0) ─────────────────────────── */
 
 test('el triángulo irregular nace isósceles llenando la caja, y el selector fija el próximo', () => {

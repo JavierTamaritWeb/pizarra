@@ -114,10 +114,34 @@ test('el panel edita el texto de la forma y vaciarlo lo quita', async ({ page })
   await campo.dispatchEvent('change');
   await settle(page);
   await esperarTexto(page, 0, 'Desde el panel');
+  // Estilo propio (v3.29.0): color, letra y alineación desde la sección «Texto».
+  await expect(page.locator('#row-label-color')).toBeVisible();
+  await page.locator('#label-color').fill('#ff0000');
+  await page.locator('#label-color').dispatchEvent('change');
+  await page.locator('#label-font').selectOption('caveat');
+  await page.locator('#label-align').selectOption('left');
+  await page.locator('#label-valign').selectOption('top');
+  await settle(page);
+  await expect.poll(async () => (await elements(page))[0].labelValign).toBe('top');
+  const [conEstilo] = await elements(page);
+  expect(conEstilo.labelColor).toBe('#ff0000');
+  expect(conEstilo.labelFont).toBe('caveat');
+  expect(conEstilo.labelAlign).toBe('left');
+  // Y se ve: tinta roja arriba a la izquierda de la caja, nada rojo en el centro
+  const rojo = (x, y, w, h) => page.evaluate(([bx, by, bw, bh]) => {
+    const d = document.getElementById('main-canvas').getContext('2d').getImageData(bx, by, bw, bh).data;
+    let n = 0;
+    for (let i = 0; i < d.length; i += 4) if (d[i] > 180 && d[i + 1] < 90 && d[i + 2] < 90) n++;
+    return n;
+  }, [x, y, w, h]);
+  expect(await rojo(304, 304, 120, 30)).toBeGreaterThan(20);
+  expect(await rojo(400, 360, 100, 40)).toBe(0);
+
   await campo.fill('');
   await campo.dispatchEvent('change');
   await settle(page);
   const [rect] = await esperarTexto(page, 0, undefined);
   expect(rect.label).toBeUndefined();
   expect(rect.labelSize).toBeUndefined();
+  expect(rect.labelColor, 'vaciar el texto se lleva su estilo').toBeUndefined();
 });
