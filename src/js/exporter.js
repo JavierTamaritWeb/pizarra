@@ -810,7 +810,27 @@ const Exporter = (() => {
     // relleno se pinta antes que el contorno, y al revés el rayado taparía el
     // trazo. Un solo punto para los seis tipos rellenables.
     if (el.fill && tramada) out = _svgHatch(el) + out;
+    // Y el texto de la forma (v3.28.0) DETRÁS de todo: encima del dibujo.
+    out += _svgShapeLabel(el);
     return out;
+  }
+
+  /**
+   * Texto dentro de una forma (v3.28.0): las líneas ya repartidas por
+   * ShapeText, un <tspan> por línea centrado en la caja inscrita. SVG no
+   * ajusta líneas, así que el reparto viaja hecho; se mide con la fuente
+   * del lienzo (Renderer.textMeasurer), como se pinta.
+   */
+  function _svgShapeLabel(el) {
+    if (typeof ShapeText === 'undefined' || !ShapeText.hasLabel(el)) return '';
+    const lay = ShapeText.layout(el, Renderer.textMeasurer());
+    if (!lay) return '';
+    const color = _escapeXml(String(el.color));
+    const spans = lay.lines
+      .filter(ln => ln.text)
+      .map(ln => `<tspan x="${ln.x}" y="${ln.y}">${_escapeXml(ln.text)}</tspan>`)
+      .join('');
+    return `<text fill="${color}" font-family="${FONT_FALLBACK()}" font-size="${lay.size}" text-anchor="middle" dominant-baseline="middle">${spans}</text>\n`;
   }
 
   /**
@@ -910,8 +930,21 @@ const Exporter = (() => {
         }
       }
       out += _svgOverlapRuns(current, -1, false);
+      out += _svgShapeLabel(el);
     });
     return masks.length ? `<defs>${masks.join('')}</defs>\n${out}` : out;
+  }
+
+  /** Texto dentro de un rectángulo exportado como <div> (v3.28.0): un bloque
+      centrado en la caja inscrita con las líneas ya repartidas. Las demás
+      formas van por SVG y llevan el suyo en `_svgShapeLabel`. */
+  function _htmlShapeLabel(el, ox, oy, color) {
+    if (typeof ShapeText === 'undefined' || !ShapeText.hasLabel(el)) return '';
+    const lay = ShapeText.layout(el, Renderer.textMeasurer());
+    if (!lay) return '';
+    const b = lay.box;
+    const texto = lay.lines.map(ln => _escapeHtml(ln.text)).join('\n');
+    return `  <div style="left:${_round(b.x - ox)}px;top:${_round(b.y - oy)}px;width:${_round(b.w)}px;height:${_round(b.h)}px;display:flex;align-items:center;justify-content:center;text-align:center;white-space:pre;color:${color};font-size:${lay.size}px;line-height:${lay.size + ShapeText.LEADING}px;">${texto}</div>\n`;
   }
 
   function html(elements, options = {}) {
@@ -979,6 +1012,7 @@ body { font-family: ${FONT_CSS()};${options.transparent ? '' : ' background: #ff
         case 'roundedRect': {
           const bg = _escapeHtml(_fillColor(el));
           out += `  <div style="left:${_round(el.x - ox)}px;top:${_round(el.y - oy)}px;width:${el.w}px;height:${el.h}px;border:${lw}px solid ${color};${el.type === 'roundedRect' ? 'border-radius:12px;' : ''}${el.fill ? `background:${bg};` : ''}"></div>\n`;
+          out += _htmlShapeLabel(el, ox, oy, color);
           break;
         }
         case 'text':
@@ -1226,8 +1260,12 @@ body { font-family: ${FONT_CSS()};${options.transparent ? '' : ' background: #ff
       if (!(el.type === 'freeTriangle' &&
             _isNum(el.apex) && el.apex > 0 && el.apex < 1)) return false;
     }
-    // label (etiqueta de componentes y flechas)
+    // label (etiqueta de componentes y flechas, y texto de las formas v3.28.0)
     if (el.label !== undefined && typeof el.label !== 'string') return false;
+    // labelSize: el tamaño de letra pedido para el texto de una forma
+    if (el.labelSize !== undefined) {
+      if (!(ShapeText.isType(el.type) && _isNum(el.labelSize) && el.labelSize > 0)) return false;
+    }
     // variant (piezas UI con catálogo, v3.22.0): lista cerrada atada a su
     // tipo, y el default explícito —la primera entrada del catálogo— se
     // rechaza: la ausencia ES el default (la lección de `bold: false`).

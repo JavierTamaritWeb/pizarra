@@ -6457,6 +6457,88 @@ test('una escena anterior a la 3.27.0 con flechas ancladas carga en el mismo sit
   assert.deepEqual([f2.x1, f2.y1], [300, 180], 'la flecha no sigue al rectángulo');
 });
 
+/* ── Texto dentro de una forma (v3.28.0) ──
+   Doble clic sobre una forma abre el editor sobre su caja inscrita; el
+   texto vive en `label` con su `labelSize`, y el panel lo edita también. */
+
+function editarTexto(app, valor) {
+  const input = app.$('text-input');
+  input.value = valor;
+  input.__fire('blur', { target: input });
+  app.flush();
+}
+
+test('doble clic sobre un rectángulo abre el editor sobre su caja inscrita y el texto queda en la forma', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 300, 240);
+  app.selectTool('select');
+  app.click(200, 170);
+  app.dblclick(200, 170);
+  const input = app.$('text-input');
+  assert.equal(input.hidden, false, 'el editor se abre');
+  const box = app.context.ShapeText.innerBox(app.elements()[0]);
+  assert.equal(parseFloat(input.style.left), box.x, 'sobre la caja inscrita');
+  assert.equal(parseFloat(input.style.top), box.y);
+  assert.equal(input.style.width, `${box.w}px`, 'y con su ancho');
+  editarTexto(app, 'Hola mundo');
+  const [rect] = app.elements();
+  assert.equal(rect.label, 'Hola mundo');
+  assert.equal(rect.labelSize, 18, 'nace con el tamaño de letra activo');
+  app.key('z', { ctrlKey: true });
+  assert.equal(app.elements()[0].label, undefined, 'un gesto, un undo');
+});
+
+test('editar el texto de una forma conserva su tamaño, y vaciarlo lo quita del todo', () => {
+  const app = loadApp({ autosave: [
+    { type: 'circle', x: 100, y: 100, w: 200, h: 140, color: '#1a1a2e', lineWidth: 2, fill: false,
+      label: 'Uno', labelSize: 30 },
+  ] });
+  app.selectTool('select');
+  app.click(200, 170);
+  app.dblclick(200, 170);
+  assert.equal(app.$('text-input').value, 'Uno', 'el editor trae el texto');
+  assert.equal(app.$('text-input').style.fontSize, '30px', 'con su tamaño');
+  editarTexto(app, 'Dos');
+  assert.equal(app.elements()[0].label, 'Dos');
+  assert.equal(app.elements()[0].labelSize, 30, 'el tamaño pedido no cambia al editar');
+  app.dblclick(200, 170);
+  editarTexto(app, '   ');
+  const [circulo] = app.elements();
+  assert.equal(circulo.type, 'circle', 'la forma sigue');
+  assert.equal(circulo.label, undefined, 'sin texto');
+  assert.equal(circulo.labelSize, undefined, 'ni tamaño huérfano');
+});
+
+test('el campo «Texto» del panel edita el texto de la forma seleccionada', () => {
+  const app = loadApp();
+  app.selectTool('star5');
+  app.drag(300, 300, 500, 500);
+  app.selectTool('select');
+  app.click(400, 400);
+  assert.equal(app.$('el-label-row').hidden, false, 'una forma tiene campo de texto');
+  const campo = app.$('el-label');
+  campo.value = 'Estrella';
+  campo.__fire('change', { target: campo });
+  app.flush();
+  assert.equal(app.elements()[0].label, 'Estrella');
+  assert.equal(app.elements()[0].labelSize, 18);
+  campo.value = '';
+  campo.__fire('change', { target: campo });
+  app.flush();
+  assert.equal(app.elements()[0].label, undefined, 'vaciarlo lo quita');
+});
+
+test('el doble clic con «Select» no abre el editor de la forma', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 300, 240);
+  app.selectTool('pick');
+  app.click(200, 170);
+  app.dblclick(200, 170);
+  assert.equal(app.$('text-input').hidden, true);
+});
+
 /* ── Triángulo irregular (v3.19.0) ─────────────────────────── */
 
 test('el triángulo irregular nace isósceles llenando la caja, y el selector fija el próximo', () => {

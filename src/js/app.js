@@ -2477,7 +2477,9 @@
       // Una forma RELLENA (v3.25.0) va por trama como un componente: su
       // dibujo es la superficie y la superficie mordida se representa como
       // imagen. Sin relleno, el contorno se recorta por geometría (eraser.js).
-      if (!RASTER_ERASE_TYPES.includes(el.type) && el.fill !== true) return null;
+      // Y una forma CON TEXTO (v3.28.0) también: partir su contorno por
+      // geometría dejaría trozos de lápiz sin el texto.
+      if (!RASTER_ERASE_TYPES.includes(el.type) && el.fill !== true && !ShapeText.hasLabel(el)) return null;
       return opts.preview
         ? rasterErasePreview(el, pts, r, eraserSession.raster)
         : rasterErase(el, pts, r);
@@ -2715,7 +2717,31 @@
       contenido (`value`); el de los componentes UI, su rótulo (`label`). */
   const LABEL_FIELD = el => (el.type === 'text' ? 'value'
     : ['button', 'input', 'nav', 'card', 'frame',
-       'formControl', 'uiTable', 'dialog'].includes(el.type) ? 'label' : null);
+       'formControl', 'uiTable', 'dialog'].includes(el.type) ||
+      ShapeText.isType(el.type) ? 'label' : null);
+
+  /**
+   * Copia de un elemento con su rótulo cambiado. En una FORMA (v3.28.0) el
+   * texto vacío se borra del todo, y al nacer el texto se fija `labelSize`
+   * con el tamaño de letra activo (editarlo después no lo toca): el tamaño
+   * pedido es del elemento, la reducción para que quepa es del renderer.
+   */
+  function withLabel(el, v) {
+    const copy = { ...el };
+    if (ShapeText.isType(el.type)) {
+      if (v.trim()) {
+        copy.label = v;
+        if (copy.labelSize === undefined) copy.labelSize = state.fontSize;
+      } else {
+        delete copy.label;
+        delete copy.labelSize;
+      }
+      return copy;
+    }
+    if (v) copy.label = v;
+    else delete copy.label;
+    return copy;
+  }
 
   /** Vuelca en «Posición y tamaño» la caja real de lo seleccionado. Con varios,
       la caja combinada: escribir en ella mueve o escala el conjunto, igual que
@@ -4645,13 +4671,17 @@
 
   /* ── Text input ── */
 
-  function showTextInput(pos, initial = '', fontSize = state.fontSize) {
+  function showTextInput(pos, initial = '', fontSize = state.fontSize, box = null) {
     // El textarea vive dentro del wrapper ya escalado por CSS transform:
     // se posiciona en coordenadas sin escalar
     textInput.hidden  = false;
     textInput.style.left     = pos.x + 'px';
     textInput.style.top      = pos.y + 'px';
     textInput.style.fontSize = fontSize + 'px';
+    // Con caja (el texto de una forma, v3.28.0) el editor ocupa la caja
+    // inscrita, para escribir «dentro»; sin ella, el tamaño de siempre.
+    textInput.style.width    = box ? box.w + 'px' : '';
+    textInput.style.height   = box ? box.h + 'px' : '';
     textInput.value  = initial;
     // El foco se aplaza un tick: cuando esto se llama desde el pointerdown del
     // lienzo, la acción por defecto del evento mueve el foco al body JUSTO
@@ -4693,10 +4723,7 @@
         const newLabel = val || undefined; // vacío: vuelve a la etiqueta por defecto
         if (newLabel === el.label) return; // sin cambios
         saveUndo();
-        const copy = { ...el };
-        if (val) copy.label = val;
-        else delete copy.label;
-        state.elements[editing] = copy;
+        state.elements[editing] = withLabel(el, val);
       }
       redraw();
       return;
@@ -4860,6 +4887,13 @@
     } else if (LABELED_TYPES.includes(el.type)) {
       state.editingIdx = idx;
       showTextInput({ x: el.x, y: el.y }, el.label || '', 14);
+    } else if (ShapeText.isType(el.type)) {
+      // Texto dentro de la forma (v3.28.0): el editor se abre sobre su caja
+      // inscrita, con el tamaño pedido (o el de la herramienta Texto).
+      const box = ShapeText.innerBox(el);
+      if (!box) return;
+      state.editingIdx = idx;
+      showTextInput({ x: box.x, y: box.y }, el.label || '', el.labelSize || state.fontSize, box);
     }
   });
 
@@ -9668,7 +9702,8 @@
           return;
         }
         saveUndo();
-        state.elements[state.selection[0]] = { ...el, [field]: v };
+        state.elements[state.selection[0]] = field === 'label'
+          ? withLabel(el, v) : { ...el, [field]: v };
         redraw();
       } else if (!state.selection.length && state.uiLabels[state.tool] !== undefined) {
         // SOLO sin selección: con una multi-selección delante, escribir aquí

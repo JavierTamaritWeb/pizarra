@@ -507,6 +507,49 @@ Zoom is applied as a CSS `transform: scale()` on the canvas wrapper; `getPos()` 
 - **`dragLast` stores the pointer's real position, not the clamped one**, so when the pointer comes back the object follows from the first pixel instead of having to re-cross the distance it overshot.
 - **`applyGeometry` clamps before its no-op guard**, so a typed X of 9000 resyncs the field to where the element actually ended up rather than promising a position it doesn't have.
 
+### Texto dentro de las formas (v3.28.0, `src/js/shape-text.js`)
+
+Las formas de `ShapeText.TYPES` (rect, roundedRect, circle, square, trapezoid,
+freeTriangle, triangle, pentagon, hexagon, star5, star6 — `FILLABLE_TYPES` menos
+el `polygon` libre) llevan su texto en **`label`** (con `\n`) y el tamaño pedido
+en **`labelSize`** (ausente = 18); el color es el del trazo. Nada más se
+serializa: el reparto en líneas, la caja y la reducción son **estado derivado**
+recalculado en cada render (lienzo, SVG, HTML), como la trama de `hatch.js`,
+porque dependen de la medida de la fuente y una medida no puede vivir en el
+JSON. Reglas que no se deducen del código:
+
+- **La medida entra inyectada** (`layout(el, measure)`, `measure(texto, font) →
+  px`): el renderer usa su `ctx.measureText`; el exporter, `Renderer.textMeasurer()`
+  (un canvas fuera de pantalla); el arnés vm mide 7 px/carácter, así que los
+  tests unitarios prueban la LÓGICA del reparto y el e2e (`e2e/forma-texto.spec.js`)
+  la fuente real. Invariante heredado de edificios y jardín: la medida solo
+  reparte texto, nunca mueve geometría.
+- **La caja es el rectángulo de área máxima dentro de la silueta**
+  (`innerBox`, sobre `Hatch.outline`, la misma geometría que pinta el renderer;
+  candidatas por pares de alturas muestreadas, verificadas con `_fits` para las
+  cóncavas, desempate hacia el centroide, caché por geometría). Rect → caja
+  entera menos 4 px; óvalo → ≈ 0,707; triángulo → la mitad inferior. Es el
+  cuadro de texto de Word; todas las líneas del mismo ancho. No se centra en
+  el bbox a propósito: en un triángulo eso daba una cajita de 66 px.
+- **Si no cabe baja la letra** de uno en uno hasta `MIN_SIZE` (8) y se queda
+  ahí aunque desborde; la forma nunca crece (decisión del usuario).
+- **Entrada:** doble clic (con Mover; con «Select» no) abre `showTextInput`
+  sobre la caja inscrita con su ancho y alto (`box`), y `withLabel(el, v)` es
+  el único punto que escribe `label`/`labelSize` (también desde `#el-label`
+  vía `applyLabel`): al nacer fija `labelSize = state.fontSize`, al editar no lo
+  toca, al vaciar borra los dos. `commitText` ya trataba `label` genéricamente.
+- **Borrador:** una forma con texto va por trama aunque no tenga relleno (gate
+  de `eraserDeps().rasterErase` y `_hasText` en `eraser.js`, en `touches` y en
+  el reparto): partir el contorno perdería el texto.
+- **Render:** `_shapeLabel` tras el `switch` de `renderElement`, solo cuando
+  `options.shapeFill !== false` (la pasada de solo contorno de bordes ocultos y
+  del borrador no lo repite). Sin `label` no hay ninguna llamada nueva: el
+  dibujo de siempre es byte-idéntico (guardado en `tests/shape-text.test.js`).
+- **Módulo nuevo = cuatro listas:** `index.html` (script tras `hatch.js`),
+  `tests/helpers/load.js` (`ALL_FILES`, `KNOWN_GLOBALS` y el splice de
+  dependencia para renderer/exporter), y en pyzarra su `index.html` propio y
+  `SCRIPTS_ORIGINALES` de `tests/test_web.py`.
+
 ### Conectores anclados: RETIRADOS en la v3.27.0
 
 Hasta la 3.26, soltar un extremo de flecha sobre un anclable (`ANCHORABLE_TYPES`:

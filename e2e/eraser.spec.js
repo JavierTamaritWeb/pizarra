@@ -11,7 +11,7 @@
    ============================================================ */
 
 const { test, expect } = require('@playwright/test');
-const { WIDE, openApp, settle, selectTool, drag, clickCanvas, elements } = require('./helpers');
+const { WIDE, openApp, settle, selectTool, drag, clickCanvas, canvasPoint, elements } = require('./helpers');
 
 test.use({ viewport: WIDE });
 
@@ -264,6 +264,34 @@ test('morder el borde de un círculo relleno le abre un hueco y conserva el rest
   // Los dos lados del aro siguen dibujados.
   expect(await inkIn(page, 294, 280, 14, 40)).toBeGreaterThan(5);
   expect(await inkIn(page, 492, 280, 14, 40)).toBeGreaterThan(5);
+});
+
+test('morder una forma sin relleno CON TEXTO le abre un hueco y conserva el texto (v3.28.0)', async ({ page }) => {
+  // Sin texto, un rectángulo sin relleno se parte por geometría en trozos de
+  // lápiz. Con texto dentro va por trama: partir el contorno perdería el texto.
+  await openApp(page);
+  await sinCuadricula(page);
+  await selectTool(page, 'rect');
+  await drag(page, 300, 300, 600, 450);
+  await selectTool(page, 'select');
+  const p = await canvasPoint(page, 450, 375);
+  await page.mouse.click(p.x, p.y);
+  await page.mouse.dblclick(p.x, p.y);
+  const input = page.locator('#text-input');
+  await expect(input).toBeVisible();
+  await input.fill('Hola');
+  await input.press('Enter');
+  await settle(page);
+  await expect.poll(async () => (await elements(page))[0].label).toBe('Hola');
+
+  await selectTool(page, 'eraser');
+  await drag(page, 450, 280, 450, 320);   // muerde el borde de arriba
+  await expect.poll(async () => (await elements(page))[0].type).toBe('image');
+  const els = await elements(page);
+  expect(els.length).toBe(1);
+  // Hueco arriba, y el texto sigue en el centro.
+  expect(await inkIn(page, 442, 296, 16, 8)).toBe(0);
+  expect(await inkIn(page, 420, 360, 60, 30)).toBeGreaterThan(20);
 });
 
 test('el borrador no toca una forma por la que solo pasa cerca', async ({ page }) => {

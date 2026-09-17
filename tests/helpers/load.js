@@ -56,7 +56,7 @@ const KNOWN_GLOBALS = [
   'UI_DEFAULTS', 'EMOJI_GROUPS', 'EMOJI_MIN_SIZE', 'EMOJI_MAX_SIZE',
   'CURVE_BULGE_MIN', 'CURVE_BULGE_MAX', 'CURVE_BULGE_STEP',
   'Sketchy', 'Freehand', 'ArcMath', 'CurvePath', 'ShapeRotation', 'RegularPolygon',
-  'Trapezoid', 'Hatch', 'Airbrush', 'Flood', 'Eraser', 'Building', 'Garden', 'Solid',
+  'Trapezoid', 'Hatch', 'ShapeText', 'Airbrush', 'Flood', 'Eraser', 'Building', 'Garden', 'Solid',
   'Renderer', 'Exporter', 'Templates',
 ];
 
@@ -71,6 +71,7 @@ const ALL_FILES = [
   'src/js/regular-polygon.js',
   'src/js/trapezoid.js',
   'src/js/hatch.js',
+  'src/js/shape-text.js',
   'src/js/airbrush.js',
   'src/js/flood.js',
   'src/js/eraser.js',
@@ -247,6 +248,14 @@ function load(...files) {
     const idx = list.findIndex(f => f.endsWith(dependiente));
     if (idx >= 0 && !list.some(f => f.endsWith('hatch.js'))) {
       list.splice(idx, 0, 'src/js/hatch.js');
+    }
+  }
+  // Y el texto de las formas (v3.28.0): va tras hatch.js (usa su silueta) y
+  // lo piden renderer.js y exporter.js.
+  for (const dependiente of ['renderer.js', 'exporter.js']) {
+    const idx = list.findIndex(f => f.endsWith(dependiente));
+    if (idx >= 0 && !list.some(f => f.endsWith('shape-text.js'))) {
+      list.splice(idx, 0, 'src/js/shape-text.js');
     }
   }
   const context = createContext();

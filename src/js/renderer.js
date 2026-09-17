@@ -45,6 +45,50 @@ const Renderer = (() => {
     ctx.shadowOffsetY = s.dy * k;
   }
 
+  /* ── Texto dentro de una forma (v3.28.0, shape-text.js) ── */
+
+  /** La medida con la que ShapeText reparte el texto: la del propio
+      contexto. Restaura la fuente que hubiera. */
+  function _measurerOf(ctx) {
+    return (text, font) => {
+      const prev = ctx.font;
+      ctx.font = font;
+      const w = ctx.measureText(text).width;
+      ctx.font = prev;
+      return w;
+    };
+  }
+
+  let _measureCtx = null;
+  /**
+   * Medidor fuera del lienzo para quien no tiene contexto (el exporter):
+   * un solo canvas, creado a la primera. Sin DOM (o sin canvas) cae en una
+   * estimación por carácter, suficiente para no romper.
+   */
+  function textMeasurer() {
+    if (!_measureCtx) {
+      try {
+        const c = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+        _measureCtx = c && c.getContext ? c.getContext('2d') : null;
+      } catch (e) { _measureCtx = null; }
+    }
+    if (_measureCtx && _measureCtx.measureText) return _measurerOf(_measureCtx);
+    return (text, font) => String(text).length * parseFloat(font) * 0.55;
+  }
+
+  /** El texto de una forma, centrado en su caja inscrita y ya encajado. */
+  function _shapeLabel(ctx, el) {
+    const lay = ShapeText.layout(el, _measurerOf(ctx));
+    if (!lay) return;
+    ctx.save();
+    ctx.font = lay.font;
+    ctx.fillStyle = el.color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    lay.lines.forEach(ln => { if (ln.text) ctx.fillText(ln.text, ln.x, ln.y); });
+    ctx.restore();
+  }
+
   /* ── Caché de imágenes (elementos type:image con src data-URL) ── */
 
   const _imgCache = new Map();
@@ -1475,6 +1519,13 @@ const Renderer = (() => {
       case 'uiPiece':          _uiPiece(ctx, el.x, el.y, el.w, el.h, el.color, el.lineWidth, el.variant); break;
     }
 
+    // Texto dentro de la forma (v3.28.0): encima de relleno y contorno. Va con
+    // la pasada del relleno (la de «solo contorno» del borrador y del modo de
+    // bordes ocultos no lo repite).
+    if (options.shapeFill !== false && typeof ShapeText !== 'undefined' && ShapeText.hasLabel(el)) {
+      _shapeLabel(ctx, el);
+    }
+
     Sketchy.setSeed(null);
     Sketchy.setRoughness(1);
     ctx.restore();
@@ -1611,6 +1662,7 @@ const Renderer = (() => {
     renderScene,
     eraserSize,
     textFont,
+    textMeasurer,
     applyTextShadow,
     buildOverlapPlan,
     overlapRuns,

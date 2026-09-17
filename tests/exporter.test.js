@@ -1827,3 +1827,51 @@ test('el rótulo de un marco no puede cerrar el <text> del SVG', () => {
   const out = lastBlob(ctx).content;
   assert.ok(!out.includes('<script>'), 'el rótulo va escapado');
 });
+
+/* ============================================================
+   Texto dentro de una forma (v3.28.0)
+   ============================================================ */
+
+test('Exporter.svg: el texto de una forma va en un <text> centrado con un tspan por línea', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.svg([{ ...elRectNoFill, label: 'Hola', labelSize: 20 }]);
+  const svg = lastBlob(ctx).content;
+  assert.ok(svg.includes('text-anchor="middle" dominant-baseline="middle"'), svg);
+  assert.ok(svg.includes('font-size="20"'));
+  assert.ok(svg.includes(`<tspan x="${300 + 50}" y="${6 + 25}">Hola</tspan>`), 'centrado en la forma');
+  // Sin texto, el markup de siempre
+  ctx.Exporter.svg([elRectNoFill]);
+  assert.ok(!lastBlob(ctx).content.includes('<text'));
+});
+
+test('Exporter.svg: un texto largo sale repartido en líneas y con la letra reducida', () => {
+  const ctx = freshCtx();
+  const largo = 'palabra '.repeat(40).trim();
+  ctx.Exporter.svg([{ ...elRectNoFill, label: largo, labelSize: 18 }]);
+  const svg = lastBlob(ctx).content;
+  const tspans = (svg.match(/<tspan /g) || []).length;
+  assert.ok(tspans > 1, `varias líneas: ${tspans}`);
+  const size = Number(svg.match(/<text [^>]*font-size="(\d+)"/)[1]);
+  assert.ok(size < 18, `reducida: ${size}`);
+});
+
+test('Exporter.html: el rectángulo con texto lleva su bloque centrado, y las otras formas van por SVG', () => {
+  const ctx = freshCtx();
+  ctx.Exporter.html([
+    { ...elRectNoFill, label: 'Hola <b>', labelSize: 16 },
+    { ...base, type: 'circle', x: 10, y: 10, w: 100, h: 100, label: 'Redondo' },
+  ]);
+  const html = lastBlob(ctx).content;
+  assert.ok(html.includes('white-space:pre;color:#333344;font-size:16px;'), html);
+  assert.ok(html.includes('>Hola &lt;b&gt;</div>'), 'escapado');
+  assert.ok(html.includes('<tspan') && html.includes('Redondo'), 'el círculo lleva su texto en el SVG');
+});
+
+test('Exporter.isValidElement: labelSize solo en formas y mayor que cero', () => {
+  const ctx = freshCtx();
+  assert.ok(ctx.Exporter.isValidElement({ ...elRectNoFill, label: 'x', labelSize: 20 }));
+  assert.ok(ctx.Exporter.isValidElement({ ...elRectNoFill, label: 'x' }), 'sin tamaño vale');
+  assert.equal(ctx.Exporter.isValidElement({ ...elRectNoFill, labelSize: 0 }), false);
+  assert.equal(ctx.Exporter.isValidElement({ ...elRectNoFill, labelSize: 'a' }), false);
+  assert.equal(ctx.Exporter.isValidElement({ ...elArrow, labelSize: 12 }), false, 'una flecha no lleva labelSize');
+});

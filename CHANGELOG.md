@@ -4,6 +4,28 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.28.0] — 2026-09-17
+
+### Añadido
+
+- **Texto dentro de las formas, ajustado como en Word.** Doble clic sobre un
+  rectángulo, redondeado, óvalo, cuadrado, trapecio, triángulo, pentágono,
+  hexágono o estrella abre el editor encima de la figura y el texto queda
+  dentro: se reparte en líneas al ancho de su **caja de texto inscrita** (la
+  mayor caja que cabe en la silueta real: entera en un rectángulo, ≈ 0,707 en
+  un óvalo, la mitad inferior en un triángulo, como el cuadro de texto de las
+  formas de Word), centrado, con `Shift`+`Enter` para un salto de línea. Si
+  no cabe, la **letra se reduce sola** (hasta 8 px) sin tocar la forma; el
+  tamaño pedido es el de la herramienta Texto al escribirlo y se conserva al
+  editar. El campo «Texto» del panel «Posición y tamaño» también lo edita, y
+  vaciarlo lo quita. Se mueve, escala y gira con la forma (el texto se queda
+  horizontal, como en Word); sale igual en el SVG y el HTML exportados, y el
+  **borrador** muerde una forma con texto por trama, como una rellena, para
+  no perderlo. Nuevo módulo puro `src/js/shape-text.js` (`ShapeText`): la
+  medida de la letra entra inyectada y el reparto es estado derivado, nunca
+  se guarda en el JSON. Una forma sin texto se dibuja exactamente igual que
+  antes.
+
 ## [3.27.0] — 2026-09-16
 
 ### Eliminado

@@ -120,6 +120,9 @@ const Eraser = (function () {
   }
 
   /** Formas cuyo "dibujo" es solo su contorno mientras no estén rellenas. */
+  /** ¿Lleva la forma texto dentro (v3.28.0, `label` de shape-text.js)? */
+  const _hasText = el => typeof el.label === 'string' && el.label.trim() !== '';
+
   const OUTLINE_TYPES = ['rect', 'roundedRect', 'circle', 'square',
     'triangle', 'pentagon', 'hexagon', 'star5', 'star6', 'trapezoid',
     'freeTriangle',
@@ -215,7 +218,9 @@ const Eraser = (function () {
       // rellenos está a ~15 px de la tinta más cercana y no debe borrarlos.
       // Un punto del trazo dentro de la silueta, o un cruce del contorno
       // (lo detecta el test de contorno de abajo), cubren todos los casos.
-      if (el.fill && pts.some(p => _pointInPolygon(p, verts))) return true;
+      // Y una forma CON TEXTO dentro (v3.28.0) también: el texto es tinta
+      // de su interior.
+      if ((el.fill || _hasText(el)) && pts.some(p => _pointInPolygon(p, verts))) return true;
       return _touchesPolyline(verts, segs, w, true);
     }
     // Texto, imágenes y componentes de UI: su caja SÍ es su dibujo.
@@ -657,7 +662,10 @@ const Eraser = (function () {
       // Sin relleno, lo dibujado es el contorno y el contorno se recorta.
       // Una forma RELLENA es superficie: cae a `deps.rasterErase` más abajo,
       // como los componentes (v3.25.0), y sin esa dependencia se va entera.
-      else if (OUTLINE_TYPES.includes(el.type) && !el.fill) {
+      // Una forma con TEXTO dentro (v3.28.0) tampoco se parte: sus trozos
+      // de lápiz no sabrían llevar el texto, así que va por trama, como
+      // una rellena.
+      else if (OUTLINE_TYPES.includes(el.type) && !el.fill && !_hasText(el)) {
         pieces = _splitOutline(el, segs, r, deps, memo);
       }
       // Texto, emoji, imágenes, componentes de UI y formas rellenas: no hay
