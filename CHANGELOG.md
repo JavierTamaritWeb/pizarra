@@ -4,6 +4,22 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.30.0] — 2026-09-17
+
+### Cambiado
+
+- **El texto se escribe en varias filas con Enter.** Hasta ahora, en el
+  editor de texto suelto y en el de una forma, Enter confirmaba y el salto de
+  línea exigía Mayús+Enter, que nadie encontraba: todo texto quedaba en una
+  sola fila. Ahora Enter parte la línea, como en Word, y Ctrl/Cmd+Enter (o un
+  clic fuera) confirma; Esc sigue cancelando. En los rótulos de una línea
+  (botón, input, tarjeta, flecha…) Enter sigue confirmando. El editor suelto
+  ya no envuelve: crece una fila por línea y al ancho de la más larga, con el
+  interlineado del lienzo, de modo que lo que se ve al escribir es lo que se
+  pinta (antes envolvía a 12 rem y enseñaba filas que luego no existían). El
+  placeholder del editor enseña las dos teclas. Guardado en
+  `tests/app-interaction.test.js` y en `e2e/texto-filas.spec.js`.
+
 ## [3.29.0] — 2026-09-17
 
 ### Añadido

@@ -6691,3 +6691,68 @@ test('la fila «Tipo de triángulo» no aparece con otras formas', () => {
   app.selectTool('freeTriangle');
   assert.equal(app.$('shape-modal-tri-row').hidden, false);
 });
+
+/* ── Texto en varias filas (v3.30.0) ──
+   En el texto suelto y en el de una forma, Enter parte la línea y Ctrl/Cmd+Enter
+   (o el clic fuera) confirma; en un rótulo de una línea Enter confirma. El
+   editor suelto crece con lo escrito y no envuelve. */
+
+function teclaEditor(app, key, opts = {}) {
+  const input = app.$('text-input');
+  const ev = input.__fire('keydown', {
+    key, target: input, ctrlKey: false, metaKey: false, shiftKey: false, ...opts,
+  });
+  app.flush();
+  return ev;
+}
+
+test('en el texto suelto Enter no confirma: hace salto de línea, y Ctrl+Enter confirma', () => {
+  const app = loadApp();
+  app.selectTool('text');
+  app.click(200, 200);
+  const input = app.$('text-input');
+  assert.equal(input.hidden, false);
+  assert.equal(input.style.whiteSpace, 'pre', 'el editor suelto no envuelve: lo que se ve es lo que se pinta');
+  input.value = 'Crea un botón';
+  const enter = teclaEditor(app, 'Enter');
+  assert.notEqual(enter.defaultPrevented, true, 'Enter llega al textarea: salto de línea');
+  assert.equal(input.hidden, false, 'y el editor sigue abierto');
+  assert.equal(app.elements().length, 0, 'sin confirmar nada');
+  input.value = 'Crea un botón\ncon aspecto de casa';
+  input.__fire('input', { target: input });
+  assert.equal(input.rows, 2, 'el editor crece una fila por línea');
+  const ctrl = teclaEditor(app, 'Enter', { ctrlKey: true });
+  assert.equal(ctrl.defaultPrevented, true, 'Ctrl+Enter confirma');
+  assert.equal(input.hidden, true);
+  assert.equal(app.elements()[0].value, 'Crea un botón\ncon aspecto de casa', 'el texto queda con sus dos filas');
+});
+
+test('en el texto de una forma Enter también parte la línea y Cmd+Enter confirma', () => {
+  const app = loadApp();
+  app.selectTool('rect');
+  app.drag(100, 100, 300, 240);
+  app.selectTool('select');
+  app.click(200, 170);
+  app.dblclick(200, 170);
+  const input = app.$('text-input');
+  input.value = 'Uno\nDos';
+  assert.notEqual(teclaEditor(app, 'Enter').defaultPrevented, true, 'Enter: salto');
+  assert.equal(input.hidden, false);
+  assert.equal(teclaEditor(app, 'Enter', { metaKey: true }).defaultPrevented, true, 'Cmd+Enter: listo');
+  assert.equal(app.elements()[0].label, 'Uno\nDos');
+});
+
+test('en el rótulo de un botón Enter confirma, como siempre', () => {
+  const app = loadApp();
+  app.selectTool('button');
+  app.drag(100, 100, 260, 150);
+  app.selectTool('select');
+  app.click(180, 125);
+  app.dblclick(180, 125);
+  const input = app.$('text-input');
+  assert.equal(input.hidden, false, 'el editor del rótulo se abre');
+  input.value = 'Enviar';
+  assert.equal(teclaEditor(app, 'Enter').defaultPrevented, true, 'Enter confirma el rótulo');
+  assert.equal(input.hidden, true);
+  assert.equal(app.elements()[0].label, 'Enviar');
+});

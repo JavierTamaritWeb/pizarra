@@ -120,7 +120,7 @@ async function escribir(page, x, y, texto) {
   const input = page.locator('#text-input');
   await expect(input).toBeVisible();
   await input.fill(texto);
-  await input.press('Enter');
+  await input.press('Control+Enter');
   await settle(page);
 }
 
@@ -280,7 +280,7 @@ test('morder una forma sin relleno CON TEXTO le abre un hueco y conserva el text
   const input = page.locator('#text-input');
   await expect(input).toBeVisible();
   await input.fill('Hola');
-  await input.press('Enter');
+  await input.press('Control+Enter');
   await settle(page);
   await expect.poll(async () => (await elements(page))[0].label).toBe('Hola');
 

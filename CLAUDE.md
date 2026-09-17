@@ -507,6 +507,24 @@ Zoom is applied as a CSS `transform: scale()` on the canvas wrapper; `getPos()` 
 - **`dragLast` stores the pointer's real position, not the clamped one**, so when the pointer comes back the object follows from the first pixel instead of having to re-cross the distance it overshot.
 - **`applyGeometry` clamps before its no-op guard**, so a typed X of 9000 resyncs the field to where the element actually ended up rather than promising a position it doesn't have.
 
+### El editor de texto (`#text-input`) y sus teclas (v3.30.0)
+
+Un solo textarea sirve para el texto suelto, el texto de una forma y los
+rótulos de una línea (botón, input, tarjeta, flecha…); `showTextInput(pos,
+initial, fontSize, box, multiline)` decide su modo. Con `multiline` (texto
+suelto y de forma) **Enter parte la línea y Ctrl/Cmd+Enter confirma**, como en
+Word; en los rótulos Enter confirma y Mayús+Enter parte. Hasta la 3.30.0 Enter
+confirmaba en todos y el salto exigía Mayús+Enter, que nadie encontraba: el
+texto «solo se podía poner en una fila». El blur confirma siempre y Esc
+cancela. El editor suelto lleva `white-space: pre`, `rows` = líneas y el ancho
+de la línea más larga (`autosizeTextInput`, medida con `sketchFont()`), con el
+mismo interlineado que pinta el renderer (`fontSize + 4`): el lienzo no
+envuelve, solo parte por `\n`, así que un editor que envolviera enseñaba filas
+que luego no existían. Con `box` (forma) el tamaño es el de la caja inscrita.
+Guardado en `tests/app-interaction.test.js` («Texto en varias filas») y en
+`e2e/texto-filas.spec.js`; los specs que confirman el editor pulsan
+`Control+Enter`.
+
 ### Texto dentro de las formas (v3.28.0, `src/js/shape-text.js`)
 
 Las formas de `ShapeText.TYPES` (rect, roundedRect, circle, square, trapezoid,

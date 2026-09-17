@@ -4706,21 +4706,36 @@
 
   /* ── Text input ── */
 
-  function showTextInput(pos, initial = '', fontSize = state.fontSize, box = null) {
+  // ¿Enter hace salto de línea? Sí en el texto suelto y en el de una forma
+  // (varias filas, como en Word; Ctrl/Cmd+Enter o clic fuera confirman).
+  // En los rótulos de una línea (botón, flecha…) Enter confirma, como siempre.
+  let textMultiline = true;
+  let textInputBox = null;
+
+  function showTextInput(pos, initial = '', fontSize = state.fontSize, box = null, multiline = true) {
     // El textarea vive dentro del wrapper ya escalado por CSS transform:
     // se posiciona en coordenadas sin escalar
     textInput.hidden  = false;
     textInput.style.left     = pos.x + 'px';
     textInput.style.top      = pos.y + 'px';
     textInput.style.fontSize = fontSize + 'px';
+    // El mismo interlineado que pinta el renderer (fontSize + 4): lo que se
+    // escribe queda donde se va a ver.
+    textInput.style.lineHeight = (fontSize + 4) + 'px';
     // Con caja (el texto de una forma, v3.28.0) el editor ocupa la caja
-    // inscrita, para escribir «dentro»; sin ella, el tamaño de siempre.
+    // inscrita, para escribir «dentro»; sin ella crece con lo escrito y no
+    // envuelve (v3.30.0): el lienzo tampoco envuelve, solo parte por Enter,
+    // así que un editor que envolviera enseñaba filas que luego no existían.
     textInput.style.width    = box ? box.w + 'px' : '';
     textInput.style.height   = box ? box.h + 'px' : '';
+    textInput.style.whiteSpace = box ? '' : 'pre';
     textInput.style.fontFamily = '';
     textInput.style.color    = '';
     textInput.style.textAlign = box ? 'center' : '';
     textInput.value  = initial;
+    textMultiline = multiline;
+    textInputBox = box;
+    autosizeTextInput();
     // El foco se aplaza un tick: cuando esto se llama desde el pointerdown del
     // lienzo, la acción por defecto del evento mueve el foco al body JUSTO
     // después de este handler; enfocar aquí provocaría un blur inmediato ->
@@ -4730,6 +4745,23 @@
       textInput.focus();
       textInput.select();
     }, 0);
+  }
+
+  /**
+   * El editor de texto suelto crece con lo escrito: tantas filas como líneas
+   * y el ancho de la más larga, medido con la letra del lienzo (v3.30.0).
+   * Con caja (forma) el tamaño es el de la caja y aquí no hay nada que hacer.
+   */
+  function autosizeTextInput() {
+    if (textInput.hidden || textInputBox) return;
+    const lines = textInput.value.split('\n');
+    textInput.rows = Math.max(1, lines.length);
+    ctx.save();
+    ctx.font = `${parseFloat(textInput.style.fontSize) || state.fontSize}px ${sketchFont()}`;
+    const w = Math.max(0, ...lines.map(ln => ctx.measureText(ln).width));
+    ctx.restore();
+    // Holgura para el padding, el borde y el cursor; el mínimo lo pone el CSS
+    textInput.style.width = Math.ceil(w + 32) + 'px';
   }
 
   function commitText() {
@@ -4817,9 +4849,18 @@
   }
 
   textInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitText(); }
+    if (e.key === 'Enter') {
+      // Texto suelto y de forma: Enter parte la línea (varias filas, como en
+      // Word) y Ctrl/Cmd+Enter confirma (v3.30.0; hasta entonces Enter
+      // confirmaba y el salto exigía Mayús+Enter, que nadie encontraba).
+      // Rótulos de una línea: Enter confirma, Mayús+Enter parte.
+      const confirma = textMultiline ? (e.ctrlKey || e.metaKey) : !e.shiftKey;
+      if (confirma) { e.preventDefault(); commitText(); }
+      return;
+    }
     if (e.key === 'Escape') { textInput.hidden = true; state.editingIdx = null; }
   });
+  textInput.addEventListener('input', autosizeTextInput);
   textInput.addEventListener('blur', commitText);
 
   /* ── Edición con doble click (herramienta Mover) ── */
@@ -4921,10 +4962,10 @@
       // Etiqueta de la flecha: el editor se abre en su posición actual
       const mid = arrowLabelPoint(el);
       state.editingIdx = idx;
-      showTextInput({ x: mid.x - 40, y: mid.y - 10 }, el.label || '', 13);
+      showTextInput({ x: mid.x - 40, y: mid.y - 10 }, el.label || '', 13, null, false);
     } else if (LABELED_TYPES.includes(el.type)) {
       state.editingIdx = idx;
-      showTextInput({ x: el.x, y: el.y }, el.label || '', 14);
+      showTextInput({ x: el.x, y: el.y }, el.label || '', 14, null, false);
     } else if (ShapeText.isType(el.type)) {
       // Texto dentro de la forma (v3.28.0): el editor se abre sobre su caja
       // inscrita, con el tamaño pedido (o el de la herramienta Texto).

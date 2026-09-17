@@ -54,7 +54,7 @@ async function escribirEnForma(page, x, y, texto) {
   const input = page.locator('#text-input');
   await expect(input).toBeVisible();
   await input.fill(texto);
-  await input.press('Enter');
+  await input.press('Control+Enter');
   await settle(page);
 }
 
