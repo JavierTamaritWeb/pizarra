@@ -515,8 +515,13 @@ initial, fontSize, box, multiline)` decide su modo. Con `multiline` (texto
 suelto y de forma) **Enter parte la línea y Ctrl/Cmd+Enter confirma**, como en
 Word; en los rótulos Enter confirma y Mayús+Enter parte. Hasta la 3.30.0 Enter
 confirmaba en todos y el salto exigía Mayús+Enter, que nadie encontraba: el
-texto «solo se podía poner en una fila». El blur confirma siempre y Esc
-cancela. El editor suelto lleva `white-space: pre`, `rows` = líneas y el ancho
+texto «solo se podía poner en una fila». **Terminar nunca pierde lo escrito**
+(v3.30.1): Esc TERMINA (no cancela; para eso está Ctrl+Z), el botón
+`#text-done` («✓ Listo», colocado por `placeTextDone` bajo el editor, que
+confirma en `pointerdown` porque el click llegaría después del blur), el blur
+y Ctrl/Cmd+Enter. Con la herramienta Texto, el clic fuera con un editor
+abierto SOLO termina: abrir otro en el mismo gesto (lo que hacía la 3.30.0)
+dejaba una caja vacía «de una línea» que parecía haberse comido el texto. El editor suelto lleva `white-space: pre`, `rows` = líneas y el ancho
 de la línea más larga (`autosizeTextInput`, medida con `sketchFont()`), con el
 mismo interlineado que pinta el renderer (`fontSize + 4`): el lienzo no
 envuelve, solo parte por `\n`, así que un editor que envolviera enseñaba filas

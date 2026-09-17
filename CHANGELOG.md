@@ -4,6 +4,20 @@ Los cambios notables de Pizarra se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [SemVer](https://semver.org/lang/es/).
 
+## [3.30.1] — 2026-09-17
+
+### Corregido
+
+- **Terminar el texto era confuso.** Con Enter partiendo líneas (3.30.0), la
+  salida solo estaba en Ctrl/Cmd+Enter y en el clic fuera, y ese clic, con la
+  herramienta Texto, abría de golpe OTRO editor vacío de una línea que parecía
+  haberse comido lo escrito; Esc, además, tiraba el texto. Ahora hay tres
+  salidas a la vista y ninguna pierde nada: **Esc termina** (para deshacer,
+  Ctrl/Cmd+Z), un botón **«✓ Listo»** cuelga del editor y lo sigue al crecer,
+  y el clic fuera solo termina; el siguiente clic abre el nuevo. Ctrl/Cmd+Enter
+  sigue valiendo. El placeholder dice «Enter: nueva línea · Esc: terminar».
+  Guardado en `tests/app-interaction.test.js` y `e2e/texto-filas.spec.js`.
+
 ## [3.30.0] — 2026-09-17
 
 ### Cambiado

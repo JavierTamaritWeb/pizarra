@@ -201,3 +201,21 @@
   box-shadow: v.$shadow-overlay;
   resize: none;
 }
+
+// «✓ Listo» del editor de texto (v3.30.1): cuelga del borde inferior del
+// textarea (lo coloca app.js) para que terminar tenga un botón a la vista.
+.canvas-area__text-done {
+  position: absolute;
+  z-index: v.$z-canvas-overlay;
+  padding: 0.3rem 0.8rem;
+  border: 0.15rem solid var(--color-primary);
+  border-radius: v.$radius-sm;
+  background: var(--color-primary);
+  color: v.$color-paper;
+  font-family: var(--font-sketch);
+  font-size: 0.95rem;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: v.$shadow-overlay;
+  white-space: nowrap;
+}

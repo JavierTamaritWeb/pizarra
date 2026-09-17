@@ -287,6 +287,7 @@
   const canvasSizer  = $('canvas-sizer');
   const canvasArea   = document.querySelector('.canvas-area');
   const textInput    = $('text-input');
+  const textDone     = $('text-done');
 
   /* ── Utility ── */
 
@@ -3523,12 +3524,11 @@
       // handler) debe confirmar primero el texto anterior con su valor intacto;
       // abrir el nuevo aquí lo reiniciaría a '' y el blur lo perdería. Se
       // aplaza la apertura al siguiente tick, ya con el anterior confirmado.
-      if (!textInput.hidden) {
-        const p = pos;
-        setTimeout(() => showTextInput(p), 0);
-      } else {
-        showTextInput(pos);
-      }
+      // Con un editor abierto, el clic fuera solo lo TERMINA (v3.30.1): abrir
+      // otro en el mismo gesto dejaba una caja vacía «de una línea» que
+      // parecía haberse comido lo escrito. El siguiente clic abre el nuevo.
+      if (!textInput.hidden) return;
+      showTextInput(pos);
       return;
     }
 
@@ -4736,6 +4736,7 @@
     textMultiline = multiline;
     textInputBox = box;
     autosizeTextInput();
+    placeTextDone();
     // El foco se aplaza un tick: cuando esto se llama desde el pointerdown del
     // lienzo, la acción por defecto del evento mueve el foco al body JUSTO
     // después de este handler; enfocar aquí provocaría un blur inmediato ->
@@ -4762,12 +4763,24 @@
     ctx.restore();
     // Holgura para el padding, el borde y el cursor; el mínimo lo pone el CSS
     textInput.style.width = Math.ceil(w + 32) + 'px';
+    placeTextDone();
+  }
+
+  /** El botón «✓ Listo» cuelga del borde inferior del editor y lo sigue al
+      crecer: la salida con el ratón, a la vista (v3.30.1). */
+  function placeTextDone() {
+    textDone.hidden = textInput.hidden;
+    if (textInput.hidden) return;
+    const alto = textInput.offsetHeight || parseFloat(textInput.style.height) || 0;
+    textDone.style.left = textInput.style.left;
+    textDone.style.top  = (parseFloat(textInput.style.top) + alto + 4) + 'px';
   }
 
   function commitText() {
     if (textInput.hidden) return;
     const val = textInput.value.trim();
     textInput.hidden = true;
+    textDone.hidden = true;
 
     // Edición de un elemento existente (texto o etiqueta de componente)
     const editing = state.editingIdx;
@@ -4851,17 +4864,23 @@
   textInput.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
       // Texto suelto y de forma: Enter parte la línea (varias filas, como en
-      // Word) y Ctrl/Cmd+Enter confirma (v3.30.0; hasta entonces Enter
+      // Word) y Ctrl/Cmd+Enter termina (v3.30.0; hasta entonces Enter
       // confirmaba y el salto exigía Mayús+Enter, que nadie encontraba).
       // Rótulos de una línea: Enter confirma, Mayús+Enter parte.
       const confirma = textMultiline ? (e.ctrlKey || e.metaKey) : !e.shiftKey;
       if (confirma) { e.preventDefault(); commitText(); }
       return;
     }
-    if (e.key === 'Escape') { textInput.hidden = true; state.editingIdx = null; }
+    // Esc TERMINA (v3.30.1), no tira lo escrito: con Enter partiendo líneas
+    // hace falta una tecla de salida a la vista, y perder el texto por
+    // pulsarla era la peor de las dos. Para deshacer está Ctrl/Cmd+Z.
+    if (e.key === 'Escape') { e.preventDefault(); commitText(); }
   });
   textInput.addEventListener('input', autosizeTextInput);
   textInput.addEventListener('blur', commitText);
+  // «✓ Listo»: pointerdown, no click — el click llegaría DESPUÉS del blur del
+  // textarea, que ya habrá terminado y escondido el botón.
+  textDone.addEventListener('pointerdown', e => { e.preventDefault(); commitText(); });
 
   /* ── Edición con doble click (herramienta Mover) ── */
 

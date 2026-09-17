@@ -85,3 +85,35 @@ test('en el rótulo de un botón Enter sigue confirmando', async ({ page }) => {
   await expect(input).toBeHidden();
   await expect.poll(async () => (await elements(page))[0].label).toBe('Enviar');
 });
+
+test('Esc termina el texto, «✓ Listo» también, y el clic fuera con Texto no abre otro editor', async ({ page }) => {
+  await openApp(page);
+  await selectTool(page, 'text');
+  await clickCanvas(page, 200, 200);
+  const input = page.locator('#text-input');
+  const done = page.locator('#text-done');
+  await expect(input).toBeVisible();
+  await expect(done).toBeVisible();
+  const ib = await input.boundingBox(); const db = await done.boundingBox();
+  expect(db.y).toBeGreaterThanOrEqual(ib.y + ib.height); // colgado debajo
+  await input.pressSequentially('Uno');
+  await input.press('Enter');
+  await input.pressSequentially('Dos');
+  await input.press('Escape');
+  await expect(input).toBeHidden();
+  await expect(done).toBeHidden();
+  await expect.poll(async () => (await elements(page)).map(e => e.value)).toEqual(['Uno\nDos']);
+
+  await clickCanvas(page, 200, 400);
+  await input.pressSequentially('Tres');
+  await done.click();
+  await expect(input).toBeHidden();
+  await expect.poll(async () => (await elements(page)).map(e => e.value)).toEqual(['Uno\nDos', 'Tres']);
+
+  await clickCanvas(page, 200, 600);
+  await input.pressSequentially('Cuatro');
+  await input.press('Enter');
+  await clickCanvas(page, 700, 600); // fuera: termina y no abre otro
+  await expect(input).toBeHidden();
+  await expect.poll(async () => (await elements(page)).map(e => e.value)).toEqual(['Uno\nDos', 'Tres', 'Cuatro']);
+});

@@ -950,6 +950,22 @@ input[type=range]::-moz-range-thumb {
   resize: none;
 }
 
+.canvas-area__text-done {
+  position: absolute;
+  z-index: 10;
+  padding: 0.3rem 0.8rem;
+  border: 0.15rem solid var(--color-primary);
+  border-radius: 0.4rem;
+  background: var(--color-primary);
+  color: #fff;
+  font-family: var(--font-sketch);
+  font-size: 0.95rem;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 0.4rem 1.2rem rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
+}
+
 /* ============================================================
    BLOCK: panel
    ============================================================ */

@@ -17,7 +17,7 @@
   <!-- Sin Google Fonts: las cinco manuscritas viajan autoalojadas en fonts/
        (@font-face en src/scss/base/_font-faces.scss). La app no pide nada por
        red, así que dibuja igual sin conexión y abierta con file://. -->
-  <link rel="stylesheet" href="css/styles.css?v=3.30.0" />
+  <link rel="stylesheet" href="css/styles.css?v=3.30.1" />
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     <!-- ── Top Bar ── -->
     <header class="topbar">
       <div class="topbar__brand">
-        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.30.0" alt="" aria-hidden="true" width="32" height="32" />
+        <img class="topbar__logo-icon" src="src/img/logo-96.png?v=3.30.1" alt="" aria-hidden="true" width="32" height="32" />
         <h1 class="topbar__logo-text">Pi<span class="topbar__logo-accent">zarra</span></h1>
-        <span class="topbar__badge">v3.30.0</span>
+        <span class="topbar__badge">v3.30.1</span>
         <!-- Aviso de autoguardado: visible SOLO mientras localStorage rechaza
              el guardado (cuota llena). Sin él, el fallo era un catch mudo y el
              trabajo posterior se perdía en silencio al recargar. -->
@@ -98,7 +98,8 @@
           <div class="canvas-area__wrapper" id="canvas-wrapper">
             <canvas class="canvas-area__canvas" id="main-canvas" width="1200" height="800" role="img" aria-label="Lienzo de dibujo"></canvas>
             <canvas class="canvas-area__overlay" id="overlay-canvas" width="1200" height="800" aria-hidden="true"></canvas>
-            <textarea class="canvas-area__text-input" id="text-input" placeholder="Escribe aquí… Enter: nueva línea · Ctrl/⌘+Enter: listo" hidden></textarea>
+            <textarea class="canvas-area__text-input" id="text-input" placeholder="Escribe aquí… Enter: nueva línea · Esc: terminar" hidden></textarea>
+            <button type="button" class="canvas-area__text-done" id="text-done" title="Terminar el texto (Esc)" hidden>✓ Listo</button>
             <!-- Estado vacío (v3.6.0): bienvenida sobre el lienzo sin nada.
                  La muestra/oculta redrawNow (elementos > 0, o gesto en curso).
                  pointer-events: none — jamás debe interceptar un trazo. -->
@@ -875,8 +876,8 @@
       <section class="modal__help-group">
         <h4 class="modal__help-title">🔤 Texto</h4>
         <ul class="modal__help-list">
-          <li>Con <strong>Texto</strong> (<kbd>T</kbd>), un clic en el lienzo abre el editor: <kbd>Enter</kbd> hace un <strong>salto de línea</strong> (tantas filas como quieras, v3.30.0), <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Enter</kbd> o un clic fuera confirma y <kbd>Esc</kbd> cancela. El editor crece con lo escrito y se ve tal como se va a pintar. Doble clic sobre un texto ya escrito vuelve a editarlo</li>
-          <li><strong>Texto dentro de una forma</strong> (v3.28.0): doble clic sobre un rectángulo, óvalo, triángulo, polígono o estrella (con Mover) abre el editor encima y el texto queda <strong>dentro</strong>, repartido en líneas y centrado como en Word; <kbd>Enter</kbd> hace un salto de línea y <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Enter</kbd> confirma (v3.30.0). Si no cabe, la letra se reduce sola. El campo «Texto» del panel lo edita también, y vaciarlo lo quita. Con la forma seleccionada, la sección <strong>«Texto»</strong> del panel le da tamaño, negrita, <strong>color</strong>, <strong>letra</strong> y <strong>alineación</strong> horizontal y vertical propios (v3.29.0)</li>
+          <li>Con <strong>Texto</strong> (<kbd>T</kbd>), un clic en el lienzo abre el editor: <kbd>Enter</kbd> hace un <strong>salto de línea</strong> (tantas filas como quieras, v3.30.0) y para <strong>terminar</strong> pulsa <kbd>Esc</kbd>, el botón <strong>«✓ Listo»</strong> que cuelga del editor, <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Enter</kbd> o un clic fuera (v3.30.1); nada de eso pierde lo escrito, y para deshacerlo está <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Z</kbd>. El editor crece con lo escrito y se ve tal como se va a pintar. Doble clic sobre un texto ya escrito vuelve a editarlo</li>
+          <li><strong>Texto dentro de una forma</strong> (v3.28.0): doble clic sobre un rectángulo, óvalo, triángulo, polígono o estrella (con Mover) abre el editor encima y el texto queda <strong>dentro</strong>, repartido en líneas y centrado como en Word; <kbd>Enter</kbd> hace un salto de línea y <kbd>Esc</kbd>, «✓ Listo» o un clic fuera terminan (v3.30.1). Si no cabe, la letra se reduce sola. El campo «Texto» del panel lo edita también, y vaciarlo lo quita. Con la forma seleccionada, la sección <strong>«Texto»</strong> del panel le da tamaño, negrita, <strong>color</strong>, <strong>letra</strong> y <strong>alineación</strong> horizontal y vertical propios (v3.29.0)</li>
           <li>Sus ajustes se abren con la herramienta: <strong>tamaño</strong> (10–96 px), <strong>letra del lienzo</strong>, <strong>negrita</strong>, grosor y <strong>color</strong>, con muestra en vivo</li>
           <li>La <strong>letra del lienzo</strong> ofrece siete familias, y cada una se lee escrita en sí misma. Cinco son manuscritas (Architects Daughter, Caveat, Patrick Hand, Kalam e Indie Flower) y dos no lo son: <strong>OpenDyslexic</strong>, pensada para leerse con dislexia, y <strong>Montserrat Alternates</strong>, geométrica. Todas van <strong>dentro de la app</strong>: no se descarga ninguna, así que funcionan sin conexión</li>
           <li>El mismo selector está en el panel <strong>«Lienzo»</strong>, y cambia todo el texto ya escrito: es la letra con la que dibuja el lienzo, no un estilo por elemento</li>
@@ -2718,25 +2719,25 @@
   </dialog>
 
   <!-- ===== SCRIPTS ===== -->
-  <script src="src/js/config.js?v=3.30.0"></script>
-  <script src="src/js/sketchy.js?v=3.30.0"></script>
-  <script src="src/js/freehand.js?v=3.30.0"></script>
-  <script src="src/js/arc.js?v=3.30.0"></script>
-  <script src="src/js/curve-path.js?v=3.30.0"></script>
-  <script src="src/js/shape-rotation.js?v=3.30.0"></script>
-  <script src="src/js/regular-polygon.js?v=3.30.0"></script>
-  <script src="src/js/trapezoid.js?v=3.30.0"></script>
-  <script src="src/js/hatch.js?v=3.30.0"></script>
-  <script src="src/js/shape-text.js?v=3.30.0"></script>
-  <script src="src/js/airbrush.js?v=3.30.0"></script>
-  <script src="src/js/flood.js?v=3.30.0"></script>
-  <script src="src/js/eraser.js?v=3.30.0"></script>
-  <script src="src/js/building.js?v=3.30.0"></script>
-  <script src="src/js/garden.js?v=3.30.0"></script>
-  <script src="src/js/solid.js?v=3.30.0"></script>
-  <script src="src/js/renderer.js?v=3.30.0"></script>
-  <script src="src/js/exporter.js?v=3.30.0"></script>
-  <script src="src/js/templates.js?v=3.30.0"></script>
-  <script src="src/js/app.js?v=3.30.0"></script>
+  <script src="src/js/config.js?v=3.30.1"></script>
+  <script src="src/js/sketchy.js?v=3.30.1"></script>
+  <script src="src/js/freehand.js?v=3.30.1"></script>
+  <script src="src/js/arc.js?v=3.30.1"></script>
+  <script src="src/js/curve-path.js?v=3.30.1"></script>
+  <script src="src/js/shape-rotation.js?v=3.30.1"></script>
+  <script src="src/js/regular-polygon.js?v=3.30.1"></script>
+  <script src="src/js/trapezoid.js?v=3.30.1"></script>
+  <script src="src/js/hatch.js?v=3.30.1"></script>
+  <script src="src/js/shape-text.js?v=3.30.1"></script>
+  <script src="src/js/airbrush.js?v=3.30.1"></script>
+  <script src="src/js/flood.js?v=3.30.1"></script>
+  <script src="src/js/eraser.js?v=3.30.1"></script>
+  <script src="src/js/building.js?v=3.30.1"></script>
+  <script src="src/js/garden.js?v=3.30.1"></script>
+  <script src="src/js/solid.js?v=3.30.1"></script>
+  <script src="src/js/renderer.js?v=3.30.1"></script>
+  <script src="src/js/exporter.js?v=3.30.1"></script>
+  <script src="src/js/templates.js?v=3.30.1"></script>
+  <script src="src/js/app.js?v=3.30.1"></script>
 </body>
 </html>

@@ -6756,3 +6756,45 @@ test('en el rótulo de un botón Enter confirma, como siempre', () => {
   assert.equal(input.hidden, true);
   assert.equal(app.elements()[0].label, 'Enviar');
 });
+
+/* ── Terminar el texto (v3.30.1): Esc termina, el botón «✓ Listo» también, y
+   el clic fuera con la herramienta Texto termina sin abrir otro editor. */
+
+test('Esc termina el texto en vez de tirarlo, y el botón «Listo» acompaña al editor', () => {
+  const app = loadApp();
+  app.selectTool('text');
+  app.click(200, 200);
+  const input = app.$('text-input');
+  const done = app.$('text-done');
+  assert.equal(done.hidden, false, 'el botón sale con el editor');
+  assert.equal(done.style.left, input.style.left, 'colgado del editor');
+  input.value = 'Uno\nDos';
+  assert.equal(teclaEditor(app, 'Escape').defaultPrevented, true);
+  assert.equal(input.hidden, true, 'Esc cierra');
+  assert.equal(done.hidden, true, 'y el botón se va con él');
+  assert.equal(app.elements()[0].value, 'Uno\nDos', 'con el texto guardado, no tirado');
+
+  app.click(400, 400);
+  app.$('text-input').value = 'Tres';
+  done.__fire('pointerdown', { target: done });
+  app.flush();
+  assert.equal(app.$('text-input').hidden, true, '«Listo» termina');
+  assert.equal(app.elements()[1].value, 'Tres');
+});
+
+test('con la herramienta Texto, el clic fuera termina el texto y NO abre otro editor', () => {
+  const app = loadApp();
+  app.selectTool('text');
+  app.click(200, 200);
+  const input = app.$('text-input');
+  input.value = 'Hola\nmundo';
+  app.click(600, 500); // fuera: pointerdown; el blur del navegador confirma
+  input.__fire('blur', { target: input });
+  app.flush();
+  assert.equal(input.hidden, true, 'terminado');
+  assert.equal(app.elements().length, 1);
+  assert.equal(app.elements()[0].value, 'Hola\nmundo', 'con sus dos filas');
+  app.click(600, 500);
+  assert.equal(input.hidden, false, 'el siguiente clic sí abre uno nuevo');
+  assert.equal(input.value, '');
+});
